@@ -1,13 +1,15 @@
 ---
 name: runory-smb-poc
-description: Use when operating the Runory V1 local SMB finance POC through MCP tools: start/check the workspace, create expenses from semi-structured receipt text, and verify the live Dashboard or Expense Intake UI. Runory uses trusted prebuilt capabilities, not runtime-generated production software.
+description: Use when operating the Runory Portable Runtime prototype (local dev) through MCP tools, or when Cloud POC Agent/MCP tools are unavailable. Product default is Runory Cloud + Built-in Agent; see docs/0004-architecture-pivot-cloud-first.md. Runory uses trusted prebuilt capabilities and Managed Workspace Extensions, not runtime-generated production software.
 ---
 
 # Runory SMB POC
 
+> **Note (2026-06-18):** Runory product direction is **Cloud-first**. This skill covers the **Portable Runtime prototype** in `apps/runtime` for local dev. Cloud POC flows (Workspace → Pack install → Agent Extension) are defined in `docs/0001-poc-execution-plan.md`.
+
 ## Purpose
 
-Use Runory as a local agent-native business workspace. V1 proves the data-change loop:
+Use Runory Portable Runtime as a local development sandbox. The V1 prototype proves the data-change loop:
 
 ```text
 semi-structured expense text
