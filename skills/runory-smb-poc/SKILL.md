@@ -1,115 +1,147 @@
 ---
 name: runory-smb-poc
-description: Use when operating the Runory Portable Runtime prototype (local dev) through MCP tools, or when Cloud POC Agent/MCP tools are unavailable. Product default is Runory Cloud + Built-in Agent; see docs/0004-architecture-pivot-cloud-first.md. Runory uses trusted prebuilt capabilities and Managed Workspace Extensions, not runtime-generated production software.
+description: Use when operating Runory Cloud POC through MCP tools. Runory is a headless business platform — Personal Agents (Codex/Trae/Cursor/Claude Code) read this skill, generate Extension Plans, and call Runory MCP tools. Runory does NOT call LLM APIs.
 ---
 
-# Runory SMB POC
-
-> **Note (2026-06-18):** Runory product direction is **Cloud-first**. This skill covers the **Portable Runtime prototype** in `apps/runtime` for local dev. Cloud POC flows (Workspace → Pack install → Agent Extension) are defined in `docs/0001-poc-execution-plan.md`.
+# Runory Cloud POC Skill
 
 ## Purpose
 
-Use Runory Portable Runtime as a local development sandbox. The V1 prototype proves the data-change loop:
+Operate Runory Cloud POC through standard MCP tools. Runory is a **headless business platform** with metadata-driven objects, governed extensions, and audit/rollback.
 
-```text
-semi-structured expense text
--> runory.expense.create
--> Business Engine
--> SQLite
--> Business Event/SSE
--> Dashboard and Expense Intake UI update
-```
+**Architecture**: Personal Agent reads this Skill → generates Extension Plan → calls Runory MCP tools → Runory validates and executes.
+
+**Runory does NOT**: hold LLM keys, call LLM APIs, generate plans, or do prompt engineering.
 
 ## Operating Principles
 
-- Use `runory.*` names only.
-- Prefer MCP tools over raw HTTP or CLI when an MCP client is available.
-- Never write SQLite directly.
-- Treat Runory modules as trusted prebuilt capabilities. Do not generate production React code, migrations, or arbitrary modules at runtime.
-- V1 accepts only high-confidence committed expenses. Low-confidence review flows belong to V2.
-- Real image OCR is out of scope for V1; use semi-structured text that simulates extracted receipt data.
+1. Always use `runory.*` MCP tool names.
+2. Never write database directly — all writes go through Runory MCP tools.
+3. Always inspect schema before generating an Extension Plan.
+4. Always validate (plan) before preview, and preview before apply.
+5. Official Module fields are read-only — only `workspace_extension` fields can be added.
+6. Respect `reservedKeys` and `allowedTypes` from module extension points.
+7. Report audit log entries after apply/rollback operations.
 
-## Available V1 Tools
+## Available MCP Tools
 
 ### `runory.workspace.status`
+Check workspace state: installed modules, extensions, objects.
 
-Use first to check local workspace state.
+**Input**: `{ workspaceId: string }`
 
-Expected result:
+### `runory.workspace.inspect_schema`
+Get full schema: objects, fields, views, extension points. **Call this before generating any Extension Plan.**
+
+**Input**: `{ workspaceId: string }`
+
+**Output**: Array of objects with their fields and views. Use this to understand:
+- What objects exist (e.g., `customer`, `contact`)
+- What fields are `module_owned` vs `workspace_extension`
+- What view slots are available for extension
+- What field types are allowed
+
+### `runory.extension.plan`
+Submit an Extension Plan for validation. Runory validates it against module extension points.
+
+**Input**: `{ workspaceId: string, plan: string }` (plan is a JSON string)
+
+**Extension Plan schema**:
+```json
+{
+  "name": "Customer Tier",
+  "description": "Add customer tier field",
+  "targetModules": ["runory.customer"],
+  "riskLevel": "low",
+  "customFields": [
+    {
+      "targetObject": "customer",
+      "fieldKey": "tier",
+      "label": "客户等级",
+      "type": "select",
+      "ownership": "workspace_extension",
+      "required": false,
+      "validation": { "options": ["A", "B", "C"] },
+      "ui": {
+        "listColumn": true,
+        "slot": "customer.form.basic_fields.after",
+        "order": 100
+      }
+    }
+  ]
+}
+```
+
+**Output**: `{ valid: boolean, errors: string[] }`
+
+### `runory.extension.preview`
+Preview the diff of an Extension Plan before applying.
+
+**Input**: `{ workspaceId: string, plan: string }`
+
+**Output**: `{ addedFields: [...], affectedViews: [...], riskLevel: string }`
+
+### `runory.extension.apply`
+Apply an Extension Plan. Creates field definitions, updates views, creates audit log and rollback point.
+
+**Input**: `{ workspaceId: string, plan: string, createdBy: string }`
+
+**Output**: Applied extension version with ID and version number.
+
+### `runory.extension.rollback`
+Rollback the latest version of an extension.
+
+**Input**: `{ workspaceId: string, extensionId: string, rolledBy: string }`
+
+**Output**: Rollback result with new version number.
+
+### `runory.extension.list`
+List all extensions in a workspace.
+
+**Input**: `{ workspaceId: string }`
+
+### `runory.record.create`
+Create a record in a workspace object.
+
+**Input**: `{ workspaceId: string, objectKey: string, data: string }` (data is a JSON string)
+
+## Standard Workflow: Add Custom Field
+
+When the user asks to add a custom field (e.g., "给客户增加一个客户等级字段"):
+
+1. Call `runory.workspace.inspect_schema` to get current schema.
+2. Generate an Extension Plan JSON based on user intent and schema constraints.
+3. Call `runory.extension.plan` to validate the plan.
+4. If `valid: false`, fix errors and retry.
+5. Call `runory.extension.preview` to show the user what will change.
+6. Call `runory.extension.apply` with `createdBy` set to your agent identifier.
+7. Report the applied extension ID and version.
+8. Tell the user the field will appear in the list and form.
+
+## Standard Workflow: Rollback
+
+When the user asks to undo an extension:
+
+1. Call `runory.extension.list` to find the extension ID.
+2. Call `runory.extension.rollback` with the extension ID.
+3. Report the rollback result.
+4. Tell the user the field has been removed.
+
+## MCP Server Configuration
 
 ```json
 {
-  "success": true,
-  "data": {
-    "running": true,
-    "port": 4310,
-    "workspaceInitialized": true,
-    "installedModules": ["expense-core"]
+  "mcpServers": {
+    "runory": {
+      "command": "pnpm",
+      "args": ["--filter", "@runory/cloud", "mcp"],
+      "cwd": "/path/to/runory",
+      "env": {
+        "RUNORY_API_BASE": "http://localhost:3000"
+      }
+    }
   }
 }
 ```
 
-### `runory.expense.create`
-
-Create a committed expense from semi-structured text.
-
-Input shape:
-
-```json
-{
-  "text": "Vendor: Restaurant Depot\nDate: 2026-06-16\nAmount: 286.40\nCurrency: USD\nCategory: ingredients\nDescription: 食材采购\nConfidence: 0.95"
-}
-```
-
-Required fields:
-
-- `Vendor`
-- `Date` in `YYYY-MM-DD`
-- `Amount` greater than 0
-- `Currency`
-- `Category`
-- `Description`
-- `Confidence` >= `0.85`
-
-## User-Facing Workflow
-
-When the user asks to record expenses:
-
-1. Convert the user's provided receipt-like information into semi-structured text.
-2. Call `runory.expense.create`.
-3. Report the created vendor, date, amount, and category.
-4. Tell the user the Dashboard and Expense Intake UI should update automatically.
-
-If confidence is below `0.85`, do not call the V1 create tool. Ask the user for confirmation or say that this requires the V2 review flow.
-
-## Local Development Commands
-
-When MCP is not available, use the local commands only as a fallback:
-
-```bash
-pnpm dev
-pnpm runory status
-pnpm runory expense:create --text "Vendor: Restaurant Depot
-Date: 2026-06-16
-Amount: 286.40
-Currency: USD
-Category: ingredients
-Description: 食材采购
-Confidence: 0.95"
-```
-
-MCP server command for local clients:
-
-```bash
-pnpm --filter @runory/runtime runory mcp
-```
-
-The MCP server expects the Runory runtime API to be running at `http://127.0.0.1:4310`. This keeps MCP writes inside the runtime process so Business Events can update the web UI live.
-
-## Verification
-
-After creating an expense, verify at least one of:
-
-- `GET /api/dashboard` shows updated `monthExpenseTotal` and `monthExpenseCount`.
-- `GET /api/expenses` includes the new vendor.
-- Browser UI at `http://127.0.0.1:5173/dashboard` or `/expense/intake` updates without manual refresh.
+The MCP server connects to the Runory Cloud API. Ensure the Next.js dev server is running (`pnpm --filter @runory/cloud dev`) before starting the MCP server.

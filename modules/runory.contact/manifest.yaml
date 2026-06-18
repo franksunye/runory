@@ -1,0 +1,67 @@
+id: runory.contact
+name: Contact Management
+version: 1.0.0
+coreCompatibility: ">=0.1.0"
+
+dependencies:
+  - runory.customer
+
+objects:
+  - key: contact
+    label: Contact
+    fields:
+      - key: name
+        label: 联系人姓名
+        type: text
+        ownership: module_owned
+        required: true
+      - key: email
+        label: 邮箱
+        type: email
+        ownership: module_owned
+      - key: phone
+        label: 电话
+        type: phone
+        ownership: module_owned
+      - key: role
+        label: 角色
+        type: text
+        ownership: module_owned
+
+views:
+  - object: contact
+    key: contact_list
+    type: list
+    label: 联系人列表
+    config:
+      columns:
+        - field: name
+        - field: email
+        - field: phone
+        - field: role
+
+permissions:
+  - contact.read
+  - contact.create
+  - contact.update
+  - contact.delete
+
+migrations:
+  install: migrations/install.sql
+  uninstallPolicy: retain_data
+
+ui:
+  navigation:
+    - label: 联系人
+      route: /contacts
+      icon: contact
+      sortOrder: 30
+
+extensionPoints:
+  entities:
+    - entity: contact
+      customFields:
+        enabled: true
+        allowedTypes: [text, number, date, select, boolean]
+        maxFields: 30
+        reservedKeys: [id, name, email, phone, role, created_at, updated_at]

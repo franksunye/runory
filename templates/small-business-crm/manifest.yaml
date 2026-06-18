@@ -1,0 +1,22 @@
+id: small-business-crm
+name: Small Business CRM
+version: 1.0.0
+
+terminology:
+  customer: 客户
+  contact: 联系人
+
+navigation:
+  - dashboard
+  - customers
+  - contacts
+
+homepage:
+  layout: crm_overview
+  widgets:
+    - customer_count
+    - recent_activity
+
+roleEntry:
+  owner: /dashboard
+  sales: /customers

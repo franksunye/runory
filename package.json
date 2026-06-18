@@ -5,16 +5,21 @@
   "type": "module",
   "scripts": {
     "dev": "pnpm --parallel --filter @runory/runtime --filter @runory/web dev",
+    "dev:cloud": "pnpm --filter @runory/cloud dev",
     "dev:runtime": "pnpm --filter @runory/runtime dev",
     "dev:web": "pnpm --filter @runory/web dev",
     "build": "pnpm --recursive build",
     "typecheck": "pnpm --recursive typecheck",
     "test": "pnpm --recursive test",
-    "runory": "pnpm --filter @runory/runtime runory"
+    "runory": "pnpm --filter @runory/runtime runory",
+    "mcp": "pnpm --filter @runory/cloud mcp"
   },
   "devDependencies": {
     "@types/node": "^24.10.1",
     "typescript": "^5.9.3"
   },
-  "packageManager": "pnpm@10.31.0"
+  "packageManager": "pnpm@10.31.0",
+  "pnpm": {
+    "onlyBuiltDependencies": ["better-sqlite3", "esbuild", "sharp"]
+  }
 }

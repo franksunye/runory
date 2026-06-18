@@ -1,0 +1,15 @@
+id: crm-lite-pack
+name: CRM Lite Pack
+version: 1.0.0
+coreCompatibility: ">=0.1.0"
+
+modules:
+  - "runory.customer:^1.0.0"
+  - "runory.contact:^1.0.0"
+
+defaultTemplate: small-business-crm
+
+marketplace:
+  category: crm
+  license: runory_official
+  publisher: runory
