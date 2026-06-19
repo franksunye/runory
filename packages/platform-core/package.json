@@ -1,0 +1,22 @@
+{
+  "name": "@runory/platform-core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@libsql/client": "^0.17.3",
+    "@runory/contracts": "workspace:*",
+    "yaml": "^2.8.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.4"
+  }
+}

@@ -129,7 +129,7 @@ Core rule (unchanged):
 - Diff Preview, Audit Log, Rollback Point.
 - Schema-driven UI Shell (list view + form view + navigation).
 - Workspace Export (JSON bundle).
-- Portable Runtime prototype (existing `apps/runtime` retained as reference).
+- Portable Runtime prototype (archived under `experiments/local-v1` as reference).
 
 ### Out Of Scope
 
@@ -972,7 +972,7 @@ The POC passes when:
 ## 18. Immediate Next Steps
 
 1. **Scaffold `apps/cloud`** (Next.js + Turso client).
-2. **Define CRM Lite Pack manifests** (YAML files in `modules/` and `packs/`).
+2. **Define CRM Lite Pack manifests** (YAML files in `catalog/modules/` and `catalog/packs/`).
 3. **Implement Turso schema** (platform tables).
 4. **Build Pack installer** (manifest parser + migration runner).
 5. **Build Schema-driven UI** (SchemaTable + SchemaForm).

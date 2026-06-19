@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { ok, err } from "@/lib/manifest";
-import { installPack } from "@/lib/installer";
+import { ok, err } from "@runory/contracts";
+import { installPack } from "@runory/platform-core";
 
 export const dynamic = "force-dynamic";
 
@@ -10,7 +10,7 @@ export async function POST(
 ) {
   try {
     const { id, packId } = await params;
-    const result = installPack(id, packId);
+    const result = await installPack(id, packId);
     return NextResponse.json(ok(result), { status: 201 });
   } catch (e) {
     const message = e instanceof Error ? e.message : "Unknown error";

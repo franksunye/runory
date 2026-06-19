@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import NavigationShell from "@/components/NavigationShell";
-import type { NavigationItem } from "@/lib/metadata";
+import type { NavigationItem } from "@runory/platform-core";
 
 export default function WorkspaceLayout({
   children,

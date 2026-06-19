@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import SchemaForm from "@/components/SchemaForm";
-import type { FieldDefinition } from "@/lib/metadata";
+import type { FieldDefinition } from "@runory/platform-core";
 
 const OBJECT_KEY = "customer";
 const VIEW_KEY = "customer_form";

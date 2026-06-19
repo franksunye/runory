@@ -8,10 +8,10 @@ Runory is a **Cloud-first, Agent-native SMB business platform**—a composable b
 
 | Document | Description |
 | --- | --- |
-| [docs/0004-architecture-pivot-cloud-first.md](docs/0004-architecture-pivot-cloud-first.md) | **Architecture pivot** — Cloud-first / Cloud to Local |
-| [docs/0002-vision.md](docs/0002-vision.md) | Product vision and roadmap |
-| [docs/0003-architecture.md](docs/0003-architecture.md) | Architecture overview |
-| [docs/0001-poc-execution-plan.md](docs/0001-poc-execution-plan.md) | POC execution plan（Cloud-first） |
+| [docs/04-architecture-pivot-cloud-first.md](docs/04-architecture-pivot-cloud-first.md) | **Architecture pivot** — Cloud-first / Cloud to Local |
+| [docs/02-vision.md](docs/02-vision.md) | Product vision and roadmap |
+| [docs/03-architecture.md](docs/03-architecture.md) | Architecture overview |
+| [docs/01-poc-execution-plan.md](docs/01-poc-execution-plan.md) | POC execution plan（Cloud-first） |
 | [docs/product/product-definition.md](docs/product/product-definition.md) | Product definition |
 | [docs/architecture/overview.md](docs/architecture/overview.md) | Architecture entry point |
 
@@ -40,19 +40,19 @@ Register → Cloud Workspace → Install Pack
 → Schema-driven UI updates
 ```
 
-## Development（Portable Runtime prototype）
+## Development
 
 ```bash
 pnpm install
 pnpm dev
 ```
 
-Runtime API: `http://127.0.0.1:4310`  
-Web UI: `http://127.0.0.1:5173/dashboard`
+Runory Cloud: `http://localhost:3000`
 
 ```bash
-pnpm runory start    # runtime only
-pnpm runory mcp      # MCP stdio server
+pnpm mcp             # MCP stdio adapter
 ```
 
-See [docs/0001-poc-execution-plan.md](docs/0001-poc-execution-plan.md) for Cloud POC priorities.
+The historical Local V1 prototype lives under `experiments/local-v1` and is not part of the active workspace.
+
+See [docs/01-poc-execution-plan.md](docs/01-poc-execution-plan.md) for Cloud POC priorities.

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { FieldDefinition } from "@/lib/metadata";
+import type { FieldDefinition } from "@runory/platform-core";
 import SchemaField from "./SchemaField";
 
 interface SchemaFormProps {

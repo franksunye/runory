@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { ok, err, extensionPlanSchema, type ExtensionPlan } from "@/lib/manifest";
-import { applyExtension } from "@/lib/extension";
+import { ok, err, extensionPlanSchema, type ExtensionPlan } from "@runory/contracts";
+import { applyExtension } from "@runory/platform-core";
 
 export const dynamic = "force-dynamic";
 
@@ -20,7 +20,7 @@ export async function POST(
       return NextResponse.json(err("INVALID_PLAN", errors.join("; ")), { status: 400 });
     }
     const plan = parsed.data as ExtensionPlan;
-    const version = applyExtension(id, plan, body.createdBy);
+    const version = await applyExtension(id, plan, body.createdBy);
     return NextResponse.json(ok(version), { status: 201 });
   } catch (e) {
     const message = e instanceof Error ? e.message : "Unknown error";

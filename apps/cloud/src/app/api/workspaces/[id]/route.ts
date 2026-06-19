@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { ok, err } from "@/lib/manifest";
-import { getWorkspace } from "@/lib/metadata";
+import { ok, err } from "@runory/contracts";
+import { getWorkspace } from "@runory/platform-core";
 
 export const dynamic = "force-dynamic";
 
@@ -10,7 +10,7 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
-    const workspace = getWorkspace(id);
+    const workspace = await getWorkspace(id);
     if (!workspace) {
       return NextResponse.json(err("WORKSPACE_NOT_FOUND", `Workspace ${id} not found`), { status: 404 });
     }

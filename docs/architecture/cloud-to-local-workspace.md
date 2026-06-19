@@ -23,7 +23,7 @@ Cloud must not create hard coupling that prevents future Private Cloud, VPC, On-
 
 ```text
 Multi-tenant SaaS
-PostgreSQL + Object Storage + Queue
+Turso/libSQL + Object Storage + Queue
 Built-in Agent + Cloud UI Shell
 Auth / Billing / Workspace hosting
 ```
@@ -51,7 +51,7 @@ Export/import from Cloud Workspace
 
 Best for: compliance, offline/semi-offline, local database requirement, private LLM, development sandbox.
 
-The repo's existing `apps/runtime` + `apps/web` is a **Portable Runtime prototype**—valid for dev and export validation, not the product default.
+The repo's existing `experiments/local-v1` is a **Portable Runtime prototype**—valid for historical reference and export validation, not the product default.
 
 ## 3. Why Cloud-first
 
@@ -190,7 +190,7 @@ POC requirement: prove export of config + schema + extensions (full data migrati
 Runory Cloud:
 
 ```text
-PostgreSQL（business + metadata + platform objects）
+Turso/libSQL（business + metadata + platform objects）
 Object Storage（attachments, exports, reports）
 Queue / Async Jobs
 Cloud API + Agent Operation API

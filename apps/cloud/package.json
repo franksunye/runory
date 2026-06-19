@@ -4,23 +4,22 @@
   "private": true,
   "scripts": {
     "dev": "next dev --port 3000",
+    "prebuild": "node scripts/sync-resources.mjs",
     "build": "next build",
     "start": "next start --port 3000",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run",
-    "mcp": "node --import tsx src/lib/mcp-server.ts"
+    "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.12.1",
-    "better-sqlite3": "^12.2.0",
+    "@libsql/client": "^0.17.3",
+    "@runory/contracts": "workspace:*",
+    "@runory/platform-core": "workspace:*",
     "next": "^15.3.3",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
-    "yaml": "^2.8.0",
     "zod": "^3.25.76"
   },
   "devDependencies": {
-    "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^24.10.1",
     "@types/react": "^19.1.0",
     "@types/react-dom": "^19.1.0",
@@ -28,7 +27,6 @@
     "postcss": "^8.5.6",
     "tailwindcss": "^4.1.11",
     "@tailwindcss/postcss": "^4.1.11",
-    "tsx": "^4.19.0",
     "typescript": "^5.9.3",
     "vitest": "^3.2.4"
   }

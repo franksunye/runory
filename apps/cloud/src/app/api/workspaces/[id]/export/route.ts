@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { ok, err } from "@/lib/manifest";
-import { exportWorkspace } from "@/lib/audit";
+import { ok, err } from "@runory/contracts";
+import { exportWorkspace } from "@runory/platform-core";
 
 export const dynamic = "force-dynamic";
 
@@ -10,7 +10,7 @@ export async function POST(
 ) {
   try {
     const { id } = await params;
-    const exported = exportWorkspace(id);
+    const exported = await exportWorkspace(id);
     return NextResponse.json(ok(exported));
   } catch (e) {
     const message = e instanceof Error ? e.message : "Unknown error";

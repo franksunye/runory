@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import type { FieldDefinition } from "@/lib/metadata";
+import type { FieldDefinition } from "@runory/platform-core";
 
 interface SchemaTableProps {
   fields: FieldDefinition[];

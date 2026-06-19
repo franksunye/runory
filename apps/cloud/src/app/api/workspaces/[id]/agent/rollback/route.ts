@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { ok, err } from "@/lib/manifest";
-import { rollbackExtension } from "@/lib/extension";
+import { ok, err } from "@runory/contracts";
+import { rollbackExtension } from "@runory/platform-core";
 
 export const dynamic = "force-dynamic";
 
@@ -14,7 +14,7 @@ export async function POST(
     if (!body.extensionId || !body.rolledBy) {
       return NextResponse.json(err("INVALID_INPUT", "extensionId and rolledBy are required"), { status: 400 });
     }
-    const version = rollbackExtension(id, body.extensionId, body.rolledBy);
+    const version = await rollbackExtension(id, body.extensionId, body.rolledBy);
     return NextResponse.json(ok(version), { status: 200 });
   } catch (e) {
     const message = e instanceof Error ? e.message : "Unknown error";

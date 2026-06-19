@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { ok, err } from "@/lib/manifest";
-import { createWorkspace } from "@/lib/metadata";
+import { ok, err } from "@runory/contracts";
+import { createWorkspace } from "@runory/platform-core";
 
 export const dynamic = "force-dynamic";
 
@@ -10,7 +10,7 @@ export async function POST(request: NextRequest) {
     if (!body.name || typeof body.name !== "string") {
       return NextResponse.json(err("INVALID_INPUT", "name is required"), { status: 400 });
     }
-    const workspace = createWorkspace(body.name, body.templateId);
+    const workspace = await createWorkspace(body.name, body.templateId);
     return NextResponse.json(ok(workspace), { status: 201 });
   } catch (e) {
     const message = e instanceof Error ? e.message : "Unknown error";

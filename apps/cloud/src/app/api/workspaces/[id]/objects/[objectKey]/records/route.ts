@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { ok, err } from "@/lib/manifest";
-import { getRecords, createRecord } from "@/lib/metadata";
+import { ok, err } from "@runory/contracts";
+import { getRecords, createRecord } from "@runory/platform-core";
 
 export const dynamic = "force-dynamic";
 
@@ -10,7 +10,7 @@ export async function GET(
 ) {
   try {
     const { id, objectKey } = await params;
-    const records = getRecords(id, objectKey);
+    const records = await getRecords(id, objectKey);
     return NextResponse.json(ok(records));
   } catch (e) {
     const message = e instanceof Error ? e.message : "Unknown error";
@@ -25,7 +25,7 @@ export async function POST(
   try {
     const { id, objectKey } = await params;
     const data = await request.json() as Record<string, unknown>;
-    const record = createRecord(id, objectKey, data);
+    const record = await createRecord(id, objectKey, data);
     return NextResponse.json(ok(record), { status: 201 });
   } catch (e) {
     const message = e instanceof Error ? e.message : "Unknown error";

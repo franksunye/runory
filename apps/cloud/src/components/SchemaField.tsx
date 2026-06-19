@@ -1,6 +1,6 @@
 "use client";
 
-import type { FieldDefinition } from "@/lib/metadata";
+import type { FieldDefinition } from "@runory/platform-core";
 
 interface SchemaFieldProps {
   field: FieldDefinition;

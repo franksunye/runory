@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { ok } from "@/lib/manifest";
+import { ok } from "@runory/contracts";
 
 export const dynamic = "force-dynamic";
 

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { ok, err } from "@/lib/manifest";
-import { getExtensions } from "@/lib/extension";
+import { ok, err } from "@runory/contracts";
+import { getExtensions } from "@runory/platform-core";
 
 export const dynamic = "force-dynamic";
 
@@ -10,7 +10,7 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
-    const extensions = getExtensions(id);
+    const extensions = await getExtensions(id);
     return NextResponse.json(ok(extensions));
   } catch (e) {
     const message = e instanceof Error ? e.message : "Unknown error";

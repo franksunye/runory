@@ -17,13 +17,13 @@ However, the POC is a local dev prototype. The following gaps must be addressed 
 **Goal**: POC running on real cloud infrastructure.
 
 - [ ] Create Turso database, get connection string
-- [ ] Replace `better-sqlite3` with `@libsql/client` (Turso's HTTP client)
-- [ ] Add database adapter interface (`DatabaseDriver`) to abstract SQLite vs Turso
-- [ ] Configure Vercel environment variables (TURSO_DATABASE_URL, TURSO_AUTH_TOKEN)
+- [x] Replace `better-sqlite3` with `@libsql/client` (Turso's HTTP client)
+- [x] Use one async libSQL persistence path for local SQLite and Cloud Turso
+- [ ] Configure Vercel environment variables (`LIBSQL_URL`, `LIBSQL_AUTH_TOKEN`)
 - [ ] Deploy to Vercel
 - [ ] Verify all 14 acceptance criteria pass on deployed URL
 
-**Key risk**: `better-sqlite3` is synchronous, `@libsql/client` is async. All DB calls need to become async. This is the largest refactor.
+**Resolved risk**: the runtime now uses the async `@libsql/client` path throughout.
 
 ### 2.2 Authentication (Minimal)
 
@@ -128,7 +128,7 @@ However, the POC is a local dev prototype. The following gaps must be addressed 
 **Goal**: Runory can be self-hosted with cloud export/import.
 
 - [ ] Workspace export package format (JSON + SQLite dump)
-- [ ] Local Runtime (based on existing `apps/runtime` prototype)
+- [ ] Local Runtime (based on the archived `experiments/local-v1` prototype and shared Platform Core)
 - [ ] Import workspace package to local
 - [ ] Sync conflict resolution (cloud as source of truth)
 
@@ -163,7 +163,7 @@ However, the POC is a local dev prototype. The following gaps must be addressed 
 
 | Item | Priority | Description |
 |------|----------|-------------|
-| Async DB layer | Critical | Migrate from sync `better-sqlite3` to async `@libsql/client` for Turso |
+| Async DB layer | Completed | All active Cloud paths use `@libsql/client` for Turso/local SQLite |
 | Error handling | High | Standardize error codes and messages across all API routes |
 | Test coverage | High | Add unit tests for installer, extension runtime, metadata |
 | Type safety | Medium | Strengthen TypeScript types in metadata.ts (currently uses `any` in places) |

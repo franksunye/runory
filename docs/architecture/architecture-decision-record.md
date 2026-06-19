@@ -12,11 +12,13 @@ Runory serves the primary UI through Runory Cloud. Localhost UI in Portable Runt
 
 Supersedes: localhost Web UI as primary product surface (ADR-001 v0.1 intent).
 
-## ADR-002: Cloud data uses PostgreSQL and object storage; Portable Runtime may use SQLite
+## ADR-002: Cloud data uses Turso/libSQL; Local development uses SQLite through the same client
 
-Runory Cloud stores structured data in PostgreSQL and files in object storage. Portable Runtime (Private / Local) may use SQLite or PostgreSQL plus local or customer storage, connected through Storage and database adapters.
+Runory Cloud stores structured data in Turso/libSQL. Local development and the early Portable Runtime use SQLite through the same `@libsql/client` interface with a `file:` URL. This keeps SQL semantics and the async persistence path consistent across Cloud and Local while retaining a future adapter boundary if an enterprise deployment requires another database.
 
-Supersedes: ADR-002 v0.1 (SQLite as default product storage).
+Required production variables: `LIBSQL_URL` and `LIBSQL_AUTH_TOKEN`.
+
+Supersedes: ADR-002 v0.2 (PostgreSQL as the mandatory Cloud database).
 
 ## ADR-003: Agents do not directly access the database
 

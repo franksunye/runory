@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import type { NavigationItem } from "@/lib/metadata";
+import type { NavigationItem } from "@runory/platform-core";
 
 interface NavigationShellProps {
   navigation: NavigationItem[];

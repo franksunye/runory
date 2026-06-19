@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { ok, err } from "@/lib/manifest";
-import { getObject, getFields } from "@/lib/metadata";
+import { ok, err } from "@runory/contracts";
+import { getObject, getFields } from "@runory/platform-core";
 
 export const dynamic = "force-dynamic";
 
@@ -10,11 +10,11 @@ export async function GET(
 ) {
   try {
     const { id, objectKey } = await params;
-    const object = getObject(id, objectKey);
+    const object = await getObject(id, objectKey);
     if (!object) {
       return NextResponse.json(err("OBJECT_NOT_FOUND", `Object ${objectKey} not found`), { status: 404 });
     }
-    const fields = getFields(id, objectKey);
+    const fields = await getFields(id, objectKey);
     return NextResponse.json(ok({ object, fields }));
   } catch (e) {
     const message = e instanceof Error ? e.message : "Unknown error";

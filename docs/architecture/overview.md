@@ -8,6 +8,7 @@ This document is the current architecture entry point. It defines system boundar
 
 Product definition: [../product/product-definition.md](../product/product-definition.md)  
 Architecture decisions: [architecture-decision-record.md](architecture-decision-record.md)  
+Repository structure: [repository-structure.md](repository-structure.md)
 Cloud to Local deployment: [cloud-to-local-workspace.md](cloud-to-local-workspace.md)  
 Current-stage architecture narrative: [../03-architecture.md](../03-architecture.md)
 
@@ -52,7 +53,7 @@ Official Modules → Business Packs → Templates
 Managed Workspace Extensions
         |
         v
-PostgreSQL + Object Storage + Schema-driven UI
+Turso/libSQL + Object Storage + Schema-driven UI
 
 Advanced path:
 Codex / MCP / SDK → same governed APIs → Private / Local Portable Runtime

@@ -151,4 +151,4 @@ Runory Core
 * [specifications/extension-manifest-spec.md](specifications/extension-manifest-spec.md)
 * [sdk/module-sdk.md](sdk/module-sdk.md)
 
-当前仓库中的 **Local Runtime POC 代码**（`apps/runtime`、`apps/web`）保留为 Portable Runtime 原型与开发沙箱，不再代表产品默认形态。详见 [01-poc-execution-plan.md](01-poc-execution-plan.md)。
+当前仓库中的 **Local Runtime POC 代码** 已归档到 `experiments/local-v1`，保留为 Portable Runtime 原型与开发沙箱，不再代表产品默认形态。详见 [01-poc-execution-plan.md](01-poc-execution-plan.md)。

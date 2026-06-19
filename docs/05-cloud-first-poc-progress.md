@@ -14,19 +14,13 @@ A complete Cloud-first POC on Next.js + SQLite (local dev) that validates the co
 
 | Layer | Files | Description |
 |-------|-------|-------------|
-| **Database** | `src/lib/db.ts` | SQLite schema: 11 platform tables + dynamic business tables |
-| **Manifest Types** | `src/lib/manifest.ts` | Zod schemas for Module/Pack/Template/Extension Plan |
-| **Pack Installer** | `src/lib/installer.ts` | YAML manifest parser + migration runner + metadata registration |
-| **Metadata Runtime** | `src/lib/metadata.ts` | Object/Field/View/Navigation CRUD + Record CRUD with extension field merge |
-| **Extension Runtime** | `src/lib/extension.ts` | Plan validation → Diff preview → Apply → Rollback, with audit log |
-| **Audit & Export** | `src/lib/audit.ts` | Audit log query + workspace JSON export |
-| **MCP Server** | `src/lib/mcp-server.ts` | 8 MCP tools (stdio transport) for Personal Agents |
+| **Platform Core** | `packages/platform-core/` | Turso/libSQL persistence, metadata, installer, extensions, audit and export |
+| **Contracts** | `packages/contracts/` | Zod schemas for Module/Pack/Template/Extension Plan |
+| **MCP Server** | `apps/mcp/` | 8 MCP tools (stdio transport) for Personal Agents |
 | **API Routes** | `src/app/api/` (19 routes) | Full REST API with ToolEnvelope format |
 | **UI Components** | `src/components/` (7 components) | SchemaTable, SchemaForm, SchemaField, NavigationShell, DiffPreview, AuditTimeline, ExtensionPanel |
 | **UI Pages** | `src/app/` (9 pages) | Landing, Dashboard, Customer List/Form/Detail, Contact List, Audit, Settings |
-| **Module Manifests** | `modules/` | runory.customer + runory.contact (with migrations) |
-| **Pack Manifest** | `packs/crm-lite-pack/` | CRM Lite Pack aggregating 2 modules |
-| **Template Manifest** | `templates/small-business-crm/` | Small Business CRM template |
+| **Official Catalog** | `catalog/` | Modules, CRM Lite Pack, and Small Business CRM template |
 | **Skill** | `skills/runory-smb-poc/SKILL.md` | Updated for Cloud POC MCP tools |
 
 ### Test Results (14/14 Acceptance Criteria Passed)
@@ -65,7 +59,7 @@ Create Workspace → Install CRM Lite Pack
 ### Tech Stack Used
 
 - **Next.js 15** (App Router, API Routes)
-- **better-sqlite3** (local dev; Turso for production—same engine)
+- **@libsql/client** (local SQLite file; Turso in Cloud)
 - **Tailwind CSS v4**
 - **Zod** (manifest + extension plan validation)
 - **YAML** (module/pack/template manifests)
@@ -87,5 +81,5 @@ Create Workspace → Install CRM Lite Pack
 - Marketplace UI
 - Real-time WebSocket/SSE (using polling)
 - Private/On-premise deployment
-- Turso cloud connection (using local SQLite)
+- Production Turso credentials and deployed acceptance verification
 - Cloudflare Workers integration

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { ok, err } from "@/lib/manifest";
-import { getRecord, updateRecord } from "@/lib/metadata";
+import { ok, err } from "@runory/contracts";
+import { getRecord, updateRecord } from "@runory/platform-core";
 
 export const dynamic = "force-dynamic";
 
@@ -10,7 +10,7 @@ export async function GET(
 ) {
   try {
     const { id, objectKey, recordId } = await params;
-    const record = getRecord(id, objectKey, recordId);
+    const record = await getRecord(id, objectKey, recordId);
     if (!record) {
       return NextResponse.json(err("RECORD_NOT_FOUND", `Record ${recordId} not found`), { status: 404 });
     }
@@ -28,7 +28,7 @@ export async function PUT(
   try {
     const { id, objectKey, recordId } = await params;
     const data = await request.json() as Record<string, unknown>;
-    const record = updateRecord(id, objectKey, recordId, data);
+    const record = await updateRecord(id, objectKey, recordId, data);
     if (!record) {
       return NextResponse.json(err("RECORD_NOT_FOUND", `Record ${recordId} not found`), { status: 404 });
     }

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { ok, err, extensionPlanSchema, type ExtensionPlan } from "@/lib/manifest";
-import { validateExtensionPlan } from "@/lib/extension";
+import { ok, err, extensionPlanSchema, type ExtensionPlan } from "@runory/contracts";
+import { validateExtensionPlan } from "@runory/platform-core";
 
 export const dynamic = "force-dynamic";
 
@@ -17,7 +17,7 @@ export async function POST(
       return NextResponse.json(ok({ valid: false, errors }));
     }
     const plan = parsed.data as ExtensionPlan;
-    const result = validateExtensionPlan(id, plan);
+    const result = await validateExtensionPlan(id, plan);
     return NextResponse.json(ok(result));
   } catch (e) {
     const message = e instanceof Error ? e.message : "Unknown error";

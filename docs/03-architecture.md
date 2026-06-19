@@ -253,7 +253,7 @@ Agent-generated       → 如 Customer.ai_score（Computed）
 Cloud Runtime 默认使用：
 
 ```text
-PostgreSQL + Object Storage + Queue / Async Jobs
+Turso/libSQL + Object Storage + Queue / Async Jobs
 ```
 
 Portable Runtime（Local / Private）可使用 SQLite + Local Files，通过 Adapter 抽象云服务依赖。

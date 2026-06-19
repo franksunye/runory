@@ -1,0 +1,15 @@
+{
+  "prefixEnv": "RUNORY_TABLE_PREFIX",
+  "defaultPrefix": "runory_",
+  "workspaces": "workspaces",
+  "installations": "installations",
+  "objectDefinitions": "object_definitions",
+  "fieldDefinitions": "field_definitions",
+  "viewDefinitions": "view_definitions",
+  "navigationItems": "navigation_items",
+  "extensionDefinitions": "extension_definitions",
+  "extensionVersions": "extension_versions",
+  "auditLogs": "audit_logs",
+  "agentRuns": "agent_runs",
+  "extensionFieldValues": "extension_field_values"
+}

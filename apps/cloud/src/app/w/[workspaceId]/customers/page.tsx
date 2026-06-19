@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import SchemaTable from "@/components/SchemaTable";
-import type { FieldDefinition } from "@/lib/metadata";
+import type { FieldDefinition } from "@runory/platform-core";
 
 const OBJECT_KEY = "customer";
 const VIEW_KEY = "customer_list";
