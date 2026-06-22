@@ -3,6 +3,7 @@ import { resolve } from "node:path";
 import { parse as parseYaml } from "yaml";
 import { queryOne, execute, genId, now, db } from "./db";
 import { TABLES, MODULES_DIR, PACKS_DIR, TEMPLATES_DIR } from "./contracts";
+import { getDeploymentMode, renderSqlWithPrefix, getBusinessTablePrefix, getTablePrefix } from "./platform-config";
 import {
   moduleManifestSchema,
   packManifestSchema,
@@ -44,7 +45,9 @@ export function loadModuleMigration(moduleId: string, migrationPath: string): st
   if (!existsSync(fullPath)) {
     throw new Error(`Migration not found: ${fullPath}`);
   }
-  return readFileSync(fullPath, "utf-8");
+  const raw = readFileSync(fullPath, "utf-8");
+  // Render business table prefix placeholders (e.g., {{BUSINESS_TABLE_PREFIX}}customer → business_customer)
+  return renderSqlWithPrefix(raw, getTablePrefix(), getBusinessTablePrefix());
 }
 
 // ── Pack Installer ──
@@ -55,15 +58,18 @@ export interface InstallResult {
   objectsCreated: string[];
   viewsCreated: string[];
   navigationItemsCreated: number;
+  ddlExecuted: boolean;
 }
 
 export async function installPack(workspaceId: string, packId: string): Promise<InstallResult> {
   const pack = loadPackManifest(packId);
+  const deploymentMode = getDeploymentMode();
 
   const modulesInstalled: string[] = [];
   const objectsCreated: string[] = [];
   const viewsCreated: string[] = [];
   let navigationItemsCreated = 0;
+  let ddlExecuted = false;
 
   const installOneModule = async (moduleId: string) => {
     // Parse version range from pack modules array (e.g., "runory.customer: ^1.0.0")
@@ -80,8 +86,14 @@ export async function installPack(workspaceId: string, packId: string): Promise<
     if (already) return;
 
     // Run migration (multi-statement DDL, e.g. CREATE TABLE)
-    const migrationSql = loadModuleMigration(moduleId, manifest.migrations.install);
-    await db.executeMultiple(migrationSql);
+    // In Cloud mode: business tables are pre-created at deploy time via platform migrations.
+    //   Module install only registers metadata (object/field/view/nav definitions).
+    // In Local mode: business tables are created per-workspace at install time.
+    if (deploymentMode === "local") {
+      const migrationSql = loadModuleMigration(moduleId, manifest.migrations.install);
+      await db.executeMultiple(migrationSql);
+      ddlExecuted = true;
+    }
 
     // Register installation
     await execute(
@@ -154,5 +166,5 @@ export async function installPack(workspaceId: string, packId: string): Promise<
     await installOneModule(moduleId);
   }
 
-  return { packId, modulesInstalled, objectsCreated, viewsCreated, navigationItemsCreated };
+  return { packId, modulesInstalled, objectsCreated, viewsCreated, navigationItemsCreated, ddlExecuted };
 }

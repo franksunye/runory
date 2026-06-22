@@ -1,5 +1,5 @@
-import { queryOne, queryAll, execute, genId, now, batch } from "./db";
-import { TABLES } from "./contracts";
+import { queryOne, queryAll, execute, genId, now, batch, db } from "./db";
+import { TABLES, BUSINESS_TABLE_PREFIX } from "./contracts";
 import {
   type Principal,
   AuthenticationError,
@@ -307,7 +307,26 @@ export async function purgeWorkspace(workspaceId: string): Promise<void> {
 
   const ts = now();
 
-  // Delete all workspace-scoped data
+  // Discover business tables (runory_business_*) and delete this workspace's
+  // records from them. Prevents data leaks where purged workspace business
+  // records would survive platform-table cleanup.
+  const bizTables = await db.execute({
+    sql: `SELECT name FROM sqlite_master WHERE type='table' AND name LIKE ?`,
+    args: [`${BUSINESS_TABLE_PREFIX}%`],
+  });
+  for (const row of bizTables.rows) {
+    const tableName = (row as unknown as { name: string }).name;
+    // Check if the table has a workspace_id column before deleting
+    const cols = await db.execute({ sql: `PRAGMA table_info("${tableName}")` });
+    const hasWorkspaceId = cols.rows.some(
+      (c) => (c as unknown as { name: string }).name === "workspace_id"
+    );
+    if (hasWorkspaceId) {
+      await execute(`DELETE FROM "${tableName}" WHERE workspace_id = ?`, [workspaceId]);
+    }
+  }
+
+  // Delete all workspace-scoped platform data
   const tablesToClean = [
     { table: TABLES.extensionFieldValues, where: "workspace_id" },
     { table: TABLES.auditLogs, where: "workspace_id" },

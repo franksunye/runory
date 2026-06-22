@@ -8,6 +8,14 @@ export type OrganizationRole = (typeof ORGANIZATION_ROLES)[number];
 export const WORKSPACE_ROLES = ["admin", "member", "viewer"] as const;
 export type WorkspaceRole = (typeof WORKSPACE_ROLES)[number];
 
+// ── Platform Roles (Catalog & Release Control Plane, per docs/09 §4) ──
+// These are separate from Organization/Workspace RBAC.
+// Platform roles are granted via env-var allowlist (PLATFORM_ADMIN_EMAILS)
+// and checked at the service layer.
+
+export const PLATFORM_ROLES = ["catalog_viewer", "catalog_editor", "release_manager", "security_manager"] as const;
+export type PlatformRole = (typeof PLATFORM_ROLES)[number];
+
 // ── Principal: the authenticated user identity (server-derived) ──
 
 export interface Principal {

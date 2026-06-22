@@ -9,6 +9,7 @@ import {
   resolveApiKey,
   queryOne,
   TABLES,
+  SESSION_COOKIE_NAME,
   type ActorIdentity,
   type WorkspaceRole,
   type WorkspaceAccess,
@@ -19,8 +20,7 @@ import {
   AuthenticationError,
   AuthorizationError,
 } from "@runory/platform-core";
-
-const SESSION_COOKIE = "runory_session";
+import { PLATFORM_CONFIG, isTrustHeadersEnabled } from "@runory/platform-core";
 
 const DEVELOPMENT_ACTOR: ActorIdentity = {
   externalId: "dev-local-owner",
@@ -36,7 +36,7 @@ export interface OrganizationMembership {
 // ── Get Request Actor ──
 
 export async function getRequestActor(request: NextRequest): Promise<ActorIdentity> {
-  const sessionToken = request.cookies.get(SESSION_COOKIE)?.value;
+  const sessionToken = request.cookies.get(SESSION_COOKIE_NAME)?.value;
   if (sessionToken) {
     const principal = await resolveSession(sessionToken);
     if (principal) {
@@ -48,14 +48,13 @@ export async function getRequestActor(request: NextRequest): Promise<ActorIdenti
     }
   }
 
-  const trustHeaders = process.env.RUNORY_TRUST_IDENTITY_HEADERS === "true";
-  if (trustHeaders) {
-    const externalId = request.headers.get("x-runory-user-id");
+  if (isTrustHeadersEnabled()) {
+    const externalId = request.headers.get(PLATFORM_CONFIG.userIdHeader);
     if (externalId) {
       return {
         externalId,
-        email: request.headers.get("x-runory-user-email") ?? undefined,
-        displayName: request.headers.get("x-runory-user-name") ?? externalId,
+        email: request.headers.get(PLATFORM_CONFIG.userEmailHeader) ?? undefined,
+        displayName: request.headers.get(PLATFORM_CONFIG.userNameHeader) ?? externalId,
       };
     }
   }
@@ -67,7 +66,7 @@ export async function getRequestActor(request: NextRequest): Promise<ActorIdenti
 // ── Get Current Principal (session-based) ──
 
 export async function getCurrentPrincipal(request: NextRequest): Promise<Principal | null> {
-  const sessionToken = request.cookies.get(SESSION_COOKIE)?.value;
+  const sessionToken = request.cookies.get(SESSION_COOKIE_NAME)?.value;
   if (!sessionToken) return null;
   return resolveSession(sessionToken);
 }
@@ -76,7 +75,7 @@ export async function getCurrentPrincipal(request: NextRequest): Promise<Princip
 
 export async function requirePrincipal(request: NextRequest): Promise<Principal> {
   // Try session first
-  const sessionToken = request.cookies.get(SESSION_COOKIE)?.value;
+  const sessionToken = request.cookies.get(SESSION_COOKIE_NAME)?.value;
   if (sessionToken) {
     const principal = await resolveSession(sessionToken);
     if (principal) return principal;
@@ -139,7 +138,7 @@ export async function buildRequestContext(
 
   let principal: Principal | null = null;
 
-  const sessionToken = request.cookies.get(SESSION_COOKIE)?.value;
+  const sessionToken = request.cookies.get(SESSION_COOKIE_NAME)?.value;
   if (sessionToken) {
     principal = await resolveSession(sessionToken);
   }
@@ -240,7 +239,7 @@ export async function requireWorkspaceContext(
 
   // Fall back to session
   if (!principal) {
-    const sessionToken = request.cookies.get(SESSION_COOKIE)?.value;
+    const sessionToken = request.cookies.get(SESSION_COOKIE_NAME)?.value;
     if (sessionToken) {
       principal = await resolveSession(sessionToken);
     }

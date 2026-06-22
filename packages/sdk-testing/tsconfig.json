@@ -1,0 +1,11 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "types": ["node"],
+    "allowImportingTsExtensions": true,
+    "paths": {
+      "@runory/sdk": ["../sdk/src/index.ts"]
+    }
+  },
+  "include": ["src"]
+}

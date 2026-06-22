@@ -1,27 +1,28 @@
 import { createClient, type Client } from "@libsql/client";
 import { randomUUID } from "node:crypto";
 import { runMigrations } from "./migrations";
+import { PLATFORM_CONFIG, getDbFilename } from "./platform-config";
 
 // ── Lazy Client (Proxy pattern, safe for Next.js hot-reload & next build) ──
 
 declare global {
   // eslint-disable-next-line no-var
-  var __runoryDb: Client | undefined;
+  var __platformDb: Client | undefined;
   // eslint-disable-next-line no-var
-  var __runorySchemaReady: Promise<void> | undefined;
+  var __platformSchemaReady: Promise<void> | undefined;
 }
 
 function makeClient(): Client {
-  const url = process.env.LIBSQL_URL ?? `file:${process.cwd()}/data/runory.db`;
+  const url = process.env.LIBSQL_URL ?? `file:${process.cwd()}/data/${getDbFilename()}`;
   const authToken = process.env.LIBSQL_AUTH_TOKEN;
   return createClient(authToken ? { url, authToken } : { url });
 }
 
 function getDb(): Client {
-  if (!globalThis.__runoryDb) {
-    globalThis.__runoryDb = makeClient();
+  if (!globalThis.__platformDb) {
+    globalThis.__platformDb = makeClient();
   }
-  return globalThis.__runoryDb;
+  return globalThis.__platformDb;
 }
 
 /** Lazy client — avoids opening sqlite during `next build` when env is unset. */
@@ -39,12 +40,12 @@ export const db: Client = new Proxy({} as Client, {
  * Cached on globalThis for hot-reload safety.
  */
 export function ensureSchema(): Promise<void> {
-  if (!globalThis.__runorySchemaReady) {
-    globalThis.__runorySchemaReady = (async () => {
+  if (!globalThis.__platformSchemaReady) {
+    globalThis.__platformSchemaReady = (async () => {
       await runMigrations();
     })();
   }
-  return globalThis.__runorySchemaReady;
+  return globalThis.__platformSchemaReady;
 }
 
 // ── Helpers ──

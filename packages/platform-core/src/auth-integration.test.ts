@@ -22,8 +22,8 @@ if (!existsSync(dataDir)) {
 
 // Reset database before all integration tests
 beforeAll(async () => {
-  globalThis.__runorySchemaReady = undefined;
-  globalThis.__runoryMigrationsRun = undefined;
+  globalThis.__platformSchemaReady = undefined;
+  globalThis.__platformMigrationsRun = undefined;
 
   // Disable foreign keys to allow dropping tables with constraints
   await db.execute({ sql: "PRAGMA foreign_keys = OFF" });
@@ -43,17 +43,17 @@ beforeAll(async () => {
 // Clean up auth-related tables between tests
 beforeEach(async () => {
   const tables = [
-    "runory_rate_limit_buckets",
-    "runory_sessions",
-    "runory_auth_challenges",
-    "runory_audit_logs",
-    "runory_workspace_memberships",
-    "runory_organization_memberships",
-    "runory_workspace_tenants",
-    "runory_workspaces",
-    "runory_organizations",
-    "runory_auth_identities",
-    "runory_users",
+    TABLES.rateLimitBuckets,
+    TABLES.sessions,
+    TABLES.authChallenges,
+    TABLES.auditLogs,
+    TABLES.workspaceMemberships,
+    TABLES.organizationMemberships,
+    TABLES.workspaceTenants,
+    TABLES.workspaces,
+    TABLES.organizations,
+    TABLES.authIdentities,
+    TABLES.users,
   ];
   for (const t of tables) {
     try {

@@ -1,7 +1,7 @@
 # Runory Module Architecture
 
-Status: Draft v0.2  
-Date: 2026-06-18  
+Status: Draft v0.3
+Date: 2026-06-22
 Change: Cloud-first pivot — see [../04-architecture-pivot-cloud-first.md](../04-architecture-pivot-cloud-first.md)
 
 ## 1. Definition
@@ -70,6 +70,8 @@ Small Business Finance Workspace Template
 ```
 
 Installing a Pack runs module migrations, registers manifests, and applies Template overlays.
+
+Module/Pack/Template 的研发与生产发布不直接使用 mutable repository files。Official/Internal source 经 Git/CI 生成 immutable artifact，进入 Cloud Catalog Registry，通过 validation、release channel 和 rollout 后才对 Workspace 可见。完整控制面见 [../09-catalog-release-control-plane.md](../09-catalog-release-control-plane.md)。
 
 ## 3. Module Boundary
 
@@ -174,6 +176,8 @@ Module installation:
 7. Publish `module.installed` event.
 8. Recompute Effective Runtime Model.
 
+上述步骤描述 Workspace Runtime 安装语义。生产安装的 Manifest、migration 和依赖必须来自具体 Catalog Version 及其 artifact checksum；Pack 必须使用发布时冻结的 dependency lock，不能在每次安装时重新解析“最新版本”。
+
 Duplicate install returns success with `alreadyInstalled: true`.
 
 ## 6. Metadata-Driven Objects
@@ -219,6 +223,8 @@ Each upgrade declares:
 
 If upgrade may break active Extensions, Core blocks automatic upgrade and requires user confirmation with compatibility report.
 
+Upgrade 前必须生成结构化 Compatibility Report，至少覆盖 Core、dependency、permission、schema、Workspace Extension 和 migration risk。Rollout pause 只停止新目标，不能假装已执行的数据库 migration 可以通用自动回滚。
+
 ## 9. Prohibited Module Behavior
 
 Official Modules must not:
@@ -243,3 +249,5 @@ security and marketplace metadata hooks
 ```
 
 Third-party modules follow the same manifest contract as official modules.
+
+Marketplace readiness 不等同于当前建设第三方 Marketplace。当前优先实现 Official/Internal Catalog & Release Control Plane：immutable artifact、validation、Internal/Beta/Stable release、Sandbox、Workspace upgrade 和 rollout governance。

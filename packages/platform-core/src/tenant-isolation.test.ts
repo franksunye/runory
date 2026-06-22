@@ -11,7 +11,7 @@ import {
   now,
 } from "./db";
 import { runMigrations } from "./migrations";
-import { TABLES } from "./contracts";
+import { TABLES, businessTable } from "./contracts";
 import {
   authorizeWorkspace,
   listUserWorkspaces,
@@ -204,8 +204,8 @@ async function createTestTenant(): Promise<TestTenant> {
 
 // Reset database before all tests
 beforeAll(async () => {
-  globalThis.__runorySchemaReady = undefined;
-  globalThis.__runoryMigrationsRun = undefined;
+  globalThis.__platformSchemaReady = undefined;
+  globalThis.__platformMigrationsRun = undefined;
 
   // Disable foreign keys to allow dropping tables with constraints
   await db.execute({ sql: "PRAGMA foreign_keys = OFF" });
@@ -225,21 +225,21 @@ beforeAll(async () => {
 // Clean up and rebuild fixture before each test
 beforeEach(async () => {
   const tables = [
-    "runory_extension_field_values",
-    "runory_audit_logs",
-    "runory_navigation_items",
-    "runory_view_definitions",
-    "runory_field_definitions",
-    "runory_object_definitions",
-    "runory_installations",
-    "runory_workspace_memberships",
-    "runory_organization_memberships",
-    "runory_workspace_tenants",
-    "runory_workspaces",
-    "runory_organizations",
-    "runory_users",
-    "runory_organization_invitations",
-    "runory_invitation_workspace_grants",
+    TABLES.extensionFieldValues,
+    TABLES.auditLogs,
+    TABLES.navigationItems,
+    TABLES.viewDefinitions,
+    TABLES.fieldDefinitions,
+    TABLES.objectDefinitions,
+    TABLES.installations,
+    TABLES.invitationWorkspaceGrants,
+    TABLES.organizationInvitations,
+    TABLES.workspaceMemberships,
+    TABLES.organizationMemberships,
+    TABLES.workspaceTenants,
+    TABLES.workspaces,
+    TABLES.organizations,
+    TABLES.users,
   ];
   for (const t of tables) {
     try {
@@ -249,13 +249,13 @@ beforeEach(async () => {
     }
   }
 
-  // Drop any business tables created by module installs
+  // Module-owned business tables are data, not disposable platform schema.
   const bizTables = await db.execute({
-    sql: "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name NOT LIKE '_cf_%' AND name NOT LIKE 'runory_%'",
+    sql: "SELECT name FROM sqlite_master WHERE type='table' AND name LIKE 'runory_business_%' ORDER BY name DESC",
   });
   for (const row of bizTables.rows) {
     const name = (row as unknown as { name: string }).name;
-    await db.execute({ sql: `DROP TABLE IF EXISTS "${name}"` });
+    await db.execute({ sql: `DELETE FROM "${name}"` });
   }
 
   fixture = await createTestTenant();
@@ -397,7 +397,7 @@ describe("cross-tenant isolation: data query scoping", () => {
   it("getRecord returns undefined for a record ID from another workspace", async () => {
     // Create a customer table and insert records in A1 and B1
     await execute(
-      `CREATE TABLE customer (id TEXT PRIMARY KEY, workspace_id TEXT NOT NULL, name TEXT, created_at TEXT, updated_at TEXT)`
+      `CREATE TABLE IF NOT EXISTS ${businessTable("customer")} (id TEXT PRIMARY KEY, workspace_id TEXT NOT NULL, name TEXT, created_at TEXT, updated_at TEXT)`
     );
     await execute(
       `INSERT INTO ${TABLES.objectDefinitions} (id, workspace_id, object_key, label, module_id, ownership, created_at) VALUES (?, ?, 'customer', 'Customer', NULL, 'module_owned', ?)`,
@@ -411,11 +411,11 @@ describe("cross-tenant isolation: data query scoping", () => {
     const recordA = genId("rec");
     const recordB = genId("rec");
     await execute(
-      `INSERT INTO customer (id, workspace_id, name, created_at, updated_at) VALUES (?, ?, 'Alice Corp', ?, ?)`,
+      `INSERT INTO ${businessTable("customer")} (id, workspace_id, name, created_at, updated_at) VALUES (?, ?, 'Alice Corp', ?, ?)`,
       [recordA, fixture.orgA.wsA1, now(), now()]
     );
     await execute(
-      `INSERT INTO customer (id, workspace_id, name, created_at, updated_at) VALUES (?, ?, 'Bob Corp', ?, ?)`,
+      `INSERT INTO ${businessTable("customer")} (id, workspace_id, name, created_at, updated_at) VALUES (?, ?, 'Bob Corp', ?, ?)`,
       [recordB, fixture.orgB.wsB1, now(), now()]
     );
 
@@ -600,17 +600,17 @@ describe("cross-tenant isolation: extension field values", () => {
 
     // Create customer table
     await execute(
-      `CREATE TABLE customer (id TEXT PRIMARY KEY, workspace_id TEXT NOT NULL, name TEXT, created_at TEXT, updated_at TEXT)`
+      `CREATE TABLE IF NOT EXISTS ${businessTable("customer")} (id TEXT PRIMARY KEY, workspace_id TEXT NOT NULL, name TEXT, created_at TEXT, updated_at TEXT)`
     );
 
     const recordA = genId("rec");
     const recordB = genId("rec");
     await execute(
-      `INSERT INTO customer (id, workspace_id, name, created_at, updated_at) VALUES (?, ?, 'Alice Corp', ?, ?)`,
+      `INSERT INTO ${businessTable("customer")} (id, workspace_id, name, created_at, updated_at) VALUES (?, ?, 'Alice Corp', ?, ?)`,
       [recordA, fixture.orgA.wsA1, now(), now()]
     );
     await execute(
-      `INSERT INTO customer (id, workspace_id, name, created_at, updated_at) VALUES (?, ?, 'Bob Corp', ?, ?)`,
+      `INSERT INTO ${businessTable("customer")} (id, workspace_id, name, created_at, updated_at) VALUES (?, ?, 'Bob Corp', ?, ?)`,
       [recordB, fixture.orgB.wsB1, now(), now()]
     );
 

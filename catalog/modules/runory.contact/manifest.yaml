@@ -10,6 +10,11 @@ objects:
   - key: contact
     label: Contact
     fields:
+      - key: customer_id
+        label: 关联客户
+        type: text
+        ownership: module_owned
+        required: true
       - key: name
         label: 联系人姓名
         type: text
@@ -39,6 +44,26 @@ views:
         - field: email
         - field: phone
         - field: role
+      actions:
+        - create
+        - view
+      pageSize: 20
+
+  - object: contact
+    key: contact_form
+    type: form
+    label: 联系人表单
+    config:
+      sections:
+        - title: 基本信息
+          fields:
+            - field: customer_id
+              required: true
+            - field: name
+              required: true
+            - field: email
+            - field: phone
+            - field: role
 
 permissions:
   - contact.read

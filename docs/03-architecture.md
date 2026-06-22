@@ -148,6 +148,10 @@ Migrations / Seed Data / Upgrade Policy / Documentation
 
 Module 通过 Runory Core 安装、运行和升级。Module 源码对用户只读。
 
+生产 Module/Pack/Template 由独立的 Catalog & Release Control Plane 管理。Git/CI 生成 immutable artifact；Cloud Registry 负责 structured validation、Sandbox、Internal/Beta/Stable release、dependency lock、Workspace upgrade 与 rollout。平台 UI 和 Agent 共享 governed commands，Stable 发布必须由平台 Release Manager 批准。详见 [09-catalog-release-control-plane.md](09-catalog-release-control-plane.md)。
+
+Runory SDK 是业务能力制造的本地开发者产品入口，提供 typed authoring、validation、testing、artifact build 和 Internal candidate publish；它不暴露 SaaS Core private repository，也不能绕过 Catalog release governance。详见 [10-runory-sdk-product.md](10-runory-sdk-product.md)。
+
 ### Business Packs 与 Workspace Templates
 
 需要明确三层交付单元：

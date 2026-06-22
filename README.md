@@ -13,6 +13,9 @@ Runory is a **Cloud-first, Agent-native SMB business platform**—a composable b
 | [docs/03-architecture.md](docs/03-architecture.md) | Architecture overview |
 | [docs/07-saas-core-boundaries.md](docs/07-saas-core-boundaries.md) | **SaaS Core decisions and scope boundaries** |
 | [docs/08-saas-core-implementation-plan.md](docs/08-saas-core-implementation-plan.md) | **Phased SaaS Core implementation and acceptance plan** |
+| [docs/09-catalog-release-control-plane.md](docs/09-catalog-release-control-plane.md) | **Module/Pack/Template manufacturing, release, upgrade and rollout specification** |
+| [docs/10-runory-sdk-product.md](docs/10-runory-sdk-product.md) | **SDK positioning, packages, CLI, test harness and developer experience** |
+| [docs/releases/v0.1.0-cloud-early-access.md](docs/releases/v0.1.0-cloud-early-access.md) | **v0.1.0 Cloud Early Access scope, release gates and sign-off** |
 | [docs/06-next-steps-roadmap.md](docs/06-next-steps-roadmap.md) | Current cross-domain roadmap |
 | [docs/01-poc-execution-plan.md](docs/01-poc-execution-plan.md) | POC execution plan（Cloud-first） |
 | [docs/product/product-definition.md](docs/product/product-definition.md) | Product definition |

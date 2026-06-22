@@ -3,9 +3,12 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowRight, Mail, ShieldCheck, Sparkles } from "lucide-react";
+import { MarketingHeader } from "@/components/marketing-header";
+import { useI18n } from "@/i18n/locale-provider";
 
 export default function LoginPage() {
   const router = useRouter();
+  const { t } = useI18n();
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -16,7 +19,7 @@ export default function LoginPage() {
 
   const handleRequestOtp = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (!email.trim()) return setError("请输入邮箱地址");
+    if (!email.trim()) return setError(t("home.form.emailRequired"));
     setLoading(true);
     setError(null);
     try {
@@ -30,10 +33,10 @@ export default function LoginPage() {
         setSent(true);
         if (json.data.devCode) setDevCode(json.data.devCode);
       } else {
-        setError(json.error?.message ?? "验证码发送失败");
+        setError(json.error?.message ?? t("home.form.sendFailed"));
       }
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "验证码发送失败");
+      setError(cause instanceof Error ? cause.message : t("home.form.sendFailed"));
     } finally {
       setLoading(false);
     }
@@ -42,7 +45,7 @@ export default function LoginPage() {
   const handleVerifyOtp = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!code.trim() || !/^\d{6}$/.test(code.trim())) {
-      return setError("请输入6位验证码");
+      return setError(t("home.form.codeRequired"));
     }
     setVerifying(true);
     setError(null);
@@ -58,10 +61,10 @@ export default function LoginPage() {
         router.push("/dashboard");
         router.refresh();
       } else {
-        setError(json.error?.message ?? "验证失败");
+        setError(json.error?.message ?? t("home.form.verifyFailed"));
       }
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "验证失败");
+      setError(cause instanceof Error ? cause.message : t("home.form.verifyFailed"));
     } finally {
       setVerifying(false);
     }
@@ -70,23 +73,19 @@ export default function LoginPage() {
   return (
     <main className="relative min-h-screen overflow-hidden bg-[#f7f8fc]">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_8%,rgba(86,100,245,.15),transparent_30%),radial-gradient(circle_at_90%_82%,rgba(22,166,106,.1),transparent_28%)]" />
-      <header className="relative mx-auto flex h-20 max-w-7xl items-center px-6 lg:px-10">
-        <div className="grid size-9 place-items-center rounded-[10px] bg-slate-950 font-bold text-white">R</div>
-        <span className="ml-3 text-lg font-bold tracking-tight">Runory</span>
-        <span className="ml-3 hidden rounded-full border border-slate-200 bg-white/80 px-2.5 py-1 text-[11px] font-semibold text-slate-500 sm:block">Cloud</span>
-      </header>
+      <MarketingHeader />
 
       <section className="relative mx-auto flex max-w-md flex-col items-center px-6 pb-20 pt-10 lg:pt-20">
         <div className="w-full">
           <div className="mb-8 text-center">
-            <div className="app-eyebrow inline-flex items-center gap-2 justify-center"><Sparkles size={15} /> 无密码登录</div>
+            <div className="app-eyebrow inline-flex items-center gap-2 justify-center"><Sparkles size={15} /> {t("login.eyebrow")}</div>
             <h1 className="mt-4 text-3xl font-bold tracking-[-.03em] text-slate-950">
-              {sent ? "输入验证码" : "登录到 Runory"}
+              {sent ? t("login.codeTitle") : t("login.title")}
             </h1>
             <p className="mt-3 text-sm text-slate-600">
               {sent
-                ? `我们已向 ${email} 发送了6位验证码`
-                : "使用邮箱验证码登录，无需密码。首次登录将自动创建工作区。"}
+                ? `${t("login.codeSubtitle")} ${email}`
+                : t("login.subtitle")}
             </p>
           </div>
 
@@ -100,7 +99,7 @@ export default function LoginPage() {
             <form onSubmit={handleRequestOtp} className="space-y-4">
               <div>
                 <label htmlFor="email" className="mb-2 block text-sm font-semibold text-slate-700">
-                  邮箱地址
+                  {t("home.form.email")}
                 </label>
                 <div className="relative">
                   <Mail size={18} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -117,7 +116,7 @@ export default function LoginPage() {
                 </div>
               </div>
               <button type="submit" disabled={loading} className="app-button-primary w-full">
-                {loading ? "发送中..." : "发送验证码"}
+                {loading ? t("home.form.sending") : t("home.form.send")}
                 <ArrowRight size={17} />
               </button>
             </form>
@@ -125,12 +124,12 @@ export default function LoginPage() {
             <form onSubmit={handleVerifyOtp} className="space-y-4">
               {devCode && (
                 <div className="rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-800">
-                  <strong>开发模式：</strong>您的验证码是 <span className="font-mono text-lg font-bold tracking-widest">{devCode}</span>
+                  <strong>{t("home.form.dev")}</strong> <span className="font-mono text-lg font-bold tracking-widest">{devCode}</span>
                 </div>
               )}
               <div>
                 <label htmlFor="code" className="mb-2 block text-sm font-semibold text-slate-700">
-                  验证码
+                  {t("home.form.code")}
                 </label>
                 <input
                   id="code"
@@ -147,7 +146,7 @@ export default function LoginPage() {
                 />
               </div>
               <button type="submit" disabled={verifying} className="app-button-primary w-full">
-                {verifying ? "验证中..." : "验证并登录"}
+                {verifying ? t("home.form.verifying") : t("login.verify")}
                 <ArrowRight size={17} />
               </button>
               <button
@@ -155,14 +154,14 @@ export default function LoginPage() {
                 onClick={() => { setSent(false); setCode(""); setDevCode(null); setError(null); }}
                 className="w-full text-center text-sm text-slate-500 hover:text-slate-700"
               >
-                ← 使用其他邮箱
+                ← {t("login.otherEmail")}
               </button>
             </form>
           )}
 
           <div className="mt-8 flex items-center justify-center gap-2 text-xs text-slate-500">
             <ShieldCheck size={14} className="text-emerald-600" />
-            <span>验证码10分钟内有效，单次使用</span>
+            <span>{t("login.expiry")}</span>
           </div>
         </div>
       </section>

@@ -69,18 +69,50 @@ export const extensionPointSchema = z.object({
   })).optional(),
 });
 
+// ── Migration Graph (per docs/09 §8: migrations by from → to) ──
+export const migrationStepSchema = z.object({
+  from: z.string().optional(),        // undefined means "from empty" (fresh install)
+  to: z.string(),                      // target version
+  script: z.string(),                  // SQL file path
+  checksum: z.string().optional(),     // SHA-256 of script content
+  risk: z.enum(["low", "medium", "high"]).default("low"),
+});
+
+// ── Release Compatibility (per docs/09 §8) ──
+export const releaseCompatibilitySchema = z.object({
+  minCoreVersion: z.string().optional(),
+  maxCoreVersion: z.string().optional(),
+  minPlatformVersion: z.string().optional(),
+  breakingChanges: z.array(z.object({
+    description: z.string(),
+    migrationRequired: z.boolean().default(false),
+  })).default([]),
+});
+
+// ── Permission Change Policy (per docs/09 §8) ──
+export const permissionChangePolicySchema = z.object({
+  added: z.array(z.string()).default([]),
+  removed: z.array(z.string()).default([]),
+  requiresExplicitConsent: z.boolean().default(false),
+});
+
 export const moduleManifestSchema = z.object({
   id: z.string(),
   name: z.string(),
   version: z.string(),
+  manifestSchemaVersion: z.string().default("1.0.0"),
+  publisher: z.string().optional(),
   coreCompatibility: z.string(),
+  releaseCompatibility: releaseCompatibilitySchema.optional(),
   dependencies: z.array(z.string()).optional(),
   objects: z.array(objectDefinitionSchema),
   views: z.array(viewDefinitionSchema),
   permissions: z.array(z.string()).optional(),
+  permissionChangePolicy: permissionChangePolicySchema.optional(),
   migrations: z.object({
     install: z.string(),
     uninstallPolicy: z.string().default("retain_data"),
+    upgrade: z.array(migrationStepSchema).optional(),
   }),
   ui: z.object({
     navigation: z.array(z.object({
@@ -95,6 +127,8 @@ export const moduleManifestSchema = z.object({
     supportsWorkspaceExtensions: z.boolean().default(true),
     breakingChangePolicy: z.string().default("manual_review"),
   }).optional(),
+  dataOwnership: z.string().default("workspace"),
+  uninstallRetentionPolicy: z.string().default("retain_data"),
 });
 
 export type ModuleManifest = z.infer<typeof moduleManifestSchema>;
@@ -104,9 +138,12 @@ export const packManifestSchema = z.object({
   id: z.string(),
   name: z.string(),
   version: z.string(),
+  manifestSchemaVersion: z.string().default("1.0.0"),
+  publisher: z.string().optional(),
   coreCompatibility: z.string(),
   modules: z.array(z.string()),
   defaultTemplate: z.string().optional(),
+  releaseCompatibility: releaseCompatibilitySchema.optional(),
   marketplace: z.object({
     category: z.string(),
     license: z.string(),
@@ -121,6 +158,8 @@ export const templateManifestSchema = z.object({
   id: z.string(),
   name: z.string(),
   version: z.string(),
+  manifestSchemaVersion: z.string().default("1.0.0"),
+  publisher: z.string().optional(),
   terminology: z.record(z.string()).optional(),
   navigation: z.array(z.string()).optional(),
   homepage: z.object({
@@ -128,6 +167,9 @@ export const templateManifestSchema = z.object({
     widgets: z.array(z.string()),
   }).optional(),
   roleEntry: z.record(z.string()).optional(),
+  // Template must declare compatible Pack/Module ranges (docs/09 §8)
+  compatiblePacks: z.array(z.string()).optional(),
+  compatibleModules: z.array(z.string()).optional(),
 });
 
 export type TemplateManifest = z.infer<typeof templateManifestSchema>;

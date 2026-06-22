@@ -21,6 +21,7 @@ export default function CustomerDetailPage() {
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -82,6 +83,29 @@ export default function CustomerDetailPage() {
     }
   };
 
+  const handleDelete = async () => {
+    if (!confirm("确定要删除此客户吗？此操作不可撤销。")) return;
+    setDeleting(true);
+    setError(null);
+    try {
+      const res = await fetch(
+        `/api/workspaces/${workspaceId}/objects/${OBJECT_KEY}/records/${recordId}`,
+        { method: "DELETE" }
+      );
+      const json = await res.json();
+      if (json.success) {
+        router.push(`/w/${workspaceId}/customers`);
+        router.refresh();
+      } else {
+        setError(json.error?.message ?? "删除失败");
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "删除失败");
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   if (loading) {
     return <p className="text-sm text-slate-400">加载中...</p>;
   }
@@ -119,13 +143,23 @@ export default function CustomerDetailPage() {
           </h1>
         </div>
         {!editing && (
-          <button
-            type="button"
-            onClick={() => setEditing(true)}
-            className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-          >
-            编辑
-          </button>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => setEditing(true)}
+              className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+            >
+              编辑
+            </button>
+            <button
+              type="button"
+              onClick={handleDelete}
+              disabled={deleting}
+              className="rounded-md border border-red-300 bg-white px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-50 disabled:opacity-50"
+            >
+              {deleting ? "删除中..." : "删除"}
+            </button>
+          </div>
         )}
       </div>
 

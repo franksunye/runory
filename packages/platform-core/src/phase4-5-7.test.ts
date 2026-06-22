@@ -61,8 +61,8 @@ let workspaceId: string;
 let userId: string;
 
 beforeAll(async () => {
-  globalThis.__runorySchemaReady = undefined;
-  globalThis.__runoryMigrationsRun = undefined;
+  globalThis.__platformSchemaReady = undefined;
+  globalThis.__platformMigrationsRun = undefined;
 
   await db.execute({ sql: "PRAGMA foreign_keys = OFF" });
   const tables = await db.execute({
@@ -78,25 +78,25 @@ beforeAll(async () => {
 
 beforeEach(async () => {
   const tables = [
-    "runory_extension_field_values", "runory_audit_logs", "runory_navigation_items",
-    "runory_view_definitions", "runory_field_definitions", "runory_object_definitions",
-    "runory_installations", "runory_workspace_memberships", "runory_organization_memberships",
-    "runory_workspace_tenants", "runory_workspaces", "runory_organizations", "runory_users",
-    "runory_organization_invitations", "runory_invitation_workspace_grants",
-    "runory_api_keys", "runory_organization_entitlements", "runory_usage_events",
-    "runory_usage_rollups", "runory_export_jobs", "runory_deletion_jobs",
+    TABLES.extensionFieldValues, TABLES.auditLogs, TABLES.navigationItems,
+    TABLES.viewDefinitions, TABLES.fieldDefinitions, TABLES.objectDefinitions,
+    TABLES.installations, TABLES.invitationWorkspaceGrants, TABLES.organizationInvitations,
+    TABLES.apiKeys, TABLES.usageEvents, TABLES.usageRollups,
+    TABLES.organizationEntitlements, TABLES.exportJobs, TABLES.deletionJobs,
+    TABLES.workspaceMemberships, TABLES.organizationMemberships,
+    TABLES.workspaceTenants, TABLES.workspaces, TABLES.organizations, TABLES.users,
   ];
   for (const t of tables) {
     try { await db.execute({ sql: `DELETE FROM ${t}` }); } catch {}
   }
 
-  // Drop business tables
+  // Preserve module schema and clear only module-owned data.
   const bizTables = await db.execute({
-    sql: "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name NOT LIKE '_cf_%' AND name NOT LIKE 'runory_%'",
+    sql: "SELECT name FROM sqlite_master WHERE type='table' AND name LIKE 'runory_business_%' ORDER BY name DESC",
   });
   for (const row of bizTables.rows) {
     const name = (row as unknown as { name: string }).name;
-    await db.execute({ sql: `DROP TABLE IF EXISTS "${name}"` });
+    await db.execute({ sql: `DELETE FROM "${name}"` });
   }
 
   // Create fixture

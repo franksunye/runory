@@ -11,7 +11,14 @@
  *   pnpm --filter @runory/cloud mcp
  *
  * Environment:
- *   RUNORY_API_BASE - Base URL of the Runory Cloud API (default: http://localhost:3000)
+ *   RUNORY_API_BASE      - Base URL of the Runory Cloud API (default: http://localhost:3000)
+ *   RUNORY_API_KEY       - API key used to authenticate against the Runory Cloud API.
+ *                          When set, an `Authorization: Bearer <key>` header is sent on
+ *                          every API call. When unset, requests are sent without an
+ *                          Authorization header (dev mode only — production will return 401).
+ *   RUNORY_WORKSPACE_ID  - Optional default workspace ID. When set, tools use it as the
+ *                          default `workspaceId` whenever the caller does not supply one.
+ *                          An explicitly passed `workspaceId` always takes precedence.
  */
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
@@ -19,11 +26,16 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { z } from "zod";
 
 const API_BASE = process.env.RUNORY_API_BASE ?? "http://localhost:3000";
+const API_KEY = process.env.RUNORY_API_KEY;
+const DEFAULT_WORKSPACE_ID = process.env.RUNORY_WORKSPACE_ID;
 
 async function apiCall(path: string, method: string = "GET", body?: unknown) {
+  const headers: Record<string, string> = {};
+  if (body) headers["Content-Type"] = "application/json";
+  if (API_KEY) headers["Authorization"] = `Bearer ${API_KEY}`;
   const res = await fetch(`${API_BASE}${path}`, {
     method,
-    headers: body ? { "Content-Type": "application/json" } : {},
+    headers,
     body: body ? JSON.stringify(body) : undefined,
   });
   const json = await res.json();
@@ -46,11 +58,12 @@ server.registerTool(
     },
   },
   async ({ workspaceId }) => {
+    const wsId = workspaceId || DEFAULT_WORKSPACE_ID;
     const [workspace, installations, extensions, objects] = await Promise.all([
-      apiCall(`/api/workspaces/${workspaceId}`),
-      apiCall(`/api/workspaces/${workspaceId}/installations`),
-      apiCall(`/api/workspaces/${workspaceId}/extensions`),
-      apiCall(`/api/workspaces/${workspaceId}/objects`),
+      apiCall(`/api/workspaces/${wsId}`),
+      apiCall(`/api/workspaces/${wsId}/installations`),
+      apiCall(`/api/workspaces/${wsId}/extensions`),
+      apiCall(`/api/workspaces/${wsId}/objects`),
     ]);
 
     return {
@@ -78,13 +91,14 @@ server.registerTool(
     },
   },
   async ({ workspaceId }) => {
-    const objects = await apiCall(`/api/workspaces/${workspaceId}/objects`);
+    const wsId = workspaceId || DEFAULT_WORKSPACE_ID;
+    const objects = await apiCall(`/api/workspaces/${wsId}/objects`);
 
     const detailedObjects = await Promise.all(
       (objects.data || []).map(async (obj: any) => {
         const [fieldsRes, viewsRes] = await Promise.all([
-          apiCall(`/api/workspaces/${workspaceId}/objects/${obj.objectKey}`),
-          apiCall(`/api/workspaces/${workspaceId}/objects/${obj.objectKey}/views`),
+          apiCall(`/api/workspaces/${wsId}/objects/${obj.objectKey}`),
+          apiCall(`/api/workspaces/${wsId}/objects/${obj.objectKey}/views`),
         ]);
         return {
           objectKey: obj.objectKey,
@@ -117,6 +131,7 @@ server.registerTool(
     },
   },
   async ({ workspaceId, plan }) => {
+    const wsId = workspaceId || DEFAULT_WORKSPACE_ID;
     let parsedPlan: unknown;
     try {
       parsedPlan = JSON.parse(plan);
@@ -129,7 +144,7 @@ server.registerTool(
       };
     }
 
-    const result = await apiCall(`/api/workspaces/${workspaceId}/agent/plan`, "POST", parsedPlan);
+    const result = await apiCall(`/api/workspaces/${wsId}/agent/plan`, "POST", parsedPlan);
     return {
       content: [{
         type: "text" as const,
@@ -151,6 +166,7 @@ server.registerTool(
     },
   },
   async ({ workspaceId, plan }) => {
+    const wsId = workspaceId || DEFAULT_WORKSPACE_ID;
     let parsedPlan: unknown;
     try {
       parsedPlan = JSON.parse(plan);
@@ -163,7 +179,7 @@ server.registerTool(
       };
     }
 
-    const result = await apiCall(`/api/workspaces/${workspaceId}/agent/preview`, "POST", parsedPlan);
+    const result = await apiCall(`/api/workspaces/${wsId}/agent/preview`, "POST", parsedPlan);
     return {
       content: [{
         type: "text" as const,
@@ -186,6 +202,7 @@ server.registerTool(
     },
   },
   async ({ workspaceId, plan, createdBy }) => {
+    const wsId = workspaceId || DEFAULT_WORKSPACE_ID;
     let parsedPlan: unknown;
     try {
       parsedPlan = JSON.parse(plan);
@@ -198,7 +215,7 @@ server.registerTool(
       };
     }
 
-    const result = await apiCall(`/api/workspaces/${workspaceId}/agent/apply`, "POST", { plan: parsedPlan, createdBy });
+    const result = await apiCall(`/api/workspaces/${wsId}/agent/apply`, "POST", { plan: parsedPlan, createdBy });
     return {
       content: [{
         type: "text" as const,
@@ -221,7 +238,8 @@ server.registerTool(
     },
   },
   async ({ workspaceId, extensionId, rolledBy }) => {
-    const result = await apiCall(`/api/workspaces/${workspaceId}/agent/rollback`, "POST", { extensionId, rolledBy });
+    const wsId = workspaceId || DEFAULT_WORKSPACE_ID;
+    const result = await apiCall(`/api/workspaces/${wsId}/agent/rollback`, "POST", { extensionId, rolledBy });
     return {
       content: [{
         type: "text" as const,
@@ -242,7 +260,8 @@ server.registerTool(
     },
   },
   async ({ workspaceId }) => {
-    const result = await apiCall(`/api/workspaces/${workspaceId}/extensions`);
+    const wsId = workspaceId || DEFAULT_WORKSPACE_ID;
+    const result = await apiCall(`/api/workspaces/${wsId}/extensions`);
     return {
       content: [{
         type: "text" as const,
@@ -265,6 +284,7 @@ server.registerTool(
     },
   },
   async ({ workspaceId, objectKey, data }) => {
+    const wsId = workspaceId || DEFAULT_WORKSPACE_ID;
     let parsedData: unknown;
     try {
       parsedData = JSON.parse(data);
@@ -277,7 +297,7 @@ server.registerTool(
       };
     }
 
-    const result = await apiCall(`/api/workspaces/${workspaceId}/objects/${objectKey}/records`, "POST", parsedData);
+    const result = await apiCall(`/api/workspaces/${wsId}/objects/${objectKey}/records`, "POST", parsedData);
     return {
       content: [{
         type: "text" as const,
@@ -289,6 +309,11 @@ server.registerTool(
 
 // ── Start server ──
 async function main() {
+  if (API_KEY) {
+    console.error(`[runory-mcp] Auth mode: API key (Bearer).${DEFAULT_WORKSPACE_ID ? ` Default workspace: ${DEFAULT_WORKSPACE_ID}.` : ""}`);
+  } else {
+    console.error(`[runory-mcp] Auth mode: dev (no Authorization header). Set RUNORY_API_KEY for production.`);
+  }
   const transport = new StdioServerTransport();
   await server.connect(transport);
 }

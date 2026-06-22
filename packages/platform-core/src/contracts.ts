@@ -1,5 +1,11 @@
 import { readFileSync, existsSync } from "node:fs";
 import { resolve, join } from "node:path";
+import {
+  getTablePrefix,
+  getBusinessTablePrefix,
+  getTableNamespacePrefixes,
+  renderSqlWithPrefix,
+} from "./platform-config";
 
 // ── Resource Directory Resolution ──
 // Local dev reads schema/ and catalog/ from the repository root.
@@ -24,13 +30,11 @@ function resourcesDir(name: string): string {
 const tablesManifest = JSON.parse(
   readFileSync(join(resourcesDir("schema"), "tables.json"), "utf-8")
 ) as {
-  prefixEnv: string;
-  defaultPrefix: string;
   [key: string]: string;
 };
 
 export function tablePrefix(): string {
-  return process.env[tablesManifest.prefixEnv] ?? tablesManifest.defaultPrefix;
+  return getTablePrefix();
 }
 
 export function tableName(shortName: keyof typeof tablesManifest): string {
@@ -41,43 +45,58 @@ export function tableName(shortName: keyof typeof tablesManifest): string {
 
 // ── Resolved Table Names ──
 
-const PREFIX = tablePrefix();
+const PREFIXES = getTableNamespacePrefixes();
 
 export const TABLES = {
-  workspaces: `${PREFIX}workspaces`,
-  organizations: `${PREFIX}organizations`,
-  users: `${PREFIX}users`,
-  organizationMemberships: `${PREFIX}organization_memberships`,
-  workspaceTenants: `${PREFIX}workspace_tenants`,
-  workspaceMemberships: `${PREFIX}workspace_memberships`,
-  installations: `${PREFIX}installations`,
-  objectDefinitions: `${PREFIX}object_definitions`,
-  fieldDefinitions: `${PREFIX}field_definitions`,
-  viewDefinitions: `${PREFIX}view_definitions`,
-  navigationItems: `${PREFIX}navigation_items`,
-  extensionDefinitions: `${PREFIX}extension_definitions`,
-  extensionVersions: `${PREFIX}extension_versions`,
-  auditLogs: `${PREFIX}audit_logs`,
-  agentRuns: `${PREFIX}agent_runs`,
-  extensionFieldValues: `${PREFIX}extension_field_values`,
-  authIdentities: `${PREFIX}auth_identities`,
-  authChallenges: `${PREFIX}auth_challenges`,
-  sessions: `${PREFIX}sessions`,
-  rateLimitBuckets: `${PREFIX}rate_limit_buckets`,
-  organizationInvitations: `${PREFIX}organization_invitations`,
-  invitationWorkspaceGrants: `${PREFIX}invitation_workspace_grants`,
-  apiKeys: `${PREFIX}api_keys`,
-  organizationEntitlements: `${PREFIX}organization_entitlements`,
-  usageEvents: `${PREFIX}usage_events`,
-  usageRollups: `${PREFIX}usage_rollups`,
-  exportJobs: `${PREFIX}export_jobs`,
-  deletionJobs: `${PREFIX}deletion_jobs`,
+  // Generic, reusable SaaS Core.
+  workspaces: `${PREFIXES.saas}workspaces`,
+  organizations: `${PREFIXES.saas}organizations`,
+  users: `${PREFIXES.saas}users`,
+  organizationMemberships: `${PREFIXES.saas}organization_memberships`,
+  workspaceTenants: `${PREFIXES.saas}workspace_tenants`,
+  workspaceMemberships: `${PREFIXES.saas}workspace_memberships`,
+  auditLogs: `${PREFIXES.saas}audit_logs`,
+  authIdentities: `${PREFIXES.saas}auth_identities`,
+  authChallenges: `${PREFIXES.saas}auth_challenges`,
+  sessions: `${PREFIXES.saas}sessions`,
+  rateLimitBuckets: `${PREFIXES.saas}rate_limit_buckets`,
+  organizationInvitations: `${PREFIXES.saas}organization_invitations`,
+  invitationWorkspaceGrants: `${PREFIXES.saas}invitation_workspace_grants`,
+  apiKeys: `${PREFIXES.saas}api_keys`,
+  organizationEntitlements: `${PREFIXES.saas}organization_entitlements`,
+  usageEvents: `${PREFIXES.saas}usage_events`,
+  usageRollups: `${PREFIXES.saas}usage_rollups`,
+  exportJobs: `${PREFIXES.saas}export_jobs`,
+  deletionJobs: `${PREFIXES.saas}deletion_jobs`,
+
+  // Runory Platform Runtime.
+  installations: `${PREFIXES.runoryRuntime}installations`,
+  objectDefinitions: `${PREFIXES.runoryRuntime}object_definitions`,
+  fieldDefinitions: `${PREFIXES.runoryRuntime}field_definitions`,
+  viewDefinitions: `${PREFIXES.runoryRuntime}view_definitions`,
+  navigationItems: `${PREFIXES.runoryRuntime}navigation_items`,
+  extensionDefinitions: `${PREFIXES.runoryRuntime}extension_definitions`,
+  extensionVersions: `${PREFIXES.runoryRuntime}extension_versions`,
+  extensionFieldValues: `${PREFIXES.runoryRuntime}extension_field_values`,
+  agentRuns: `${PREFIXES.runoryRuntime}agent_runs`,
+
+  // Runory Catalog & Release Control Plane.
+  catalogItems: `${PREFIXES.runoryCatalog}items`,
+  catalogVersions: `${PREFIXES.runoryCatalog}versions`,
+  catalogValidationRuns: `${PREFIXES.runoryCatalog}validation_runs`,
+  catalogReleases: `${PREFIXES.runoryCatalog}releases`,
+  packVersionLocks: `${PREFIXES.runoryCatalog}pack_version_locks`,
+  releaseRollouts: `${PREFIXES.runoryCatalog}release_rollouts`,
+  rolloutTargets: `${PREFIXES.runoryCatalog}rollout_targets`,
+  compatibilityReports: `${PREFIXES.runoryCatalog}compatibility_reports`,
 } as const;
 
 // ── Business Table Prefix ──
-// Business tables (created by module migrations) can optionally use a prefix.
-// Default: no prefix (e.g., "customer", "contact")
-export const BUSINESS_TABLE_PREFIX = process.env.RUNORY_BUSINESS_TABLE_PREFIX ?? "";
+// Business tables (created by module migrations) use a prefix to distinguish
+// Runory business data from SaaS Core platform metadata.
+// Default: "runory_business_" (e.g., "runory_business_customer", "runory_business_contact")
+// Full ownership rules: docs/architecture/database-namespaces.md.
+export const BUSINESS_TABLE_PREFIX = getBusinessTablePrefix();
 
 export function businessTable(objectKey: string): string {
   return `${BUSINESS_TABLE_PREFIX}${objectKey}`;
@@ -91,7 +110,7 @@ const SCHEMA_SQL = readFileSync(
 );
 
 export function renderSchemaSql(prefix: string): string {
-  return SCHEMA_SQL.replaceAll("{{RUNORY_TABLE_PREFIX}}", prefix);
+  return renderSqlWithPrefix(SCHEMA_SQL, prefix, BUSINESS_TABLE_PREFIX);
 }
 
 export function schemaStatements(prefix: string): string[] {

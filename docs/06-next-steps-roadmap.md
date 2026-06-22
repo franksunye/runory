@@ -18,6 +18,8 @@ Track B — Product Runtime：让 CRM Lite 与 Agent 配置形成持续业务价
 
 SaaS Core 边界以 [07-saas-core-boundaries.md](07-saas-core-boundaries.md) 为准。本文件只维护跨领域优先级，不重复具体安全与数据模型清单。
 
+当前正式发布目标是 `Runory Cloud v0.1.0 — Early Access`。范围、阻塞项、验收证据和签发流程以 [releases/v0.1.0-cloud-early-access.md](releases/v0.1.0-cloud-early-access.md) 为准。
+
 ## 2. Priority Order
 
 ### P0 — Cloud Safety and Identity
@@ -42,6 +44,19 @@ SaaS Core 边界以 [07-saas-core-boundaries.md](07-saas-core-boundaries.md) 为
 
 完成标准：可以从备份恢复服务，并重新通过 tenant isolation 和核心业务测试。
 
+### P0 — Catalog & Release Control Plane POC
+
+- Git/CI → immutable Cloud Catalog artifact。
+- Module/Pack/Template versions 与 structured validation。
+- Pack dependency resolver 与 frozen lock。
+- Internal/Beta/Stable release promotion。
+- Sandbox Workspace compatibility validation。
+- Workspace Module Center 与 upgrade preflight。
+- Rollout observability、pause 与 failure isolation。
+- Internal SDK toolchain：typed authoring、validate、test harness、build、publish candidate。
+
+完成标准：`runory.customer` 1.0 → 1.1 从 candidate、Sandbox、Beta rollout 到 Stable 升级形成完整可审计闭环。详细规格见 [09-catalog-release-control-plane.md](09-catalog-release-control-plane.md)。
+
 ### P1 — SaaS Commercialization
 
 - `early_access` Entitlement。
@@ -64,8 +79,7 @@ SaaS Core 边界以 [07-saas-core-boundaries.md](07-saas-core-boundaries.md) 为
 ### P2 — Platform Expansion
 
 - Workflow Runtime 与 approval queue。
-- Module package、compatibility 与 registry。
-- Marketplace read path。
+- Third-party publisher 与 Marketplace read path。
 - Async jobs for export、retention 与 usage rollup。
 - Module SDK 与发布工具。
 
@@ -87,9 +101,10 @@ SaaS Core 边界以 [07-saas-core-boundaries.md](07-saas-core-boundaries.md) 为
 | M2 Collaboration | Invitation、RBAC、Owner transfer 与 immediate revoke 完整 |
 | M3 Isolation | HTTP/MCP/Agent/Job 跨租户测试在 CI 强制通过 |
 | M4 Trust | Audit、API Key、rate limit、structured security errors 完成 |
-| M5 Operations | Migration、backup restore、export/deletion runbook 完成 |
-| M6 Commercial | Entitlement、Usage、Stripe sandbox subscription loop 完成 |
-| M7 Public Launch | Production readiness gate 全部通过 |
+| M5 Catalog | Immutable artifact、validation、release、upgrade 与 rollout POC 完成 |
+| M6 Operations | Migration、backup restore、export/deletion runbook 完成 |
+| M7 Commercial | Entitlement、Usage、Stripe sandbox subscription loop 完成 |
+| M8 Public Launch | Production readiness gate 全部通过 |
 
 ## 4. Active Technical Debt
 
@@ -112,6 +127,9 @@ SaaS Core 边界以 [07-saas-core-boundaries.md](07-saas-core-boundaries.md) 为
 - Architecture: [03-architecture.md](03-architecture.md)
 - SaaS decisions: [07-saas-core-boundaries.md](07-saas-core-boundaries.md)
 - SaaS execution and acceptance: [08-saas-core-implementation-plan.md](08-saas-core-implementation-plan.md)
+- Catalog/release specification: [09-catalog-release-control-plane.md](09-catalog-release-control-plane.md)
+- SDK product and developer experience: [10-runory-sdk-product.md](10-runory-sdk-product.md)
+- v0.1.0 release definition: [releases/v0.1.0-cloud-early-access.md](releases/v0.1.0-cloud-early-access.md)
 - Historical POC result: [05-cloud-first-poc-progress.md](05-cloud-first-poc-progress.md)
 
 不要在本文件重新定义 SaaS 数据模型或权限边界；决策变化必须先更新 SaaS Core decision baseline，并记录迁移影响。

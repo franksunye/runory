@@ -1,6 +1,4 @@
 {
-  "prefixEnv": "RUNORY_TABLE_PREFIX",
-  "defaultPrefix": "runory_",
   "workspaces": "workspaces",
   "organizations": "organizations",
   "users": "users",
@@ -28,5 +26,13 @@
   "usageEvents": "usage_events",
   "usageRollups": "usage_rollups",
   "exportJobs": "export_jobs",
-  "deletionJobs": "deletion_jobs"
+  "deletionJobs": "deletion_jobs",
+  "catalogItems": "catalog_items",
+  "catalogVersions": "catalog_versions",
+  "catalogValidationRuns": "catalog_validation_runs",
+  "catalogReleases": "catalog_releases",
+  "packVersionLocks": "pack_version_locks",
+  "releaseRollouts": "release_rollouts",
+  "rolloutTargets": "rollout_targets",
+  "compatibilityReports": "compatibility_reports"
 }

@@ -31,6 +31,7 @@ export default function DashboardPage() {
   const router = useRouter();
   const [me, setMe] = useState<MeResponse | null>(null);
   const [sessions, setSessions] = useState<SessionInfo[]>([]);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState("");
@@ -53,6 +54,14 @@ export default function DashboardPage() {
 
       setMe(meJson.data);
       setSessions(sessJson.success ? sessJson.data : []);
+
+      // Check platform admin status (403 means not an admin)
+      try {
+        const adminRes = await fetch("/api/admin/stats", { cache: "no-store" });
+        setIsAdmin(adminRes.ok);
+      } catch {
+        setIsAdmin(false);
+      }
     } catch {
       router.replace("/login");
     } finally {
@@ -121,6 +130,14 @@ export default function DashboardPage() {
             <span className="text-base font-bold tracking-tight">Runory</span>
           </div>
           <div className="flex items-center gap-4">
+            {isAdmin && (
+              <button
+                onClick={() => router.push("/admin")}
+                className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-100"
+              >
+                <ShieldCheck size={15} /> 平台管理
+              </button>
+            )}
             <span className="text-sm text-slate-600">{me.principal?.email}</span>
             <button
               onClick={handleLogout}

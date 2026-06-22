@@ -3,6 +3,11 @@ import { readFileSync, readdirSync, existsSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { db } from "./db";
 import { tablePrefix } from "./contracts";
+import {
+  renderSqlWithPrefix,
+  getBusinessTablePrefix,
+  getTableNamespacePrefixes,
+} from "./platform-config";
 
 // ── Migration Types ──
 
@@ -10,8 +15,9 @@ export interface MigrationFile {
   version: string;      // e.g., "0001"
   name: string;         // e.g., "baseline"
   filename: string;     // e.g., "0001_baseline.sql"
-  sql: string;          // raw SQL with {{RUNORY_TABLE_PREFIX}} placeholders
+  sql: string;          // raw SQL with {{PLATFORM_TABLE_PREFIX}} (or legacy {{RUNORY_TABLE_PREFIX}}) placeholders
   checksum: string;     // SHA-256 hex of the raw SQL
+  transactional: boolean;
 }
 
 export interface AppliedMigration {
@@ -47,6 +53,18 @@ function migrationsDir(): string {
 
 const MIGRATION_FILENAME = /^(\d{4})_([a-z0-9_]+)\.sql$/i;
 
+// 0008 was edited during the pre-release POC after some local databases had
+// already applied it. 0011 normalizes the resulting schema, so both exact
+// historical variants are safe inputs. Unknown checksum changes still fail.
+const ACCEPTED_HISTORICAL_CHECKSUMS: Readonly<Record<string, readonly string[]>> = {
+  "0008": ["53d6b833c0338c0a805da9cbf90519baa42b866d000e061a0c37e0ec247ab6bb"],
+};
+
+function checksumMatches(file: MigrationFile, stored: string): boolean {
+  return file.checksum === stored
+    || (ACCEPTED_HISTORICAL_CHECKSUMS[file.version] ?? []).includes(stored);
+}
+
 export function loadMigrationFiles(): MigrationFile[] {
   const dir = migrationsDir();
   const files = readdirSync(dir)
@@ -59,14 +77,15 @@ export function loadMigrationFiles(): MigrationFile[] {
     const name = match[2];
     const sql = readFileSync(join(dir, filename), "utf-8");
     const checksum = createHash("sha256").update(sql, "utf-8").digest("hex");
-    return { version, name, filename, sql, checksum };
+    const transactional = /^-- Transaction:\s*required\s*$/im.test(sql);
+    return { version, name, filename, sql, checksum, transactional };
   });
 }
 
 // ── Render SQL with prefix ──
 
 function renderSql(sql: string, prefix: string): string {
-  return sql.replaceAll("{{RUNORY_TABLE_PREFIX}}", prefix);
+  return renderSqlWithPrefix(sql, prefix, getBusinessTablePrefix());
 }
 
 // ── Split SQL into statements ──
@@ -102,9 +121,36 @@ async function rawQueryAll<T = Record<string, unknown>>(sql: string, args: unkno
 
 // ── Ensure schema_migrations table exists ──
 
-async function ensureMigrationsTable(prefix: string): Promise<void> {
+async function tableExists(name: string): Promise<boolean> {
+  const rows = await rawQueryAll<{ name: string }>(
+    "SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?",
+    [name]
+  );
+  return rows.length > 0;
+}
+
+async function resolveMigrationsTable(legacyPrefix: string): Promise<string> {
+  const desired = `${getTableNamespacePrefixes().system}schema_migrations`;
+  if (await tableExists(desired)) return desired;
+
+  const legacyCandidates = [
+    `${legacyPrefix}schema_migrations`,
+    "platform_schema_migrations",
+    "runory_schema_migrations",
+  ].filter((value, index, values) => values.indexOf(value) === index);
+
+  for (const legacy of legacyCandidates) {
+    if (await tableExists(legacy)) {
+      await rawExecute(`ALTER TABLE ${legacy} RENAME TO ${desired}`);
+      return desired;
+    }
+  }
+  return desired;
+}
+
+async function ensureMigrationsTable(table: string): Promise<void> {
   await rawExecute(
-    `CREATE TABLE IF NOT EXISTS ${prefix}schema_migrations (
+    `CREATE TABLE IF NOT EXISTS ${table} (
       version TEXT PRIMARY KEY,
       name TEXT NOT NULL,
       checksum TEXT NOT NULL,
@@ -115,27 +161,41 @@ async function ensureMigrationsTable(prefix: string): Promise<void> {
 
 // ── Get applied migrations ──
 
-async function getAppliedMigrations(prefix: string): Promise<Map<string, AppliedMigration>> {
+async function getAppliedMigrations(table: string): Promise<Map<string, AppliedMigration>> {
   const rows = await rawQueryAll<{ version: string; name: string; checksum: string; applied_at: string }>(
-    `SELECT version, name, checksum, applied_at FROM ${prefix}schema_migrations ORDER BY version`
+    `SELECT version, name, checksum, applied_at FROM ${table} ORDER BY version`
   );
   return new Map(rows.map((r) => [r.version, r]));
 }
 
 // ── Run a single migration ──
 
-async function runMigration(file: MigrationFile, prefix: string): Promise<void> {
+async function runMigration(file: MigrationFile, prefix: string, migrationsTable: string): Promise<void> {
   const rendered = renderSql(file.sql, prefix);
   const statements = splitStatements(rendered);
 
-  // Execute each statement individually — libSQL batch doesn't support DDL in all cases
+  if (file.transactional) {
+    await db.batch(
+      [
+        ...statements.map((sql) => ({ sql, args: [] })),
+        {
+          sql: `INSERT INTO ${migrationsTable} (version, name, checksum, applied_at) VALUES (?, ?, ?, ?)`,
+          args: [file.version, file.name, file.checksum, now()],
+        },
+      ] as never,
+      "write"
+    );
+    return;
+  }
+
+  // Older migrations execute statement-by-statement for libSQL compatibility.
   for (const stmt of statements) {
     await db.execute(stmt);
   }
 
   // Record the migration
   await rawExecute(
-    `INSERT INTO ${prefix}schema_migrations (version, name, checksum, applied_at) VALUES (?, ?, ?, ?)`,
+    `INSERT INTO ${migrationsTable} (version, name, checksum, applied_at) VALUES (?, ?, ?, ?)`,
     [file.version, file.name, file.checksum, now()]
   );
 }
@@ -144,16 +204,17 @@ async function runMigration(file: MigrationFile, prefix: string): Promise<void> 
 
 declare global {
   // eslint-disable-next-line no-var
-  var __runoryMigrationsRun: Promise<MigrationResult> | undefined;
+  var __platformMigrationsRun: Promise<MigrationResult> | undefined;
 }
 
 export function runMigrations(): Promise<MigrationResult> {
-  if (!globalThis.__runoryMigrationsRun) {
-    globalThis.__runoryMigrationsRun = (async () => {
+  if (!globalThis.__platformMigrationsRun) {
+    globalThis.__platformMigrationsRun = (async () => {
       const prefix = tablePrefix();
       const files = loadMigrationFiles();
-      await ensureMigrationsTable(prefix);
-      const applied = await getAppliedMigrations(prefix);
+      const migrationsTable = await resolveMigrationsTable(prefix);
+      await ensureMigrationsTable(migrationsTable);
+      const applied = await getAppliedMigrations(migrationsTable);
 
       const toApply: MigrationFile[] = [];
       const skipped: MigrationFile[] = [];
@@ -163,7 +224,7 @@ export function runMigrations(): Promise<MigrationResult> {
         const record = applied.get(file.version);
         if (!record) {
           toApply.push(file);
-        } else if (record.checksum !== file.checksum) {
+        } else if (!checksumMatches(file, record.checksum)) {
           checksumMismatches.push({ file, stored: record.checksum });
         } else {
           skipped.push(file);
@@ -178,7 +239,7 @@ export function runMigrations(): Promise<MigrationResult> {
       }
 
       for (const file of toApply) {
-        await runMigration(file, prefix);
+        await runMigration(file, prefix, migrationsTable);
       }
 
       return {
@@ -188,13 +249,13 @@ export function runMigrations(): Promise<MigrationResult> {
       };
     })();
   }
-  return globalThis.__runoryMigrationsRun;
+  return globalThis.__platformMigrationsRun;
 }
 
 // ── Reset migration cache (for tests) ──
 
 export function resetMigrationCache(): void {
-  globalThis.__runoryMigrationsRun = undefined;
+  globalThis.__platformMigrationsRun = undefined;
 }
 
 // ── Get migration status ──
@@ -204,8 +265,9 @@ export async function getMigrationStatus(): Promise<{
   pending: MigrationFile[];
 }> {
   const prefix = tablePrefix();
-  await ensureMigrationsTable(prefix);
-  const appliedMap = await getAppliedMigrations(prefix);
+  const migrationsTable = await resolveMigrationsTable(prefix);
+  await ensureMigrationsTable(migrationsTable);
+  const appliedMap = await getAppliedMigrations(migrationsTable);
   const files = loadMigrationFiles();
   const applied: AppliedMigration[] = [];
   const pending: MigrationFile[] = [];

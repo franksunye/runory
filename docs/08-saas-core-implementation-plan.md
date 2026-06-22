@@ -31,6 +31,10 @@ Decision baseline: [07-saas-core-boundaries.md](07-saas-core-boundaries.md)
 
 本计划将 SaaS Core 按依赖顺序拆成可独立验收的阶段。每一阶段必须满足退出条件后才能进入下一阶段；时间估算仅用于排序，不替代验收。
 
+Module/Pack/Template 的制造、发布、升级和 rollout 是并行的平台控制面工作流，不混入租户 SaaS Core 数据模型。其独立规格和 CR0–CR5 实施计划见 [09-catalog-release-control-plane.md](09-catalog-release-control-plane.md)。Public launch gate 必须同时评估两个工作流的完成状态。
+
+Runory SDK 是该控制面的本地开发者产品入口，其 SDK0–SDK4 计划见 [10-runory-sdk-product.md](10-runory-sdk-product.md)。SaaS Core、SDK 与 Catalog 共用 contracts，但 SDK 不导出 SaaS private runtime/repository。
+
 ## 2. Current Baseline
 
 截至 2026-06-22（SaaS Core Phase 0-5, 7 完成后更新）：

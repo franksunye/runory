@@ -13,6 +13,10 @@ Cloud to Local deployment: [cloud-to-local-workspace.md](cloud-to-local-workspac
 Current-stage architecture narrative: [../03-architecture.md](../03-architecture.md)
 SaaS Core boundaries: [../07-saas-core-boundaries.md](../07-saas-core-boundaries.md)
 SaaS Core implementation: [../08-saas-core-implementation-plan.md](../08-saas-core-implementation-plan.md)
+Catalog and release control plane: [../09-catalog-release-control-plane.md](../09-catalog-release-control-plane.md)
+SDK product and developer experience: [../10-runory-sdk-product.md](../10-runory-sdk-product.md)
+Database namespaces: [database-namespaces.md](database-namespaces.md)
+Internationalization: [internationalization.md](internationalization.md)
 
 ## Canonical Definition
 
@@ -110,6 +114,10 @@ Core does **not** own industry-specific business logic (CRM flows, FSM dispatch 
 ### Official Modules
 
 Official Modules are complete business capability units: schema, objects, fields, views, forms, permissions, workflows, agent skills, migrations, and UI slot declarations.
+
+Production capabilities are distributed through immutable Cloud Catalog Versions, not mutable working-tree files. Validation, Sandbox evidence, release channels, Pack locks, compatibility reports, and rollout state are first-class control-plane records.
+
+The Runory SDK compiles typed capability source into canonical artifacts and provides local validation/testing. It remains separate from private Platform Core persistence and from Cloud release approval.
 
 ### Business Packs and Workspace Templates
 

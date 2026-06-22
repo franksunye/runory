@@ -335,3 +335,23 @@ export async function updateRecord(workspaceId: string, objectKey: string, recor
 
   return await getRecord(workspaceId, objectKey, recordId);
 }
+
+export async function deleteRecord(workspaceId: string, objectKey: string, recordId: string): Promise<boolean> {
+  // Check record exists and belongs to workspace
+  const existing = await getRecord(workspaceId, objectKey, recordId);
+  if (!existing) return false;
+
+  // Delete extension field values
+  await execute(
+    `DELETE FROM ${TABLES.extensionFieldValues} WHERE workspace_id = ? AND object_key = ? AND record_id = ?`,
+    [workspaceId, objectKey, recordId]
+  );
+
+  // Delete from business table
+  await execute(
+    `DELETE FROM ${businessTable(objectKey)} WHERE workspace_id = ? AND id = ?`,
+    [workspaceId, recordId]
+  );
+
+  return true;
+}

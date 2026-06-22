@@ -47,7 +47,15 @@ describe("migration file loading", () => {
   it("migration files contain prefix placeholder", () => {
     const files = loadMigrationFiles();
     for (const file of files) {
-      expect(file.sql).toContain("{{RUNORY_TABLE_PREFIX}}");
+      // Historical and namespaced migrations all render configurable prefixes.
+      const hasPlaceholder =
+        file.sql.includes("{{PLATFORM_TABLE_PREFIX}}") ||
+        file.sql.includes("{{RUNORY_TABLE_PREFIX}}") ||
+        file.sql.includes("{{BUSINESS_TABLE_PREFIX}}") ||
+        file.sql.includes("{{SAAS_TABLE_PREFIX}}") ||
+        file.sql.includes("{{RUNORY_RUNTIME_TABLE_PREFIX}}") ||
+        file.sql.includes("{{RUNORY_CATALOG_TABLE_PREFIX}}");
+      expect(hasPlaceholder).toBe(true);
     }
   });
 
@@ -55,7 +63,9 @@ describe("migration file loading", () => {
     const files = loadMigrationFiles();
     const saasCore = files.find((f) => f.version === "0002");
     expect(saasCore).toBeDefined();
-    expect(saasCore!.sql).toContain("UPDATE {{RUNORY_TABLE_PREFIX}}workspace_memberships SET role = 'admin' WHERE role = 'owner'");
+    // 0002 uses the legacy placeholder — both are supported by the renderer
+    expect(saasCore!.sql).toContain("{{RUNORY_TABLE_PREFIX}}workspace_memberships");
+    expect(saasCore!.sql).toContain("SET role = 'admin' WHERE role = 'owner'");
   });
 
   it("0002_saas_core enforces workspace role constraint without owner", () => {

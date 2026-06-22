@@ -15,6 +15,25 @@ importers:
         specifier: ^5.9.3
         version: 5.9.3
 
+  apps/cli:
+    dependencies:
+      '@runory/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
+      '@runory/sdk':
+        specifier: workspace:*
+        version: link:../../packages/sdk
+    devDependencies:
+      '@types/node':
+        specifier: ^24.10.1
+        version: 24.13.2
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      vitest:
+        specifier: ^3.2.4
+        version: 3.2.6(@types/node@24.13.2)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.22.4)(yaml@2.9.0)
+
   apps/cloud:
     dependencies:
       '@libsql/client':
@@ -110,10 +129,54 @@ importers:
       '@runory/contracts':
         specifier: workspace:*
         version: link:../contracts
+      semver:
+        specifier: ^7.6.3
+        version: 7.8.4
       yaml:
         specifier: ^2.8.0
         version: 2.9.0
     devDependencies:
+      '@types/semver':
+        specifier: ^7.5.8
+        version: 7.7.1
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      vitest:
+        specifier: ^3.2.4
+        version: 3.2.6(@types/node@24.13.2)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.22.4)(yaml@2.9.0)
+
+  packages/sdk:
+    dependencies:
+      '@runory/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      zod:
+        specifier: ^3.25.76
+        version: 3.25.76
+    devDependencies:
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      vitest:
+        specifier: ^3.2.4
+        version: 3.2.6(@types/node@24.13.2)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.22.4)(yaml@2.9.0)
+
+  packages/sdk-testing:
+    dependencies:
+      '@runory/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      '@runory/platform-core':
+        specifier: workspace:*
+        version: link:../platform-core
+      '@runory/sdk':
+        specifier: workspace:*
+        version: link:../sdk
+    devDependencies:
+      '@types/node':
+        specifier: ^24.10.1
+        version: 24.13.2
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
@@ -994,6 +1057,9 @@ packages:
 
   '@types/react@19.2.17':
     resolution: {integrity: sha512-MXfmqaVPEVgkBT/aY0aGCkRWWtByiYQXo3xdQ8r5RzuFrPiRn8Gar2tQdXSUQ2GKV3bkXckek89V8wQBY2Q/Aw==}
+
+  '@types/semver@7.7.1':
+    resolution: {integrity: sha512-FmgJfu+MOcQ370SD0ev7EI8TlCAfKYU+B4m5T3yXc1CiRN94g/SZPtsCkk506aUDtlMnFZvasDwHHUcZUEaYuA==}
 
   '@types/ws@8.18.1':
     resolution: {integrity: sha512-ThVF6DCVhA8kUGy+aazFQ4kXQ7E1Ty7A3ypFOe0IcJV8O/M511G99AW24irKrW56Wt44yG9+ij8FaqoBGkuBXg==}
@@ -2407,6 +2473,8 @@ snapshots:
     dependencies:
       csstype: 3.2.3
 
+  '@types/semver@7.7.1': {}
+
   '@types/ws@8.18.1':
     dependencies:
       '@types/node': 24.13.2
@@ -3035,8 +3103,7 @@ snapshots:
 
   scheduler@0.27.0: {}
 
-  semver@7.8.4:
-    optional: true
+  semver@7.8.4: {}
 
   send@1.2.1:
     dependencies:

@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { createWorkspace, listUserWorkspaces } from "@runory/platform-core";
+import { createWorkspace, listUserWorkspaces, enforceQuota } from "@runory/platform-core";
 import { getRequestActor, getCurrentPrincipal } from "@/lib/auth";
 import { successResponse, handleError, invalidInput, getOrCreateRequestId } from "@/lib/http";
 
@@ -23,10 +23,11 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const requestId = getOrCreateRequestId(request.headers.get("x-request-id"));
   try {
-    const body = (await request.json()) as { name?: string; templateId?: string };
+    const body = (await request.json()) as { name?: string; templateId?: string; organizationId?: string };
     if (!body.name || typeof body.name !== "string") {
       return invalidInput("name is required", requestId);
     }
+    if (body.organizationId) await enforceQuota(body.organizationId, "workspaces");
     const workspace = await createWorkspace(body.name, body.templateId, await getRequestActor(request));
     return successResponse(workspace, 201, requestId);
   } catch (e) {

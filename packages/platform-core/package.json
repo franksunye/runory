@@ -13,9 +13,11 @@
   "dependencies": {
     "@libsql/client": "^0.17.3",
     "@runory/contracts": "workspace:*",
+    "semver": "^7.6.3",
     "yaml": "^2.8.0"
   },
   "devDependencies": {
+    "@types/semver": "^7.5.8",
     "typescript": "^5.9.3",
     "vitest": "^3.2.4"
   }

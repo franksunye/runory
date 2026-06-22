@@ -200,9 +200,11 @@ CREATE TABLE IF NOT EXISTS {{RUNORY_TABLE_PREFIX}}extension_field_values (
   UNIQUE(workspace_id, object_key, record_id, field_key)
 );
 
--- ── Business Tables (created by module migrations) ──
--- These are created dynamically by the installer when a module is installed.
--- The installer reads the module's migrations/install.sql and executes it.
--- Business tables do NOT use the runory_ prefix — they use the object key directly
--- (e.g., "customer", "contact") to allow natural SQL queries.
--- If isolation is needed, set RUNORY_BUSINESS_TABLE_PREFIX env var.
+-- ── Business Tables (created by module migrations or platform migrations in Cloud mode) ──
+-- Local mode: created dynamically by the installer when a module is installed.
+-- Cloud mode: pre-created at deploy time via migration 0008_business_tables_cloud.sql.
+-- Business tables use {{BUSINESS_TABLE_PREFIX}} placeholder (default: runory_business_).
+--
+-- Historical bootstrap reference only. Immutable migrations are authoritative.
+-- Migration 0011 separates sys_, saas_, runory_runtime_, runory_catalog_, and
+-- runory_business_ ownership. See docs/architecture/database-namespaces.md.

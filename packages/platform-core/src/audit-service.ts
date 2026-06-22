@@ -40,7 +40,23 @@ export type AuditAction =
   | "record.update"
   | "record.delete"
   | "entitlement.update"
-  | "quota.exceeded";
+  | "quota.exceeded"
+  // Catalog & Release Control Plane (docs/09 §17)
+  | "catalog.candidate_import"
+  | "catalog.version_freeze"
+  | "catalog.version_reject"
+  | "catalog.validation_run"
+  | "catalog.release_promote"
+  | "catalog.release_deprecate"
+  | "catalog.release_withdraw"
+  | "catalog.rollout_create"
+  | "catalog.rollout_pause"
+  | "catalog.rollout_resume"
+  | "catalog.rollout_cancel"
+  | "module.install"
+  | "module.upgrade"
+  | "module.upgrade_failed"
+  | "module.compatibility_override";
 
 export interface AuditEventInput {
   workspaceId: string;

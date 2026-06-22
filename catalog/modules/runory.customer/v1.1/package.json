@@ -1,0 +1,15 @@
+{
+  "name": "runory-customer-v1.1",
+  "version": "1.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "validate": "runory validate --entry src/module.ts --type module --json",
+    "build": "runory build --entry src/module.ts --type module --out dist --json",
+    "test": "runory test --json"
+  },
+  "dependencies": {
+    "@runory/sdk": "workspace:*",
+    "@runory/contracts": "workspace:*"
+  }
+}

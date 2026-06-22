@@ -1,16 +1,19 @@
 # Runory Module SDK
 
-Status: Draft v0.2  
-Date: 2026-06-18  
+Status: Draft v0.3
+Date: 2026-06-22
 Change: Cloud-first pivot — see [../04-architecture-pivot-cloud-first.md](../04-architecture-pivot-cloud-first.md)
 
 ## 1. Purpose
 
 The Module SDK defines how Official Modules expose stable capabilities to Platform Core, Built-in Agent, MCP / SDK clients, schema-driven UI, and Managed Workspace Extensions.
 
+This document defines the Module contract. The SDK as a developer product—including packages, CLI, testing harness, local/Cloud boundary, Agent Skill, and v0.1 delivery plan—is defined in [../10-runory-sdk-product.md](../10-runory-sdk-product.md).
+
 Modules are **technical install units**. Business Packs combine modules; Workspace Templates define experience entry.
 
 Workspace Extension architecture: [../architecture/workspace-extension-architecture.md](../architecture/workspace-extension-architecture.md).
+Catalog and release lifecycle: [../09-catalog-release-control-plane.md](../09-catalog-release-control-plane.md).
 
 ## 2. Module Manifest（完整示例）
 
@@ -18,6 +21,7 @@ Workspace Extension architecture: [../architecture/workspace-extension-architect
 id: runory.expense
 name: Expense Management
 version: 1.0.0
+manifestSchemaVersion: "1.0"
 coreCompatibility: ">=1.0.0 <2.0.0"
 
 dependencies:
@@ -106,6 +110,10 @@ marketplace:
   category: finance
   license: runory_official
   publisher: runory
+
+releaseCompatibility:
+  previousStable: 0.9.0
+  automaticUpgrade: patch_only
 ```
 
 ## 3. Pack Manifest（示例）
@@ -279,3 +287,20 @@ data ownership declarations
 ```
 
 Even MVP modules should populate official marketplace fields for forward compatibility.
+
+## 13. Build and Release Contract
+
+The SDK source manifest is build input, not the production Registry record. CI packages Manifest, migrations, schemas, assets, documentation, and provenance into an immutable artifact with SHA-256 checksum.
+
+```text
+source manifest
+→ SDK validation
+→ immutable artifact
+→ Cloud Registry candidate
+→ validation + Sandbox
+→ Internal / Beta / Stable release
+```
+
+After a Catalog Version reaches `ready`, the artifact and Manifest cannot be replaced. Any fix requires a new SemVer version. Pack release resolves dependency ranges once and stores a frozen lock; Workspace install uses that lock rather than resolving current latest versions.
+
+Platform release commands and Workspace installation commands are governed APIs. Agent tools may generate plans, diffs, validation explanations, and release notes, but Stable release requires an authorized human Release Manager.

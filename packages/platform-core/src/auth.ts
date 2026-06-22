@@ -1,6 +1,7 @@
 import { createHash, randomBytes, randomInt, timingSafeEqual } from "node:crypto";
 import { batch, execute, genId, now, queryAll, queryOne } from "./db";
 import { TABLES } from "./contracts";
+import { getMailProviderUrl, getSessionCookieName } from "./platform-config";
 import {
   ConflictError,
   RateLimitError,
@@ -547,21 +548,38 @@ async function sendOtpEmail(email: string, code: string): Promise<void> {
     return;
   }
 
-  // Production: integrate with email provider
-  // For now, this is a stub. Phase 1 deliverable: "mail provider adapter and dev mail sink"
-  const providerUrl = process.env.RUNORY_MAIL_PROVIDER_URL;
+  const providerUrl = getMailProviderUrl();
   if (!providerUrl) {
-    console.error("[MAIL] No mail provider configured. OTP not sent.");
-    return;
+    console.error("[MAIL] No mail provider configured. Set PLATFORM_MAIL_PROVIDER_URL.");
+    throw new Error("Mail provider not configured");
   }
 
-  // TODO: implement real email provider call
-  console.log(`[MAIL] OTP email queued for ${email}`);
+  // Call external mail provider via HTTP
+  // Provider API contract: POST {url} with JSON body { to, subject, html, text }
+  // Expected response: 2xx status code
+  const response = await fetch(providerUrl, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      to: email,
+      subject: "Runory 登录验证码",
+      text: `您的验证码是：${code}\n\n验证码将在 ${OTP_TTL_MINUTES} 分钟后过期。\n\n如果不是您本人操作，请忽略此邮件。`,
+      html: `<div style="font-family: sans-serif; max-width: 400px; margin: 0 auto;"><h2>Runory 登录验证码</h2><p style="font-size: 32px; font-weight: bold; letter-spacing: 4px; color: #2563eb;">${code}</p><p style="color: #64748b;">验证码将在 ${OTP_TTL_MINUTES} 分钟后过期。</p><p style="color: #94a3b8; font-size: 12px;">如果不是您本人操作，请忽略此邮件。</p></div>`,
+    }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text().catch(() => "unknown error");
+    console.error(`[MAIL] Provider returned ${response.status}: ${errorText}`);
+    throw new Error(`Mail provider error: ${response.status}`);
+  }
+
+  console.log(`[MAIL] OTP email sent to ${email}`);
 }
 
 // ── Cookie Helpers ──
 
-export const SESSION_COOKIE_NAME = "runory_session";
+export const SESSION_COOKIE_NAME = getSessionCookieName();
 
 export interface CookieOptions {
   httpOnly: boolean;

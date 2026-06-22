@@ -165,6 +165,30 @@ Stripe Billing, Checkout, Webhooks, and Customer Portal handle payment and subsc
 
 Platform, Module, and Workspace Extension migrations are tracked separately. Published migration files are immutable and checksummed. Production schema changes run through deployment jobs and use expand-migrate-contract for destructive evolution.
 
+## ADR-031: Production capabilities come from an immutable Cloud Catalog
+
+Official/Internal Module, Pack, and Template source remains in Git, but production Workspace install and upgrade use immutable, checksummed Catalog Versions. Versions pass structured validation and Sandbox testing before Internal/Beta/Stable promotion. Pack releases freeze a resolved dependency lock. UI and Agent use the same governed release/install commands; Stable promotion requires an authorized human Release Manager.
+
+Detailed specification: [../09-catalog-release-control-plane.md](../09-catalog-release-control-plane.md).
+
+## ADR-032: Runory SDK is a developer product separated from private Platform Core
+
+Runory SDK provides typed Module/Pack/Template authoring, validation, testing, artifact building, and Internal candidate publishing. Local validate/test/build works without Cloud; Cloud remains responsible for Registry validation, release approval, and rollout. Public SDK packages must not expose private repositories or database clients. Stable release has no SDK/CLI bypass.
+
+Detailed specification: [../10-runory-sdk-product.md](../10-runory-sdk-product.md).
+
+## ADR-033: Database namespaces express subsystem ownership
+
+Tables use `sys_*` for database infrastructure, `saas_*` for reusable SaaS Core, `runory_runtime_*` for the Runory capability runtime, `runory_catalog_*` for the Catalog and release control plane, and `runory_business_*` for Module-owned business records. The former `platform_*` namespace is deprecated because it mixed portable SaaS primitives with Runory-specific subsystems.
+
+Detailed specification: [database-namespaces.md](database-namespaces.md).
+
+## ADR-034: English is the source and default product locale
+
+Runory is internationalized from the first Cloud release. English (`en`) is the required source and default locale; Simplified Chinese (`zh`) is the first additional locale. Stable IDs, schema keys, APIs, and database values remain locale-neutral, while user-facing copy and Catalog presentation metadata use typed locale resources with field-level English fallback.
+
+Detailed specification: [internationalization.md](internationalization.md).
+
 The complete SaaS rationale, deferred scope, and acceptance definition are maintained in [../07-saas-core-boundaries.md](../07-saas-core-boundaries.md).
 
 ## Deprecated / Historical

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   Building2, ChevronDown, ContactRound, FileText, LayoutDashboard,
-  Menu, ScrollText, Settings, UsersRound, X,
+  LayoutGrid, Menu, ScrollText, Settings, UsersRound, X,
 } from "lucide-react";
 import { useState } from "react";
 import type { NavigationItem } from "@runory/platform-core";
@@ -23,6 +23,7 @@ export default function NavigationShell({ navigation, workspaceId, workspaceName
   const [mobileOpen, setMobileOpen] = useState(false);
   const items = [
     { id: "dashboard", label: "仪表盘", route: "/dashboard", icon: LayoutDashboard, sortOrder: 10 },
+    { id: "modules", label: "模块中心", route: "/modules", icon: LayoutGrid, sortOrder: 20 },
     ...navigation.map((item) => ({ ...item, icon: iconMap[item.icon as keyof typeof iconMap] ?? FileText })),
     { id: "audit", label: "审计日志", route: "/audit", icon: ScrollText, sortOrder: 90 },
     { id: "settings", label: "设置", route: "/settings", icon: Settings, sortOrder: 100 },
