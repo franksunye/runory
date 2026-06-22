@@ -150,5 +150,7 @@ Runory Core
 * [architecture/workspace-extension-architecture.md](architecture/workspace-extension-architecture.md)
 * [specifications/extension-manifest-spec.md](specifications/extension-manifest-spec.md)
 * [sdk/module-sdk.md](sdk/module-sdk.md)
+* [07-saas-core-boundaries.md](07-saas-core-boundaries.md)
+* [08-saas-core-implementation-plan.md](08-saas-core-implementation-plan.md)
 
 当前仓库中的 **Local Runtime POC 代码** 已归档到 `experiments/local-v1`，保留为 Portable Runtime 原型与开发沙箱，不再代表产品默认形态。详见 [01-poc-execution-plan.md](01-poc-execution-plan.md)。

@@ -1,19 +1,21 @@
-import { NextRequest, NextResponse } from "next/server";
-import { ok, err } from "@runory/contracts";
+import { NextRequest } from "next/server";
 import { getViews } from "@runory/platform-core";
+import { requireWorkspaceAccess } from "@/lib/auth";
+import { successResponse, handleError, getOrCreateRequestId } from "@/lib/http";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string; objectKey: string }> }
 ) {
+  const requestId = getOrCreateRequestId(request.headers.get("x-request-id"));
   try {
     const { id, objectKey } = await params;
-    const views = await getViews(id, objectKey);
-    return NextResponse.json(ok(views));
+    const { workspaceId } = await requireWorkspaceAccess(request, id);
+    const views = await getViews(workspaceId, objectKey);
+    return successResponse(views, 200, requestId);
   } catch (e) {
-    const message = e instanceof Error ? e.message : "Unknown error";
-    return NextResponse.json(err("VIEWS_FETCH_FAILED", message), { status: 500 });
+    return handleError(e, requestId);
   }
 }

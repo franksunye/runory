@@ -1,7 +1,7 @@
 # Runory 架构说明
 
-Status: Draft v0.2  
-Date: 2026-06-18  
+Status: Draft v0.3
+Date: 2026-06-22
 Change: Cloud-first pivot — see [04-architecture-pivot-cloud-first.md](04-architecture-pivot-cloud-first.md)
 
 ## 1. 产品定义
@@ -112,6 +112,27 @@ API / Webhook / MCP Interface
 > Core 不负责「某类企业怎么经营」，Core 负责「业务能力如何被定义、安装、组合、扩展、升级和运行」。
 
 这与 WordPress Core 的逻辑类似：WordPress Core 不决定用户建什么网站；Runory Core 不决定用户经营什么业务。
+
+### SaaS Core Boundary
+
+Runory Cloud 的 SaaS Core 使用以下边界：
+
+```text
+Email OTP + Server Session
+→ Organization（tenant / ownership / membership / billing）
+→ Workspace（business data / module / extension / audit）
+→ RequestContext + Authorized Service
+→ Repository / Turso-libSQL
+```
+
+- 一个 User 可加入多个 Organization；一个 Organization 可拥有多个 Workspace。
+- Organization 角色为 `owner/admin/member`；Workspace 角色为 `admin/member/viewer`。
+- 当前通过直接 Workspace Membership 授权；Team 只做架构预留，不进入当前产品。
+- 所有 HTTP、MCP、Agent、Webhook 和后台任务必须经过同一 RequestContext 与授权策略。
+- 当前采用共享数据库、共享表和强制 `workspace_id` 隔离。
+- Plan、Entitlement、Usage 与 Billing 分离，业务模块不得直接判断套餐名。
+
+完整边界与验收定义见 [07-saas-core-boundaries.md](07-saas-core-boundaries.md)，实施顺序见 [08-saas-core-implementation-plan.md](08-saas-core-implementation-plan.md)。
 
 ### Official Business Modules
 
@@ -259,6 +280,8 @@ Turso/libSQL + Object Storage + Queue / Async Jobs
 Portable Runtime（Local / Private）可使用 SQLite + Local Files，通过 Adapter 抽象云服务依赖。
 
 所有写操作必须经过 Runory Business Engine。
+
+所有业务读取同样必须经过 Authorized Service，并同时约束 Workspace scope 与 resource ID。Cache、文件、事件和异步任务也属于租户隔离范围，不能只保护 SQL。
 
 ## 7. MCP 与 Codex 定位
 

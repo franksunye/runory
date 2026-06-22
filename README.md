@@ -11,6 +11,9 @@ Runory is a **Cloud-first, Agent-native SMB business platform**—a composable b
 | [docs/04-architecture-pivot-cloud-first.md](docs/04-architecture-pivot-cloud-first.md) | **Architecture pivot** — Cloud-first / Cloud to Local |
 | [docs/02-vision.md](docs/02-vision.md) | Product vision and roadmap |
 | [docs/03-architecture.md](docs/03-architecture.md) | Architecture overview |
+| [docs/07-saas-core-boundaries.md](docs/07-saas-core-boundaries.md) | **SaaS Core decisions and scope boundaries** |
+| [docs/08-saas-core-implementation-plan.md](docs/08-saas-core-implementation-plan.md) | **Phased SaaS Core implementation and acceptance plan** |
+| [docs/06-next-steps-roadmap.md](docs/06-next-steps-roadmap.md) | Current cross-domain roadmap |
 | [docs/01-poc-execution-plan.md](docs/01-poc-execution-plan.md) | POC execution plan（Cloud-first） |
 | [docs/product/product-definition.md](docs/product/product-definition.md) | Product definition |
 | [docs/architecture/overview.md](docs/architecture/overview.md) | Architecture entry point |
@@ -55,4 +58,4 @@ pnpm mcp             # MCP stdio adapter
 
 The historical Local V1 prototype lives under `experiments/local-v1` and is not part of the active workspace.
 
-See [docs/01-poc-execution-plan.md](docs/01-poc-execution-plan.md) for Cloud POC priorities.
+See [docs/08-saas-core-implementation-plan.md](docs/08-saas-core-implementation-plan.md) for current SaaS Core priorities. The POC plan is retained as historical context.

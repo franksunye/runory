@@ -2,7 +2,7 @@
 
 Status: Draft v0.2  
 Date: 2026-06-18  
-Supersedes: [local-to-cloud-workspace.md](local-to-cloud-workspace.md) (deprecated)  
+Supersedes the deprecated `local-to-cloud-workspace.md` document, which is no longer present in the active documentation set.
 Change: Cloud-first pivot — see [../04-architecture-pivot-cloud-first.md](../04-architecture-pivot-cloud-first.md)
 
 ## 1. Core Position

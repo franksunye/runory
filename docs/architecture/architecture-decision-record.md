@@ -1,7 +1,7 @@
 # Runory Architecture Decision Record
 
-Status: Draft v0.2  
-Date: 2026-06-18  
+Status: Draft v0.3
+Date: 2026-06-22
 Change: Cloud-first pivot — see [../04-architecture-pivot-cloud-first.md](../04-architecture-pivot-cloud-first.md)
 
 This document records architecture decisions that should not change casually. If a future implementation needs to break one, it should add a new ADR entry explaining the replacement decision and migration impact.
@@ -132,6 +132,40 @@ Templates control navigation, homepage, dashboard layout, role-based entry, term
 ## ADR-022: Core must stay small
 
 Platform Core owns workspace platform capabilities (object model, workflow runtime, audit, module lifecycle, extension boundary)—not industry-specific business logic. Business logic belongs to Modules and Packs.
+
+## ADR-023: Early authentication uses passwordless Email OTP
+
+Runory owns User, AuthIdentity, OTP challenge, server-side Session, and authorization models. Email delivery uses an external provider. Passwords, social OAuth, MFA, and enterprise SSO are deferred.
+
+## ADR-024: Organization is the tenant; Workspace is the business data boundary
+
+Organization owns membership, security, Billing, Entitlement, and one or more Workspaces. Workspace owns business records, modules, extensions, files, events, and audit scope. A Workspace belongs to exactly one Organization.
+
+## ADR-025: Team is deferred but the authorization model remains principal-ready
+
+Current access uses direct User-to-Workspace Membership. A future Team may group Organization users and receive Workspace grants, but it will not become a tenant, billing, or data ownership boundary.
+
+## ADR-026: SaaS authorization uses fixed RBAC and a server-derived RequestContext
+
+Organization roles are `owner/admin/member`; Workspace roles are `admin/member/viewer`. HTTP, MCP, Agent, Webhook, and background jobs must derive identity and tenant scope on the server and pass through the same Authorization Policy and Authorized Service layer.
+
+## ADR-027: Shared tables use mandatory Workspace isolation
+
+Early Cloud uses shared Turso/libSQL tables with mandatory `workspace_id` scoping. Record lookup, unique constraints, cache keys, files, events, exports, and jobs must preserve tenant scope. Per-tenant databases and field/record ACL are deferred.
+
+## ADR-028: Product access is entitlement-driven, not plan-name-driven
+
+Plan, Entitlement, Quota, and Usage are separate concepts. Business modules ask the Entitlement Service for features and limits and do not branch on commercial plan names. Initial users receive an internal `early_access` entitlement.
+
+## ADR-029: Stripe is the subscription source; Runory is the entitlement source
+
+Stripe Billing, Checkout, Webhooks, and Customer Portal handle payment and subscription lifecycle. Runory maps the subscription to Organization Entitlements. Verified, idempotent Webhooks—not client redirects—change paid access.
+
+## ADR-030: Schema migrations are immutable and versioned
+
+Platform, Module, and Workspace Extension migrations are tracked separately. Published migration files are immutable and checksummed. Production schema changes run through deployment jobs and use expand-migrate-contract for destructive evolution.
+
+The complete SaaS rationale, deferred scope, and acceptance definition are maintained in [../07-saas-core-boundaries.md](../07-saas-core-boundaries.md).
 
 ## Deprecated / Historical
 

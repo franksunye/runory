@@ -1,22 +1,24 @@
-import { NextRequest, NextResponse } from "next/server";
-import { ok, err } from "@runory/contracts";
-import { getWorkspace } from "@runory/platform-core";
+import { NextRequest } from "next/server";
+import { getWorkspace, NotFoundError } from "@runory/platform-core";
+import { requireWorkspaceAccess } from "@/lib/auth";
+import { successResponse, handleError, notFound, getOrCreateRequestId } from "@/lib/http";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const requestId = getOrCreateRequestId(request.headers.get("x-request-id"));
   try {
     const { id } = await params;
+    await requireWorkspaceAccess(request, id);
     const workspace = await getWorkspace(id);
     if (!workspace) {
-      return NextResponse.json(err("WORKSPACE_NOT_FOUND", `Workspace ${id} not found`), { status: 404 });
+      return notFound(`Workspace ${id} not found`, requestId);
     }
-    return NextResponse.json(ok(workspace));
+    return successResponse(workspace, 200, requestId);
   } catch (e) {
-    const message = e instanceof Error ? e.message : "Unknown error";
-    return NextResponse.json(err("WORKSPACE_FETCH_FAILED", message), { status: 500 });
+    return handleError(e, requestId);
   }
 }

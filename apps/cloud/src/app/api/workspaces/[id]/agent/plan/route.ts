@@ -1,6 +1,8 @@
-import { NextRequest, NextResponse } from "next/server";
-import { ok, err, extensionPlanSchema, type ExtensionPlan } from "@runory/contracts";
+import { NextRequest } from "next/server";
+import { extensionPlanSchema, type ExtensionPlan } from "@runory/contracts";
 import { validateExtensionPlan } from "@runory/platform-core";
+import { requireWorkspaceAccess } from "@/lib/auth";
+import { successResponse, handleError, invalidInput, getOrCreateRequestId } from "@/lib/http";
 
 export const dynamic = "force-dynamic";
 
@@ -8,19 +10,20 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const requestId = getOrCreateRequestId(request.headers.get("x-request-id"));
   try {
     const { id } = await params;
+    const { workspaceId } = await requireWorkspaceAccess(request, id, "admin");
     const body = await request.json();
     const parsed = extensionPlanSchema.safeParse(body);
     if (!parsed.success) {
       const errors = parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`);
-      return NextResponse.json(ok({ valid: false, errors }));
+      return invalidInput(errors.join("; "), requestId);
     }
     const plan = parsed.data as ExtensionPlan;
-    const result = await validateExtensionPlan(id, plan);
-    return NextResponse.json(ok(result));
+    const result = await validateExtensionPlan(workspaceId, plan);
+    return successResponse(result, 200, requestId);
   } catch (e) {
-    const message = e instanceof Error ? e.message : "Unknown error";
-    return NextResponse.json(err("PLAN_VALIDATE_FAILED", message), { status: 500 });
+    return handleError(e, requestId);
   }
 }

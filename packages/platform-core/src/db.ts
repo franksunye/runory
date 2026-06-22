@@ -1,6 +1,6 @@
 import { createClient, type Client } from "@libsql/client";
 import { randomUUID } from "node:crypto";
-import { schemaStatements, tablePrefix } from "./contracts";
+import { runMigrations } from "./migrations";
 
 // ── Lazy Client (Proxy pattern, safe for Next.js hot-reload & next build) ──
 
@@ -33,14 +33,15 @@ export const db: Client = new Proxy({} as Client, {
   },
 });
 
-/** Idempotent schema initialization. Cached on globalThis for hot-reload safety. */
+/**
+ * Versioned migration initialization.
+ * Replaces the old idempotent ensureSchema() with the migration runner.
+ * Cached on globalThis for hot-reload safety.
+ */
 export function ensureSchema(): Promise<void> {
   if (!globalThis.__runorySchemaReady) {
-    const prefix = tablePrefix();
     globalThis.__runorySchemaReady = (async () => {
-      for (const stmt of schemaStatements(prefix)) {
-        await db.execute(stmt);
-      }
+      await runMigrations();
     })();
   }
   return globalThis.__runorySchemaReady;

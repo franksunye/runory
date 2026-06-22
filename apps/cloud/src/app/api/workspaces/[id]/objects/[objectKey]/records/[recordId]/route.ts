@@ -1,23 +1,25 @@
-import { NextRequest, NextResponse } from "next/server";
-import { ok, err } from "@runory/contracts";
+import { NextRequest } from "next/server";
 import { getRecord, updateRecord } from "@runory/platform-core";
+import { requireWorkspaceContext } from "@/lib/auth";
+import { successResponse, handleError, notFound, getOrCreateRequestId } from "@/lib/http";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string; objectKey: string; recordId: string }> }
 ) {
+  const requestId = getOrCreateRequestId(request.headers.get("x-request-id"));
   try {
     const { id, objectKey, recordId } = await params;
-    const record = await getRecord(id, objectKey, recordId);
+    const { ctx, workspaceId } = await requireWorkspaceContext(request, id);
+    const record = await getRecord(workspaceId, objectKey, recordId);
     if (!record) {
-      return NextResponse.json(err("RECORD_NOT_FOUND", `Record ${recordId} not found`), { status: 404 });
+      return notFound(`Record ${recordId} not found`, ctx.requestId);
     }
-    return NextResponse.json(ok(record));
+    return successResponse(record, 200, ctx.requestId);
   } catch (e) {
-    const message = e instanceof Error ? e.message : "Unknown error";
-    return NextResponse.json(err("RECORD_FETCH_FAILED", message), { status: 500 });
+    return handleError(e, requestId);
   }
 }
 
@@ -25,16 +27,17 @@ export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string; objectKey: string; recordId: string }> }
 ) {
+  const requestId = getOrCreateRequestId(request.headers.get("x-request-id"));
   try {
     const { id, objectKey, recordId } = await params;
+    const { ctx, workspaceId } = await requireWorkspaceContext(request, id, "member");
     const data = await request.json() as Record<string, unknown>;
-    const record = await updateRecord(id, objectKey, recordId, data);
+    const record = await updateRecord(workspaceId, objectKey, recordId, data);
     if (!record) {
-      return NextResponse.json(err("RECORD_NOT_FOUND", `Record ${recordId} not found`), { status: 404 });
+      return notFound(`Record ${recordId} not found`, ctx.requestId);
     }
-    return NextResponse.json(ok(record));
+    return successResponse(record, 200, ctx.requestId);
   } catch (e) {
-    const message = e instanceof Error ? e.message : "Unknown error";
-    return NextResponse.json(err("RECORD_UPDATE_FAILED", message), { status: 500 });
+    return handleError(e, requestId);
   }
 }

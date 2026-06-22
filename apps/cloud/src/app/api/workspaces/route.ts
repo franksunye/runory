@@ -1,19 +1,35 @@
-import { NextRequest, NextResponse } from "next/server";
-import { ok, err } from "@runory/contracts";
-import { createWorkspace } from "@runory/platform-core";
+import { NextRequest } from "next/server";
+import { createWorkspace, listUserWorkspaces } from "@runory/platform-core";
+import { getRequestActor, getCurrentPrincipal } from "@/lib/auth";
+import { successResponse, handleError, invalidInput, getOrCreateRequestId } from "@/lib/http";
 
 export const dynamic = "force-dynamic";
 
-export async function POST(request: NextRequest) {
+// GET /api/workspaces — list workspaces accessible to the current user
+export async function GET(request: NextRequest) {
+  const requestId = getOrCreateRequestId(request.headers.get("x-request-id"));
   try {
-    const body = await request.json() as { name?: string; templateId?: string };
-    if (!body.name || typeof body.name !== "string") {
-      return NextResponse.json(err("INVALID_INPUT", "name is required"), { status: 400 });
+    const principal = await getCurrentPrincipal(request);
+    if (!principal) {
+      return successResponse({ workspaces: [] }, 200, requestId);
     }
-    const workspace = await createWorkspace(body.name, body.templateId);
-    return NextResponse.json(ok(workspace), { status: 201 });
+    const workspaces = await listUserWorkspaces(principal.userId);
+    return successResponse({ workspaces }, 200, requestId);
   } catch (e) {
-    const message = e instanceof Error ? e.message : "Unknown error";
-    return NextResponse.json(err("WORKSPACE_CREATE_FAILED", message), { status: 500 });
+    return handleError(e, requestId);
+  }
+}
+
+export async function POST(request: NextRequest) {
+  const requestId = getOrCreateRequestId(request.headers.get("x-request-id"));
+  try {
+    const body = (await request.json()) as { name?: string; templateId?: string };
+    if (!body.name || typeof body.name !== "string") {
+      return invalidInput("name is required", requestId);
+    }
+    const workspace = await createWorkspace(body.name, body.templateId, await getRequestActor(request));
+    return successResponse(workspace, 201, requestId);
+  } catch (e) {
+    return handleError(e, requestId);
   }
 }

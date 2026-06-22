@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useParams } from "next/navigation";
 
 import ExtensionPanel from "@/components/ExtensionPanel";
+import { notifyWorkspaceNavigationChanged } from "@/lib/workspace-events";
 
 const CRM_LITE_PACK_ID = "crm-lite-pack";
 
@@ -71,6 +72,7 @@ export default function SettingsPage() {
           `CRM Lite Pack 安装成功，已创建对象：${json.data.objectsCreated.join(", ")}`
         );
         await loadData();
+        notifyWorkspaceNavigationChanged();
       } else {
         setError(json.error?.message ?? "安装失败");
       }

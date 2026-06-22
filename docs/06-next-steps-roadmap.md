@@ -1,211 +1,117 @@
-# Next Steps: Post-POC Roadmap
+# Runory Next Steps Roadmap
 
-Status: Draft  
-Date: 2026-06-18  
-Prerequisite: Cloud-first POC completed (14/14 acceptance criteria passed)
+Status: Approved v1.0
+Date: 2026-06-22
+Prerequisite: Cloud-first POC completed
+Detailed SaaS plan: [08-saas-core-implementation-plan.md](08-saas-core-implementation-plan.md)
 
-## 1. Current State
+## 1. Current Position
 
-The Cloud-first POC proves the core hypothesis: metadata-driven objects + Agent-governed extensions = running business app without code generation. The full loop works: Workspace → Pack install → Schema-driven UI → Agent Extension (plan/preview/apply/rollback) → Audit → Export.
+Cloud-first POC 已证明核心产品假设：Metadata-driven objects + Agent-governed Workspace Extensions 可以在不生成运行时代码的情况下形成可运行的业务应用。
 
-However, the POC is a local dev prototype. The following gaps must be addressed before it becomes a usable product.
+当前工作从“证明平台假设”进入两个并行方向：
 
-## 2. Immediate Next Steps (Week 1-2)
+```text
+Track A — SaaS Core：让 Cloud 产品可安全上线、协作和商业化
+Track B — Product Runtime：让 CRM Lite 与 Agent 配置形成持续业务价值
+```
 
-### 2.1 Deploy to Vercel + Turso
+SaaS Core 边界以 [07-saas-core-boundaries.md](07-saas-core-boundaries.md) 为准。本文件只维护跨领域优先级，不重复具体安全与数据模型清单。
 
-**Goal**: POC running on real cloud infrastructure.
+## 2. Priority Order
 
-- [ ] Create Turso database, get connection string
-- [x] Replace `better-sqlite3` with `@libsql/client` (Turso's HTTP client)
-- [x] Use one async libSQL persistence path for local SQLite and Cloud Turso
-- [ ] Configure Vercel environment variables (`LIBSQL_URL`, `LIBSQL_AUTH_TOKEN`)
-- [ ] Deploy to Vercel
-- [ ] Verify all 14 acceptance criteria pass on deployed URL
+### P0 — Cloud Safety and Identity
 
-**Resolved risk**: the runtime now uses the async `@libsql/client` path throughout.
+- Consolidate RequestContext、Principal、Role Policy 与版本化 Migration。
+- Email OTP + server-side Session。
+- Organization、Invitation、固定 RBAC 与 Owner invariants。
+- HTTP/MCP/Agent/Job 统一 tenant isolation。
+- Append-only Audit 与 Workspace-scoped API Key。
+- Cross-tenant security regression suite。
 
-### 2.2 Authentication (Minimal)
+完成标准：未认证用户和跨租户用户无法通过任何入口读取或修改数据；多人 Organization 可以完成邀请、授权和移除闭环。
 
-**Goal**: Prevent anonymous access; identify who did what.
+### P0 — Production Operations
 
-- [ ] Add Vercel-compatible auth (NextAuth.js or custom token)
-- [ ] Single-user mode for POC (no multi-tenant yet)
-- [ ] Add `created_by` tracking to all write operations
-- [ ] Audit log shows real user identity
+- Vercel + Turso production deployment。
+- Secret、rate limit、security headers 与 structured errors。
+- Platform migration deployment job。
+- Database backup、真实 restore drill 与 incident runbooks。
+- Workspace export、archive、restore 与 purge 基础。
+- Browser E2E、observability 与 production readiness gate。
 
-### 2.3 MCP Server on Cloudflare Workers
+完成标准：可以从备份恢复服务，并重新通过 tenant isolation 和核心业务测试。
 
-**Goal**: Personal Agents can connect to Cloud Runory via HTTP MCP.
+### P1 — SaaS Commercialization
 
-- [ ] Create Cloudflare Worker that proxies MCP requests to Runory API
-- [ ] Use MCP HTTP transport (not stdio) for cloud
-- [ ] Add API key authentication for MCP endpoints
-- [ ] Update SKILL.md with cloud MCP configuration
+- `early_access` Entitlement。
+- Quota 与幂等 Usage Metering。
+- Stripe Checkout、Subscription Webhook 与 Customer Portal。
+- Billing failure grace period 和安全降级。
 
-## 3. Short-term (Week 3-4)
+完成标准：套餐变化不修改业务模块；重复或伪造 Billing 事件不能错误授予权益。
 
-### 3.1 Multi-tenant Isolation
+### P1 — Product Runtime
 
-**Goal**: Each workspace is isolated; `workspace_id` enforced everywhere.
+- Contact full CRUD 与 Customer relation。
+- Template-driven navigation/dashboard/terminology。
+- Extension beyond custom field：view order、filter、section。
+- Built-in Agent 的最小受控配置入口。
+- SSE 或 SWR revalidation，变更后 UI 在 2 秒内更新。
 
-- [ ] Add `workspace_id` to ALL queries (currently only on most)
-- [ ] Implement Row-Level Security pattern (application-level for SQLite/Turso)
-- [ ] Workspace-scoped API keys
-- [ ] User → Workspace membership table
+完成标准：真实 SMB 可通过 Cloud UI 持续使用 CRM Lite，并通过 Agent 安全完成常见配置。
 
-### 3.2 Real-time Updates
+### P2 — Platform Expansion
 
-**Goal**: UI updates without manual refresh after extension apply/rollback.
+- Workflow Runtime 与 approval queue。
+- Module package、compatibility 与 registry。
+- Marketplace read path。
+- Async jobs for export、retention 与 usage rollup。
+- Module SDK 与发布工具。
 
-- [ ] Replace polling with SSE (Vercel supports streaming)
-- [ ] Or use Vercel's `useSWR` with revalidation hooks
-- [ ] Event bus pattern: write operation → publish event → SSE stream → UI re-fetch
+### Deferred — Requires New ADR
 
-### 3.3 Extension: Custom View (Beyond Custom Field)
+- Team。
+- Custom roles、field/record ACL。
+- OIDC、SAML、SCIM。
+- Service Account。
+- Seat/usage-overage Billing 与复杂 Add-on。
+- Private/VPC/On-premise production delivery。
+- Data residency、per-tenant database 与 advanced compliance controls。
 
-**Goal**: Prove extension points beyond fields.
+## 3. Milestone Gates
 
-- [ ] Allow Agent to add a new view section (not just a field in existing section)
-- [ ] Allow Agent to reorder columns
-- [ ] Allow Agent to add a filter to list view
-- [ ] Update Extension Plan schema to support view operations
+| Milestone | Required Outcome |
+| --- | --- |
+| M1 Identity | Email OTP、Session、首次 Organization/Workspace onboarding 通过 E2E |
+| M2 Collaboration | Invitation、RBAC、Owner transfer 与 immediate revoke 完整 |
+| M3 Isolation | HTTP/MCP/Agent/Job 跨租户测试在 CI 强制通过 |
+| M4 Trust | Audit、API Key、rate limit、structured security errors 完成 |
+| M5 Operations | Migration、backup restore、export/deletion runbook 完成 |
+| M6 Commercial | Entitlement、Usage、Stripe sandbox subscription loop 完成 |
+| M7 Public Launch | Production readiness gate 全部通过 |
 
-### 3.4 Contact Module Full CRUD
+## 4. Active Technical Debt
 
-**Goal**: Prove the pattern works for multiple objects.
-
-- [ ] Contact list page (schema-driven, already works)
-- [ ] Contact form (create/edit)
-- [ ] Contact detail page
-- [ ] Customer → Contact relationship (foreign key navigation)
-
-## 4. Medium-term (Week 5-8)
-
-### 4.1 Workflow Runtime (V2 Feature)
-
-**Goal**: Agent can create simple approval workflows.
-
-- [ ] Workflow definition table (trigger, steps, approvers)
-- [ ] Workflow execution engine
-- [ ] Agent MCP tool: `runory.workflow.create`
-- [ ] UI: pending approvals widget
-- [ ] Audit log for workflow actions
-
-### 4.2 Marketplace Foundation
-
-**Goal**: Third-party modules can be published and installed.
-
-- [ ] Module packaging format (tarball with manifest + migrations)
-- [ ] Module registry (GitHub-based or simple API)
-- [ ] Install from URL
-- [ ] Version compatibility checking
-- [ ] Module dependency resolution
-
-### 4.3 Template System
-
-**Goal**: Templates provide complete business experience out of the box.
-
-- [ ] Template application on workspace creation
-- [ ] Template-driven navigation ordering
-- [ ] Template-driven dashboard layout
-- [ ] Template terminology mapping (e.g., "customer" → "客户")
-- [ ] Template role-based entry pages
-
-### 4.4 Cloudflare Workers Integration
-
-**Goal**: Background jobs and scheduled tasks.
-
-- [ ] Usage metering (record count, API calls per workspace)
-- [ ] Audit log cleanup (retain 90 days)
-- [ ] Export bundle generation (async, stored in R2)
-- [ ] Workspace backup to R2
-
-## 5. Long-term (Month 3+)
-
-### 5.1 Private / Local Deployment
-
-**Goal**: Runory can be self-hosted with cloud export/import.
-
-- [ ] Workspace export package format (JSON + SQLite dump)
-- [ ] Local Runtime (based on the archived `experiments/local-v1` prototype and shared Platform Core)
-- [ ] Import workspace package to local
-- [ ] Sync conflict resolution (cloud as source of truth)
-
-### 5.2 Module SDK
-
-**Goal**: Developers can build and publish Runory modules.
-
-- [ ] Module scaffolding CLI (`npx create-runory-module`)
-- [ ] Module test framework
-- [ ] Module documentation generator
-- [ ] Module publishing pipeline (GitHub Actions → registry)
-
-### 5.3 Advanced Extension Types
-
-**Goal**: Extensions beyond custom fields.
-
-- [ ] Custom relations (link objects)
-- [ ] Custom actions (buttons that trigger workflows)
-- [ ] Custom validation rules
-- [ ] Custom UI widgets (within governed slots)
-- [ ] Computed fields (formula-based)
-
-### 5.4 Enterprise Features
-
-- [ ] SSO (SAML, OIDC)
-- [ ] Role-based access control (RBAC)
-- [ ] Audit log export and compliance reporting
-- [ ] Data residency options
-- [ ] API rate limiting
-
-## 6. Technical Debt To Address
-
-| Item | Priority | Description |
-|------|----------|-------------|
-| Async DB layer | Completed | All active Cloud paths use `@libsql/client` for Turso/local SQLite |
-| Error handling | High | Standardize error codes and messages across all API routes |
-| Test coverage | High | Add unit tests for installer, extension runtime, metadata |
-| Type safety | Medium | Strengthen TypeScript types in metadata.ts (currently uses `any` in places) |
-| API validation | Medium | Add request body validation (Zod) to all POST/PUT routes |
-| UI polish | Medium | Loading states, error states, empty states need improvement |
-| MCP auth | High | MCP server currently has no authentication |
-| Migration system | Medium | No versioned migration system; schema is created on first run |
-
-## 7. Decision Points
-
-### D1: Database Driver Abstraction
-
-Should we create a `DatabaseDriver` interface now, or wait until we need to support both SQLite and Turso?
-
-**Recommendation**: Do it now. The async migration is inevitable, and abstracting early prevents touching every file twice.
-
-### D2: Auth Strategy
-
-NextAuth.js (full-featured, heavier) vs custom token (minimal, lighter)?
-
-**Recommendation**: Custom token for POC. NextAuth.js when we need OAuth/SSO.
-
-### D3: Real-time Strategy
-
-SSE (Vercel native, unidirectional) vs WebSocket (needs external service, bidirectional)?
-
-**Recommendation**: SSE for now. WebSocket only if we need real-time collaboration.
-
-### D4: Module Distribution
-
-GitHub-based registry (simple, free) vs custom registry API (flexible, costly)?
-
-**Recommendation**: GitHub-based for v1. Custom registry when Marketplace launches.
-
-## 8. Success Metrics for Next Phase
-
-| Metric | Target | How to measure |
-|--------|--------|----------------|
-| Deployed on Vercel + Turso | Yes | URL accessible, all tests pass |
-| Auth working | Yes | Cannot access without token |
-| MCP cloud endpoint | Yes | Personal Agent can connect remotely |
-| Multi-tenant safe | Yes | Cross-workspace data leak test passes |
-| Real-time UI update | < 2s | Extension apply → field visible in < 2s |
-| Contact CRUD complete | Yes | Create, edit, view, delete contacts |
-| Unit test coverage | > 60% | `vitest --coverage` |
+| Item | Priority | Resolution Phase |
+| --- | --- | --- |
+| Trusted identity headers are temporary | P0 | SaaS Phase 1 |
+| Workspace role still contains POC `owner` semantics | P0 | SaaS Phase 0 |
+| Generic API errors can hide auth semantics | P0 | SaaS Phase 0 |
+| Schema bootstrap is not a versioned migration system | P0 | SaaS Phase 0 |
+| MCP does not yet use Cloud RequestContext | P0 | SaaS Phase 3 |
+| Cross-tenant test matrix is incomplete | P0 | SaaS Phase 3 |
+| Audit model is POC-level | P0 | SaaS Phase 4 |
+| Request body validation is incomplete | P0 | Phase 0–4 per route |
+| UI polish is uneven outside landing/shell/dashboard | P1 | Product Runtime |
+| Type safety still contains POC `any` values | P1 | Continuous |
+
+## 5. Tracking Source of Truth
+
+- Product and platform direction: [02-vision.md](02-vision.md)
+- Architecture: [03-architecture.md](03-architecture.md)
+- SaaS decisions: [07-saas-core-boundaries.md](07-saas-core-boundaries.md)
+- SaaS execution and acceptance: [08-saas-core-implementation-plan.md](08-saas-core-implementation-plan.md)
+- Historical POC result: [05-cloud-first-poc-progress.md](05-cloud-first-poc-progress.md)
+
+不要在本文件重新定义 SaaS 数据模型或权限边界；决策变化必须先更新 SaaS Core decision baseline，并记录迁移影响。

@@ -4,6 +4,8 @@ Status: Completed
 Date: 2026-06-18  
 Branch: feat/cloud-first-poc
 
+> Historical status note (2026-06-22): 本文记录 2026-06-18 POC 验收时点，不作为当前 SaaS Core 状态源。Organization/User/Membership 初始模型、Workspace API 授权和生产级 UI 基础已经开始建设；剩余正式范围与阶段状态以 [07-saas-core-boundaries.md](07-saas-core-boundaries.md) 和 [08-saas-core-implementation-plan.md](08-saas-core-implementation-plan.md) 为准。
+
 ## What Was Built
 
 A complete Cloud-first POC on Next.js + SQLite (local dev) that validates the core hypothesis:
@@ -73,7 +75,7 @@ Create Workspace → Install CRM Lite Pack
 4. **Governed flow**: Plan → Preview → Apply → Audit → Rollback, all through MCP tools
 5. **Extension point validation**: Module manifests declare `extensionPoints` with `reservedKeys`, `allowedTypes`, `maxFields`
 
-### What's NOT in POC (Deferred)
+### What's NOT in the 2026-06-18 POC Baseline
 
 - Multi-tenant isolation
 - Authentication (OAuth/SSO)

@@ -45,6 +45,11 @@ const PREFIX = tablePrefix();
 
 export const TABLES = {
   workspaces: `${PREFIX}workspaces`,
+  organizations: `${PREFIX}organizations`,
+  users: `${PREFIX}users`,
+  organizationMemberships: `${PREFIX}organization_memberships`,
+  workspaceTenants: `${PREFIX}workspace_tenants`,
+  workspaceMemberships: `${PREFIX}workspace_memberships`,
   installations: `${PREFIX}installations`,
   objectDefinitions: `${PREFIX}object_definitions`,
   fieldDefinitions: `${PREFIX}field_definitions`,
@@ -55,6 +60,18 @@ export const TABLES = {
   auditLogs: `${PREFIX}audit_logs`,
   agentRuns: `${PREFIX}agent_runs`,
   extensionFieldValues: `${PREFIX}extension_field_values`,
+  authIdentities: `${PREFIX}auth_identities`,
+  authChallenges: `${PREFIX}auth_challenges`,
+  sessions: `${PREFIX}sessions`,
+  rateLimitBuckets: `${PREFIX}rate_limit_buckets`,
+  organizationInvitations: `${PREFIX}organization_invitations`,
+  invitationWorkspaceGrants: `${PREFIX}invitation_workspace_grants`,
+  apiKeys: `${PREFIX}api_keys`,
+  organizationEntitlements: `${PREFIX}organization_entitlements`,
+  usageEvents: `${PREFIX}usage_events`,
+  usageRollups: `${PREFIX}usage_rollups`,
+  exportJobs: `${PREFIX}export_jobs`,
+  deletionJobs: `${PREFIX}deletion_jobs`,
 } as const;
 
 // ── Business Table Prefix ──
@@ -66,7 +83,7 @@ export function businessTable(objectKey: string): string {
   return `${BUSINESS_TABLE_PREFIX}${objectKey}`;
 }
 
-// ── Schema Rendering ──
+// ── Schema Rendering (retained for tooling/tests; migrations are the primary path) ──
 
 const SCHEMA_SQL = readFileSync(
   join(resourcesDir("schema"), "runory_schema.sql"),

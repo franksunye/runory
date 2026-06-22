@@ -1,5 +1,6 @@
 import { queryAll, queryOne, execute, genId, now } from "./db";
 import { TABLES, businessTable } from "./contracts";
+import { provisionWorkspaceTenant, type ActorIdentity } from "./tenancy";
 
 // ── Types ──
 export interface ObjectDefinition {
@@ -50,22 +51,57 @@ export interface NavigationItem {
 }
 
 // ── Workspace ──
-export async function createWorkspace(name: string, templateId?: string) {
+const SAFE_WORKSPACE_SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+
+export function createWorkspaceSlug(name: string, id: string): string {
+  const base = name
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 20)
+    .replace(/-+$/g, "");
+  const suffix = id.replace(/[^a-z0-9]/gi, "").slice(-10).toLowerCase();
+  return `${base || "w"}-${suffix}`;
+}
+
+export async function createWorkspace(name: string, templateId?: string, actor?: ActorIdentity) {
   const id = genId("ws");
-  const slug = name.toLowerCase().replace(/\s+/g, "-") + "-" + id.slice(-6);
+  const slug = createWorkspaceSlug(name, id);
   await execute(
     `INSERT INTO ${TABLES.workspaces} (id, name, slug, template_id, created_at, updated_at)
      VALUES (?, ?, ?, ?, ?, ?)`,
     [id, name, slug, templateId ?? null, now(), now()]
   );
+  if (actor) await provisionWorkspaceTenant(id, name, actor);
   return { id, name, slug, templateId };
 }
 
-export async function getWorkspace(id: string) {
-  return queryOne<{
+export async function getWorkspace(reference: string) {
+  const workspace = await queryOne<{
     id: string; name: string; slug: string; template_id: string | null;
     created_at: string; updated_at: string;
-  }>(`SELECT * FROM ${TABLES.workspaces} WHERE id = ?`, [id]);
+  }>(`SELECT * FROM ${TABLES.workspaces} WHERE id = ? OR slug = ?`, [reference, reference]);
+  if (!workspace) return undefined;
+
+  if (!SAFE_WORKSPACE_SLUG.test(workspace.slug) || workspace.slug.length > 32) {
+    const slug = createWorkspaceSlug(workspace.name, workspace.id);
+    await execute(
+      `UPDATE ${TABLES.workspaces} SET slug = ?, updated_at = ? WHERE id = ?`,
+      [slug, now(), workspace.id]
+    );
+    return { ...workspace, slug };
+  }
+
+  return workspace;
+}
+
+export async function resolveWorkspaceId(reference: string): Promise<string> {
+  if (reference.startsWith("ws_")) return reference;
+  const workspace = await getWorkspace(reference);
+  if (!workspace) throw new Error(`Workspace ${reference} not found`);
+  return workspace.id;
 }
 
 // ── Navigation ──

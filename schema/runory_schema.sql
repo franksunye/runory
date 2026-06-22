@@ -4,6 +4,38 @@
 
 -- ── Platform Tables ──
 
+CREATE TABLE IF NOT EXISTS {{RUNORY_TABLE_PREFIX}}organizations (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  slug TEXT NOT NULL UNIQUE,
+  status TEXT NOT NULL DEFAULT 'active',
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS {{RUNORY_TABLE_PREFIX}}users (
+  id TEXT PRIMARY KEY,
+  external_id TEXT NOT NULL UNIQUE,
+  email TEXT,
+  display_name TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'active',
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS {{RUNORY_TABLE_PREFIX}}organization_memberships (
+  id TEXT PRIMARY KEY,
+  organization_id TEXT NOT NULL,
+  user_id TEXT NOT NULL,
+  role TEXT NOT NULL CHECK (role IN ('owner', 'admin', 'member', 'viewer')),
+  status TEXT NOT NULL DEFAULT 'active',
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  UNIQUE(organization_id, user_id),
+  FOREIGN KEY(organization_id) REFERENCES {{RUNORY_TABLE_PREFIX}}organizations(id),
+  FOREIGN KEY(user_id) REFERENCES {{RUNORY_TABLE_PREFIX}}users(id)
+);
+
 CREATE TABLE IF NOT EXISTS {{RUNORY_TABLE_PREFIX}}workspaces (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL,
@@ -12,6 +44,32 @@ CREATE TABLE IF NOT EXISTS {{RUNORY_TABLE_PREFIX}}workspaces (
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS {{RUNORY_TABLE_PREFIX}}workspace_tenants (
+  workspace_id TEXT PRIMARY KEY,
+  organization_id TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  FOREIGN KEY(workspace_id) REFERENCES {{RUNORY_TABLE_PREFIX}}workspaces(id),
+  FOREIGN KEY(organization_id) REFERENCES {{RUNORY_TABLE_PREFIX}}organizations(id)
+);
+
+CREATE TABLE IF NOT EXISTS {{RUNORY_TABLE_PREFIX}}workspace_memberships (
+  id TEXT PRIMARY KEY,
+  workspace_id TEXT NOT NULL,
+  user_id TEXT NOT NULL,
+  role TEXT NOT NULL CHECK (role IN ('owner', 'admin', 'member', 'viewer')),
+  status TEXT NOT NULL DEFAULT 'active',
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  UNIQUE(workspace_id, user_id),
+  FOREIGN KEY(workspace_id) REFERENCES {{RUNORY_TABLE_PREFIX}}workspaces(id),
+  FOREIGN KEY(user_id) REFERENCES {{RUNORY_TABLE_PREFIX}}users(id)
+);
+
+CREATE INDEX IF NOT EXISTS {{RUNORY_TABLE_PREFIX}}idx_org_memberships_user
+  ON {{RUNORY_TABLE_PREFIX}}organization_memberships(user_id, status);
+CREATE INDEX IF NOT EXISTS {{RUNORY_TABLE_PREFIX}}idx_workspace_memberships_user
+  ON {{RUNORY_TABLE_PREFIX}}workspace_memberships(user_id, status);
 
 CREATE TABLE IF NOT EXISTS {{RUNORY_TABLE_PREFIX}}installations (
   id TEXT PRIMARY KEY,

@@ -1,7 +1,7 @@
 # Runory Product Definition
 
-Status: Draft v0.2  
-Date: 2026-06-18  
+Status: Draft v0.3
+Date: 2026-06-22
 Change: Cloud-first pivot — see [../04-architecture-pivot-cloud-first.md](../04-architecture-pivot-cloud-first.md)
 
 ## 1. Canonical Definition
@@ -63,8 +63,8 @@ Generated code only as a last resort (and never for official modules)
 Default user journey:
 
 ```text
-Register Runory Cloud
-→ Create Workspace
+Verify email with OTP
+→ Create Organization + Workspace
 → Select Template / Install Pack
 → Import data
 → Agent configures and operates
@@ -109,7 +109,7 @@ Recommended paths:
 
 ```text
 Runory Cloud（default）
-→ Team / Billing upgrade
+→ Members / Billing upgrade
 → Export Workspace
 → Private Cloud / VPC / On-premise（advanced）
 ```
@@ -125,6 +125,10 @@ Cloud Workspace
 ```
 
 Detailed architecture notes: [../architecture/cloud-to-local-workspace.md](../architecture/cloud-to-local-workspace.md).
+
+Team is not a current product requirement. It is reserved as a future Organization-scoped permission group when customers repeatedly assign the same people across multiple Workspaces. Team will not become a tenant, billing, or business-data ownership boundary.
+
+SaaS Core product boundaries: [../07-saas-core-boundaries.md](../07-saas-core-boundaries.md).
 
 ## 8. Layer Summary
 

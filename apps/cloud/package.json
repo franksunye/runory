@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "predev": "node scripts/sync-resources.mjs",
     "dev": "next dev --port 3000",
     "prebuild": "node scripts/sync-resources.mjs",
     "build": "next build",
@@ -14,19 +15,20 @@
     "@libsql/client": "^0.17.3",
     "@runory/contracts": "workspace:*",
     "@runory/platform-core": "workspace:*",
+    "lucide-react": "^1.21.0",
     "next": "^15.3.3",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "zod": "^3.25.76"
   },
   "devDependencies": {
+    "@tailwindcss/postcss": "^4.1.11",
     "@types/node": "^24.10.1",
     "@types/react": "^19.1.0",
     "@types/react-dom": "^19.1.0",
     "autoprefixer": "^10.4.21",
     "postcss": "^8.5.6",
     "tailwindcss": "^4.1.11",
-    "@tailwindcss/postcss": "^4.1.11",
     "typescript": "^5.9.3",
     "vitest": "^3.2.4"
   }

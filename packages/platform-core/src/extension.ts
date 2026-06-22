@@ -200,8 +200,8 @@ export async function applyExtension(workspaceId: string, plan: ExtensionPlan, c
         if (!config.columns) config.columns = [];
         config.columns.push({ field: cf.fieldKey, label: cf.label });
         writes.push({
-          sql: `UPDATE ${TABLES.viewDefinitions} SET config_json = ? WHERE id = ?`,
-          args: [JSON.stringify(config), view.id],
+          sql: `UPDATE ${TABLES.viewDefinitions} SET config_json = ? WHERE id = ? AND workspace_id = ?`,
+          args: [JSON.stringify(config), view.id, workspaceId],
         });
       }
     }
@@ -213,8 +213,8 @@ export async function applyExtension(workspaceId: string, plan: ExtensionPlan, c
         if (config.sections && config.sections.length > 0) {
           config.sections[0].fields.push({ field: cf.fieldKey, required: cf.required });
           writes.push({
-            sql: `UPDATE ${TABLES.viewDefinitions} SET config_json = ? WHERE id = ?`,
-            args: [JSON.stringify(config), view.id],
+            sql: `UPDATE ${TABLES.viewDefinitions} SET config_json = ? WHERE id = ? AND workspace_id = ?`,
+            args: [JSON.stringify(config), view.id, workspaceId],
           });
         }
       }
@@ -223,8 +223,8 @@ export async function applyExtension(workspaceId: string, plan: ExtensionPlan, c
 
   // Update extension current version
   writes.push({
-    sql: `UPDATE ${TABLES.extensionDefinitions} SET current_version = ?, updated_at = ? WHERE id = ?`,
-    args: [newVersion, ts, extId],
+    sql: `UPDATE ${TABLES.extensionDefinitions} SET current_version = ?, updated_at = ? WHERE id = ? AND workspace_id = ?`,
+    args: [newVersion, ts, extId, workspaceId],
   });
 
   // Create audit log
@@ -270,8 +270,10 @@ export async function rollbackExtension(workspaceId: string, extensionId: string
   if (currentVersion === 0) throw new Error("No versions to rollback");
 
   const currentVer = await queryOne<{ manifest_json: string }>(
-    `SELECT manifest_json FROM ${TABLES.extensionVersions} WHERE extension_id = ? AND version = ?`,
-    [extensionId, currentVersion]
+    `SELECT ev.manifest_json FROM ${TABLES.extensionVersions} ev
+     JOIN ${TABLES.extensionDefinitions} ed ON ed.id = ev.extension_id
+     WHERE ev.extension_id = ? AND ev.version = ? AND ed.workspace_id = ?`,
+    [extensionId, currentVersion, workspaceId]
   );
   if (!currentVer) throw new Error("Current version not found");
 
@@ -294,8 +296,8 @@ export async function rollbackExtension(workspaceId: string, extensionId: string
         if (config.columns) {
           config.columns = config.columns.filter((c: any) => c.field !== cf.fieldKey);
           writes.push({
-            sql: `UPDATE ${TABLES.viewDefinitions} SET config_json = ? WHERE id = ?`,
-            args: [JSON.stringify(config), view.id],
+            sql: `UPDATE ${TABLES.viewDefinitions} SET config_json = ? WHERE id = ? AND workspace_id = ?`,
+            args: [JSON.stringify(config), view.id, workspaceId],
           });
         }
       }
@@ -308,8 +310,8 @@ export async function rollbackExtension(workspaceId: string, extensionId: string
         if (config.sections && config.sections.length > 0) {
           config.sections[0].fields = config.sections[0].fields.filter((f: any) => f.field !== cf.fieldKey);
           writes.push({
-            sql: `UPDATE ${TABLES.viewDefinitions} SET config_json = ? WHERE id = ?`,
-            args: [JSON.stringify(config), view.id],
+            sql: `UPDATE ${TABLES.viewDefinitions} SET config_json = ? WHERE id = ? AND workspace_id = ?`,
+            args: [JSON.stringify(config), view.id, workspaceId],
           });
         }
       }
@@ -334,8 +336,8 @@ export async function rollbackExtension(workspaceId: string, extensionId: string
 
   // Update extension current version
   writes.push({
-    sql: `UPDATE ${TABLES.extensionDefinitions} SET current_version = ?, updated_at = ? WHERE id = ?`,
-    args: [newVersion, ts, extensionId],
+    sql: `UPDATE ${TABLES.extensionDefinitions} SET current_version = ?, updated_at = ? WHERE id = ? AND workspace_id = ?`,
+    args: [newVersion, ts, extensionId, workspaceId],
   });
 
   // Create audit log
@@ -385,7 +387,13 @@ export async function getExtensionVersions(workspaceId: string, extensionId: str
     diff_json: string | null; risk_level: string; change_summary: string | null;
     created_by: string; approved_by: string | null; applied_at: string | null;
     rollback_of_version: number | null; created_at: string;
-  }>(`SELECT * FROM ${TABLES.extensionVersions} WHERE extension_id = ? ORDER BY version DESC`, [extensionId]);
+  }>(
+    `SELECT ev.* FROM ${TABLES.extensionVersions} ev
+     JOIN ${TABLES.extensionDefinitions} ed ON ed.id = ev.extension_id
+     WHERE ev.extension_id = ? AND ed.workspace_id = ?
+     ORDER BY ev.version DESC`,
+    [extensionId, workspaceId]
+  );
   return rows.map(r => ({
     id: r.id, extensionId: r.extension_id, version: r.version,
     manifest: JSON.parse(r.manifest_json), diff: r.diff_json ? JSON.parse(r.diff_json) : null,

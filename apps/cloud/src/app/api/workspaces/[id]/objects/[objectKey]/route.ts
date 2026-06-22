@@ -1,23 +1,25 @@
-import { NextRequest, NextResponse } from "next/server";
-import { ok, err } from "@runory/contracts";
+import { NextRequest } from "next/server";
 import { getObject, getFields } from "@runory/platform-core";
+import { requireWorkspaceAccess } from "@/lib/auth";
+import { successResponse, handleError, notFound, getOrCreateRequestId } from "@/lib/http";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string; objectKey: string }> }
 ) {
+  const requestId = getOrCreateRequestId(request.headers.get("x-request-id"));
   try {
     const { id, objectKey } = await params;
-    const object = await getObject(id, objectKey);
+    const { workspaceId } = await requireWorkspaceAccess(request, id);
+    const object = await getObject(workspaceId, objectKey);
     if (!object) {
-      return NextResponse.json(err("OBJECT_NOT_FOUND", `Object ${objectKey} not found`), { status: 404 });
+      return notFound(`Object ${objectKey} not found`, requestId);
     }
-    const fields = await getFields(id, objectKey);
-    return NextResponse.json(ok({ object, fields }));
+    const fields = await getFields(workspaceId, objectKey);
+    return successResponse({ object, fields }, 200, requestId);
   } catch (e) {
-    const message = e instanceof Error ? e.message : "Unknown error";
-    return NextResponse.json(err("OBJECT_FETCH_FAILED", message), { status: 500 });
+    return handleError(e, requestId);
   }
 }

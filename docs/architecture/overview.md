@@ -1,7 +1,7 @@
 # Runory Architecture Overview
 
-Status: Draft v0.2  
-Date: 2026-06-18  
+Status: Draft v0.3
+Date: 2026-06-22
 Change: Cloud-first pivot — see [../04-architecture-pivot-cloud-first.md](../04-architecture-pivot-cloud-first.md)
 
 This document is the current architecture entry point. It defines system boundaries that should stay consistent across Cloud implementation, modules, extensions, and POC work.
@@ -11,6 +11,8 @@ Architecture decisions: [architecture-decision-record.md](architecture-decision-
 Repository structure: [repository-structure.md](repository-structure.md)
 Cloud to Local deployment: [cloud-to-local-workspace.md](cloud-to-local-workspace.md)  
 Current-stage architecture narrative: [../03-architecture.md](../03-architecture.md)
+SaaS Core boundaries: [../07-saas-core-boundaries.md](../07-saas-core-boundaries.md)
+SaaS Core implementation: [../08-saas-core-implementation-plan.md](../08-saas-core-implementation-plan.md)
 
 ## Canonical Definition
 
@@ -89,6 +91,15 @@ Runory Cloud is the default product surface:
 * Agent Operation API hosting;
 * Cloud UI Shell;
 * Usage Metering and Billing-ready accounts.
+
+The SaaS identity and tenancy chain is:
+
+```text
+Email OTP → User/AuthIdentity → Organization → Workspace
+→ RequestContext/Authorization → Business Data
+```
+
+Organization is the tenant, ownership, membership, and billing boundary. Workspace is the business data and configuration boundary. Team is deferred and reserved only as a future Organization-scoped permission group.
 
 ### Platform Core
 
