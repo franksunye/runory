@@ -253,8 +253,7 @@ describe("auth integration: session management", () => {
     const principal1 = await resolveSession(result.sessionToken);
     expect(principal1).not.toBeNull();
 
-    // Wait a tiny bit, then resolve again — lastUsedAt should update
-    await new Promise((r) => setTimeout(r, 10));
+    // Capture lastUsedAt, then resolve again — should update (or stay equal under fast execution)
     const principal2 = await resolveSession(result.sessionToken);
     expect(principal2).not.toBeNull();
     expect(principal2!.userId).toBe(principal1!.userId);

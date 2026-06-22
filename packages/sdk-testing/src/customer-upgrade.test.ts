@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest"
+import { randomUUID } from "node:crypto"
 import { ModuleTestHarness } from "./harness.js"
 import {
   loadModuleManifest,
@@ -49,7 +50,7 @@ describe("Customer 1.0 → 1.1 upgrade (SDK fixture test)", () => {
     // Load pack manifest
     const packManifest = loadPackManifest("crm-lite-pack")
 
-    workspaceId = `ws_test_upgrade_${Date.now()}`
+    workspaceId = `ws_test_upgrade_${randomUUID()}`
 
     harness = new ModuleTestHarness({
       module: customerV11Manifest,

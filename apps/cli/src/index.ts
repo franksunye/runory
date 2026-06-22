@@ -163,18 +163,25 @@ async function cmdPublish(args: string[], jsonOutput: boolean) {
   const manifest = JSON.parse(manifestJson);
 
   // Submit to Cloud Catalog API
-  const response = await fetch(`${apiBase}/api/platform/catalog`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Authorization": `Bearer ${token}`,
-    },
-    body: JSON.stringify({
-      manifest,
-      source: "cli",
-      idempotencyKey: `${manifest.id}@${manifest.version}`,
-    }),
-  });
+  let response: Response;
+  try {
+    response = await fetch(`${apiBase}/api/platform/catalog`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        manifest,
+        source: "cli",
+        idempotencyKey: `${manifest.id}@${manifest.version}`,
+      }),
+    });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    outputError(jsonOutput, `Network error contacting ${apiBase}: ${msg}`);
+    process.exit(1);
+  }
 
   const result = await response.json();
 
