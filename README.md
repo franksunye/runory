@@ -59,6 +59,4 @@ Runory Cloud: `http://localhost:3000`
 pnpm mcp             # MCP stdio adapter
 ```
 
-The historical Local V1 prototype lives under `experiments/local-v1` and is not part of the active workspace.
-
 See [docs/08-saas-core-implementation-plan.md](docs/08-saas-core-implementation-plan.md) for current SaaS Core priorities. The POC plan is retained as historical context.

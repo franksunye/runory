@@ -4,11 +4,17 @@ import { useState } from "react";
 import type { FieldDefinition } from "@runory/platform-core";
 import SchemaField from "./SchemaField";
 
+type RecordData = Record<string, string | number | boolean | null>;
+type ViewConfig = {
+  columns?: Array<{ field: string; label?: string }>;
+  sections?: Array<{ title: string; fields: Array<{ field: string; required?: boolean }> }>;
+};
+
 interface SchemaFormProps {
   fields: FieldDefinition[];
-  viewConfig: any;
-  initialValues?: Record<string, any>;
-  onSubmit: (data: Record<string, any>) => void;
+  viewConfig: ViewConfig;
+  initialValues?: RecordData;
+  onSubmit: (data: RecordData) => void;
   submitLabel?: string;
 }
 
@@ -27,8 +33,8 @@ export default function SchemaForm({
   const fieldMap = new Map(fields.map((f) => [f.fieldKey, f]));
   const sections: FormSection[] = viewConfig?.sections ?? [];
 
-  const [values, setValues] = useState<Record<string, any>>(() => {
-    const init: Record<string, any> = {};
+  const [values, setValues] = useState<RecordData>(() => {
+    const init: RecordData = {};
     for (const f of fields) {
       init[f.fieldKey] =
         initialValues[f.fieldKey] ??
@@ -38,7 +44,7 @@ export default function SchemaForm({
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  const handleChange = (fieldKey: string, value: any) => {
+  const handleChange = (fieldKey: string, value: string | number | boolean | null) => {
     setValues((prev) => ({ ...prev, [fieldKey]: value }));
     setErrors((prev) => {
       if (!prev[fieldKey]) return prev;

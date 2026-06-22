@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { getRecords, createRecord, writeAuditEvent, enforceQuota } from "@runory/platform-core";
 import { requireWorkspaceContext } from "@/lib/auth";
-import { successResponse, handleError, getOrCreateRequestId } from "@/lib/http";
+import { successResponse, handleError, invalidInput, getOrCreateRequestId } from "@/lib/http";
 
 export const dynamic = "force-dynamic";
 
@@ -29,6 +29,9 @@ export async function POST(
     const { id, objectKey } = await params;
     const { ctx, workspaceId } = await requireWorkspaceContext(request, id, "member");
     const data = await request.json() as Record<string, unknown>;
+    if (!data || typeof data !== "object" || Array.isArray(data)) {
+      return invalidInput("Record data must be an object", ctx.requestId);
+    }
     if (ctx.organizationId) await enforceQuota(ctx.organizationId, "records");
     const record = await createRecord(workspaceId, objectKey, data);
     writeAuditEvent({
@@ -40,7 +43,9 @@ export async function POST(
       entityId: record.id,
       after: record as Record<string, unknown>,
       requestId: ctx.requestId,
-    }).catch(() => {});
+    }).catch((err) => {
+      console.error("[audit] Failed to write audit event:", err);
+    });
     return successResponse(record, 201, ctx.requestId);
   } catch (e) {
     return handleError(e, requestId);

@@ -15,53 +15,13 @@
  * works, and catalog installations are intact.
  */
 
-const API = process.env.RUNORY_API_BASE ?? "http://localhost:3000";
-
-let pass = 0;
-let fail = 0;
-const failures = [];
-
-function assert(cond, label) {
-  if (cond) {
-    pass++;
-    console.log(`  ✓ ${label}`);
-  } else {
-    fail++;
-    failures.push(label);
-    console.log(`  ✗ ${label}`);
-  }
-}
-
-async function api(path, method = "GET", body) {
-  const res = await fetch(`${API}${path}`, {
-    method,
-    headers: body ? { "Content-Type": "application/json" } : {},
-    body: body ? JSON.stringify(body) : undefined,
-  });
-  const text = await res.text();
-  let json;
-  try {
-    json = JSON.parse(text);
-  } catch {
-    json = { raw: text };
-  }
-  return { status: res.status, json };
-}
-
-async function checkServer() {
-  try {
-    const res = await fetch(`${API}/api/health`, { method: "GET" });
-    return res.ok;
-  } catch {
-    return false;
-  }
-}
+import { assert, api, checkServer, printSummary, BASE_URL } from "./_helpers.mjs";
 
 async function main() {
   console.log("=== Runory E2E Scenario E: Recovery ===\n");
 
   if (!(await checkServer())) {
-    console.log("FATAL: Dev server is not running at", API);
+    console.log("FATAL: Dev server is not running at", BASE_URL);
     console.log("Start it with: pnpm dev:cloud");
     process.exit(1);
   }
@@ -206,14 +166,8 @@ async function main() {
   assert(true, "recovery evidence documented");
 
   // ── Summary ──
-  console.log("\n=== Scenario E Summary ===");
-  console.log(`  Passed: ${pass}`);
-  console.log(`  Failed: ${fail}`);
-  if (failures.length > 0) {
-    console.log("  Failures:");
-    for (const f of failures) console.log(`    - ${f}`);
-  }
-  process.exit(fail === 0 ? 0 : 1);
+  const failCount = printSummary("Scenario E");
+  process.exit(failCount === 0 ? 0 : 1);
 }
 
 main().catch((e) => {

@@ -1,7 +1,8 @@
-import { queryAll, queryOne, batch, genId, now } from "./db";
+import { queryAll, queryOne, batch, genId, now, validateIdentifier } from "./db";
 import { TABLES } from "./contracts";
 import { getFields, getView } from "./metadata";
 import { loadModuleManifest } from "./installer";
+import { InvalidInputError } from "./context";
 import type { ExtensionPlan } from "@runory/contracts";
 
 // ── Extension Runtime ──
@@ -34,12 +35,12 @@ export interface ExtensionDefinition {
 
 // ── Validate Extension Plan ──
 
-export interface ValidationResult {
+export interface ExtensionValidationResult {
   valid: boolean;
   errors: string[];
 }
 
-export async function validateExtensionPlan(workspaceId: string, plan: ExtensionPlan): Promise<ValidationResult> {
+export async function validateExtensionPlan(workspaceId: string, plan: ExtensionPlan): Promise<ExtensionValidationResult> {
   const errors: string[] = [];
 
   for (const cf of plan.customFields) {
@@ -122,7 +123,11 @@ export async function previewExtension(workspaceId: string, plan: ExtensionPlan)
       affectedViews.push(`${cf.targetObject}_list`);
     }
     if (cf.ui?.slot) {
-      affectedViews.push(cf.ui.slot.split(".")[0] + "_" + cf.ui.slot.split(".")[1]);
+      const slotParts = cf.ui.slot.split(".");
+      if (slotParts.length < 2) {
+        throw new InvalidInputError(`Invalid slot format: ${cf.ui.slot}. Expected "objectKey.viewKey"`);
+      }
+      affectedViews.push(slotParts[0] + "_" + slotParts[1]);
     }
   }
 
@@ -183,6 +188,9 @@ export async function applyExtension(workspaceId: string, plan: ExtensionPlan, c
 
   // Apply each custom field
   for (const cf of plan.customFields) {
+    // Validate field key before inserting (defense in depth against SQL injection)
+    validateIdentifier(cf.fieldKey);
+
     // Insert field definition
     writes.push({
       sql: `INSERT INTO ${TABLES.fieldDefinitions} (id, workspace_id, object_key, field_key, label, type, ownership, required, default_value, validation_json, extension_id, created_at)

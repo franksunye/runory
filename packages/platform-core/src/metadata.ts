@@ -1,4 +1,4 @@
-import { queryAll, queryOne, execute, genId, now } from "./db";
+import { queryAll, queryOne, execute, genId, now, validateIdentifier } from "./db";
 import { TABLES, businessTable } from "./contracts";
 import { provisionWorkspaceTenant, type ActorIdentity } from "./tenancy";
 
@@ -220,7 +220,7 @@ export async function getRecords(workspaceId: string, objectKey: string): Promis
   // Get module-owned fields from business table
   const fields = await getFields(workspaceId, objectKey);
   const moduleFields = fields.filter(f => f.ownership === "module_owned");
-  const columnNames = ["id", ...moduleFields.map(f => f.fieldKey), "created_at", "updated_at"];
+  const columnNames = ["id", ...moduleFields.map(f => validateIdentifier(f.fieldKey)), "created_at", "updated_at"];
   const columns = columnNames.join(", ");
 
   const rows = await queryAll<Record<string, unknown>>(
@@ -255,7 +255,7 @@ export async function createRecord(workspaceId: string, objectKey: string, data:
   const extFields = fields.filter(f => f.ownership === "workspace_extension");
 
   // Insert into business table (module-owned fields only)
-  const moduleColumns = ["id", "workspace_id", ...moduleFields.map(f => f.fieldKey), "created_at", "updated_at"];
+  const moduleColumns = ["id", "workspace_id", ...moduleFields.map(f => validateIdentifier(f.fieldKey)), "created_at", "updated_at"];
   const moduleValues: unknown[] = [id, workspaceId, ...moduleFields.map(f => data[f.fieldKey] ?? null), ts, ts];
   const placeholders = moduleColumns.map(() => "?").join(", ");
   await execute(
@@ -280,7 +280,7 @@ export async function createRecord(workspaceId: string, objectKey: string, data:
 export async function getRecord(workspaceId: string, objectKey: string, recordId: string): Promise<Record<string, unknown> | undefined> {
   const fields = await getFields(workspaceId, objectKey);
   const moduleFields = fields.filter(f => f.ownership === "module_owned");
-  const columnNames = ["id", ...moduleFields.map(f => f.fieldKey), "created_at", "updated_at"];
+  const columnNames = ["id", ...moduleFields.map(f => validateIdentifier(f.fieldKey)), "created_at", "updated_at"];
   const columns = columnNames.join(", ");
 
   const row = await queryOne<Record<string, unknown>>(
@@ -313,7 +313,7 @@ export async function updateRecord(workspaceId: string, objectKey: string, recor
   // Update module-owned fields in business table
   const updatableModuleFields = moduleFields.filter(f => data[f.fieldKey] !== undefined);
   if (updatableModuleFields.length > 0) {
-    const setClauses = updatableModuleFields.map(f => `${f.fieldKey} = ?`).join(", ");
+    const setClauses = updatableModuleFields.map(f => `${validateIdentifier(f.fieldKey)} = ?`).join(", ");
     const values = updatableModuleFields.map(f => data[f.fieldKey]);
     await execute(
       `UPDATE ${businessTable(objectKey)} SET ${setClauses}, updated_at = ? WHERE workspace_id = ? AND id = ?`,

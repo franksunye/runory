@@ -3,7 +3,7 @@ import { parseArgs } from "node:util";
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { join, resolve } from "node:path";
-import { validateManifest, compileManifest, scanForSecrets, type ValidationResult } from "@runory/sdk";
+import { validateManifest, compileManifest, scanForSecrets, type ManifestValidationResult } from "@runory/sdk";
 
 // ── Command: validate ──
 async function cmdValidate(args: string[], jsonOutput: boolean) {
@@ -134,7 +134,6 @@ async function cmdPublish(args: string[], jsonOutput: boolean) {
       channel: { type: "string", default: "internal" },
       artifact: { type: "string", default: "dist" },
       "api-base": { type: "string" },
-      token: { type: "string" },
     },
   });
 
@@ -144,11 +143,11 @@ async function cmdPublish(args: string[], jsonOutput: boolean) {
     process.exit(1);
   }
 
-  const token = values.token ?? process.env.RUNORY_TOKEN;
+  const token = process.env.RUNORY_TOKEN;
   const apiBase = values["api-base"] ?? process.env.RUNORY_API_BASE ?? "http://localhost:3000";
 
   if (!token) {
-    outputError(jsonOutput, "RUNORY_TOKEN not set. Set it or pass --token.");
+    outputError(jsonOutput, "RUNORY_TOKEN not set. Set the RUNORY_TOKEN environment variable.");
     process.exit(1);
   }
 
@@ -223,11 +222,11 @@ async function cmdTest(args: string[], jsonOutput: boolean) {
   if (jsonOutput) {
     console.log(JSON.stringify({
       success: true,
-      message: "Test harness delegated to @runory/testing",
-      note: "Install @runory/testing and create tests/ directory with fixture-based tests",
+      message: "Test harness delegated to @runory/sdk-testing",
+      note: "Install @runory/sdk-testing and create tests/ directory with fixture-based tests",
     }));
   } else {
-    console.log("ℹ Test harness uses @runory/testing package");
+    console.log("ℹ Test harness uses @runory/sdk-testing package");
     console.log("  Create tests/ directory with fixture-based tests");
   }
 }
@@ -259,10 +258,14 @@ Options:
   --json      Output machine-readable JSON (for CI)
   --help      Show help
 
+Environment:
+  RUNORY_TOKEN         Bearer token for publish (required)
+  RUNORY_API_BASE      API base URL (default: http://localhost:3000)
+
 Examples:
   runory validate --entry src/module.ts --type module --json
   runory build --entry src/module.ts --out dist --json
-  runory publish --channel internal --token $RUNORY_TOKEN --json`);
+  RUNORY_TOKEN=$TOKEN runory publish --channel internal --json`);
     process.exit(0);
   }
 

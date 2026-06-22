@@ -20,12 +20,50 @@ import {
   AuthenticationError,
   AuthorizationError,
 } from "@runory/platform-core";
-import { PLATFORM_CONFIG, isTrustHeadersEnabled } from "@runory/platform-core";
+import { PLATFORM_CONFIG, isTrustHeadersEnabled, isPlatformAdmin } from "@runory/platform-core";
 
 const DEVELOPMENT_ACTOR: ActorIdentity = {
   externalId: "dev-local-owner",
   displayName: "Local workspace owner",
 };
+
+// ── Dev bootstrap flag ──
+//
+// The dev bootstrap fallback (auto-authenticating as a local owner) is gated on
+// an explicit opt-in flag rather than NODE_ENV. This prevents accidental
+// unauthenticated access when NODE_ENV is unset or set to a non-production value
+// like "staging" or "test".
+function isDevBootstrapEnabled(): boolean {
+  return process.env.PLATFORM_DEV_BOOTSTRAP === "true";
+}
+
+// ── Trust headers startup warning ──
+//
+// Trust identity headers (x-platform-user-id etc.) can be spoofed by any client
+// unless a reverse proxy strips and re-injects them. Warn loudly at startup if
+// the operator enabled trust headers without confirming the proxy is verified.
+if (isTrustHeadersEnabled() && process.env.PLATFORM_TRUST_PROXY_VERIFIED !== "true") {
+  console.warn(
+    "[auth] PLATFORM_TRUST_IDENTITY_HEADERS is enabled but PLATFORM_TRUST_PROXY_VERIFIED is not 'true'. " +
+      "Trust headers can be spoofed by any client. Only enable this behind a verified reverse proxy that strips incoming identity headers."
+  );
+}
+
+// ── Resolve principal from trust headers ──
+//
+// Shared by getRequestActor and requireWorkspaceContext so both code paths
+// honor trusted identity headers consistently.
+function resolvePrincipalFromTrustHeaders(request: NextRequest): Principal | null {
+  if (!isTrustHeadersEnabled()) return null;
+  const externalId = request.headers.get(PLATFORM_CONFIG.userIdHeader);
+  if (!externalId) return null;
+  return {
+    userId: externalId,
+    email: request.headers.get(PLATFORM_CONFIG.userEmailHeader) ?? null,
+    displayName: request.headers.get(PLATFORM_CONFIG.userNameHeader) ?? externalId,
+    authMethod: "trust_headers",
+  };
+}
 
 export interface OrganizationMembership {
   organizationId: string;
@@ -48,18 +86,16 @@ export async function getRequestActor(request: NextRequest): Promise<ActorIdenti
     }
   }
 
-  if (isTrustHeadersEnabled()) {
-    const externalId = request.headers.get(PLATFORM_CONFIG.userIdHeader);
-    if (externalId) {
-      return {
-        externalId,
-        email: request.headers.get(PLATFORM_CONFIG.userEmailHeader) ?? undefined,
-        displayName: request.headers.get(PLATFORM_CONFIG.userNameHeader) ?? externalId,
-      };
-    }
+  const trustHeadersPrincipal = resolvePrincipalFromTrustHeaders(request);
+  if (trustHeadersPrincipal) {
+    return {
+      externalId: trustHeadersPrincipal.userId,
+      email: trustHeadersPrincipal.email ?? undefined,
+      displayName: trustHeadersPrincipal.displayName,
+    };
   }
 
-  if (process.env.NODE_ENV !== "production") return DEVELOPMENT_ACTOR;
+  if (isDevBootstrapEnabled()) return DEVELOPMENT_ACTOR;
   throw new AuthenticationError("Authentication is required");
 }
 
@@ -81,7 +117,7 @@ export async function requirePrincipal(request: NextRequest): Promise<Principal>
     if (principal) return principal;
   }
 
-  if (process.env.NODE_ENV !== "production") {
+  if (isDevBootstrapEnabled()) {
     // Dev bootstrap fallback
     const principal: Principal = {
       userId: DEVELOPMENT_ACTOR.externalId,
@@ -93,6 +129,22 @@ export async function requirePrincipal(request: NextRequest): Promise<Principal>
   }
 
   throw new AuthenticationError("Authentication is required");
+}
+
+// ── Require Platform Admin ──
+//
+// Ensures the request is authenticated AND the principal is a platform admin
+// (per PLATFORM_ADMIN_EMAILS allowlist). Used by all /api/platform routes.
+
+export async function requirePlatformAdmin(
+  request: NextRequest
+): Promise<{ principal: Principal; requestId: string }> {
+  const requestId = getOrCreateRequestId(request.headers.get("x-request-id"));
+  const principal = await getCurrentPrincipal(request);
+  if (!principal || !isPlatformAdmin(principal.email)) {
+    throw new AuthorizationError("Platform admin access required");
+  }
+  return { principal, requestId };
 }
 
 // ── Organization Membership Resolution ──
@@ -164,7 +216,7 @@ export async function buildRequestContext(
   const workspaceId = await resolveWorkspaceId(workspaceReference);
   let access: WorkspaceAccess | null = await authorizeWorkspace(workspaceId, principal?.userId ?? "");
 
-  if (!access && process.env.NODE_ENV !== "production" && !(await workspaceHasTenant(workspaceId))) {
+  if (!access && isDevBootstrapEnabled() && !(await workspaceHasTenant(workspaceId))) {
     const workspace = await getWorkspace(workspaceId);
     if (workspace && principal) {
       access = await provisionWorkspaceTenant(workspaceId, workspace.name, {
@@ -200,7 +252,7 @@ export async function requireWorkspaceAccess(
   const workspaceId = await resolveWorkspaceId(reference);
   let access = await authorizeWorkspace(workspaceId, actor.externalId, requiredRole);
 
-  if (!access && process.env.NODE_ENV !== "production" && !(await workspaceHasTenant(workspaceId))) {
+  if (!access && isDevBootstrapEnabled() && !(await workspaceHasTenant(workspaceId))) {
     const workspace = await getWorkspace(workspaceId);
     if (workspace) access = await provisionWorkspaceTenant(workspaceId, workspace.name, actor);
   }
@@ -245,8 +297,13 @@ export async function requireWorkspaceContext(
     }
   }
 
+  // Fall back to trust headers (consistent with getRequestActor / requireWorkspaceAccess)
+  if (!principal) {
+    principal = resolvePrincipalFromTrustHeaders(request);
+  }
+
   // Dev bootstrap fallback
-  if (!principal && process.env.NODE_ENV !== "production") {
+  if (!principal && isDevBootstrapEnabled()) {
     principal = {
       userId: DEVELOPMENT_ACTOR.externalId,
       email: null,
@@ -259,8 +316,8 @@ export async function requireWorkspaceContext(
 
   let access = await authorizeWorkspace(workspaceId, principal.userId, requiredRole);
 
-  // Dev bootstrap: auto-provision workspace tenant in non-production
-  if (!access && process.env.NODE_ENV !== "production" && !(await workspaceHasTenant(workspaceId))) {
+  // Dev bootstrap: auto-provision workspace tenant
+  if (!access && isDevBootstrapEnabled() && !(await workspaceHasTenant(workspaceId))) {
     const workspace = await getWorkspace(workspaceId);
     if (workspace) {
       access = await provisionWorkspaceTenant(workspaceId, workspace.name, {

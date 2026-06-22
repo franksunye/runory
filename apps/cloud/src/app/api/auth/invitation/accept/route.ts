@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { acceptInvitation } from "@runory/platform-core";
 import { requirePrincipal } from "@/lib/auth";
-import { successResponse, handleError, getOrCreateRequestId } from "@/lib/http";
+import { successResponse, handleError, invalidInput, getOrCreateRequestId } from "@/lib/http";
 
 export const dynamic = "force-dynamic";
 
@@ -13,10 +13,7 @@ export async function POST(request: NextRequest) {
   try {
     const body = (await request.json()) as { token: string };
     if (!body.token) {
-      return new Response(
-        JSON.stringify({ success: false, error: { code: "INVALID_INPUT", message: "Token is required", requestId } }),
-        { status: 400, headers: { "Content-Type": "application/json" } }
-      );
+      return invalidInput("Token is required", requestId);
     }
 
     const principal = await requirePrincipal(request);

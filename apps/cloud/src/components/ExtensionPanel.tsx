@@ -66,7 +66,7 @@ export default function ExtensionPanel({
     try {
       const res = await fetch(`/api/workspaces/${workspaceId}/agent/plan`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "X-Requested-With": "XMLHttpRequest" },
         body: JSON.stringify(plan),
       });
       const json = await res.json();
@@ -101,7 +101,7 @@ export default function ExtensionPanel({
     try {
       const res = await fetch(`/api/workspaces/${workspaceId}/agent/preview`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "X-Requested-With": "XMLHttpRequest" },
         body: JSON.stringify(plan),
       });
       const json = await res.json();
@@ -129,7 +129,7 @@ export default function ExtensionPanel({
     try {
       const res = await fetch(`/api/workspaces/${workspaceId}/agent/apply`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "X-Requested-With": "XMLHttpRequest" },
         body: JSON.stringify({ plan, createdBy: "ui-user" }),
       });
       const json = await res.json();
@@ -161,7 +161,7 @@ export default function ExtensionPanel({
     try {
       const res = await fetch(`/api/workspaces/${workspaceId}/agent/rollback`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "X-Requested-With": "XMLHttpRequest" },
         body: JSON.stringify({ extensionId, rolledBy: "ui-user" }),
       });
       const json = await res.json();

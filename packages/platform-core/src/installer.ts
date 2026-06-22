@@ -1,7 +1,7 @@
 import { readFileSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { parse as parseYaml } from "yaml";
-import { queryOne, execute, genId, now, db } from "./db";
+import { queryOne, execute, genId, now, db, validateIdentifier } from "./db";
 import { TABLES, MODULES_DIR, PACKS_DIR, TEMPLATES_DIR } from "./contracts";
 import { getDeploymentMode, renderSqlWithPrefix, getBusinessTablePrefix, getTablePrefix } from "./platform-config";
 import {
@@ -61,6 +61,64 @@ export interface InstallResult {
   ddlExecuted: boolean;
 }
 
+// ── Topological Sort (Kahn's algorithm) ──
+//
+// Produces a correct install order for dependency graphs of any depth, unlike
+// a pairwise comparator which only handles direct (one-level) dependencies.
+// Dependencies that are not present in `items` are skipped gracefully (e.g.,
+// a dependency on an external module not part of this pack).
+
+function topologicalSort<T extends { id: string; dependencies?: string[] }>(items: T[]): T[] {
+  const inDegree = new Map<string, number>();
+  const graph = new Map<string, string[]>();
+  const itemMap = new Map<string, T>();
+
+  // Initialize
+  for (const item of items) {
+    itemMap.set(item.id, item);
+    inDegree.set(item.id, 0);
+    graph.set(item.id, []);
+  }
+
+  // Build graph: edge dep → item means dep must come before item
+  for (const item of items) {
+    const deps = item.dependencies ?? [];
+    for (const dep of deps) {
+      // Only count dependencies that are themselves in the list; missing deps
+      // (e.g., external modules) are ignored so install can proceed.
+      if (itemMap.has(dep)) {
+        graph.get(dep)!.push(item.id);
+        inDegree.set(item.id, (inDegree.get(item.id) ?? 0) + 1);
+      }
+    }
+  }
+
+  // Kahn's algorithm: start from nodes with no incoming edges
+  const queue: string[] = [];
+  for (const [id, degree] of inDegree) {
+    if (degree === 0) queue.push(id);
+  }
+
+  const sorted: T[] = [];
+  while (queue.length > 0) {
+    const id = queue.shift()!;
+    sorted.push(itemMap.get(id)!);
+    for (const neighbor of graph.get(id) ?? []) {
+      const newDegree = (inDegree.get(neighbor) ?? 0) - 1;
+      inDegree.set(neighbor, newDegree);
+      if (newDegree === 0) queue.push(neighbor);
+    }
+  }
+
+  // Detect cycles
+  if (sorted.length !== items.length) {
+    const remaining = items.filter(i => !sorted.find(s => s.id === i.id));
+    throw new Error(`Circular dependency detected among: ${remaining.map(i => i.id).join(", ")}`);
+  }
+
+  return sorted;
+}
+
 export async function installPack(workspaceId: string, packId: string): Promise<InstallResult> {
   const pack = loadPackManifest(packId);
   const deploymentMode = getDeploymentMode();
@@ -113,6 +171,9 @@ export async function installPack(workspaceId: string, packId: string): Promise<
 
       // Insert field definitions
       for (const field of obj.fields) {
+        // Validate field key before registering (defense in depth against SQL injection)
+        validateIdentifier(field.key);
+
         await execute(
           `INSERT INTO ${TABLES.fieldDefinitions} (id, workspace_id, object_key, field_key, label, type, ownership, required, default_value, validation_json, module_id, created_at)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -153,14 +214,12 @@ export async function installPack(workspaceId: string, packId: string): Promise<
     modulesInstalled.push(moduleId);
   };
 
-  // Install modules in dependency order (simple: install customer before contact)
-  const sortedModules = [...pack.modules].map((m) => m.split(":")[0]).sort((a, b) => {
-    const manifestA = loadModuleManifest(a);
-    if (manifestA.dependencies?.includes(b)) return 1;
-    const manifestB = loadModuleManifest(b);
-    if (manifestB.dependencies?.includes(a)) return -1;
-    return 0;
-  });
+  // Install modules in dependency order using a proper topological sort.
+  // Load all manifests upfront (avoids re-reading during sort) and sort by
+  // their dependency graph so deeper chains (A → B → C) install correctly.
+  const moduleIds = pack.modules.map((m) => m.split(":")[0]);
+  const manifests = moduleIds.map((id) => loadModuleManifest(id));
+  const sortedModules = topologicalSort(manifests).map((m) => m.id);
 
   for (const moduleId of sortedModules) {
     await installOneModule(moduleId);

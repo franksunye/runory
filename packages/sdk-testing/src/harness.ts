@@ -9,6 +9,8 @@ import {
   createRecord,
   getFields,
   getObjects,
+  loadModuleMigration,
+  db,
 } from "@runory/platform-core";
 import {
   type ModuleManifest,
@@ -33,6 +35,7 @@ export class ModuleTestHarness {
   private tempDir: string;
   private workspaceId: string;
   private installed: boolean = false;
+  private originalLibsqlUrl: string | undefined;
 
   constructor(private options: HarnessOptions) {
     this.tempDir = mkdtempSync(join(tmpdir(), "runory-test-"));
@@ -40,6 +43,9 @@ export class ModuleTestHarness {
   }
 
   async setup(): Promise<void> {
+    // Capture original LIBSQL_URL so it can be restored in cleanup()
+    this.originalLibsqlUrl = process.env.LIBSQL_URL;
+
     // Set LIBSQL_URL to temp database
     process.env.LIBSQL_URL = `file:${join(this.tempDir, "test.db")}`;
 
@@ -76,29 +82,35 @@ export class ModuleTestHarness {
   }
 
   async planUpgrade(): Promise<HarnessResult> {
-    // Basic compatibility check: compare fields between current and previous
+    // Compatibility check: compare fields across ALL objects between current and previous
     if (!this.options.module || !this.options.previous) {
       return { status: "compatible", issues: [] };
     }
 
     const issues: string[] = [];
-    const currentFields = this.options.module.objects?.[0]?.fields ?? [];
-    const previousFields = this.options.previous.objects?.[0]?.fields ?? [];
+    const allObjects = this.options.module.objects ?? [];
+    const previousObjects = this.options.previous.objects ?? [];
 
-    // Check for removed fields (breaking change)
-    const currentFieldKeys = new Set(currentFields.map(f => f.key));
-    for (const prevField of previousFields) {
-      if (!currentFieldKeys.has(prevField.key)) {
-        issues.push(`Field "${prevField.key}" was removed (breaking change)`);
+    for (const obj of allObjects) {
+      const prevObj = previousObjects.find(o => o.key === obj.key);
+      const currentFields = obj.fields ?? [];
+      const previousFields = prevObj?.fields ?? [];
+
+      // Check for removed fields (breaking change)
+      const currentFieldKeys = new Set(currentFields.map(f => f.key));
+      for (const prevField of previousFields) {
+        if (!currentFieldKeys.has(prevField.key)) {
+          issues.push(`Object "${obj.key}": field "${prevField.key}" was removed (breaking change)`);
+        }
       }
-    }
 
-    // Check for type changes (breaking change)
-    const prevFieldMap = new Map(previousFields.map(f => [f.key, f]));
-    for (const currField of currentFields) {
-      const prevField = prevFieldMap.get(currField.key);
-      if (prevField && prevField.type !== currField.type) {
-        issues.push(`Field "${currField.key}" type changed from "${prevField.type}" to "${currField.type}" (breaking change)`);
+      // Check for type changes (breaking change)
+      const prevFieldMap = new Map(previousFields.map(f => [f.key, f]));
+      for (const currField of currentFields) {
+        const prevField = prevFieldMap.get(currField.key);
+        if (prevField && prevField.type !== currField.type) {
+          issues.push(`Object "${obj.key}": field "${currField.key}" type changed from "${prevField.type}" to "${currField.type}" (breaking change)`);
+        }
       }
     }
 
@@ -109,18 +121,43 @@ export class ModuleTestHarness {
   }
 
   async upgrade(): Promise<void> {
-    // For v0.1, upgrade is a no-op placeholder
-    // Real upgrade would run migration scripts
+    if (!this.options.module?.migrations?.upgrade) {
+      return;
+    }
+
+    const upgrades = this.options.module.migrations.upgrade;
+    const moduleId = this.options.module.id;
+    const moduleVersion = this.options.module.version;
+
+    for (const step of upgrades) {
+      let sql: string;
+      try {
+        sql = loadModuleMigration(moduleId, step.script);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (!msg.includes("Migration not found")) throw err;
+        // Versioned modules live under v{major}.{minor}/ subdirectory
+        const [major, minor] = moduleVersion.split(".");
+        sql = loadModuleMigration(moduleId, `v${major}.${minor}/${step.script}`);
+      }
+
+      try {
+        await db.executeMultiple(sql);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (msg.includes("duplicate column name")) {
+          return;
+        }
+        throw err;
+      }
+    }
   }
 
-  async assertDataPreserved(): Promise<boolean> {
-    // Check that records still exist after upgrade
-    if (!this.options.module) return true;
-
-    const objectKey = this.options.module.objects?.[0]?.key;
-    if (!objectKey) return true;
-
+  async assertDataPreserved(objectKey: string, expectedCount?: number): Promise<boolean> {
     const records = await getRecords(this.workspaceId, objectKey);
+    if (expectedCount !== undefined && records.length !== expectedCount) {
+      return false;
+    }
     return records.length > 0;
   }
 
@@ -144,6 +181,28 @@ export class ModuleTestHarness {
   }
 
   async cleanup(): Promise<void> {
+    // Close the DB client and reset global caches
+    const g = globalThis as Record<string, unknown>;
+    const platformDb = g.__platformDb as { close(): Promise<void> } | undefined;
+    if (platformDb) {
+      try {
+        await platformDb.close();
+      } catch {
+        // ignore close errors
+      }
+      g.__platformDb = undefined;
+    }
+    g.__platformSchemaReady = undefined;
+    g.__platformMigrationsRun = undefined;
+
+    // Restore original LIBSQL_URL
+    if (this.originalLibsqlUrl !== undefined) {
+      process.env.LIBSQL_URL = this.originalLibsqlUrl;
+    } else {
+      delete process.env.LIBSQL_URL;
+    }
+
+    // Remove temp directory
     rmSync(this.tempDir, { recursive: true, force: true });
   }
 }

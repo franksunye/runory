@@ -90,3 +90,16 @@ extensionPoints:
         allowedTypes: [text, number, date, select, boolean]
         maxFields: 30
         reservedKeys: [id, name, email, phone, role, created_at, updated_at]
+  views:
+    - view: contact_list
+      slots:
+        - id: contact.list.columns
+          type: column_group
+          allowedExtensions: [customField]
+          risk: low
+    - view: contact_form
+      slots:
+        - id: contact.form.basic_fields.after
+          type: field_group
+          allowedExtensions: [customField]
+          risk: low

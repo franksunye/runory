@@ -11,7 +11,7 @@ export interface ValidationIssue {
   severity: "error" | "warning";
 }
 
-export interface ValidationResult {
+export interface ManifestValidationResult {
   valid: boolean;
   issues: ValidationIssue[];
   summary: {
@@ -23,7 +23,7 @@ export interface ValidationResult {
 export function validateManifest(
   manifest: unknown,
   itemType: "module" | "pack" | "template",
-): ValidationResult {
+): ManifestValidationResult {
   const issues: ValidationIssue[] = [];
   const schema =
     itemType === "module"

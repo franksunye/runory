@@ -230,12 +230,30 @@ export async function importCatalogCandidate(
   } else {
     catalogItemId = genId("cat");
     const ts = now();
-    await execute(
-      `INSERT INTO ${TABLES.catalogItems}
-       (id, item_type, name, description, publisher_id, visibility, status, created_at, updated_at)
-       VALUES (?, ?, ?, NULL, ?, 'internal', 'active', ?, ?)`,
-      [catalogItemId, params.itemType, params.itemId, principal.userId, ts, ts]
-    );
+    try {
+      await execute(
+        `INSERT INTO ${TABLES.catalogItems}
+         (id, item_type, name, description, publisher_id, visibility, status, created_at, updated_at)
+         VALUES (?, ?, ?, NULL, ?, 'internal', 'active', ?, ?)`,
+        [catalogItemId, params.itemType, params.itemId, principal.userId, ts, ts]
+      );
+    } catch (err) {
+      // Concurrent import — another caller inserted the same item between
+      // our SELECT and INSERT. Fall back to the existing row.
+      if (err instanceof Error && err.message.includes("UNIQUE")) {
+        const concurrent = await queryOne<CatalogItemRow>(
+          `SELECT * FROM ${TABLES.catalogItems} WHERE item_type = ? AND name = ?`,
+          [params.itemType, params.itemId]
+        );
+        if (concurrent) {
+          catalogItemId = concurrent.id;
+        } else {
+          throw err;
+        }
+      } else {
+        throw err;
+      }
+    }
   }
 
   // Check UNIQUE(catalog_item_id, version)

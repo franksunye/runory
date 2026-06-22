@@ -22,8 +22,8 @@ export interface Principal {
   userId: string;
   email: string | null;
   displayName: string;
-  /** How the principal was authenticated: 'session' | 'api_key' | 'dev_bootstrap' */
-  authMethod: "session" | "api_key" | "dev_bootstrap";
+  /** How the principal was authenticated: 'session' | 'api_key' | 'trust_headers' | 'dev_bootstrap' */
+  authMethod: "session" | "api_key" | "trust_headers" | "dev_bootstrap";
   /** For API key auth, the key ID (for audit); null otherwise */
   apiKeyId?: string;
 }

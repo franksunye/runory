@@ -4,12 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "validate": "runory validate --entry src/module.ts --type module --json",
-    "build": "runory build --entry src/module.ts --type module --out dist --json",
-    "test": "runory test --json"
-  },
-  "dependencies": {
-    "@runory/sdk": "workspace:*",
-    "@runory/contracts": "workspace:*"
+    "build": "node build.mjs",
+    "test": "echo \"Tests run via packages/sdk-testing\" && exit 0"
   }
 }

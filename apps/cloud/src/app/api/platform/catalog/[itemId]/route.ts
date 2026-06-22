@@ -1,10 +1,9 @@
 import { NextRequest } from "next/server";
 import { getCatalogItem } from "@runory/platform-core";
-import { getCurrentPrincipal } from "@/lib/auth";
+import { requirePlatformAdmin } from "@/lib/auth";
 import {
   successResponse,
   handleError,
-  forbidden,
   getOrCreateRequestId,
 } from "@/lib/http";
 
@@ -17,8 +16,7 @@ export async function GET(
 ) {
   const requestId = getOrCreateRequestId(request.headers.get("x-request-id"));
   try {
-    const principal = await getCurrentPrincipal(request);
-    if (!principal) return forbidden("Access denied", requestId);
+    await requirePlatformAdmin(request);
 
     const { itemId } = await params;
     const item = await getCatalogItem(itemId);

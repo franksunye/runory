@@ -39,7 +39,7 @@ export default function LandingPage() {
     try {
       const res = await fetch("/api/auth/request-otp", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "X-Requested-With": "XMLHttpRequest" },
         body: JSON.stringify({ email: email.trim() }),
       });
       const json = await res.json();
@@ -66,7 +66,7 @@ export default function LandingPage() {
     try {
       const res = await fetch("/api/auth/verify-otp", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "X-Requested-With": "XMLHttpRequest" },
         body: JSON.stringify({ email: email.trim(), code: code.trim() }),
       });
       const json = await res.json();
@@ -92,7 +92,7 @@ export default function LandingPage() {
     try {
       const res = await fetch("/api/workspaces", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "X-Requested-With": "XMLHttpRequest" },
         body: JSON.stringify({ name: name.trim() }),
       });
       const json = await res.json();

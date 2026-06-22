@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { GitBranch, Menu, X } from "lucide-react";
 import { useState } from "react";
 import { useI18n } from "@/i18n/locale-provider";
+import { SITE_CONFIG } from "@/lib/site";
 
 export function MarketingHeader({ authenticated = false }: { authenticated?: boolean }) {
   const pathname = usePathname();
@@ -14,7 +15,7 @@ export function MarketingHeader({ authenticated = false }: { authenticated?: boo
     { href: "/#product", label: t("common.product") },
     { href: "/open-source", label: t("common.openSource") },
     { href: "/pricing", label: t("common.pricing") },
-    { href: "https://github.com/franksunye/runory/tree/main/docs", label: t("common.docs"), external: true },
+    { href: `${SITE_CONFIG.githubUrl}/tree/main/docs`, label: t("common.docs"), external: true },
   ];
 
   return (
@@ -42,7 +43,7 @@ export function MarketingHeader({ authenticated = false }: { authenticated?: boo
 
         <div className="hidden items-center gap-3 md:flex">
           <Link
-            href="https://github.com/franksunye/runory"
+            href={SITE_CONFIG.githubUrl}
             target="_blank"
             rel="noreferrer"
             className="grid size-10 place-items-center rounded-lg text-slate-600 transition hover:bg-slate-100 hover:text-slate-950"

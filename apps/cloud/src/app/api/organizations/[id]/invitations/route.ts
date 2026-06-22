@@ -1,12 +1,22 @@
 import { NextRequest } from "next/server";
+import { z } from "zod";
 import {
   createInvitation,
   listOrganizationInvitations,
 } from "@runory/platform-core";
 import { requireOrganizationAccess } from "@/lib/auth";
-import { successResponse, handleError, getOrCreateRequestId } from "@/lib/http";
+import { successResponse, handleError, invalidInput, getOrCreateRequestId } from "@/lib/http";
 
 export const dynamic = "force-dynamic";
+
+const inviteSchema = z.object({
+  email: z.string().email(),
+  organizationRole: z.enum(["member", "admin"]),
+  workspaceGrants: z.array(z.object({
+    workspaceId: z.string(),
+    workspaceRole: z.enum(["admin", "member", "viewer"]),
+  })).optional(),
+});
 
 // GET /api/organizations/:id/invitations — list invitations
 export async function GET(
@@ -45,15 +55,19 @@ export async function POST(
       organizationRole: "member" | "admin";
       workspaceGrants?: Array<{ workspaceId: string; workspaceRole: "admin" | "member" | "viewer" }>;
     };
+    const parsed = inviteSchema.safeParse(body);
+    if (!parsed.success) {
+      return invalidInput(parsed.error.message, requestId);
+    }
 
     const { invitation, token } = await createInvitation(
       organizationId,
       principal.userId,
       membership.role,
       {
-        email: body.email,
-        organizationRole: body.organizationRole,
-        workspaceGrants: body.workspaceGrants,
+        email: parsed.data.email,
+        organizationRole: parsed.data.organizationRole,
+        workspaceGrants: parsed.data.workspaceGrants,
       }
     );
 

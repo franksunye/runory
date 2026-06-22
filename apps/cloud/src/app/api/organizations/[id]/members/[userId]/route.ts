@@ -4,7 +4,7 @@ import {
   removeOrganizationMember,
 } from "@runory/platform-core";
 import { requireOrganizationAccess } from "@/lib/auth";
-import { successResponse, handleError, getOrCreateRequestId } from "@/lib/http";
+import { successResponse, handleError, invalidInput, getOrCreateRequestId } from "@/lib/http";
 
 export const dynamic = "force-dynamic";
 
@@ -23,13 +23,7 @@ export async function PATCH(
 
     const body = (await request.json()) as { role: "member" | "admin" };
     if (body.role !== "member" && body.role !== "admin") {
-      return new Response(
-        JSON.stringify({
-          success: false,
-          error: { code: "INVALID_INPUT", message: "Role must be member or admin", requestId },
-        }),
-        { status: 400, headers: { "Content-Type": "application/json" } }
-      );
+      return invalidInput("Role must be member or admin", requestId);
     }
 
     await updateOrganizationMemberRole(

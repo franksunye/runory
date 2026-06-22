@@ -3,13 +3,15 @@
 import Link from "next/link";
 import { GitBranch } from "lucide-react";
 import { useI18n } from "@/i18n/locale-provider";
+import { SITE_CONFIG } from "@/lib/site";
 
 export function MarketingFooter() {
   const { t } = useI18n();
+  const gh = SITE_CONFIG.githubUrl;
   const groups = [
     { title: t("common.product"), links: [[t("common.product"), "/#product"], [t("common.pricing"), "/pricing"], [t("common.cloudPreview"), "/login"]] },
-    { title: t("common.developers"), links: [[t("common.openSource"), "/open-source"], ["GitHub", "https://github.com/franksunye/runory"], [t("common.docs"), "https://github.com/franksunye/runory/tree/main/docs"], [t("common.releases"), "https://github.com/franksunye/runory/releases"]] },
-    { title: t("common.architecture"), links: [["SaaS Core", "https://github.com/franksunye/runory/blob/main/docs/07-saas-core-boundaries.md"], ["Catalog & Release", "https://github.com/franksunye/runory/blob/main/docs/09-catalog-release-control-plane.md"], ["SDK", "https://github.com/franksunye/runory/blob/main/docs/10-runory-sdk-product.md"]] },
+    { title: t("common.developers"), links: [[t("common.openSource"), "/open-source"], ["GitHub", gh], [t("common.docs"), `${gh}/tree/main/docs`], [t("common.releases"), `${gh}/releases`]] },
+    { title: t("common.architecture"), links: [["SaaS Core", `${gh}/blob/main/docs/07-saas-core-boundaries.md`], ["Catalog & Release", `${gh}/blob/main/docs/09-catalog-release-control-plane.md`], ["SDK", `${gh}/blob/main/docs/10-runory-sdk-product.md`]] },
   ];
   return (
     <footer className="border-t border-slate-200 bg-white">
@@ -20,7 +22,7 @@ export function MarketingFooter() {
             <span className="ml-3 text-lg font-bold tracking-tight">Runory</span>
           </Link>
           <p className="mt-4 max-w-xs text-sm leading-6 text-slate-500">{t("footer.description")}</p>
-          <Link href="https://github.com/franksunye/runory" target="_blank" rel="noreferrer" className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-slate-700 hover:text-indigo-600">
+          <Link href={gh} target="_blank" rel="noreferrer" className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-slate-700 hover:text-indigo-600">
             <GitBranch size={17} /> {t("common.github")}
           </Link>
         </div>

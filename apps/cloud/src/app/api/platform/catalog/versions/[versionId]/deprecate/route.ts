@@ -1,17 +1,22 @@
 import { NextRequest } from "next/server";
+import { z } from "zod";
 import {
   deprecateCatalogVersion,
   getCatalogVersion,
 } from "@runory/platform-core";
-import { getCurrentPrincipal } from "@/lib/auth";
+import { requirePlatformAdmin } from "@/lib/auth";
 import {
   successResponse,
   handleError,
-  forbidden,
+  invalidInput,
   getOrCreateRequestId,
 } from "@/lib/http";
 
 export const dynamic = "force-dynamic";
+
+const deprecateSchema = z.object({
+  reason: z.string().min(1),
+});
 
 // POST /api/platform/catalog/versions/[versionId]/deprecate — deprecate version
 export async function POST(
@@ -20,12 +25,15 @@ export async function POST(
 ) {
   const requestId = getOrCreateRequestId(request.headers.get("x-request-id"));
   try {
-    const principal = await getCurrentPrincipal(request);
-    if (!principal) return forbidden("Access denied", requestId);
+    const { principal } = await requirePlatformAdmin(request);
 
     const { versionId } = await params;
     const body = (await request.json()) as { reason: string };
-    await deprecateCatalogVersion(principal, versionId, body.reason);
+    const parsed = deprecateSchema.safeParse(body);
+    if (!parsed.success) {
+      return invalidInput(parsed.error.message, requestId);
+    }
+    await deprecateCatalogVersion(principal, versionId, parsed.data.reason);
     const version = await getCatalogVersion(versionId);
 
     return successResponse(version, 200, requestId);

@@ -4,11 +4,10 @@ import {
   type ReleaseChannel,
   type ReleaseStatus,
 } from "@runory/platform-core";
-import { getCurrentPrincipal } from "@/lib/auth";
+import { requirePlatformAdmin } from "@/lib/auth";
 import {
   successResponse,
   handleError,
-  forbidden,
   getOrCreateRequestId,
 } from "@/lib/http";
 
@@ -18,8 +17,7 @@ export const dynamic = "force-dynamic";
 export async function GET(request: NextRequest) {
   const requestId = getOrCreateRequestId(request.headers.get("x-request-id"));
   try {
-    const principal = await getCurrentPrincipal(request);
-    if (!principal) return forbidden("Access denied", requestId);
+    await requirePlatformAdmin(request);
 
     const channel = request.nextUrl.searchParams.get("channel") as
       | ReleaseChannel

@@ -47,7 +47,9 @@ export async function PUT(
       before: before ?? null,
       after: record,
       requestId: ctx.requestId,
-    }).catch(() => {});
+    }).catch((err) => {
+      console.error("[audit] Failed to write audit event:", err);
+    });
     return successResponse(record, 200, ctx.requestId);
   } catch (e) {
     return handleError(e, requestId);
@@ -77,7 +79,9 @@ export async function DELETE(
       before: before ?? null,
       after: null,
       requestId: ctx.requestId,
-    }).catch(() => {});
+    }).catch((err) => {
+      console.error("[audit] Failed to write audit event:", err);
+    });
     return successResponse({ deleted: true }, 200, ctx.requestId);
   } catch (e) {
     return handleError(e, requestId);

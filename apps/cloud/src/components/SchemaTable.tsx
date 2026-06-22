@@ -3,10 +3,16 @@
 import Link from "next/link";
 import type { FieldDefinition } from "@runory/platform-core";
 
+type RecordData = Record<string, string | number | boolean | null>;
+type ViewConfig = {
+  columns?: Array<{ field: string; label?: string }>;
+  sections?: Array<{ title: string; fields: Array<{ field: string; required?: boolean }> }>;
+};
+
 interface SchemaTableProps {
   fields: FieldDefinition[];
-  viewConfig: any;
-  records: Record<string, any>[];
+  viewConfig: ViewConfig;
+  records: RecordData[];
   workspaceId: string;
   objectKey: string;
 }
@@ -16,12 +22,12 @@ interface ListColumn {
   label?: string;
 }
 
-function formatValue(value: any, type: string): string {
+function formatValue(value: string | number | boolean | null, type: string): string {
   if (value === null || value === undefined || value === "") return "—";
   if (type === "boolean") return value ? "是" : "否";
   if (type === "date") {
     try {
-      return new Date(value).toLocaleDateString("zh-CN");
+      return new Date(String(value)).toLocaleDateString("zh-CN");
     } catch {
       return String(value);
     }
@@ -85,7 +91,7 @@ export default function SchemaTable({
         </thead>
         <tbody className="divide-y divide-slate-100">
           {records.map((record) => (
-            <tr key={record.id} className="hover:bg-slate-50">
+            <tr key={String(record.id)} className="hover:bg-slate-50">
               {columns.map((col) => {
                 const fieldDef = fieldMap.get(col.field);
                 const type = fieldDef?.type ?? "text";

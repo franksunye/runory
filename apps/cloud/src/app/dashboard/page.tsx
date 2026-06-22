@@ -81,7 +81,7 @@ export default function DashboardPage() {
     try {
       const res = await fetch("/api/workspaces", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "X-Requested-With": "XMLHttpRequest" },
         body: JSON.stringify({ name: newName.trim() }),
       });
       const json = await res.json();
@@ -98,13 +98,13 @@ export default function DashboardPage() {
   };
 
   const handleLogout = async () => {
-    await fetch("/api/auth/logout", { method: "POST" });
+    await fetch("/api/auth/logout", { method: "POST", headers: { "X-Requested-With": "XMLHttpRequest" } });
     router.push("/login");
     router.refresh();
   };
 
   const handleLogoutAll = async () => {
-    await fetch("/api/auth/sessions", { method: "POST" });
+    await fetch("/api/auth/sessions", { method: "POST", headers: { "X-Requested-With": "XMLHttpRequest" } });
     router.push("/login");
     router.refresh();
   };

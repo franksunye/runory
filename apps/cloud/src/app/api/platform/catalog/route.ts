@@ -1,25 +1,30 @@
 import { NextRequest } from "next/server";
+import { z } from "zod";
 import {
   listCatalogItems,
   importFromDevCatalog,
   type CatalogItemType,
 } from "@runory/platform-core";
-import { getCurrentPrincipal } from "@/lib/auth";
+import { requirePlatformAdmin } from "@/lib/auth";
 import {
   successResponse,
   handleError,
-  forbidden,
+  invalidInput,
   getOrCreateRequestId,
 } from "@/lib/http";
 
 export const dynamic = "force-dynamic";
 
+const importCatalogSchema = z.object({
+  itemId: z.string().min(1),
+  itemType: z.enum(["module", "pack", "template"]),
+});
+
 // GET /api/platform/catalog — list catalog items (query: itemType, status)
 export async function GET(request: NextRequest) {
   const requestId = getOrCreateRequestId(request.headers.get("x-request-id"));
   try {
-    const principal = await getCurrentPrincipal(request);
-    if (!principal) return forbidden("Access denied", requestId);
+    const { principal } = await requirePlatformAdmin(request);
 
     const itemType = request.nextUrl.searchParams.get("itemType") as
       | CatalogItemType
@@ -44,17 +49,20 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const requestId = getOrCreateRequestId(request.headers.get("x-request-id"));
   try {
-    const principal = await getCurrentPrincipal(request);
-    if (!principal) return forbidden("Access denied", requestId);
+    const { principal } = await requirePlatformAdmin(request);
 
     const body = (await request.json()) as {
       itemId: string;
       itemType: CatalogItemType;
     };
+    const parsed = importCatalogSchema.safeParse(body);
+    if (!parsed.success) {
+      return invalidInput(parsed.error.message, requestId);
+    }
     const result = await importFromDevCatalog(
       principal,
-      body.itemId,
-      body.itemType
+      parsed.data.itemId,
+      parsed.data.itemType
     );
 
     return successResponse(result, 201, requestId);

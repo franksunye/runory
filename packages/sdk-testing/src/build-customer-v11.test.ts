@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { writeFileSync, mkdirSync } from "node:fs"
+import { writeFileSync, mkdirSync, existsSync, readFileSync } from "node:fs"
 import { join, resolve } from "node:path"
 import { validateManifest, compileManifest, scanForSecrets } from "@runory/sdk"
 import type { ModuleManifest } from "@runory/contracts"
@@ -68,6 +68,21 @@ describe("Build runory.customer 1.1.0 artifact via SDK pipeline", () => {
       join(DIST_DIR, "validation-summary.json"),
       JSON.stringify(validationResult, null, 2),
     )
+
+    // Assert files exist
+    expect(existsSync(join(DIST_DIR, "manifest.json"))).toBe(true)
+    expect(existsSync(join(DIST_DIR, "provenance.json"))).toBe(true)
+    expect(existsSync(join(DIST_DIR, "checksums.json"))).toBe(true)
+
+    // Assert manifest content
+    const manifestOnDisk = JSON.parse(readFileSync(join(DIST_DIR, "manifest.json"), "utf-8"))
+    expect(manifestOnDisk.id).toBe("runory.customer")
+    expect(manifestOnDisk.version).toBe("1.1.0")
+
+    // Assert checksum format
+    const checksums = JSON.parse(readFileSync(join(DIST_DIR, "checksums.json"), "utf-8"))
+    expect(checksums.manifest).toMatch(/^[a-f0-9]{64}$/)
+    expect(checksums.algorithm).toBe("sha256")
   })
 
   it("artifact contains 1.1 additions (industry + website fields)", () => {

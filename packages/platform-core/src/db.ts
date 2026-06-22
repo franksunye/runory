@@ -2,6 +2,7 @@ import { createClient, type Client } from "@libsql/client";
 import { randomUUID } from "node:crypto";
 import { runMigrations } from "./migrations";
 import { PLATFORM_CONFIG, getDbFilename } from "./platform-config";
+import { InvalidInputError } from "./context";
 
 // ── Lazy Client (Proxy pattern, safe for Next.js hot-reload & next build) ──
 
@@ -56,6 +57,19 @@ export function genId(prefix: string): string {
 
 export function now(): string {
   return new Date().toISOString();
+}
+
+/**
+ * Validate a SQL identifier (e.g., column or table name) before interpolation.
+ * Rejects anything that is not a plain alphanumeric/underscore identifier
+ * starting with a letter or underscore, preventing SQL injection via
+ * dynamically-constructed column names from field_definitions.
+ */
+export function validateIdentifier(name: string): string {
+  if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(name)) {
+    throw new InvalidInputError(`Invalid SQL identifier: ${name}`);
+  }
+  return name;
 }
 
 // ── Query Helpers ──

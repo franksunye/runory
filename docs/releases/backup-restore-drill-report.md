@@ -6,34 +6,35 @@
 
 | Field | Value |
 | --- | --- |
-| Date | 2026-06-22T09:49:13.296Z |
+| Date | 2026-06-22T11:03:29.605Z |
 | Operator | yesun |
 | Drill type | Automated |
-| Source DB URL | `file:./data/cloud.db` |
+| Source DB URL | `file:/tmp/drill-test.db` |
 | Backup method | file copy |
-| Restore target | `/Users/yesun/Code/runory/data/drill/restored-1782121753301.sqlite` |
+| Restore target | `/Users/yesun/Code/runory/data/drill/restored-1782126209611.sqlite` |
 | Script used | `apps/cloud/scripts/backup-restore-drill.mjs` |
+| Seeded test data | yes |
 
 ## Backup
 
 | Field | Value |
 | --- | --- |
-| Backup file | `/Users/yesun/Code/runory/data/drill/backup-1782121753301.sqlite` |
-| Backup size | 0 bytes |
+| Backup file | `/Users/yesun/Code/runory/data/drill/backup-1782126209609.sqlite` |
+| Backup size | 643072 bytes |
 
 ## Restore
 
 | Field | Value |
 | --- | --- |
-| Restore target | `/Users/yesun/Code/runory/data/drill/restored-1782121753301.sqlite` |
+| Restore target | `/Users/yesun/Code/runory/data/drill/restored-1782126209611.sqlite` |
 | Restore method | file copy |
 
 ## Post-restore Verification
 
 | Check | Result | Notes |
 | --- | --- | --- |
-| Migration replay (idempotent) | PASS | 11 applied, 0 skipped |
-| Data integrity (row counts) | PASS | users=0, orgs=0, workspaces=0, catalog_versions=0 |
+| Migration replay (idempotent) | PASS | 0 applied, 11 skipped |
+| Data integrity (row counts) | PASS | users=1, orgs=1, workspaces=1, catalog_versions=1 |
 | Tenant isolation | PASS | cross-tenant queries: 0 |
 | Catalog integrity | PASS | checksums verified: 0 |
 
@@ -45,7 +46,7 @@
 
 | Role | Name | Decision | Date |
 | --- | --- | --- | --- |
-| Operator | yesun | PASS | 2026-06-22T09:49:13.296Z |
+| Operator | yesun | PASS | 2026-06-22T11:03:29.605Z |
 | Operations Owner | _pending_ | _pending_ | _pending_ |
 | Release Manager | _pending_ | _pending_ | _pending_ |
 

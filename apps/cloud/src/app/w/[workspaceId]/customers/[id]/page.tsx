@@ -65,7 +65,7 @@ export default function CustomerDetailPage() {
         `/api/workspaces/${workspaceId}/objects/${OBJECT_KEY}/records/${recordId}`,
         {
           method: "PUT",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json", "X-Requested-With": "XMLHttpRequest" },
           body: JSON.stringify(data),
         }
       );
@@ -90,7 +90,7 @@ export default function CustomerDetailPage() {
     try {
       const res = await fetch(
         `/api/workspaces/${workspaceId}/objects/${OBJECT_KEY}/records/${recordId}`,
-        { method: "DELETE" }
+        { method: "DELETE", headers: { "X-Requested-With": "XMLHttpRequest" } }
       );
       const json = await res.json();
       if (json.success) {

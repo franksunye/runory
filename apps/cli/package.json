@@ -4,9 +4,10 @@
   "private": true,
   "type": "module",
   "bin": {
-    "runory": "./src/index.ts"
+    "runory": "./dist/index.js"
   },
   "scripts": {
+    "build": "tsc",
     "typecheck": "tsc --noEmit",
     "test": "vitest run --passWithNoTests"
   },

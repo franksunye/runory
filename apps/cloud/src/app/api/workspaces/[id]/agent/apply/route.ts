@@ -40,7 +40,9 @@ export async function POST(
       },
       extensionVersionId: version.id,
       requestId: ctx.requestId,
-    }).catch(() => {});
+    }).catch((err) => {
+      console.error("[audit] Failed to write audit event:", err);
+    });
     return successResponse(version, 201, ctx.requestId);
   } catch (e) {
     return handleError(e, requestId);

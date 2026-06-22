@@ -120,11 +120,10 @@ export default function ModulesPage() {
     setError(null);
     try {
       const response = await fetch(
-        `/api/workspaces/${workspaceId}/installations`,
+        `/api/workspaces/${workspaceId}/packs/${item.id}/install`,
         {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ packId: item.id }),
+          headers: { "X-Requested-With": "XMLHttpRequest" },
         }
       );
       const json = await response.json();

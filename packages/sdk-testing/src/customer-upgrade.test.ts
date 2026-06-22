@@ -114,7 +114,7 @@ describe("Customer 1.0 → 1.1 upgrade (SDK fixture test)", () => {
 
   // Step 7: Assert data preserved (records still exist)
   it("customer records preserved after upgrade plan", async () => {
-    const preserved = await harness.assertDataPreserved()
+    const preserved = await harness.assertDataPreserved("customer", 3)
     expect(preserved).toBe(true)
 
     const records = await getRecords(workspaceId, "customer")

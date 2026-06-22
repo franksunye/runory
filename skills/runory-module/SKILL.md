@@ -1,6 +1,6 @@
 ---
 name: runory-module
-description: Use when developing Runory Module/Pack/Template with the SDK toolchain. Coding Agent reads this skill to scaffold, author, validate, test, build and publish Module artifacts using @runory/sdk, @runory/testing and @runory/cli. The skill does NOT grant release approval authority or bypass Catalog governance.
+description: Use when developing Runory Module/Pack/Template with the SDK toolchain. Coding Agent reads this skill to scaffold, author, validate, test, build and publish Module artifacts using @runory/sdk, @runory/sdk-testing and @runory/cli. The skill does NOT grant release approval authority or bypass Catalog governance.
 ---
 
 # Runory Module Skill
@@ -68,6 +68,7 @@ import { defineModule } from "@runory/sdk";
 
 export default defineModule({
   id: "runory.customer",
+  name: "Customer",
   version: "1.1.0",
   coreCompatibility: ">=0.1.0 <0.2.0",
 
@@ -78,38 +79,49 @@ export default defineModule({
       key: "customer",
       label: "Customer",
       fields: [
-        { key: "name", type: "text", required: true, ownership: "module_owned" },
-        { key: "email", type: "text", ownership: "module_owned" },
-        { key: "phone", type: "text", ownership: "module_owned" },
-        { key: "tier", type: "select", ownership: "module_owned",
+        { key: "name", label: "Name", type: "text", required: true, ownership: "module_owned" },
+        { key: "email", label: "Email", type: "email", ownership: "module_owned" },
+        { key: "phone", label: "Phone", type: "phone", ownership: "module_owned" },
+        { key: "tier", label: "Tier", type: "select", ownership: "module_owned",
           validation: { options: ["A", "B", "C"] } },
       ],
     },
-  ],
-
-  relations: [
-    { from: "customer", to: "contact", type: "one_to_many" },
   ],
 
   permissions: ["customer.read", "customer.write", "customer.admin"],
 
   views: [
     {
-      view: "customer.list",
-      columns: ["name", "email", "tier"],
-      slots: [
-        { id: "customer.list.columns", type: "column_group",
-          allowedExtensions: ["customField"], risk: "low" },
-      ],
+      object: "customer",
+      key: "customer_list",
+      type: "list",
+      label: "Customers",
+      config: {
+        columns: [
+          { field: "name", label: "Name" },
+          { field: "email", label: "Email" },
+          { field: "tier", label: "Tier" },
+        ],
+        pageSize: 50,
+      },
     },
     {
-      view: "customer.form",
-      slots: [
-        { id: "customer.form.basic_fields.after", type: "field_group",
-          allowedExtensions: ["customField"], risk: "low" },
-        { id: "customer.detail.actions", type: "action_group",
-          allowedExtensions: ["customAction"], risk: "medium" },
-      ],
+      object: "customer",
+      key: "customer_form",
+      type: "form",
+      label: "Customer",
+      config: {
+        sections: [
+          {
+            title: "Basic",
+            fields: [
+              { field: "name", required: true },
+              { field: "email" },
+              { field: "phone" },
+            ],
+          },
+        ],
+      },
     },
   ],
 
@@ -119,22 +131,39 @@ export default defineModule({
         entity: "customer",
         customFields: {
           enabled: true,
-          allowedTypes: ["text", "number", "date", "select", "boolean", "relation"],
+          allowedTypes: ["text", "number", "date", "select", "boolean"],
           maxFields: 50,
           reservedKeys: ["id", "name", "email", "phone"],
         },
         customRelations: {
           enabled: true,
-          allowedTargets: ["project", "deal"],
         },
+      },
+    ],
+    views: [
+      {
+        view: "customer.list",
+        slots: [
+          { id: "customer.list.columns", type: "column_group",
+            allowedExtensions: ["customField"], risk: "low" },
+        ],
+      },
+      {
+        view: "customer.form",
+        slots: [
+          { id: "customer.form.basic_fields.after", type: "field_group",
+            allowedExtensions: ["customField"], risk: "low" },
+          { id: "customer.detail.actions", type: "action_group",
+            allowedExtensions: ["customAction"], risk: "medium" },
+        ],
       },
     ],
   },
 
   migrations: {
     install: "migrations/install.sql",
-    upgrades: [
-      { from: "1.0.0", to: "1.1.0", path: "migrations/1.0.0_to_1.1.0.sql" },
+    upgrade: [
+      { from: "1.0.0", to: "1.1.0", script: "migrations/1.0.0_to_1.1.0.sql" },
     ],
     uninstallPolicy: "retain_data",
   },
@@ -142,12 +171,6 @@ export default defineModule({
   upgradePolicy: {
     supportsWorkspaceExtensions: true,
     breakingChangePolicy: "manual_review",
-  },
-
-  marketplace: {
-    category: "crm",
-    license: "runory_official",
-    publisher: "runory",
   },
 });
 ```
@@ -159,19 +182,20 @@ import { definePack } from "@runory/sdk";
 
 export default definePack({
   id: "crm-lite-pack",
+  name: "CRM Lite Pack",
   version: "1.0.0",
   coreCompatibility: ">=0.1.0 <0.2.0",
-  modules: {
-    "runory.organization": "^1.0.0",
-    "runory.customer": "^1.0.0",
-    "runory.contact": "^1.0.0",
-  },
+  modules: ["runory.organization", "runory.customer", "runory.contact"],
   defaultTemplate: "small-business-crm",
-  permissions: ["pack.crm.install"],
+  marketplace: {
+    category: "crm",
+    license: "runory_official",
+    publisher: "runory",
+  },
 });
 ```
 
-Pack release 时会一次性 resolve dependency ranges 并冻结 lock；Workspace install 使用 frozen lock，不重新 resolve latest。
+Pack release 时会一次性 resolve dependency ranges 并冻结 lock；Workspace install 使用 frozen lock，不重新 resolve latest。`marketplace` 字段只在 Pack manifest 中声明，Module manifest 不包含 `marketplace`。
 
 ### 3.4 `defineTemplate`
 
@@ -180,6 +204,7 @@ import { defineTemplate } from "@runory/sdk";
 
 export default defineTemplate({
   id: "small-business-crm",
+  name: "Small Business CRM",
   version: "1.0.0",
   terminology: { customer: "客户", contact: "联系人" },
   navigation: ["dashboard", "customers", "contacts"],
@@ -193,13 +218,14 @@ export default defineTemplate({
 ### 4.1 Object 与 Field
 
 - Object 通过 `objects[]` 声明，包含 `key` / `label` / `fields`。
-- Field 必须声明 `ownership`：`module_owned` 或 `workspace_extension`。Module 升级引入的 field 若与 Extension field 冲突，Core 产出 compatibility report，**绝不静默覆盖**。
-- Field `type` 必须在 Extension Point 的 `allowedTypes` 范围内（对 extension field 而言）。
+- Field 必须声明 `label` 和 `ownership`：`module_owned` 或 `workspace_extension`。Module 升级引入的 field 若与 Extension field 冲突，Core 产出 compatibility report，**绝不静默覆盖**。
+- Field `type` 必须是合法枚举值之一：`text` / `email` / `phone` / `number` / `date` / `select` / `boolean`，且必须在 Extension Point 的 `allowedTypes` 范围内（对 extension field 而言）。
 
 ### 4.2 View（list / form）
 
-- View 通过 `views[]` 声明，包含 `view` key（如 `customer.list` / `customer.form`）、`columns`（list）和 `slots`。
-- Slot 是 Extension 的挂载点，必须声明 `id` / `type`（`field_group` / `column_group` / `action_group` / `widget_group`）/ `allowedExtensions` / `risk`。
+- View 通过 `views[]` 声明，每项包含 `object`（所属 object key）、`key`（view 唯一标识，如 `customer_list` / `customer_form`）、`type`（`list` 或 `form`）、`label` 和 `config`。
+- `config` 对 list view 可声明 `columns: [{ field, label }]`、`pageSize`；对 form view 可声明 `sections: [{ title, fields: [{ field, required }] }]`、`actions`。
+- Slot 是 Extension 的挂载点，声明在 `extensionPoints.views[]` 中（不是顶层 `views[]`），必须声明 `view`（对应 view key）/ `slots[]`，每个 slot 含 `id` / `type`（`field_group` / `column_group` / `action_group` / `widget_group`）/ `allowedExtensions` / `risk`。
 - `risk` 分级：`low`（字段展示）/ `medium`（action）/ `high`（需人工评审）。
 
 ### 4.3 Extension Point
@@ -213,22 +239,30 @@ extensionPoints: {
       entity: "customer",
       customFields: {
         enabled: true,
-        allowedTypes: ["text", "number", "date", "select", "boolean", "relation"],
+        allowedTypes: ["text", "number", "date", "select", "boolean"],
         maxFields: 50,
         reservedKeys: ["id", "name", "email", "phone"], // Module 保留，Extension 不可占用
       },
       customRelations: {
         enabled: true,
-        allowedTargets: ["project", "deal"],
       },
+    },
+  ],
+  views: [
+    {
+      view: "customer.list",
+      slots: [
+        { id: "customer.list.columns", type: "column_group",
+          allowedExtensions: ["customField"], risk: "low" },
+      ],
     },
   ],
 }
 ```
 
 - `reservedKeys` 是 Module 自留字段，Workspace Extension 不可创建同名 field。
-- `allowedTargets` 限制 customRelation 可指向的 object。
-- Module 还应声明 `releaseCompatibility.reservedFieldKeys`，用于升级时冲突检测。
+- `customRelations` 只声明 `enabled` 开关；可指向的 object 由 Module 设计时通过 object 定义隐式约束。
+- Module 还应声明 `releaseCompatibility.breakingChanges`，用于升级时冲突检测。
 
 ## 5. CLI 命令流程
 
@@ -269,7 +303,7 @@ runory validate --entry src/module.ts --type module --json
 runory test --entry src/module.ts --json
 ```
 
-使用 `@runory/testing` harness 执行：empty Workspace install → previous Stable → candidate upgrade → fixture data preservation → Extension compatibility → permission / UI schema snapshot。
+使用 `@runory/sdk-testing` harness 执行：empty Workspace install → previous Stable → candidate upgrade → fixture data preservation → Extension compatibility → permission / UI schema snapshot。
 
 Harness API：
 
@@ -337,7 +371,7 @@ POC 只允许上传为 Catalog candidate / internal release request：
 
 ## 6. 安全规则
 
-1. **无任意代码**：Module 不允许携带任意 React / Node 代码在多租户 Runtime 动态执行。受控 custom component / runtime extension 必须形成独立安全规范后才能引入。优先使用数据声明（Object / Field / Relation / View / Permission / Event / Migration reference）。
+1. **无任意代码**：Module 不允许携带任意 React / Node 代码在多租户 Runtime 动态执行。受控 custom component / runtime extension 必须形成独立安全规范后才能引入。优先使用数据声明（Object / Field / View / Permission / Migration reference）。
 2. **Migration SQL 占位符**：Migration SQL 必须使用 `{{BUSINESS_TABLE_PREFIX}}` 占位符引用业务表，不得硬编码 `runory_business_*` 物理表名。默认前缀为 `runory_business_`，但 embedded deployment 可通过 `BUSINESS_TABLE_PREFIX` 环境变量覆盖。示例：
    ```sql
    CREATE TABLE {{BUSINESS_TABLE_PREFIX}}customer (
@@ -357,7 +391,7 @@ POC 只允许上传为 Catalog candidate / internal release request：
 ```text
 Developer / Agent
 → @runory/sdk authoring
-→ @runory/testing
+→ @runory/sdk-testing
 → runory build
 → runory publish --channel internal
 → Catalog candidate

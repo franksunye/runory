@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { z } from "zod";
 import {
   getRelease,
   createReleaseRollout,
@@ -7,11 +8,11 @@ import {
   type ReleaseRollout,
   type RolloutTargetType,
 } from "@runory/platform-core";
-import { getCurrentPrincipal } from "@/lib/auth";
+import { requirePlatformAdmin } from "@/lib/auth";
 import {
   successResponse,
   handleError,
-  forbidden,
+  invalidInput,
   getOrCreateRequestId,
 } from "@/lib/http";
 
@@ -47,6 +48,16 @@ function mapRolloutRow(row: ReleaseRolloutRow): ReleaseRollout {
   };
 }
 
+const createRolloutSchema = z.object({
+  targetType: z.enum(["allowlist", "percentage", "all_eligible"]),
+  targetConfig: z.object({
+    workspaceIds: z.array(z.string()).optional(),
+    percentage: z.number().optional(),
+  }),
+  successThreshold: z.number().optional(),
+  failureThreshold: z.number().optional(),
+});
+
 // GET /api/platform/releases/[releaseId]/rollout — get rollouts for a release
 export async function GET(
   request: NextRequest,
@@ -54,8 +65,7 @@ export async function GET(
 ) {
   const requestId = getOrCreateRequestId(request.headers.get("x-request-id"));
   try {
-    const principal = await getCurrentPrincipal(request);
-    if (!principal) return forbidden("Access denied", requestId);
+    await requirePlatformAdmin(request);
 
     const { releaseId } = await params;
     // Verify the release exists (throws NotFoundError if missing)
@@ -80,8 +90,7 @@ export async function POST(
 ) {
   const requestId = getOrCreateRequestId(request.headers.get("x-request-id"));
   try {
-    const principal = await getCurrentPrincipal(request);
-    if (!principal) return forbidden("Access denied", requestId);
+    const { principal } = await requirePlatformAdmin(request);
 
     const { releaseId } = await params;
     const body = (await request.json()) as {
@@ -90,13 +99,17 @@ export async function POST(
       successThreshold?: number;
       failureThreshold?: number;
     };
+    const parsed = createRolloutSchema.safeParse(body);
+    if (!parsed.success) {
+      return invalidInput(parsed.error.message, requestId);
+    }
 
     const rollout = await createReleaseRollout(principal, {
       catalogReleaseId: releaseId,
-      targetType: body.targetType,
-      targetConfig: body.targetConfig,
-      successThreshold: body.successThreshold,
-      failureThreshold: body.failureThreshold,
+      targetType: parsed.data.targetType,
+      targetConfig: parsed.data.targetConfig,
+      successThreshold: parsed.data.successThreshold,
+      failureThreshold: parsed.data.failureThreshold,
     });
 
     return successResponse(rollout, 201, requestId);

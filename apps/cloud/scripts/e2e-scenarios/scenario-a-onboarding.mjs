@@ -13,68 +13,13 @@
  * Customer + Contact creation.
  */
 
-const API = process.env.RUNORY_API_BASE ?? "http://localhost:3000";
-
-let pass = 0;
-let fail = 0;
-const failures = [];
-
-function assert(cond, label) {
-  if (cond) {
-    pass++;
-    console.log(`  ✓ ${label}`);
-  } else {
-    fail++;
-    failures.push(label);
-    console.log(`  ✗ ${label}`);
-  }
-}
-
-// Simple cookie jar for session persistence
-let cookieHeader = "";
-
-async function api(path, method = "GET", body) {
-  const headers = {};
-  if (cookieHeader) headers["Cookie"] = cookieHeader;
-  if (body) headers["Content-Type"] = "application/json";
-  const res = await fetch(`${API}${path}`, {
-    method,
-    headers,
-    body: body ? JSON.stringify(body) : undefined,
-    redirect: "manual",
-  });
-  // Capture Set-Cookie for session persistence
-  const setCookies = res.headers.getSetCookie?.() ?? [];
-  if (setCookies.length > 0) {
-    const parsed = setCookies
-      .map((c) => c.split(";")[0])
-      .join("; ");
-    cookieHeader = parsed;
-  }
-  const text = await res.text();
-  let json;
-  try {
-    json = JSON.parse(text);
-  } catch {
-    json = { raw: text };
-  }
-  return { status: res.status, json, headers: res.headers };
-}
-
-async function checkServer() {
-  try {
-    const res = await fetch(`${API}/api/health`, { method: "GET" });
-    return res.ok;
-  } catch {
-    return false;
-  }
-}
+import { assert, api, checkServer, printSummary, getFailCount, BASE_URL } from "./_helpers.mjs";
 
 async function main() {
   console.log("=== Runory E2E Scenario A: New Customer Onboarding ===\n");
 
   if (!(await checkServer())) {
-    console.log("FATAL: Dev server is not running at", API);
+    console.log("FATAL: Dev server is not running at", BASE_URL);
     console.log("Start it with: pnpm dev:cloud");
     process.exit(1);
   }
@@ -87,7 +32,7 @@ async function main() {
   {
     const { status, json } = await api("/api/auth/request-otp", "POST", {
       email: testEmail,
-    });
+    }, { useCookies: true });
     assert(status === 200, `OTP request returns 200 (got ${status})`);
     assert(
       json.data?.expiresAt != null,
@@ -107,13 +52,14 @@ async function main() {
   // ── 2. Verify OTP ──
   console.log("\n[2] Verify OTP and obtain session");
   {
-    const { status, json } = await api("/api/auth/verify-otp", "POST", {
+    const { status, json, headers } = await api("/api/auth/verify-otp", "POST", {
       email: testEmail,
       code: devCode,
-    });
+    }, { useCookies: true });
     assert(status === 200, `OTP verification returns 200 (got ${status})`);
+    const setCookies = headers.getSetCookie?.() ?? [];
     assert(
-      cookieHeader.length > 0,
+      setCookies.length > 0,
       "session cookie set in response"
     );
     assert(json.data?.principal?.userId != null, "principal has userId");
@@ -127,7 +73,7 @@ async function main() {
   console.log("\n[3] Get current user (GET /api/auth/me)");
   let userId;
   {
-    const { status, json } = await api("/api/auth/me");
+    const { status, json } = await api("/api/auth/me", "GET", undefined, { useCookies: true });
     assert(status === 200, `auth/me returns 200 (got ${status})`);
     assert(json.data?.authenticated === true, "user is authenticated");
     assert(json.data?.principal?.userId != null, "principal present");
@@ -138,7 +84,7 @@ async function main() {
   console.log("\n[4] Verify organization + default workspace");
   let workspaceId;
   {
-    const { json } = await api("/api/auth/me");
+    const { json } = await api("/api/auth/me", "GET", undefined, { useCookies: true });
     const workspaces = json.data?.workspaces ?? [];
     assert(workspaces.length >= 1, `≥1 workspace exists (got ${workspaces.length})`);
     if (workspaces.length > 0) {
@@ -161,7 +107,9 @@ async function main() {
   {
     const { status, json } = await api(
       `/api/workspaces/${workspaceId}/packs/crm-lite-pack/install`,
-      "POST"
+      "POST",
+      undefined,
+      { useCookies: true }
     );
     assert(
       status === 201 || status === 200,
@@ -173,7 +121,7 @@ async function main() {
   // ── 6. Verify objects exist ──
   console.log("\n[6] Verify customer + contact objects installed");
   {
-    const { json } = await api(`/api/workspaces/${workspaceId}/objects`);
+    const { json } = await api(`/api/workspaces/${workspaceId}/objects`, "GET", undefined, { useCookies: true });
     const objects = json.data ?? [];
     assert(objects.length >= 2, `≥2 objects installed (got ${objects.length})`);
     assert(
@@ -192,7 +140,8 @@ async function main() {
     const { status, json } = await api(
       `/api/workspaces/${workspaceId}/objects/customer/records`,
       "POST",
-      { name: "Acme Corp", email: "info@acme.com", phone: "555-0100" }
+      { name: "Acme Corp", email: "info@acme.com", phone: "555-0100" },
+      { useCookies: true }
     );
     assert(status === 201, `customer created (got ${status})`);
     assert(json.data?.id != null, "customer record has id");
@@ -204,7 +153,8 @@ async function main() {
     const { status, json } = await api(
       `/api/workspaces/${workspaceId}/objects/contact/records`,
       "POST",
-      { name: "Jane Doe", email: "jane@acme.com", phone: "555-0101" }
+      { name: "Jane Doe", email: "jane@acme.com", phone: "555-0101" },
+      { useCookies: true }
     );
     assert(status === 201, `contact created (got ${status})`);
     assert(json.data?.id != null, "contact record has id");
@@ -214,7 +164,10 @@ async function main() {
   console.log("\n[9] List customers and contacts");
   {
     const { json: custJson } = await api(
-      `/api/workspaces/${workspaceId}/objects/customer/records`
+      `/api/workspaces/${workspaceId}/objects/customer/records`,
+      "GET",
+      undefined,
+      { useCookies: true }
     );
     const customers = custJson.data ?? [];
     assert(customers.length >= 1, `≥1 customer record (got ${customers.length})`);
@@ -224,7 +177,10 @@ async function main() {
     );
 
     const { json: contactJson } = await api(
-      `/api/workspaces/${workspaceId}/objects/contact/records`
+      `/api/workspaces/${workspaceId}/objects/contact/records`,
+      "GET",
+      undefined,
+      { useCookies: true }
     );
     const contacts = contactJson.data ?? [];
     assert(contacts.length >= 1, `≥1 contact record (got ${contacts.length})`);
@@ -241,14 +197,8 @@ async function main() {
   assert(true, "invitation step documented (email delivery not automatable in E2E)");
 
   // ── Summary ──
-  console.log("\n=== Scenario A Summary ===");
-  console.log(`  Passed: ${pass}`);
-  console.log(`  Failed: ${fail}`);
-  if (failures.length > 0) {
-    console.log("  Failures:");
-    for (const f of failures) console.log(`    - ${f}`);
-  }
-  process.exit(fail === 0 ? 0 : 1);
+  const failCount = printSummary("Scenario A");
+  process.exit(failCount === 0 ? 0 : 1);
 }
 
 main().catch((e) => {

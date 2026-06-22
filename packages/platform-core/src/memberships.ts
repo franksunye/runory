@@ -346,6 +346,7 @@ export async function updateWorkspaceAssignment(
   userId: string,
   workspaceId: string,
   newRole: WorkspaceRole,
+  actorUserId: string,
   actorOrgRole: OrganizationRole | null
 ): Promise<void> {
   if (!canManageMembers(actorOrgRole)) {
@@ -387,7 +388,7 @@ export async function updateWorkspaceAssignment(
       sql: `INSERT INTO ${TABLES.auditLogs}
             (id, workspace_id, actor_type, actor_id, action, entity_type, entity_id, before_json, after_json, created_at)
             VALUES (?, ?, 'user', ?, 'workspace.member_role_updated', 'workspace_membership', ?, ?, ?, ?)`,
-      args: [genId("aud"), workspaceId, "system", userId,
+      args: [genId("aud"), workspaceId, actorUserId, userId,
              JSON.stringify({ oldRole: existing.role }), ts],
     });
   } else if (existing?.status === "inactive") {
@@ -397,6 +398,14 @@ export async function updateWorkspaceAssignment(
             SET role = ?, status = 'active', updated_at = ?
             WHERE workspace_id = ? AND user_id = ?`,
       args: [newRole, ts, workspaceId, userId],
+    });
+    statements.push({
+      sql: `INSERT INTO ${TABLES.auditLogs}
+            (id, workspace_id, actor_type, actor_id, action, entity_type, entity_id, before_json, after_json, created_at)
+            VALUES (?, ?, 'user', ?, 'workspace.member_reactivated', 'workspace_membership', ?, ?, ?, ?)`,
+      args: [genId("aud"), workspaceId, actorUserId, userId,
+             JSON.stringify({ status: "inactive", role: existing.role }),
+             JSON.stringify({ status: "active", role: newRole }), ts],
     });
   } else {
     // Create new
@@ -410,7 +419,7 @@ export async function updateWorkspaceAssignment(
       sql: `INSERT INTO ${TABLES.auditLogs}
             (id, workspace_id, actor_type, actor_id, action, entity_type, entity_id, after_json, created_at)
             VALUES (?, ?, 'user', ?, 'workspace.member_added', 'workspace_membership', ?, ?, ?)`,
-      args: [genId("aud"), workspaceId, "system", userId,
+      args: [genId("aud"), workspaceId, actorUserId, userId,
              JSON.stringify({ role: newRole }), ts],
     });
   }

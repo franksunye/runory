@@ -1,5 +1,5 @@
 import { randomBytes, createHash, randomUUID } from "node:crypto";
-import { queryAll, queryOne, execute, genId, now } from "./db";
+import { queryAll, queryOne, execute, genId, now, batch } from "./db";
 import { TABLES } from "./contracts";
 import { authorizeWorkspace } from "./tenancy";
 import {
@@ -82,6 +82,9 @@ export async function createApiKey(
   const access = await authorizeWorkspace(workspaceId, userId, "admin");
   if (!access) throw new AuthorizationError("Workspace admin role required to create API keys");
 
+  // NOTE: No uniqueness enforcement on API key creation — the genId("apik")
+  // prefix makes ID collisions extremely unlikely, so the TOCTOU risk here is
+  // negligible. No data loss occurs if a collision happens (INSERT fails).
   const { token, prefix, hash } = generateToken();
   const id = genId("apik");
   const ts = now();
@@ -178,23 +181,24 @@ export async function rotateApiKey(
   );
   if (!existing) throw new NotFoundError("Active API key not found");
 
-  // Revoke old key
+  // Revoke old key + create new key atomically. If either statement fails,
+  // the rotation is rolled back — no half-rotated state.
   const ts = now();
-  await execute(
-    `UPDATE ${TABLES.apiKeys} SET status = 'revoked', revoked_at = ?, updated_at = ? WHERE id = ?`,
-    [ts, ts, apiKeyId]
-  );
-
-  // Create new key with same settings
   const { token, prefix, hash } = generateToken();
   const newId = genId("apik");
   const expiresAt = existing.expires_at ?? new Date(Date.now() + DEFAULT_EXPIRY_DAYS * 86400000).toISOString();
 
-  await execute(
-    `INSERT INTO ${TABLES.apiKeys} (id, workspace_id, user_id, name, key_prefix, key_hash, scopes_json, status, expires_at, created_at, updated_at, rotated_from)
+  await batch([
+    {
+      sql: `UPDATE ${TABLES.apiKeys} SET status = 'revoked', revoked_at = ?, updated_at = ? WHERE id = ?`,
+      args: [ts, ts, apiKeyId],
+    },
+    {
+      sql: `INSERT INTO ${TABLES.apiKeys} (id, workspace_id, user_id, name, key_prefix, key_hash, scopes_json, status, expires_at, created_at, updated_at, rotated_from)
      VALUES (?, ?, ?, ?, ?, ?, ?, 'active', ?, ?, ?, ?)`,
-    [newId, existing.workspace_id, existing.user_id, existing.name, prefix, hash, existing.scopes_json, expiresAt, ts, ts, apiKeyId]
-  );
+      args: [newId, existing.workspace_id, existing.user_id, existing.name, prefix, hash, existing.scopes_json, expiresAt, ts, ts, apiKeyId],
+    },
+  ]);
 
   return {
     id: newId,
@@ -261,12 +265,14 @@ export async function resolveApiKey(
     return null;
   }
 
-  // Update last_used_at (non-blocking, don't fail on error)
+  // Update last_used_at (non-blocking, don't fail the request on error)
   const ts = now();
   await execute(
     `UPDATE ${TABLES.apiKeys} SET last_used_at = ?, updated_at = ? WHERE id = ?`,
     [ts, ts, row.id]
-  ).catch(() => {});
+  ).catch((err) => {
+    console.error("[api-keys] Failed to update last_used_at:", err);
+  });
 
   // Get user info for principal
   const user = await queryOne<{ id: string; email: string | null; display_name: string }>(

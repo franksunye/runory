@@ -3,11 +3,10 @@ import {
   withdrawCatalogVersion,
   getCatalogVersion,
 } from "@runory/platform-core";
-import { getCurrentPrincipal } from "@/lib/auth";
+import { requirePlatformAdmin } from "@/lib/auth";
 import {
   successResponse,
   handleError,
-  forbidden,
   getOrCreateRequestId,
 } from "@/lib/http";
 
@@ -20,8 +19,7 @@ export async function POST(
 ) {
   const requestId = getOrCreateRequestId(request.headers.get("x-request-id"));
   try {
-    const principal = await getCurrentPrincipal(request);
-    if (!principal) return forbidden("Access denied", requestId);
+    const { principal } = await requirePlatformAdmin(request);
 
     const { versionId } = await params;
     const body = (await request.json()) as { reason: string };

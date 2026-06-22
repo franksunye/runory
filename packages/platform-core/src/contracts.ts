@@ -6,6 +6,7 @@ import {
   getTableNamespacePrefixes,
   renderSqlWithPrefix,
 } from "./platform-config";
+import { validateIdentifier } from "./db";
 
 // ── Resource Directory Resolution ──
 // Local dev reads schema/ and catalog/ from the repository root.
@@ -99,7 +100,7 @@ export const TABLES = {
 export const BUSINESS_TABLE_PREFIX = getBusinessTablePrefix();
 
 export function businessTable(objectKey: string): string {
-  return `${BUSINESS_TABLE_PREFIX}${objectKey}`;
+  return `${BUSINESS_TABLE_PREFIX}${validateIdentifier(objectKey)}`;
 }
 
 // ── Schema Rendering (retained for tooling/tests; migrations are the primary path) ──

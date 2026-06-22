@@ -20,7 +20,8 @@ export function LocaleProvider({ initialLocale, children }: { initialLocale: Loc
     locale,
     setLocale(nextLocale) {
       updateLocale(nextLocale);
-      document.cookie = `${LOCALE_COOKIE}=${nextLocale}; Path=/; Max-Age=31536000; SameSite=Lax`;
+      const secure = window.location.protocol === "https:" ? "; Secure" : "";
+      document.cookie = `${LOCALE_COOKIE}=${nextLocale}; Path=/; Max-Age=31536000; SameSite=Lax${secure}`;
       document.documentElement.lang = nextLocale === "zh" ? "zh-CN" : "en";
       router.refresh();
     },

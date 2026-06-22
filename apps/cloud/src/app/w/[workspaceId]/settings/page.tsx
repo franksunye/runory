@@ -64,7 +64,7 @@ export default function SettingsPage() {
     try {
       const res = await fetch(
         `/api/workspaces/${workspaceId}/packs/${CRM_LITE_PACK_ID}/install`,
-        { method: "POST" }
+        { method: "POST", headers: { "X-Requested-With": "XMLHttpRequest" } }
       );
       const json = await res.json();
       if (json.success) {
@@ -89,6 +89,7 @@ export default function SettingsPage() {
     try {
       const res = await fetch(`/api/workspaces/${workspaceId}/export`, {
         method: "POST",
+        headers: { "X-Requested-With": "XMLHttpRequest" },
       });
       const json = await res.json();
       if (json.success) {

@@ -13,12 +13,20 @@ interface NavigationShellProps {
   navigation: NavigationItem[];
   workspaceId: string;
   workspaceName: string;
+  role?: string;
   children: React.ReactNode;
 }
 
 const iconMap = { users: UsersRound, contact: ContactRound, file: FileText };
 
-export default function NavigationShell({ navigation, workspaceId, workspaceName, children }: NavigationShellProps) {
+const ROLE_LABELS: Record<string, { label: string; sub: string; initial: string }> = {
+  owner: { label: "所有者", sub: "Owner", initial: "所" },
+  admin: { label: "工作区管理员", sub: "Admin", initial: "管" },
+  member: { label: "成员", sub: "Member", initial: "成" },
+  viewer: { label: "访客", sub: "Viewer", initial: "访" },
+};
+
+export default function NavigationShell({ navigation, workspaceId, workspaceName, role = "member", children }: NavigationShellProps) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
   const items = [
@@ -28,6 +36,8 @@ export default function NavigationShell({ navigation, workspaceId, workspaceName
     { id: "audit", label: "审计日志", route: "/audit", icon: ScrollText, sortOrder: 90 },
     { id: "settings", label: "设置", route: "/settings", icon: Settings, sortOrder: 100 },
   ].sort((a, b) => a.sortOrder - b.sortOrder);
+
+  const roleDisplay = ROLE_LABELS[role] ?? ROLE_LABELS.member;
 
   const sidebar = (
     <>
@@ -57,8 +67,8 @@ export default function NavigationShell({ navigation, workspaceId, workspaceName
       </div>
       <div className="mt-auto border-t border-slate-200/80 p-4">
         <div className="flex items-center gap-3 rounded-xl p-2 hover:bg-slate-50">
-          <div className="grid size-9 place-items-center rounded-lg bg-slate-900 text-xs font-bold text-white">管</div>
-          <div className="min-w-0 flex-1"><p className="text-sm font-semibold">工作区管理员</p><p className="text-xs text-slate-500">Owner</p></div>
+          <div className="grid size-9 place-items-center rounded-lg bg-slate-900 text-xs font-bold text-white">{roleDisplay.initial}</div>
+          <div className="min-w-0 flex-1"><p className="text-sm font-semibold">{roleDisplay.label}</p><p className="text-xs text-slate-500">{roleDisplay.sub}</p></div>
           <ChevronDown size={15} className="text-slate-400" />
         </div>
       </div>

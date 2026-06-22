@@ -1,4 +1,4 @@
-import { queryOne, queryAll, execute, genId, now, batch, db } from "./db";
+import { queryOne, queryAll, query, execute, genId, now, batch, db } from "./db";
 import { TABLES, BUSINESS_TABLE_PREFIX } from "./contracts";
 import {
   type Principal,
@@ -51,6 +51,7 @@ export interface DeletionJob {
 
 const PURGE_DELAY_DAYS = 30;
 const DOWNLOAD_URL_EXPIRY_HOURS = 24;
+const EXPORT_JOB_STALE_TIMEOUT_MS = 10 * 60 * 1000;
 
 // ── Export ──
 
@@ -144,6 +145,25 @@ export async function runExportJob(jobId: string): Promise<ExportJob> {
   }
 }
 
+// ── Sweep stale export jobs ──
+//
+// If runExportJob crashes after setting status='running' (or the failure
+// update itself fails), the job is permanently stuck. This sweeper marks any
+// export job that has been 'running' longer than EXPORT_JOB_STALE_TIMEOUT_MS
+// as 'failed' so it is no longer considered active. Intended to be invoked
+// periodically (e.g., via a cron/scheduled task).
+
+export async function sweepStaleExportJobs(): Promise<number> {
+  const cutoff = new Date(Date.now() - EXPORT_JOB_STALE_TIMEOUT_MS).toISOString();
+  const result = await query(
+    `UPDATE ${TABLES.exportJobs}
+     SET status = 'failed', error_message = 'Job timed out (sweeper)', updated_at = ?
+     WHERE status = 'running' AND updated_at < ?`,
+    [now(), cutoff]
+  );
+  return result.rowsAffected ?? 0;
+}
+
 export async function getExportJob(jobId: string, workspaceId: string): Promise<ExportJob | null> {
   const row = await queryOne<{
     id: string; workspace_id: string; organization_id: string; requested_by: string;
@@ -210,7 +230,11 @@ export async function scheduleWorkspaceDeletion(
   if (!ws) throw new NotFoundError("Workspace not found");
   if (ws.status === "purged") throw new ConflictError("Workspace already purged");
 
-  // Check for existing pending deletion
+  // NOTE: TOCTOU race — between this SELECT and the INSERT below, a concurrent
+  // caller could insert a deletion job for the same workspace. The window is
+  // tiny and the idempotency check here handles the common case. For true
+  // atomicity, a unique index on (entity_type, entity_id, status) for pending
+  // statuses would be needed at the DB level.
   const existing = await queryOne<{ id: string }>(
     `SELECT id FROM ${TABLES.deletionJobs} WHERE entity_type = 'workspace' AND entity_id = ? AND status IN ('pending','scheduled')`,
     [workspaceId]
@@ -310,10 +334,12 @@ export async function purgeWorkspace(workspaceId: string): Promise<void> {
   // Discover business tables (runory_business_*) and delete this workspace's
   // records from them. Prevents data leaks where purged workspace business
   // records would survive platform-table cleanup.
+  // Discovery (read-only) happens first; DELETEs are collected for atomic batch.
   const bizTables = await db.execute({
     sql: `SELECT name FROM sqlite_master WHERE type='table' AND name LIKE ?`,
     args: [`${BUSINESS_TABLE_PREFIX}%`],
   });
+  const bizTableStatements: { sql: string; args: unknown[] }[] = [];
   for (const row of bizTables.rows) {
     const tableName = (row as unknown as { name: string }).name;
     // Check if the table has a workspace_id column before deleting
@@ -322,7 +348,10 @@ export async function purgeWorkspace(workspaceId: string): Promise<void> {
       (c) => (c as unknown as { name: string }).name === "workspace_id"
     );
     if (hasWorkspaceId) {
-      await execute(`DELETE FROM "${tableName}" WHERE workspace_id = ?`, [workspaceId]);
+      bizTableStatements.push({
+        sql: `DELETE FROM "${tableName}" WHERE workspace_id = ?`,
+        args: [workspaceId],
+      });
     }
   }
 
@@ -341,24 +370,27 @@ export async function purgeWorkspace(workspaceId: string): Promise<void> {
     { table: TABLES.exportJobs, where: "workspace_id" },
   ];
 
-  for (const { table, where } of tablesToClean) {
-    await execute(`DELETE FROM ${table} WHERE ${where} = ?`, [workspaceId]);
-  }
+  const platformStatements = tablesToClean.map(({ table, where }) => ({
+    sql: `DELETE FROM ${table} WHERE ${where} = ?`,
+    args: [workspaceId],
+  }));
 
-  // Delete workspace tenant mapping
-  await execute(`DELETE FROM ${TABLES.workspaceTenants} WHERE workspace_id = ?`, [workspaceId]);
-
-  // Mark workspace as purged
-  await execute(
-    `UPDATE ${TABLES.workspaces} SET status = 'purged', purged_at = ?, updated_at = ? WHERE id = ?`,
-    [ts, ts, workspaceId]
-  );
-
-  // Update deletion job
-  await execute(
-    `UPDATE ${TABLES.deletionJobs} SET status = 'purged', purged_at = ?, updated_at = ? WHERE entity_type = 'workspace' AND entity_id = ? AND status IN ('scheduled','purging')`,
-    [ts, ts, workspaceId]
-  );
+  // Execute all writes atomically: business-table deletes, platform-table
+  // deletes, tenant mapping delete, workspace status update, and deletion
+  // job update. If any statement fails, the entire purge is rolled back.
+  await batch([
+    ...bizTableStatements,
+    ...platformStatements,
+    { sql: `DELETE FROM ${TABLES.workspaceTenants} WHERE workspace_id = ?`, args: [workspaceId] },
+    {
+      sql: `UPDATE ${TABLES.workspaces} SET status = 'purged', purged_at = ?, updated_at = ? WHERE id = ?`,
+      args: [ts, ts, workspaceId],
+    },
+    {
+      sql: `UPDATE ${TABLES.deletionJobs} SET status = 'purged', purged_at = ?, updated_at = ? WHERE entity_type = 'workspace' AND entity_id = ? AND status IN ('scheduled','purging')`,
+      args: [ts, ts, workspaceId],
+    },
+  ]);
 }
 
 // ── Organization Deletion (requires OTP confirmation) ──

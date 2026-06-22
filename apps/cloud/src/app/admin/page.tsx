@@ -377,7 +377,7 @@ function ImportModal({ onClose, onImported }: { onClose: () => void; onImported:
     try {
       const res = await fetch("/api/platform/catalog", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "X-Requested-With": "XMLHttpRequest" },
         body: JSON.stringify({ itemId: itemId.trim(), itemType }),
       });
       const json = await res.json();
@@ -482,7 +482,7 @@ function ItemDetail({ item, onBack, onChanged }: { item: CatalogItem; onBack: ()
     try {
       const res = await fetch(`/api/platform/catalog/versions/${versionId}/${action}`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "X-Requested-With": "XMLHttpRequest" },
         body: JSON.stringify(body ?? {}),
       });
       const json = await res.json();
@@ -528,7 +528,7 @@ function ItemDetail({ item, onBack, onChanged }: { item: CatalogItem; onBack: ()
       }
       const res = await fetch(`/api/platform/catalog/versions/${versionId}/${type}`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "X-Requested-With": "XMLHttpRequest" },
         body: JSON.stringify(body),
       });
       const json = await res.json();

@@ -100,7 +100,7 @@ manifest schemas and inferred types
 artifact metadata contracts
 ```
 
-### 5.2 `@runory/testing`
+### 5.2 `@runory/sdk-testing`
 
 确定性测试工具：
 
@@ -340,7 +340,7 @@ defineWorkflow({
 ```text
 Developer / Agent
 → @runory/sdk authoring
-→ @runory/testing
+→ @runory/sdk-testing
 → runory build
 → runory publish --channel internal
 → Catalog candidate

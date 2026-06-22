@@ -5,9 +5,11 @@ export function middleware(request: NextRequest) {
 
   // ── Security Headers ──
   // Content-Security-Policy: restrict to self, allow inline styles (Tailwind needs this)
+  // Note: 'unsafe-inline' is kept for script-src because Next.js requires it without a nonce setup.
+  // 'unsafe-eval' is intentionally omitted to keep XSS protection strong.
   response.headers.set(
     "Content-Security-Policy",
-    "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self'; frame-ancestors 'none'"
+    "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self'; frame-ancestors 'none'"
   );
 
   // HSTS: only in production (HTTPS)
@@ -27,21 +29,22 @@ export function middleware(request: NextRequest) {
   );
 
   // ── CSRF/Origin Protection ──
-  // For state-changing methods, verify Origin matches the expected host
+  // For state-changing methods, verify Origin matches the expected host.
+  // This check ALWAYS runs (not gated by NODE_ENV) so dev/test catches issues too.
   const method = request.method.toUpperCase();
   const isStateChange = ["POST", "PUT", "PATCH", "DELETE"].includes(method);
 
-  if (isStateChange && process.env.NODE_ENV === "production") {
+  if (isStateChange) {
     const origin = request.headers.get("origin");
     const host = request.headers.get("host");
 
-    // Allow same-origin requests (Origin host matches request host)
     if (origin) {
+      // Origin present — verify it matches host
       try {
         const originHost = new URL(origin).host;
         if (originHost !== host) {
           return new NextResponse(
-            JSON.stringify({ error: "Cross-origin request blocked" }),
+            JSON.stringify({ error: "Origin mismatch" }),
             {
               status: 403,
               headers: { "Content-Type": "application/json" },
@@ -57,9 +60,20 @@ export function middleware(request: NextRequest) {
           }
         );
       }
+    } else {
+      // No Origin header — require X-Requested-With custom header.
+      // Plain HTML forms can't set custom headers, so this blocks CSRF.
+      const xRequestedWith = request.headers.get("x-requested-with");
+      if (!xRequestedWith) {
+        return new NextResponse(
+          JSON.stringify({ error: "Missing Origin or X-Requested-With header" }),
+          {
+            status: 403,
+            headers: { "Content-Type": "application/json" },
+          }
+        );
+      }
     }
-    // If no Origin header, allow it (API clients like curl may not send Origin)
-    // Session cookies have SameSite=lax which provides additional CSRF protection
   }
 
   return response;

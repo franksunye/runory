@@ -103,7 +103,7 @@ fa5db0cfc77e033ade9efb5ac17b6c906ed17ebab3de22bceda25e30da196dc2
 ## Test Results
 
 ```
-pnpm --filter @runory/testing test
+pnpm --filter @runory/sdk-testing test
 
  ✓ src/customer-upgrade.test.ts (5 tests) 100ms
  ✓ src/build-customer-v11.test.ts (6 tests) 5ms

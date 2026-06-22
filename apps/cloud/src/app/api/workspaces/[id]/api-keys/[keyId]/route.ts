@@ -21,7 +21,9 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
       before: { revoked: false },
       after: { revoked: true },
       requestId: ctx.requestId,
-    }).catch(() => {});
+    }).catch((err) => {
+      console.error("[audit] Failed to write audit event:", err);
+    });
     return successResponse({ success: true }, 200, ctx.requestId);
   } catch (e) { return handleError(e, requestId); }
 }

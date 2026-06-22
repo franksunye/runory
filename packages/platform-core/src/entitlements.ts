@@ -228,8 +228,13 @@ export async function recordUsageEvent(input: {
       ]
     );
   } catch (err: unknown) {
-    // If idempotency key conflict, silently skip
-    if (err instanceof Error && err.message.includes("UNIQUE")) return;
+    // Check for unique constraint violation via error code (more reliable than message matching)
+    const code = (err as { code?: string }).code;
+    const message = err instanceof Error ? err.message : String(err);
+    if (code === "SQLITE_CONSTRAINT_UNIQUE" || message.includes("UNIQUE")) {
+      // Idempotent: event already recorded
+      return;
+    }
     throw err;
   }
 
@@ -244,8 +249,8 @@ export async function recordUsageEvent(input: {
      ON CONFLICT(organization_id, metric, period_start) DO UPDATE SET
        value = value + ?, updated_at = ?`,
     [rollupId, input.organizationId, input.metric, periodStart, periodEnd, delta, ts, delta, ts]
-  ).catch(() => {
-    // Fallback: try UPDATE if INSERT failed
+  ).catch((err) => {
+    console.error("[entitlements] Failed to update usage rollup:", err);
   });
 }
 

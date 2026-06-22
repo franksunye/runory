@@ -1,4 +1,8 @@
 import { createHash } from "node:crypto";
+import { createRequire } from "node:module";
+
+const require = createRequire(import.meta.url);
+const sdkVersion = require("../package.json").version as string;
 
 export interface CompiledArtifact {
   manifest: Record<string, unknown>;
@@ -27,13 +31,20 @@ export function compileManifest(manifest: Record<string, unknown>): CompiledArti
   const manifestJson = JSON.stringify(canonical);
   const checksum = createHash("sha256").update(manifestJson).digest("hex");
 
+  // Reproducible builds: honor SOURCE_DATE_EPOCH (seconds since unix epoch)
+  // when present, so compiledAt is deterministic across builds.
+  const sourceDateEpoch = process.env.SOURCE_DATE_EPOCH;
+  const compiledAt = sourceDateEpoch
+    ? new Date(Number(sourceDateEpoch) * 1000).toISOString()
+    : new Date().toISOString();
+
   return {
     manifest: canonical,
     manifestJson,
     checksum,
     provenance: {
-      sdkVersion: "0.1.0",
-      compiledAt: new Date().toISOString(),
+      sdkVersion,
+      compiledAt,
       manifestSchemaVersion:
         (manifest as { manifestSchemaVersion?: string }).manifestSchemaVersion ?? "1.0.0",
     },

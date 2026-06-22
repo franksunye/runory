@@ -51,7 +51,7 @@ export default function NewCustomerPage() {
         `/api/workspaces/${workspaceId}/objects/${OBJECT_KEY}/records`,
         {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json", "X-Requested-With": "XMLHttpRequest" },
           body: JSON.stringify(data),
         }
       );

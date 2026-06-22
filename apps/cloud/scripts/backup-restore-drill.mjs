@@ -3,16 +3,17 @@
  * Runory Backup/Restore Drill Script (Release Blocker #10 / OPS-04)
  *
  * Performs a real backup/restore drill:
- *   1. Backs up the source database (file copy for file: URLs, SQL dump for remote)
- *   2. Restores to an isolated database
- *   3. Runs migrations (idempotent — should be no-op on a pre-migrated DB)
- *   4. Verifies data integrity (row counts)
- *   5. Verifies tenant isolation (no orphaned cross-workspace records)
- *   6. Verifies catalog integrity (frozen versions have checksums)
- *   7. Outputs a drill report to stdout and docs/releases/backup-restore-drill-report.md
+ *   1. Ensures source DB has schema (migrations) and seed data
+ *   2. Backs up the source database (file copy for file: URLs, SQL dump for remote)
+ *   3. Restores to an isolated database
+ *   4. Runs migrations (idempotent — should be no-op on a pre-migrated DB)
+ *   5. Verifies data integrity (row counts)
+ *   6. Verifies tenant isolation (no orphaned cross-workspace records)
+ *   7. Verifies catalog integrity (frozen versions have checksums)
+ *   8. Outputs a drill report to stdout and docs/releases/backup-restore-drill-report.md
  *
- * If the source DB doesn't exist or is empty, the script still runs and tests
- * the empty-DB migration replay path (Release Blocker #9).
+ * If the source DB doesn't exist or is empty, the script seeds minimal test data
+ * so the drill actually proves data preservation (not just empty → empty).
  *
  * Usage:
  *   node apps/cloud/scripts/backup-restore-drill.mjs
@@ -252,6 +253,60 @@ async function runMigrations(client, prefixes) {
   return { applied: toApply, skipped, checksumMismatches: [] };
 }
 
+// ── Seed Test Data ──
+// Ensures the source DB has at least minimal data before backup, so the drill
+// actually proves data preservation (not just empty → empty).
+
+async function seedTestData(db, prefixes) {
+  let userCount;
+  try {
+    const result = await db.execute(`SELECT COUNT(*) as count FROM ${prefixes.saas}users`);
+    userCount = Number(result.rows[0].count);
+  } catch {
+    console.log("[seed] users table does not exist — skipping seed (migrations not applied?)");
+    return;
+  }
+
+  if (userCount > 0) {
+    console.log(`[seed] Database already has ${userCount} user(s), skipping seed`);
+    return;
+  }
+
+  console.log("[seed] Seeding test data...");
+  const ts = new Date().toISOString();
+
+  await db.execute({
+    sql: `INSERT INTO ${prefixes.saas}users (id, external_id, email, display_name, status, created_at, updated_at) VALUES (?, ?, ?, ?, 'active', ?, ?)`,
+    args: ["usr_seed", "ext_seed", "seed@test.runory.dev", "Seed User", ts, ts],
+  });
+
+  await db.execute({
+    sql: `INSERT INTO ${prefixes.saas}organizations (id, name, slug, status, created_at, updated_at) VALUES (?, ?, ?, 'active', ?, ?)`,
+    args: ["org_seed", "Seed Org", "seed-org", ts, ts],
+  });
+
+  await db.execute({
+    sql: `INSERT INTO ${prefixes.saas}workspaces (id, name, slug, status, created_at, updated_at) VALUES (?, ?, ?, 'active', ?, ?)`,
+    args: ["ws_seed", "Seed Workspace", "seed-ws", ts, ts],
+  });
+
+  // Seed catalog version if table exists (requires catalog_items FK)
+  try {
+    await db.execute({
+      sql: `INSERT INTO ${prefixes.runoryCatalog}items (id, item_type, name, publisher_id, visibility, status, created_at, updated_at) VALUES (?, 'module', 'runory.seed', 'runory', 'internal', 'active', ?, ?)`,
+      args: ["ci_seed", ts, ts],
+    });
+    await db.execute({
+      sql: `INSERT INTO ${prefixes.runoryCatalog}versions (id, catalog_item_id, version, lifecycle_status, manifest_json, manifest_schema_version, created_by, created_at) VALUES (?, ?, '1.0.0', 'ready', '{}', '1.0.0', 'usr_seed', ?)`,
+      args: ["cv_seed", "ci_seed", ts],
+    });
+    console.log("[seed] Seeded 1 user, 1 org, 1 workspace, 1 catalog version");
+  } catch (e) {
+    console.log(`[seed] Catalog seed skipped: ${e.message}`);
+    console.log("[seed] Seeded 1 user, 1 org, 1 workspace");
+  }
+}
+
 // ── Backup / Restore ──
 
 function isFileUrl(url) {
@@ -425,6 +480,7 @@ function generateReport(data) {
     counts,
     crossTenantCount,
     checksumsVerified,
+    seeded,
     passed,
     issues,
   } = data;
@@ -450,6 +506,7 @@ function generateReport(data) {
 | Backup method | ${isFileUrl(sourceUrl) ? "file copy" : "SQL dump (JSON)"} |
 | Restore target | \`${restorePath}\` |
 | Script used | \`apps/cloud/scripts/backup-restore-drill.mjs\` |
+| Seeded test data | ${seeded ? "yes" : "no (already had data)"} |
 
 ## Backup
 
@@ -509,13 +566,11 @@ async function main() {
   // Ensure report directory exists
   mkdirSync(pathDirname(REPORT_PATH), { recursive: true });
 
-  // [2] Creating backup
-  console.log("\n[2] Creating backup...");
-  let backupPath;
-  let backupSize;
-  let backupData = null;
   const issues = [];
+  let seeded = false;
 
+  // [2] Prepare source DB: ensure schema + seed test data
+  console.log("\n[2] Preparing source DB (migrations + seed)...");
   if (isFileUrl(SOURCE_URL)) {
     const sourcePath = filePathFromUrl(SOURCE_URL);
 
@@ -529,6 +584,44 @@ async function main() {
       issues.push("Source DB did not exist — created empty DB (testing Release Blocker #9: empty-DB migration replay)");
     }
 
+    // Connect to source, run migrations, and seed test data
+    const sourceClient = createClient({ url: `file:${sourcePath}` });
+    try {
+      const migrationResult = await runMigrations(sourceClient, prefixes);
+      console.log(`    Source migrations: ${migrationResult.applied.length} applied, ${migrationResult.skipped.length} skipped`);
+    } catch (e) {
+      console.log(`    Source migration error: ${e.message}`);
+      issues.push(`Source migration error: ${e.message}`);
+    }
+    await seedTestData(sourceClient, prefixes);
+    seeded = true;
+    await sourceClient.close();
+  } else {
+    const sourceClient = createClient(
+      SOURCE_AUTH_TOKEN
+        ? { url: SOURCE_URL, authToken: SOURCE_AUTH_TOKEN }
+        : { url: SOURCE_URL }
+    );
+    try {
+      const migrationResult = await runMigrations(sourceClient, prefixes);
+      console.log(`    Source migrations: ${migrationResult.applied.length} applied, ${migrationResult.skipped.length} skipped`);
+    } catch (e) {
+      console.log(`    Source migration error: ${e.message}`);
+      issues.push(`Source migration error: ${e.message}`);
+    }
+    await seedTestData(sourceClient, prefixes);
+    seeded = true;
+    await sourceClient.close();
+  }
+
+  // [3] Creating backup
+  console.log("\n[3] Creating backup...");
+  let backupPath;
+  let backupSize;
+  let backupData = null;
+
+  if (isFileUrl(SOURCE_URL)) {
+    const sourcePath = filePathFromUrl(SOURCE_URL);
     const backupResult = await backupFileDatabase(sourcePath);
     backupPath = backupResult.backupPath;
     backupSize = backupResult.size;
@@ -548,8 +641,8 @@ async function main() {
   console.log(`    Backup file: ${backupPath}`);
   console.log(`    Backup size: ${backupSize} bytes`);
 
-  // [3] Restoring to isolated database
-  console.log("\n[3] Restoring to isolated database...");
+  // [4] Restoring to isolated database
+  console.log("\n[4] Restoring to isolated database...");
   let restorePath;
 
   if (isFileUrl(SOURCE_URL)) {
@@ -563,8 +656,8 @@ async function main() {
   // Connect to restored DB
   const restoredClient = createClient({ url: `file:${restorePath}` });
 
-  // [4] Running migrations (idempotent)
-  console.log("\n[4] Running migrations (idempotent)...");
+  // [5] Running migrations (idempotent)
+  console.log("\n[5] Running migrations (idempotent)...");
   let migrationsApplied = 0;
   let migrationsSkipped = 0;
   let migrationError = null;
@@ -586,30 +679,35 @@ async function main() {
     issues.push(`Migration error: ${migrationError}`);
   }
 
-  // [5] Verifying data integrity
-  console.log("\n[5] Verifying data integrity...");
+  // [6] Verifying data integrity
+  console.log("\n[6] Verifying data integrity...");
   const counts = await countRows(restoredClient, prefixes);
   console.log(`    Users: ${counts.users}`);
   console.log(`    Organizations: ${counts.organizations}`);
   console.log(`    Workspaces: ${counts.workspaces}`);
   console.log(`    Catalog versions: ${counts.catalog_versions}`);
 
-  // [6] Verifying tenant isolation
-  console.log("\n[6] Verifying tenant isolation...");
+  // Fail if seed data was not preserved through backup/restore
+  if (seeded && counts.users === 0) {
+    issues.push("Data preservation failed: source was seeded but restored DB has 0 users");
+  }
+
+  // [7] Verifying tenant isolation
+  console.log("\n[7] Verifying tenant isolation...");
   const crossTenantCount = await verifyTenantIsolation(restoredClient, prefixes);
   console.log(`    Cross-tenant queries: ${crossTenantCount} (expected: 0)`);
   if (crossTenantCount > 0) {
     issues.push(`Tenant isolation violation: ${crossTenantCount} orphaned records found`);
   }
 
-  // [7] Verifying catalog integrity
-  console.log("\n[7] Verifying catalog integrity...");
+  // [8] Verifying catalog integrity
+  console.log("\n[8] Verifying catalog integrity...");
   const checksumsVerified = await verifyCatalogIntegrity(restoredClient, prefixes);
   console.log(`    Checksums verified: ${checksumsVerified}`);
 
-  // [8] Drill result
-  const passed = migrationError === null && crossTenantCount === 0;
-  console.log(`\n[8] Drill result: ${passed ? "PASS" : "FAIL"}`);
+  // [9] Drill result
+  const passed = migrationError === null && crossTenantCount === 0 && !(seeded && counts.users === 0);
+  console.log(`\n[9] Drill result: ${passed ? "PASS" : "FAIL"}`);
 
   // Generate and write report
   const report = generateReport({
@@ -623,6 +721,7 @@ async function main() {
     counts,
     crossTenantCount,
     checksumsVerified,
+    seeded,
     passed,
     issues,
   });
