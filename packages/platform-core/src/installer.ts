@@ -184,104 +184,118 @@ function topologicalSort<T extends { id: string; dependencies?: string[] }>(item
   return sorted;
 }
 
+export interface InstallModuleResult {
+  moduleId: string;
+  objectsCreated: string[];
+  viewsCreated: string[];
+  navigationItemsCreated: number;
+  ddlExecuted: boolean;
+  skipped: boolean;
+}
+
+// Install a single module standalone (not part of a pack). Useful for testing
+// deprecated modules or installing modules outside the pack workflow.
+export async function installModule(
+  workspaceId: string,
+  moduleId: string,
+  packId: string = "standalone"
+): Promise<InstallModuleResult> {
+  const deploymentMode = getDeploymentMode();
+  const manifest = loadModuleManifest(moduleId);
+
+  const objectsCreated: string[] = [];
+  const viewsCreated: string[] = [];
+  let navigationItemsCreated = 0;
+  let ddlExecuted = false;
+
+  // Check if already installed (idempotent — skip if present)
+  const already = await queryOne<{ id: string }>(
+    `SELECT id FROM ${TABLES.installations} WHERE workspace_id = ? AND module_id = ?`,
+    [workspaceId, moduleId]
+  );
+  if (already) {
+    return { moduleId, objectsCreated, viewsCreated, navigationItemsCreated, ddlExecuted, skipped: true };
+  }
+
+  // Run migration (multi-statement DDL, e.g. CREATE TABLE)
+  if (deploymentMode === "local") {
+    const migrationSql = loadModuleMigration(moduleId, manifest.migrations.install);
+    await db.executeMultiple(migrationSql);
+    ddlExecuted = true;
+  }
+
+  // Register installation
+  await execute(
+    `INSERT INTO ${TABLES.installations} (id, workspace_id, module_id, module_version, pack_id, status, installed_at)
+     VALUES (?, ?, ?, ?, ?, 'installed', ?)`,
+    [genId("inst"), workspaceId, moduleId, manifest.version, packId, now()]
+  );
+
+  // Insert object definitions
+  for (const obj of manifest.objects) {
+    await execute(
+      `INSERT INTO ${TABLES.objectDefinitions} (id, workspace_id, object_key, label, module_id, ownership, created_at)
+       VALUES (?, ?, ?, ?, ?, 'module_owned', ?)`,
+      [genId("obj"), workspaceId, obj.key, obj.label, moduleId, now()]
+    );
+    objectsCreated.push(obj.key);
+
+    // Insert field definitions
+    for (const field of obj.fields) {
+      validateIdentifier(field.key);
+
+      await execute(
+        `INSERT INTO ${TABLES.fieldDefinitions} (id, workspace_id, object_key, field_key, label, type, ownership, required, default_value, validation_json, module_id, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          genId("fld"), workspaceId, obj.key, field.key, field.label, field.type,
+          field.ownership, field.required ? 1 : 0, field.default_value ?? null,
+          field.validation ? JSON.stringify(field.validation) : null, moduleId, now(),
+        ]
+      );
+    }
+  }
+
+  // Insert view definitions
+  for (const view of manifest.views) {
+    await execute(
+      `INSERT INTO ${TABLES.viewDefinitions} (id, workspace_id, object_key, view_key, view_type, label, config_json, module_id, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        genId("view"), workspaceId, view.object, view.key, view.type, view.label,
+        JSON.stringify(view.config), moduleId, now(),
+      ]
+    );
+    viewsCreated.push(view.key);
+  }
+
+  // Insert navigation items
+  if (manifest.ui?.navigation) {
+    for (const nav of manifest.ui.navigation) {
+      await execute(
+        `INSERT INTO ${TABLES.navigationItems} (id, workspace_id, label, route, icon, sort_order, module_id, enabled)
+         VALUES (?, ?, ?, ?, ?, ?, ?, 1)`,
+        [genId("nav"), workspaceId, nav.label, nav.route, nav.icon, nav.sortOrder, moduleId]
+      );
+      navigationItemsCreated++;
+    }
+  }
+
+  return { moduleId, objectsCreated, viewsCreated, navigationItemsCreated, ddlExecuted, skipped: false };
+}
+
 export async function installPack(
   workspaceId: string,
   packId: string,
   options: InstallPackOptions = {}
 ): Promise<InstallResult> {
   const pack = loadPackManifest(packId);
-  const deploymentMode = getDeploymentMode();
 
   const modulesInstalled: string[] = [];
   const objectsCreated: string[] = [];
   const viewsCreated: string[] = [];
   let navigationItemsCreated = 0;
   let ddlExecuted = false;
-
-  const installOneModule = async (moduleId: string) => {
-    // Parse version range from pack modules array (e.g., "runory.customer: ^1.0.0")
-    const moduleRef = pack.modules.find((m) => m.startsWith(moduleId));
-    if (!moduleRef) throw new Error(`Module ${moduleId} not found in pack ${packId}`);
-
-    const manifest = loadModuleManifest(moduleId);
-
-    // Check if already installed (idempotent — skip if present)
-    const already = await queryOne<{ id: string }>(
-      `SELECT id FROM ${TABLES.installations} WHERE workspace_id = ? AND module_id = ?`,
-      [workspaceId, moduleId]
-    );
-    if (already) return;
-
-    // Run migration (multi-statement DDL, e.g. CREATE TABLE)
-    // In Cloud mode: business tables are pre-created at deploy time via platform migrations.
-    //   Module install only registers metadata (object/field/view/nav definitions).
-    // In Local mode: business tables are created per-workspace at install time.
-    if (deploymentMode === "local") {
-      const migrationSql = loadModuleMigration(moduleId, manifest.migrations.install);
-      await db.executeMultiple(migrationSql);
-      ddlExecuted = true;
-    }
-
-    // Register installation
-    await execute(
-      `INSERT INTO ${TABLES.installations} (id, workspace_id, module_id, module_version, pack_id, status, installed_at)
-       VALUES (?, ?, ?, ?, ?, 'installed', ?)`,
-      [genId("inst"), workspaceId, moduleId, manifest.version, packId, now()]
-    );
-
-    // Insert object definitions
-    for (const obj of manifest.objects) {
-      await execute(
-        `INSERT INTO ${TABLES.objectDefinitions} (id, workspace_id, object_key, label, module_id, ownership, created_at)
-         VALUES (?, ?, ?, ?, ?, 'module_owned', ?)`,
-        [genId("obj"), workspaceId, obj.key, obj.label, moduleId, now()]
-      );
-      objectsCreated.push(obj.key);
-
-      // Insert field definitions
-      for (const field of obj.fields) {
-        // Validate field key before registering (defense in depth against SQL injection)
-        validateIdentifier(field.key);
-
-        await execute(
-          `INSERT INTO ${TABLES.fieldDefinitions} (id, workspace_id, object_key, field_key, label, type, ownership, required, default_value, validation_json, module_id, created_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          [
-            genId("fld"), workspaceId, obj.key, field.key, field.label, field.type,
-            field.ownership, field.required ? 1 : 0, field.default_value ?? null,
-            field.validation ? JSON.stringify(field.validation) : null, moduleId, now(),
-          ]
-        );
-      }
-    }
-
-    // Insert view definitions
-    for (const view of manifest.views) {
-      await execute(
-        `INSERT INTO ${TABLES.viewDefinitions} (id, workspace_id, object_key, view_key, view_type, label, config_json, module_id, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [
-          genId("view"), workspaceId, view.object, view.key, view.type, view.label,
-          JSON.stringify(view.config), moduleId, now(),
-        ]
-      );
-      viewsCreated.push(view.key);
-    }
-
-    // Insert navigation items
-    if (manifest.ui?.navigation) {
-      for (const nav of manifest.ui.navigation) {
-        await execute(
-          `INSERT INTO ${TABLES.navigationItems} (id, workspace_id, label, route, icon, sort_order, module_id, enabled)
-           VALUES (?, ?, ?, ?, ?, ?, ?, 1)`,
-          [genId("nav"), workspaceId, nav.label, nav.route, nav.icon, nav.sortOrder, moduleId]
-        );
-        navigationItemsCreated++;
-      }
-    }
-
-    modulesInstalled.push(moduleId);
-  };
 
   // Install modules in dependency order using a proper topological sort.
   // Load all manifests upfront (avoids re-reading during sort) and sort by
@@ -291,7 +305,14 @@ export async function installPack(
   const sortedModules = topologicalSort(manifests).map((m) => m.id);
 
   for (const moduleId of sortedModules) {
-    await installOneModule(moduleId);
+    const result = await installModule(workspaceId, moduleId, packId);
+    if (!result.skipped) {
+      modulesInstalled.push(moduleId);
+      objectsCreated.push(...result.objectsCreated);
+      viewsCreated.push(...result.viewsCreated);
+      navigationItemsCreated += result.navigationItemsCreated;
+      if (result.ddlExecuted) ddlExecuted = true;
+    }
   }
 
   const demoRecordsCreated = options.includeDemoData

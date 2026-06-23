@@ -1,23 +1,105 @@
 {
   "records": [
     {
-      "object": "customer",
-      "alias": "customer-acme",
-      "match": { "field": "email", "value": "ops@acme.example" },
+      "object": "company",
+      "alias": "company-acme",
+      "match": { "field": "domain", "value": "acme.example" },
       "data": {
         "name": "Acme Operations",
-        "email": "ops@acme.example",
-        "phone": "+1 415 555 0188"
+        "domain": "acme.example",
+        "website": "https://acme.example",
+        "phone": "+1 415 555 0188",
+        "industry": "technology",
+        "size": "51-200",
+        "source": "referral",
+        "owner": "Alex",
+        "lifecycle_stage": "customer",
+        "address": "San Francisco, CA"
       }
     },
     {
-      "object": "customer",
-      "alias": "customer-nova",
-      "match": { "field": "email", "value": "hello@novaretail.example" },
+      "object": "company",
+      "alias": "company-nova",
+      "match": { "field": "domain", "value": "novaretail.example" },
       "data": {
         "name": "Nova Retail",
-        "email": "hello@novaretail.example",
-        "phone": "+1 212 555 0142"
+        "domain": "novaretail.example",
+        "website": "https://novaretail.example",
+        "phone": "+1 212 555 0142",
+        "industry": "retail",
+        "size": "201-1000",
+        "source": "website",
+        "owner": "Sam",
+        "lifecycle_stage": "customer",
+        "address": "New York, NY"
+      }
+    },
+    {
+      "object": "company",
+      "alias": "company-vertex",
+      "match": { "field": "domain", "value": "vertexmfg.example" },
+      "data": {
+        "name": "Vertex Manufacturing",
+        "domain": "vertexmfg.example",
+        "website": "https://vertexmfg.example",
+        "phone": "+1 312 555 0166",
+        "industry": "manufacturing",
+        "size": "51-200",
+        "source": "event",
+        "owner": "Alex",
+        "lifecycle_stage": "opportunity",
+        "address": "Chicago, IL"
+      }
+    },
+    {
+      "object": "company",
+      "alias": "company-harbor",
+      "match": { "field": "domain", "value": "harborlogistics.example" },
+      "data": {
+        "name": "Harbor Logistics",
+        "domain": "harborlogistics.example",
+        "website": "https://harborlogistics.example",
+        "phone": "+1 206 555 0199",
+        "industry": "services",
+        "size": "11-50",
+        "source": "partner",
+        "owner": "Sam",
+        "lifecycle_stage": "sales_qualified",
+        "address": "Seattle, WA"
+      }
+    },
+    {
+      "object": "company",
+      "alias": "company-pine",
+      "match": { "field": "domain", "value": "pinehealth.example" },
+      "data": {
+        "name": "Pine Health Clinic",
+        "domain": "pinehealth.example",
+        "website": "https://pinehealth.example",
+        "phone": "+1 617 555 0123",
+        "industry": "healthcare",
+        "size": "11-50",
+        "source": "cold_outreach",
+        "owner": "Alex",
+        "lifecycle_stage": "lead",
+        "address": "Boston, MA"
+      }
+    },
+    {
+      "object": "company",
+      "alias": "company-quantum",
+      "match": { "field": "domain", "value": "quantumlabs.example" },
+      "data": {
+        "name": "Quantum Labs",
+        "domain": "quantumlabs.example",
+        "website": "https://quantumlabs.example",
+        "phone": "+1 650 555 0177",
+        "industry": "technology",
+        "size": "1-10",
+        "source": "referral",
+        "owner": "Sam",
+        "lifecycle_stage": "marketing_qualified",
+        "address": "Palo Alto, CA"
       }
     },
     {
@@ -25,11 +107,31 @@
       "alias": "contact-maya",
       "match": { "field": "email", "value": "maya@acme.example" },
       "data": {
-        "customer_id": "$customer-acme.id",
         "name": "Maya Chen",
         "email": "maya@acme.example",
         "phone": "+1 415 555 0191",
-        "role": "Operations Lead"
+        "title": "VP Operations",
+        "role": "Operations Lead",
+        "primary_company_id": "$company-acme.id",
+        "source": "referral",
+        "owner": "Alex",
+        "lifecycle_stage": "customer"
+      }
+    },
+    {
+      "object": "contact",
+      "alias": "contact-lily",
+      "match": { "field": "email", "value": "lily@acme.example" },
+      "data": {
+        "name": "Lily Zhang",
+        "email": "lily@acme.example",
+        "phone": "+1 415 555 0182",
+        "title": "Marketing Manager",
+        "role": "Marketing",
+        "primary_company_id": "$company-acme.id",
+        "source": "referral",
+        "owner": "Alex",
+        "lifecycle_stage": "customer"
       }
     },
     {
@@ -37,11 +139,197 @@
       "alias": "contact-jon",
       "match": { "field": "email", "value": "jon@novaretail.example" },
       "data": {
-        "customer_id": "$customer-nova.id",
         "name": "Jon Miller",
         "email": "jon@novaretail.example",
         "phone": "+1 212 555 0170",
-        "role": "Store Manager"
+        "title": "Store Manager",
+        "role": "Retail Operations",
+        "primary_company_id": "$company-nova.id",
+        "source": "website",
+        "owner": "Sam",
+        "lifecycle_stage": "customer"
+      }
+    },
+    {
+      "object": "contact",
+      "alias": "contact-sara",
+      "match": { "field": "email", "value": "sara@vertexmfg.example" },
+      "data": {
+        "name": "Sara Liu",
+        "email": "sara@vertexmfg.example",
+        "phone": "+1 312 555 0155",
+        "title": "CTO",
+        "role": "Technology",
+        "primary_company_id": "$company-vertex.id",
+        "source": "event",
+        "owner": "Alex",
+        "lifecycle_stage": "opportunity"
+      }
+    },
+    {
+      "object": "contact",
+      "alias": "contact-eric",
+      "match": { "field": "email", "value": "eric@harborlogistics.example" },
+      "data": {
+        "name": "Eric Wang",
+        "email": "eric@harborlogistics.example",
+        "phone": "+1 206 555 0144",
+        "title": "COO",
+        "role": "Operations",
+        "primary_company_id": "$company-harbor.id",
+        "source": "partner",
+        "owner": "Sam",
+        "lifecycle_stage": "sales_qualified"
+      }
+    },
+    {
+      "object": "contact",
+      "alias": "contact-anna",
+      "match": { "field": "email", "value": "anna@pinehealth.example" },
+      "data": {
+        "name": "Anna Lee",
+        "email": "anna@pinehealth.example",
+        "phone": "+1 617 555 0133",
+        "title": "Medical Director",
+        "role": "Clinical",
+        "primary_company_id": "$company-pine.id",
+        "source": "cold_outreach",
+        "owner": "Alex",
+        "lifecycle_stage": "lead"
+      }
+    },
+    {
+      "object": "contact",
+      "alias": "contact-kevin",
+      "match": { "field": "email", "value": "kevin@quantumlabs.example" },
+      "data": {
+        "name": "Kevin Chen",
+        "email": "kevin@quantumlabs.example",
+        "phone": "+1 650 555 0166",
+        "title": "Lead Researcher",
+        "role": "R&D",
+        "primary_company_id": "$company-quantum.id",
+        "source": "referral",
+        "owner": "Sam",
+        "lifecycle_stage": "marketing_qualified"
+      }
+    },
+    {
+      "object": "contact",
+      "alias": "contact-tom",
+      "match": { "field": "email", "value": "tom@independent.example" },
+      "data": {
+        "name": "Tom Brown",
+        "email": "tom@independent.example",
+        "phone": "+1 415 555 0100",
+        "title": "Independent Consultant",
+        "role": "Consultant",
+        "source": "event",
+        "owner": "Alex",
+        "lifecycle_stage": "lead"
+      }
+    },
+    {
+      "object": "deal",
+      "alias": "deal-acme-expand",
+      "match": { "field": "name", "value": "Acme Expansion Plan" },
+      "data": {
+        "name": "Acme Expansion Plan",
+        "stage": "negotiation",
+        "amount": 80000,
+        "currency": "USD",
+        "expected_close_date": "2026-07-15",
+        "probability": 70,
+        "company_id": "$company-acme.id",
+        "primary_contact_id": "$contact-maya.id",
+        "owner": "Alex",
+        "source": "referral"
+      }
+    },
+    {
+      "object": "deal",
+      "alias": "deal-vertex-platform",
+      "match": { "field": "name", "value": "Vertex Platform Upgrade" },
+      "data": {
+        "name": "Vertex Platform Upgrade",
+        "stage": "qualified",
+        "amount": 120000,
+        "currency": "USD",
+        "expected_close_date": "2026-08-01",
+        "probability": 40,
+        "company_id": "$company-vertex.id",
+        "primary_contact_id": "$contact-sara.id",
+        "owner": "Alex",
+        "source": "event"
+      }
+    },
+    {
+      "object": "deal",
+      "alias": "deal-harbor-onboarding",
+      "match": { "field": "name", "value": "Harbor Onboarding Service" },
+      "data": {
+        "name": "Harbor Onboarding Service",
+        "stage": "proposal",
+        "amount": 45000,
+        "currency": "USD",
+        "expected_close_date": "2026-07-20",
+        "probability": 50,
+        "company_id": "$company-harbor.id",
+        "primary_contact_id": "$contact-eric.id",
+        "owner": "Sam",
+        "source": "partner"
+      }
+    },
+    {
+      "object": "deal",
+      "alias": "deal-nova-rollout",
+      "match": { "field": "name", "value": "Nova Store Rollout" },
+      "data": {
+        "name": "Nova Store Rollout",
+        "stage": "won",
+        "amount": 95000,
+        "currency": "USD",
+        "expected_close_date": "2026-06-10",
+        "probability": 100,
+        "company_id": "$company-nova.id",
+        "primary_contact_id": "$contact-jon.id",
+        "owner": "Sam",
+        "source": "website"
+      }
+    },
+    {
+      "object": "deal",
+      "alias": "deal-pine-pilot",
+      "match": { "field": "name", "value": "Pine Health Pilot Program" },
+      "data": {
+        "name": "Pine Health Pilot Program",
+        "stage": "new",
+        "amount": 30000,
+        "currency": "USD",
+        "expected_close_date": "2026-08-15",
+        "probability": 20,
+        "company_id": "$company-pine.id",
+        "primary_contact_id": "$contact-anna.id",
+        "owner": "Alex",
+        "source": "cold_outreach"
+      }
+    },
+    {
+      "object": "deal",
+      "alias": "deal-quantum-research",
+      "match": { "field": "name", "value": "Quantum Research Contract" },
+      "data": {
+        "name": "Quantum Research Contract",
+        "stage": "lost",
+        "amount": 200000,
+        "currency": "USD",
+        "expected_close_date": "2026-05-01",
+        "probability": 0,
+        "company_id": "$company-quantum.id",
+        "primary_contact_id": "$contact-kevin.id",
+        "owner": "Sam",
+        "source": "referral",
+        "notes": "Lost to competitor due to budget constraints."
       }
     },
     {
@@ -55,7 +343,9 @@
         "priority": "high",
         "due_date": "2026-07-03",
         "assignee": "Alex",
-        "customer_id": "$customer-acme.id"
+        "company_id": "$company-acme.id",
+        "contact_id": "$contact-maya.id",
+        "deal_id": "$deal-acme-expand.id"
       }
     },
     {
@@ -69,7 +359,73 @@
         "priority": "medium",
         "due_date": "2026-07-08",
         "assignee": "Sam",
-        "customer_id": "$customer-nova.id"
+        "company_id": "$company-nova.id",
+        "contact_id": "$contact-jon.id",
+        "deal_id": "$deal-nova-rollout.id"
+      }
+    },
+    {
+      "object": "task",
+      "alias": "task-demo",
+      "match": { "field": "title", "value": "Schedule Vertex platform demo" },
+      "data": {
+        "title": "Schedule Vertex platform demo",
+        "description": "Coordinate technical demo with Sara's engineering team.",
+        "status": "todo",
+        "priority": "urgent",
+        "due_date": "2026-06-28",
+        "assignee": "Alex",
+        "company_id": "$company-vertex.id",
+        "contact_id": "$contact-sara.id",
+        "deal_id": "$deal-vertex-platform.id"
+      }
+    },
+    {
+      "object": "task",
+      "alias": "task-proposal",
+      "match": { "field": "title", "value": "Draft Harbor onboarding proposal" },
+      "data": {
+        "title": "Draft Harbor onboarding proposal",
+        "description": "Include scope, timeline, and pricing for Harbor Logistics.",
+        "status": "in_progress",
+        "priority": "high",
+        "due_date": "2026-07-05",
+        "assignee": "Sam",
+        "company_id": "$company-harbor.id",
+        "contact_id": "$contact-eric.id",
+        "deal_id": "$deal-harbor-onboarding.id"
+      }
+    },
+    {
+      "object": "task",
+      "alias": "task-research",
+      "match": { "field": "title", "value": "Research Pine Health needs" },
+      "data": {
+        "title": "Research Pine Health needs",
+        "description": "Understand clinic workflow and pain points before pilot.",
+        "status": "todo",
+        "priority": "low",
+        "due_date": "2026-07-12",
+        "assignee": "Alex",
+        "company_id": "$company-pine.id",
+        "contact_id": "$contact-anna.id",
+        "deal_id": "$deal-pine-pilot.id"
+      }
+    },
+    {
+      "object": "task",
+      "alias": "task-review",
+      "match": { "field": "title", "value": "Review Quantum deal loss" },
+      "data": {
+        "title": "Review Quantum deal loss",
+        "description": "Post-mortem on lost deal and identify improvement areas.",
+        "status": "done",
+        "priority": "medium",
+        "due_date": "2026-06-15",
+        "assignee": "Sam",
+        "company_id": "$company-quantum.id",
+        "contact_id": "$contact-kevin.id",
+        "deal_id": "$deal-quantum-research.id"
       }
     }
   ]

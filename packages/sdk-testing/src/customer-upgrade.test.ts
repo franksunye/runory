@@ -3,11 +3,11 @@ import { randomUUID } from "node:crypto"
 import { ModuleTestHarness } from "./harness.js"
 import {
   loadModuleManifest,
-  loadPackManifest,
   createRecord,
   applyExtension,
   getFields,
   getRecords,
+  installModule,
 } from "@runory/platform-core"
 import type { ExtensionPlan, ModuleManifest } from "@runory/contracts"
 
@@ -47,15 +47,11 @@ describe("Customer 1.0 → 1.1 upgrade (SDK fixture test)", () => {
     // Load 1.0 manifest from YAML (via platform-core installer)
     customerV10Manifest = loadModuleManifest("runory.customer")
 
-    // Load pack manifest
-    const packManifest = loadPackManifest("crm-lite-pack")
-
     workspaceId = `ws_test_upgrade_${randomUUID()}`
 
     harness = new ModuleTestHarness({
       module: customerV11Manifest,
       previous: customerV10Manifest,
-      pack: packManifest,
       workspaceId,
     })
 
@@ -68,8 +64,8 @@ describe("Customer 1.0 → 1.1 upgrade (SDK fixture test)", () => {
     // Step 1: Setup — create temp database, run platform migrations
     await harness.setup()
 
-    // Step 2: Install crm-lite-pack (installs runory.customer 1.0.0 + runory.contact)
-    await harness.install()
+    // Step 2: Install runory.customer directly (deprecated module, no longer in crm-lite-pack)
+    await installModule(workspaceId, "runory.customer")
 
     // Step 3: Seed customer records via createRecord
     await createRecord(workspaceId, "customer", {

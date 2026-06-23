@@ -28,10 +28,10 @@ export default function TaskDetailPage() {
   const { data: views = [], isLoading: loadingViews } = useViews(workspaceId, OBJECT_KEY);
   const { data: record, error: recordError, isLoading: loadingRecord, mutate: mutateRecord } = useRecord(workspaceId, OBJECT_KEY, recordId);
 
-  // Fetch linked customer record (conditional on customer_id being present)
-  const customerId = record?.customer_id as string | undefined;
-  const { data: customerRecord } = useSWR<WorkspaceRecord>(
-    customerId ? `/api/workspaces/${workspaceId}/objects/customer/records/${customerId}` : null
+  // Fetch linked company record (conditional on company_id being present)
+  const companyId = record?.company_id as string | undefined;
+  const { data: companyRecord } = useSWR<WorkspaceRecord>(
+    companyId ? `/api/workspaces/${workspaceId}/objects/company/records/${companyId}` : null
   );
 
   useWorkspaceChangeEvent(workspaceId);
@@ -197,16 +197,16 @@ export default function TaskDetailPage() {
               );
             })}
           </dl>
-          {customerId && (
+          {companyId && (
             <div className="mt-4 border-t border-slate-100 pt-4">
-              <p className="text-xs font-medium uppercase tracking-wider text-slate-500">关联客户</p>
+              <p className="text-xs font-medium uppercase tracking-wider text-slate-500">关联公司</p>
               <div className="mt-1 text-sm">
-                {customerRecord ? (
+                {companyRecord ? (
                   <Link
-                    href={`/w/${workspaceId}/customers/${customerId}`}
+                    href={`/w/${workspaceId}/companies/${companyId}`}
                     className="font-medium text-blue-600 hover:text-blue-800"
                   >
-                    {String(customerRecord.name ?? customerId)}
+                    {String(companyRecord.name ?? companyId)}
                   </Link>
                 ) : (
                   <span className="text-slate-400">加载中...</span>

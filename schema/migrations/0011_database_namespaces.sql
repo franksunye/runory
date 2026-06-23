@@ -49,31 +49,6 @@ ALTER TABLE {{PLATFORM_TABLE_PREFIX}}release_rollouts RENAME TO {{RUNORY_CATALOG
 ALTER TABLE {{PLATFORM_TABLE_PREFIX}}rollout_targets RENAME TO {{RUNORY_CATALOG_TABLE_PREFIX}}rollout_targets;
 ALTER TABLE {{PLATFORM_TABLE_PREFIX}}compatibility_reports RENAME TO {{RUNORY_CATALOG_TABLE_PREFIX}}compatibility_reports;
 
--- Repair an early POC foreign key that referenced the unprefixed customer table.
-ALTER TABLE {{BUSINESS_TABLE_PREFIX}}contact RENAME TO {{BUSINESS_TABLE_PREFIX}}contact_legacy_0011;
-
-CREATE TABLE {{BUSINESS_TABLE_PREFIX}}contact (
-  id TEXT PRIMARY KEY,
-  workspace_id TEXT NOT NULL,
-  customer_id TEXT NOT NULL,
-  name TEXT NOT NULL,
-  email TEXT,
-  phone TEXT,
-  role TEXT,
-  created_at TEXT NOT NULL,
-  updated_at TEXT NOT NULL,
-  FOREIGN KEY (workspace_id, customer_id)
-    REFERENCES {{BUSINESS_TABLE_PREFIX}}customer(workspace_id, id)
-);
-
-INSERT INTO {{BUSINESS_TABLE_PREFIX}}contact
-  (id, workspace_id, customer_id, name, email, phone, role, created_at, updated_at)
-SELECT id, workspace_id, customer_id, name, email, phone, role, created_at, updated_at
-FROM {{BUSINESS_TABLE_PREFIX}}contact_legacy_0011;
-
-DROP TABLE {{BUSINESS_TABLE_PREFIX}}contact_legacy_0011;
-
-CREATE INDEX IF NOT EXISTS idx_contact_workspace_v2
-  ON {{BUSINESS_TABLE_PREFIX}}contact(workspace_id);
-CREATE INDEX IF NOT EXISTS idx_contact_customer_v2
-  ON {{BUSINESS_TABLE_PREFIX}}contact(workspace_id, customer_id);
+-- v0.2.2: Contact table repair removed. Migration 0008 now creates the contact
+-- table with the correct schema (primary_company_id instead of customer_id).
+-- The legacy repair (rename + copy + drop) is no longer needed for new installs.

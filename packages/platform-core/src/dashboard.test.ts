@@ -495,7 +495,7 @@ describe("resolveWidgetData", () => {
     const taskTable = businessTable("task");
     const ts = now();
     await execute(
-      `INSERT INTO ${taskTable} (id, workspace_id, title, status, priority, due_date, assignee, customer_id, created_at, updated_at)
+      `INSERT INTO ${taskTable} (id, workspace_id, title, status, priority, due_date, assignee, company_id, created_at, updated_at)
        VALUES
          (?, ?, 'Task 1', 'todo', 'high', '2026-07-01', 'alice', null, ?, ?),
          (?, ?, 'Task 2', 'in_progress', 'medium', '2026-07-02', 'bob', null, ?, ?),
@@ -608,10 +608,10 @@ describe("resolveEffectiveLayout", () => {
     expect(hasActivityFeed).toBe(true);
 
     // Should include module widgets
-    const hasCustomerMetric = layout.some(
-      (item) => item.moduleId === "runory.customer" && item.widgetKey === "customer_total_metric"
+    const hasCompanyMetric = layout.some(
+      (item) => item.moduleId === "runory.company" && item.widgetKey === "company_total_metric"
     );
-    expect(hasCustomerMetric).toBe(true);
+    expect(hasCompanyMetric).toBe(true);
   });
 
   it("respects hidden override", async () => {
@@ -688,12 +688,13 @@ describe("getAvailableWidgets", () => {
     // After Phase 2, CRM Lite modules declare dashboard.widgets
     const widgets = await getAvailableWidgets(workspaceId);
     const moduleWidgets = widgets.filter((w) => w.moduleId !== "_platform");
-    // runory.customer (3 widgets) + runory.contact (1 widget) + runory.task (5 widgets) = 9
-    expect(moduleWidgets.length).toBe(9);
+    // runory.company (4 widgets) + runory.contact (1 widget) + runory.deal (4 widgets) + runory.task (5 widgets) = 14
+    expect(moduleWidgets.length).toBe(14);
     // Verify specific widgets are present
     const widgetKeys = moduleWidgets.map((w) => w.widget.key);
-    expect(widgetKeys).toContain("customer_total_metric");
+    expect(widgetKeys).toContain("company_total_metric");
     expect(widgetKeys).toContain("contact_total_metric");
+    expect(widgetKeys).toContain("open_deals_metric");
     expect(widgetKeys).toContain("open_tasks_metric");
     expect(widgetKeys).toContain("task_status_breakdown");
   });

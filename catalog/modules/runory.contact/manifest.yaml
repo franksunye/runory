@@ -1,20 +1,15 @@
 id: runory.contact
 name: Contact Management
-version: 1.0.0
+version: 2.0.0
 coreCompatibility: ">=0.1.0"
 
 dependencies:
-  - runory.customer
+  - runory.company
 
 objects:
   - key: contact
     label: Contact
     fields:
-      - key: customer_id
-        label: 关联客户
-        type: text
-        ownership: module_owned
-        required: true
       - key: name
         label: 联系人姓名
         type: text
@@ -28,8 +23,34 @@ objects:
         label: 电话
         type: phone
         ownership: module_owned
+      - key: title
+        label: 职位
+        type: text
+        ownership: module_owned
       - key: role
         label: 角色
+        type: text
+        ownership: module_owned
+      - key: primary_company_id
+        label: 关联公司
+        type: text
+        ownership: module_owned
+      - key: source
+        label: 来源
+        type: text
+        ownership: module_owned
+      - key: owner
+        label: 负责人
+        type: text
+        ownership: module_owned
+      - key: lifecycle_stage
+        label: 生命周期阶段
+        type: select
+        ownership: module_owned
+        validation:
+          options: ["lead", "marketing_qualified", "sales_qualified", "opportunity", "customer", "inactive"]
+      - key: notes
+        label: 备注
         type: text
         ownership: module_owned
 
@@ -41,9 +62,13 @@ views:
     config:
       columns:
         - field: name
+          label: 联系人姓名
         - field: email
+          label: 邮箱
         - field: phone
-        - field: role
+          label: 电话
+        - field: primary_company_id
+          label: 关联公司
       actions:
         - create
         - view
@@ -57,13 +82,21 @@ views:
       sections:
         - title: 基本信息
           fields:
-            - field: customer_id
-              required: true
             - field: name
               required: true
             - field: email
             - field: phone
+        - title: 职业信息
+          fields:
+            - field: title
             - field: role
+            - field: primary_company_id
+        - title: 跟进信息
+          fields:
+            - field: source
+            - field: owner
+            - field: lifecycle_stage
+            - field: notes
 
 permissions:
   - contact.read
@@ -79,8 +112,8 @@ ui:
   navigation:
     - label: 联系人
       route: /contacts
-      icon: contact
-      sortOrder: 30
+      icon: users
+      sortOrder: 20
 
 extensionPoints:
   entities:
@@ -89,7 +122,9 @@ extensionPoints:
         enabled: true
         allowedTypes: [text, number, date, select, boolean]
         maxFields: 30
-        reservedKeys: [id, name, email, phone, role, created_at, updated_at]
+        reservedKeys: [id, name, email, phone, title, role, primary_company_id, source, owner, lifecycle_stage, notes, created_at, updated_at]
+      customRelations:
+        enabled: false
   views:
     - view: contact_list
       slots:
@@ -97,12 +132,17 @@ extensionPoints:
           type: column_group
           allowedExtensions: [customField]
           risk: low
+      allowReorder: true
+      allowFilters: true
+      allowPageSizeChange: true
     - view: contact_form
       slots:
         - id: contact.form.basic_fields.after
           type: field_group
           allowedExtensions: [customField]
           risk: low
+      allowAddSection: true
+      allowAddAction: true
 
 dashboard:
   widgets:
@@ -120,3 +160,7 @@ dashboard:
         where: "created_at >= now"
         template: "本周新增 {count}"
       link: /contacts
+
+upgradePolicy:
+  supportsWorkspaceExtensions: true
+  breakingChangePolicy: manual_review

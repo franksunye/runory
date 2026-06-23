@@ -1,6 +1,6 @@
 id: runory.task
 name: Task Management
-version: 1.0.0
+version: 2.0.0
 coreCompatibility: ">=0.1.0"
 
 objects:
@@ -39,8 +39,16 @@ objects:
         label: 负责人
         type: text
         ownership: module_owned
-      - key: customer_id
-        label: 关联客户
+      - key: company_id
+        label: 关联公司
+        type: text
+        ownership: module_owned
+      - key: contact_id
+        label: 关联联系人
+        type: text
+        ownership: module_owned
+      - key: deal_id
+        label: 关联商机
         type: text
         ownership: module_owned
 
@@ -84,7 +92,9 @@ views:
           fields:
             - field: due_date
             - field: assignee
-            - field: customer_id
+            - field: company_id
+            - field: contact_id
+            - field: deal_id
 
 permissions:
   - task.read
@@ -110,7 +120,7 @@ extensionPoints:
         enabled: true
         allowedTypes: [text, number, date, select, boolean]
         maxFields: 30
-        reservedKeys: [id, title, description, status, priority, due_date, assignee, customer_id, created_at, updated_at]
+        reservedKeys: [id, title, description, status, priority, due_date, assignee, company_id, contact_id, deal_id, created_at, updated_at]
       customRelations:
         enabled: false
   views:

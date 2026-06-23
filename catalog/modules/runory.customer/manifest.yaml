@@ -1,5 +1,9 @@
+# DEPRECATED since v0.2.2 — superseded by runory.company.
+# customer is no longer a primary CRM object. Use runory.company with
+# lifecycle_stage = "customer" instead. This module is retained for
+# backward compatibility with existing installations only.
 id: runory.customer
-name: Customer Management
+name: Customer Management (Deprecated)
 version: 1.0.0
 coreCompatibility: ">=0.1.0"
 

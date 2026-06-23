@@ -414,13 +414,13 @@ describe("Release Promotion", () => {
 
 describe("Pack Lock Resolution", () => {
   it("resolves pack lock entries for all module dependencies", async () => {
-    // Import and freeze both modules referenced by crm-lite-pack
-    const customer = await importFromDevCatalog(
+    // Import and freeze all modules referenced by crm-lite-pack
+    const company = await importFromDevCatalog(
       adminPrincipal,
-      "runory.customer",
+      "runory.company",
       "module"
     );
-    await freezeCatalogVersion(adminPrincipal, customer.catalogVersionId);
+    await freezeCatalogVersion(adminPrincipal, company.catalogVersionId);
 
     const contact = await importFromDevCatalog(
       adminPrincipal,
@@ -428,6 +428,13 @@ describe("Pack Lock Resolution", () => {
       "module"
     );
     await freezeCatalogVersion(adminPrincipal, contact.catalogVersionId);
+
+    const deal = await importFromDevCatalog(
+      adminPrincipal,
+      "runory.deal",
+      "module"
+    );
+    await freezeCatalogVersion(adminPrincipal, deal.catalogVersionId);
 
     const task = await importFromDevCatalog(
       adminPrincipal,
@@ -449,21 +456,30 @@ describe("Pack Lock Resolution", () => {
       pack.catalogVersionId
     );
 
-    // crm-lite-pack references 3 modules: runory.customer:^1.0.0, runory.contact:^1.0.0, runory.task:^1.0.0
-    expect(locks).toHaveLength(3);
+    // crm-lite-pack references 4 modules: runory.company:^1.0.0, runory.contact:^2.0.0, runory.deal:^1.0.0, runory.task:^2.0.0
+    expect(locks).toHaveLength(4);
 
     // Verify lock entries match expected modules
     const moduleItemIds = locks.map((l) => l.moduleItemId);
-    const customerItem = await getCatalogItemByName("runory.customer", "module");
+    const companyItem = await getCatalogItemByName("runory.company", "module");
     const contactItem = await getCatalogItemByName("runory.contact", "module");
+    const dealItem = await getCatalogItemByName("runory.deal", "module");
     const taskItem = await getCatalogItemByName("runory.task", "module");
-    expect(moduleItemIds).toContain(customerItem.id);
+    expect(moduleItemIds).toContain(companyItem.id);
     expect(moduleItemIds).toContain(contactItem.id);
+    expect(moduleItemIds).toContain(dealItem.id);
     expect(moduleItemIds).toContain(taskItem.id);
 
-    // Each lock should have a resolved version and range
+    // Each lock should have a resolved version and range. company/deal are
+    // pinned to ^1.0.0; contact/task were bumped to ^2.0.0 in the migration.
+    const rangeByItemId = new Map([
+      [companyItem.id, "^1.0.0"],
+      [contactItem.id, "^2.0.0"],
+      [dealItem.id, "^1.0.0"],
+      [taskItem.id, "^2.0.0"],
+    ]);
     for (const lock of locks) {
-      expect(lock.requestedRange).toBe("^1.0.0");
+      expect(lock.requestedRange).toBe(rangeByItemId.get(lock.moduleItemId));
       expect(lock.resolvedModuleVersionId).toBeDefined();
       expect(lock.artifactChecksum).not.toBeNull();
       expect(lock.resolutionOrder).toBeGreaterThanOrEqual(0);
@@ -472,12 +488,12 @@ describe("Pack Lock Resolution", () => {
 
   it("returns the same entries from getPackLock", async () => {
     // Setup: import + freeze modules and pack
-    const customer = await importFromDevCatalog(
+    const company = await importFromDevCatalog(
       adminPrincipal,
-      "runory.customer",
+      "runory.company",
       "module"
     );
-    await freezeCatalogVersion(adminPrincipal, customer.catalogVersionId);
+    await freezeCatalogVersion(adminPrincipal, company.catalogVersionId);
 
     const contact = await importFromDevCatalog(
       adminPrincipal,
@@ -485,6 +501,13 @@ describe("Pack Lock Resolution", () => {
       "module"
     );
     await freezeCatalogVersion(adminPrincipal, contact.catalogVersionId);
+
+    const deal = await importFromDevCatalog(
+      adminPrincipal,
+      "runory.deal",
+      "module"
+    );
+    await freezeCatalogVersion(adminPrincipal, deal.catalogVersionId);
 
     const task = await importFromDevCatalog(
       adminPrincipal,

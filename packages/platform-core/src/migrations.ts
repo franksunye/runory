@@ -53,11 +53,20 @@ function migrationsDir(): string {
 
 const MIGRATION_FILENAME = /^(\d{4})_([a-z0-9_]+)\.sql$/i;
 
-// 0008 was edited during the pre-release POC after some local databases had
-// already applied it. 0011 normalizes the resulting schema, so both exact
-// historical variants are safe inputs. Unknown checksum changes still fail.
+// 0008 was edited twice during pre-release:
+//   1. POC-era edit (53d6b8...) — 0011 normalizes the resulting schema.
+//   2. v0.2.2 edit (ef1274...) — CRM object model correction: removed deprecated
+//      customer table, updated contact to use primary_company_id, added company/
+//      deal/task tables for cloud-mode pre-creation.
+// 0011 was edited in v0.2.2: removed the contact table repair section since 0008
+// now creates the correct contact schema. The platform table renames are unchanged.
+// Unknown checksum changes still fail.
 const ACCEPTED_HISTORICAL_CHECKSUMS: Readonly<Record<string, readonly string[]>> = {
-  "0008": ["53d6b833c0338c0a805da9cbf90519baa42b866d000e061a0c37e0ec247ab6bb"],
+  "0008": [
+    "53d6b833c0338c0a805da9cbf90519baa42b866d000e061a0c37e0ec247ab6bb",
+    "ef1274f395990fb639796db16d25e1cd13762a10cb1b07d39cac1bf14fa50517",
+  ],
+  "0011": ["22d273441f560b0d2f1bf39f5d147901bdf053e21073a07a81207eb8a810a5ad"],
 };
 
 function checksumMatches(file: MigrationFile, stored: string): boolean {

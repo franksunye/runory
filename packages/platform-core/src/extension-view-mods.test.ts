@@ -66,7 +66,7 @@ beforeEach(async () => {
     [workspaceId, "Test WS", "test-ws", ts, ts]
   );
 
-  // Install customer module via pack (registers objects, fields, views with module_id)
+  // Install company module via pack (registers objects, fields, views with module_id)
   await installPack(workspaceId, "crm-lite-pack");
 });
 
@@ -76,7 +76,7 @@ function makePlan(name: string, viewModifications: ExtensionPlan["viewModificati
   return {
     name,
     description: "Test view modifications",
-    targetModules: ["runory.customer"],
+    targetModules: ["runory.company"],
     riskLevel: "low",
     customFields: [],
     viewModifications,
@@ -89,10 +89,10 @@ describe("validateExtensionPlan — viewModifications", () => {
   it("accepts a valid reorderColumns plan", async () => {
     const plan = makePlan("Reorder Test", [
       {
-        targetObject: "customer",
-        viewKey: "customer_list",
+        targetObject: "company",
+        viewKey: "company_list",
         modifications: {
-          reorderColumns: ["email", "name", "phone"],
+          reorderColumns: ["name", "industry", "lifecycle_stage", "owner"],
         },
       },
     ]);
@@ -104,8 +104,8 @@ describe("validateExtensionPlan — viewModifications", () => {
   it("accepts a valid addFilters plan", async () => {
     const plan = makePlan("Filter Test", [
       {
-        targetObject: "customer",
-        viewKey: "customer_list",
+        targetObject: "company",
+        viewKey: "company_list",
         modifications: {
           addFilters: [
             { field: "name", operator: "contains", value: "Acme" },
@@ -120,12 +120,12 @@ describe("validateExtensionPlan — viewModifications", () => {
   it("accepts a valid addSection plan", async () => {
     const plan = makePlan("Section Test", [
       {
-        targetObject: "customer",
-        viewKey: "customer_form",
+        targetObject: "company",
+        viewKey: "company_form",
         modifications: {
           addSection: {
             title: "Extra Info",
-            fields: [{ field: "email" }, { field: "phone" }],
+            fields: [{ field: "website" }, { field: "phone" }],
           },
         },
       },
@@ -137,8 +137,8 @@ describe("validateExtensionPlan — viewModifications", () => {
   it("accepts a valid addAction plan", async () => {
     const plan = makePlan("Action Test", [
       {
-        targetObject: "customer",
-        viewKey: "customer_form",
+        targetObject: "company",
+        viewKey: "company_form",
         modifications: {
           addAction: "export",
         },
@@ -151,8 +151,8 @@ describe("validateExtensionPlan — viewModifications", () => {
   it("accepts a valid pageSize plan", async () => {
     const plan = makePlan("PageSize Test", [
       {
-        targetObject: "customer",
-        viewKey: "customer_list",
+        targetObject: "company",
+        viewKey: "company_list",
         modifications: {
           pageSize: 50,
         },
@@ -178,7 +178,7 @@ describe("validateExtensionPlan — viewModifications", () => {
   it("rejects when viewKey does not exist", async () => {
     const plan = makePlan("Bad View", [
       {
-        targetObject: "customer",
+        targetObject: "company",
         viewKey: "nonexistent_view",
         modifications: { pageSize: 10 },
       },
@@ -191,10 +191,10 @@ describe("validateExtensionPlan — viewModifications", () => {
   it("rejects reorderColumns that does not include all existing columns", async () => {
     const plan = makePlan("Incomplete Reorder", [
       {
-        targetObject: "customer",
-        viewKey: "customer_list",
+        targetObject: "company",
+        viewKey: "company_list",
         modifications: {
-          reorderColumns: ["email", "name"], // missing "phone"
+          reorderColumns: ["name", "industry"], // missing "lifecycle_stage", "owner"
         },
       },
     ]);
@@ -206,10 +206,10 @@ describe("validateExtensionPlan — viewModifications", () => {
   it("rejects reorderColumns with a non-existent column", async () => {
     const plan = makePlan("Bad Column", [
       {
-        targetObject: "customer",
-        viewKey: "customer_list",
+        targetObject: "company",
+        viewKey: "company_list",
         modifications: {
-          reorderColumns: ["email", "name", "phone", "nonexistent"],
+          reorderColumns: ["name", "industry", "lifecycle_stage", "owner", "nonexistent"],
         },
       },
     ]);
@@ -221,8 +221,8 @@ describe("validateExtensionPlan — viewModifications", () => {
   it("rejects addFilters with a non-existent field", async () => {
     const plan = makePlan("Bad Filter Field", [
       {
-        targetObject: "customer",
-        viewKey: "customer_list",
+        targetObject: "company",
+        viewKey: "company_list",
         modifications: {
           addFilters: [{ field: "nonexistent_field", operator: "eq", value: "x" }],
         },
@@ -236,8 +236,8 @@ describe("validateExtensionPlan — viewModifications", () => {
   it("rejects addSection with a non-existent field", async () => {
     const plan = makePlan("Bad Section Field", [
       {
-        targetObject: "customer",
-        viewKey: "customer_form",
+        targetObject: "company",
+        viewKey: "company_form",
         modifications: {
           addSection: {
             title: "Bad",
@@ -254,8 +254,8 @@ describe("validateExtensionPlan — viewModifications", () => {
   it("rejects addSection on a view that does not allow it", async () => {
     const plan = makePlan("Section Not Allowed", [
       {
-        targetObject: "customer",
-        viewKey: "customer_list",
+        targetObject: "company",
+        viewKey: "company_list",
         modifications: {
           addSection: {
             title: "Extra",
@@ -272,8 +272,8 @@ describe("validateExtensionPlan — viewModifications", () => {
   it("rejects reorderColumns on a view that does not allow it", async () => {
     const plan = makePlan("Reorder Not Allowed", [
       {
-        targetObject: "customer",
-        viewKey: "customer_form",
+        targetObject: "company",
+        viewKey: "company_form",
         modifications: {
           reorderColumns: ["name"],
         },
@@ -287,8 +287,8 @@ describe("validateExtensionPlan — viewModifications", () => {
   it("rejects addAction on a view that does not allow it", async () => {
     const plan = makePlan("Action Not Allowed", [
       {
-        targetObject: "customer",
-        viewKey: "customer_list",
+        targetObject: "company",
+        viewKey: "company_list",
         modifications: {
           addAction: "export",
         },
@@ -302,8 +302,8 @@ describe("validateExtensionPlan — viewModifications", () => {
   it("rejects pageSize on a view that does not allow it", async () => {
     const plan = makePlan("PageSize Not Allowed", [
       {
-        targetObject: "customer",
-        viewKey: "customer_form",
+        targetObject: "company",
+        viewKey: "company_form",
         modifications: {
           pageSize: 50,
         },
@@ -317,8 +317,8 @@ describe("validateExtensionPlan — viewModifications", () => {
   it("rejects addFilters on a view that does not allow it", async () => {
     const plan = makePlan("Filters Not Allowed", [
       {
-        targetObject: "customer",
-        viewKey: "customer_form",
+        targetObject: "company",
+        viewKey: "company_form",
         modifications: {
           addFilters: [{ field: "name", operator: "eq", value: "x" }],
         },
@@ -336,20 +336,20 @@ describe("previewExtension — viewModifications", () => {
   it("includes viewModifications in the diff with before config", async () => {
     const plan = makePlan("Preview Test", [
       {
-        targetObject: "customer",
-        viewKey: "customer_list",
+        targetObject: "company",
+        viewKey: "company_list",
         modifications: {
-          reorderColumns: ["email", "name", "phone"],
+          reorderColumns: ["name", "industry", "lifecycle_stage", "owner"],
           pageSize: 50,
         },
       },
       {
-        targetObject: "customer",
-        viewKey: "customer_form",
+        targetObject: "company",
+        viewKey: "company_form",
         modifications: {
           addSection: {
             title: "Extra",
-            fields: [{ field: "email" }],
+            fields: [{ field: "website" }],
           },
         },
       },
@@ -359,8 +359,8 @@ describe("previewExtension — viewModifications", () => {
     expect(diff.viewModifications).toHaveLength(2);
 
     const listMod = diff.viewModifications[0];
-    expect(listMod.targetObject).toBe("customer");
-    expect(listMod.viewKey).toBe("customer_list");
+    expect(listMod.targetObject).toBe("company");
+    expect(listMod.viewKey).toBe("company_list");
     expect(listMod.before).not.toBeNull();
     expect(listMod.before!.columns).toBeDefined();
     expect(listMod.modifications).toHaveLength(2);
@@ -368,7 +368,7 @@ describe("previewExtension — viewModifications", () => {
     expect(listMod.modifications.some(m => m.type === "pageSize")).toBe(true);
 
     const formMod = diff.viewModifications[1];
-    expect(formMod.viewKey).toBe("customer_form");
+    expect(formMod.viewKey).toBe("company_form");
     expect(formMod.before).not.toBeNull();
     expect(formMod.before!.sections).toBeDefined();
     expect(formMod.modifications.some(m => m.type === "addSection")).toBe(true);
@@ -377,19 +377,19 @@ describe("previewExtension — viewModifications", () => {
   it("includes affected views from viewModifications", async () => {
     const plan = makePlan("Affected Views", [
       {
-        targetObject: "customer",
-        viewKey: "customer_list",
+        targetObject: "company",
+        viewKey: "company_list",
         modifications: { pageSize: 50 },
       },
     ]);
     const diff = await previewExtension(workspaceId, plan);
-    expect(diff.affectedViews).toContain("customer_list");
+    expect(diff.affectedViews).toContain("company_list");
   });
 
   it("returns empty viewModifications array when plan has none", async () => {
     const plan: ExtensionPlan = {
       name: "No View Mods",
-      targetModules: ["runory.customer"],
+      targetModules: ["runory.company"],
       riskLevel: "low",
       customFields: [],
     };
@@ -404,72 +404,72 @@ describe("applyExtension — viewModifications", () => {
   it("reorders columns in a list view", async () => {
     const plan = makePlan("Apply Reorder", [
       {
-        targetObject: "customer",
-        viewKey: "customer_list",
+        targetObject: "company",
+        viewKey: "company_list",
         modifications: {
-          reorderColumns: ["phone", "email", "name"],
+          reorderColumns: ["owner", "name", "industry", "lifecycle_stage"],
         },
       },
     ]);
     await applyExtension(workspaceId, plan, "test-agent");
 
-    const view = await getView(workspaceId, "customer", "customer_list");
+    const view = await getView(workspaceId, "company", "company_list");
     expect(view).toBeDefined();
     const columns = (view!.config as { columns: Array<{ field: string }> }).columns;
-    expect(columns.map(c => c.field)).toEqual(["phone", "email", "name"]);
+    expect(columns.map(c => c.field)).toEqual(["owner", "name", "industry", "lifecycle_stage"]);
   });
 
   it("adds filters to a list view", async () => {
     const plan = makePlan("Apply Filters", [
       {
-        targetObject: "customer",
-        viewKey: "customer_list",
+        targetObject: "company",
+        viewKey: "company_list",
         modifications: {
           addFilters: [
             { field: "name", operator: "contains", value: "Acme" },
-            { field: "email", operator: "eq", value: "test@test.com" },
+            { field: "industry", operator: "eq", value: "technology" },
           ],
         },
       },
     ]);
     await applyExtension(workspaceId, plan, "test-agent");
 
-    const view = await getView(workspaceId, "customer", "customer_list");
+    const view = await getView(workspaceId, "company", "company_list");
     expect(view).toBeDefined();
     const filters = (view!.config as { filters?: Array<{ field: string; operator: string }> }).filters;
     expect(filters).toBeDefined();
     expect(filters).toHaveLength(2);
     expect(filters![0].field).toBe("name");
-    expect(filters![1].field).toBe("email");
+    expect(filters![1].field).toBe("industry");
   });
 
   it("adds a section to a form view (append)", async () => {
     const plan = makePlan("Apply Section", [
       {
-        targetObject: "customer",
-        viewKey: "customer_form",
+        targetObject: "company",
+        viewKey: "company_form",
         modifications: {
           addSection: {
             title: "Extra Info",
-            fields: [{ field: "email" }, { field: "phone" }],
+            fields: [{ field: "website" }, { field: "phone" }],
           },
         },
       },
     ]);
     await applyExtension(workspaceId, plan, "test-agent");
 
-    const view = await getView(workspaceId, "customer", "customer_form");
+    const view = await getView(workspaceId, "company", "company_form");
     expect(view).toBeDefined();
     const sections = (view!.config as { sections: Array<{ title: string }> }).sections;
-    expect(sections).toHaveLength(2);
-    expect(sections[1].title).toBe("Extra Info");
+    expect(sections).toHaveLength(4);
+    expect(sections[3].title).toBe("Extra Info");
   });
 
   it("inserts a section after a specified section", async () => {
     const plan = makePlan("Apply Section After", [
       {
-        targetObject: "customer",
-        viewKey: "customer_form",
+        targetObject: "company",
+        viewKey: "company_form",
         modifications: {
           addSection: {
             title: "Inserted Section",
@@ -481,9 +481,9 @@ describe("applyExtension — viewModifications", () => {
     ]);
     await applyExtension(workspaceId, plan, "test-agent");
 
-    const view = await getView(workspaceId, "customer", "customer_form");
+    const view = await getView(workspaceId, "company", "company_form");
     const sections = (view!.config as { sections: Array<{ title: string }> }).sections;
-    expect(sections).toHaveLength(2);
+    expect(sections).toHaveLength(4);
     expect(sections[0].title).toBe("基本信息");
     expect(sections[1].title).toBe("Inserted Section");
   });
@@ -491,8 +491,8 @@ describe("applyExtension — viewModifications", () => {
   it("appends section when afterSection is not found", async () => {
     const plan = makePlan("Apply Section Bad After", [
       {
-        targetObject: "customer",
-        viewKey: "customer_form",
+        targetObject: "company",
+        viewKey: "company_form",
         modifications: {
           addSection: {
             title: "Appended",
@@ -504,17 +504,17 @@ describe("applyExtension — viewModifications", () => {
     ]);
     await applyExtension(workspaceId, plan, "test-agent");
 
-    const view = await getView(workspaceId, "customer", "customer_form");
+    const view = await getView(workspaceId, "company", "company_form");
     const sections = (view!.config as { sections: Array<{ title: string }> }).sections;
-    expect(sections).toHaveLength(2);
-    expect(sections[1].title).toBe("Appended");
+    expect(sections).toHaveLength(4);
+    expect(sections[3].title).toBe("Appended");
   });
 
   it("adds an action to a form view", async () => {
     const plan = makePlan("Apply Action", [
       {
-        targetObject: "customer",
-        viewKey: "customer_form",
+        targetObject: "company",
+        viewKey: "company_form",
         modifications: {
           addAction: "export",
         },
@@ -522,7 +522,7 @@ describe("applyExtension — viewModifications", () => {
     ]);
     await applyExtension(workspaceId, plan, "test-agent");
 
-    const view = await getView(workspaceId, "customer", "customer_form");
+    const view = await getView(workspaceId, "company", "company_form");
     expect(view).toBeDefined();
     const actions = (view!.config as { actions?: string[] }).actions;
     expect(actions).toBeDefined();
@@ -532,8 +532,8 @@ describe("applyExtension — viewModifications", () => {
   it("changes page size of a list view", async () => {
     const plan = makePlan("Apply PageSize", [
       {
-        targetObject: "customer",
-        viewKey: "customer_list",
+        targetObject: "company",
+        viewKey: "company_list",
         modifications: {
           pageSize: 100,
         },
@@ -541,7 +541,7 @@ describe("applyExtension — viewModifications", () => {
     ]);
     await applyExtension(workspaceId, plan, "test-agent");
 
-    const view = await getView(workspaceId, "customer", "customer_list");
+    const view = await getView(workspaceId, "company", "company_list");
     expect(view).toBeDefined();
     expect((view!.config as { pageSize?: number }).pageSize).toBe(100);
   });
@@ -549,10 +549,10 @@ describe("applyExtension — viewModifications", () => {
   it("applies multiple modification types to the same view in one plan", async () => {
     const plan = makePlan("Apply Multiple", [
       {
-        targetObject: "customer",
-        viewKey: "customer_list",
+        targetObject: "company",
+        viewKey: "company_list",
         modifications: {
-          reorderColumns: ["phone", "email", "name"],
+          reorderColumns: ["owner", "name", "industry", "lifecycle_stage"],
           addFilters: [{ field: "name", operator: "contains", value: "Acme" }],
           pageSize: 50,
         },
@@ -560,13 +560,13 @@ describe("applyExtension — viewModifications", () => {
     ]);
     await applyExtension(workspaceId, plan, "test-agent");
 
-    const view = await getView(workspaceId, "customer", "customer_list");
+    const view = await getView(workspaceId, "company", "company_list");
     const config = view!.config as {
       columns: Array<{ field: string }>;
       filters?: Array<{ field: string }>;
       pageSize?: number;
     };
-    expect(config.columns.map(c => c.field)).toEqual(["phone", "email", "name"]);
+    expect(config.columns.map(c => c.field)).toEqual(["owner", "name", "industry", "lifecycle_stage"]);
     expect(config.filters).toHaveLength(1);
     expect(config.pageSize).toBe(50);
   });
@@ -574,20 +574,20 @@ describe("applyExtension — viewModifications", () => {
   it("applies modifications across multiple views in one plan", async () => {
     const plan = makePlan("Apply Multi View", [
       {
-        targetObject: "customer",
-        viewKey: "customer_list",
+        targetObject: "company",
+        viewKey: "company_list",
         modifications: { pageSize: 50 },
       },
       {
-        targetObject: "customer",
-        viewKey: "customer_form",
+        targetObject: "company",
+        viewKey: "company_form",
         modifications: { addAction: "export" },
       },
     ]);
     await applyExtension(workspaceId, plan, "test-agent");
 
-    const listView = await getView(workspaceId, "customer", "customer_list");
-    const formView = await getView(workspaceId, "customer", "customer_form");
+    const listView = await getView(workspaceId, "company", "company_list");
+    const formView = await getView(workspaceId, "company", "company_form");
     expect((listView!.config as { pageSize?: number }).pageSize).toBe(50);
     expect((formView!.config as { actions?: string[] }).actions).toContain("export");
   });
@@ -595,13 +595,13 @@ describe("applyExtension — viewModifications", () => {
   it("works with a plan that has only viewModifications (no customFields)", async () => {
     const plan: ExtensionPlan = {
       name: "Only View Mods",
-      targetModules: ["runory.customer"],
+      targetModules: ["runory.company"],
       riskLevel: "low",
       customFields: [],
       viewModifications: [
         {
-          targetObject: "customer",
-          viewKey: "customer_list",
+          targetObject: "company",
+          viewKey: "company_list",
           modifications: { pageSize: 30 },
         },
       ],
@@ -609,7 +609,7 @@ describe("applyExtension — viewModifications", () => {
     const version = await applyExtension(workspaceId, plan, "test-agent");
     expect(version.id).toBeDefined();
 
-    const view = await getView(workspaceId, "customer", "customer_list");
+    const view = await getView(workspaceId, "company", "company_list");
     expect((view!.config as { pageSize?: number }).pageSize).toBe(30);
   });
 });
@@ -620,50 +620,50 @@ describe("rollbackExtension — viewModifications", () => {
   it("reverses reorderColumns", async () => {
     const plan = makePlan("Rollback Reorder", [
       {
-        targetObject: "customer",
-        viewKey: "customer_list",
+        targetObject: "company",
+        viewKey: "company_list",
         modifications: {
-          reorderColumns: ["phone", "email", "name"],
+          reorderColumns: ["owner", "name", "industry", "lifecycle_stage"],
         },
       },
     ]);
     const version = await applyExtension(workspaceId, plan, "test-agent");
 
     // Verify reorder happened
-    let view = await getView(workspaceId, "customer", "customer_list");
+    let view = await getView(workspaceId, "company", "company_list");
     expect((view!.config as { columns: Array<{ field: string }> }).columns.map(c => c.field))
-      .toEqual(["phone", "email", "name"]);
+      .toEqual(["owner", "name", "industry", "lifecycle_stage"]);
 
     // Rollback
     await rollbackExtension(workspaceId, version.extensionId, "test-agent");
 
     // Verify original order restored
-    view = await getView(workspaceId, "customer", "customer_list");
+    view = await getView(workspaceId, "company", "company_list");
     expect((view!.config as { columns: Array<{ field: string }> }).columns.map(c => c.field))
-      .toEqual(["name", "email", "phone"]);
+      .toEqual(["name", "industry", "lifecycle_stage", "owner"]);
   });
 
   it("reverses addFilters", async () => {
     const plan = makePlan("Rollback Filters", [
       {
-        targetObject: "customer",
-        viewKey: "customer_list",
+        targetObject: "company",
+        viewKey: "company_list",
         modifications: {
           addFilters: [
             { field: "name", operator: "contains", value: "Acme" },
-            { field: "email", operator: "eq", value: "x@y.com" },
+            { field: "industry", operator: "eq", value: "technology" },
           ],
         },
       },
     ]);
     const version = await applyExtension(workspaceId, plan, "test-agent");
 
-    let view = await getView(workspaceId, "customer", "customer_list");
+    let view = await getView(workspaceId, "company", "company_list");
     expect((view!.config as { filters?: unknown[] }).filters).toHaveLength(2);
 
     await rollbackExtension(workspaceId, version.extensionId, "test-agent");
 
-    view = await getView(workspaceId, "customer", "customer_list");
+    view = await getView(workspaceId, "company", "company_list");
     const filters = (view!.config as { filters?: unknown[] }).filters;
     expect(filters).toHaveLength(0);
   });
@@ -671,34 +671,34 @@ describe("rollbackExtension — viewModifications", () => {
   it("reverses addSection", async () => {
     const plan = makePlan("Rollback Section", [
       {
-        targetObject: "customer",
-        viewKey: "customer_form",
+        targetObject: "company",
+        viewKey: "company_form",
         modifications: {
           addSection: {
             title: "Extra Info",
-            fields: [{ field: "email" }],
+            fields: [{ field: "website" }],
           },
         },
       },
     ]);
     const version = await applyExtension(workspaceId, plan, "test-agent");
 
-    let view = await getView(workspaceId, "customer", "customer_form");
-    expect((view!.config as { sections: Array<{ title: string }> }).sections).toHaveLength(2);
+    let view = await getView(workspaceId, "company", "company_form");
+    expect((view!.config as { sections: Array<{ title: string }> }).sections).toHaveLength(4);
 
     await rollbackExtension(workspaceId, version.extensionId, "test-agent");
 
-    view = await getView(workspaceId, "customer", "customer_form");
+    view = await getView(workspaceId, "company", "company_form");
     const sections = (view!.config as { sections: Array<{ title: string }> }).sections;
-    expect(sections).toHaveLength(1);
+    expect(sections).toHaveLength(3);
     expect(sections[0].title).toBe("基本信息");
   });
 
   it("reverses addAction", async () => {
     const plan = makePlan("Rollback Action", [
       {
-        targetObject: "customer",
-        viewKey: "customer_form",
+        targetObject: "company",
+        viewKey: "company_form",
         modifications: {
           addAction: "export",
         },
@@ -706,12 +706,12 @@ describe("rollbackExtension — viewModifications", () => {
     ]);
     const version = await applyExtension(workspaceId, plan, "test-agent");
 
-    let view = await getView(workspaceId, "customer", "customer_form");
+    let view = await getView(workspaceId, "company", "company_form");
     expect((view!.config as { actions?: string[] }).actions).toContain("export");
 
     await rollbackExtension(workspaceId, version.extensionId, "test-agent");
 
-    view = await getView(workspaceId, "customer", "customer_form");
+    view = await getView(workspaceId, "company", "company_form");
     const actions = (view!.config as { actions?: string[] }).actions ?? [];
     expect(actions).not.toContain("export");
   });
@@ -719,8 +719,8 @@ describe("rollbackExtension — viewModifications", () => {
   it("reverses pageSize", async () => {
     const plan = makePlan("Rollback PageSize", [
       {
-        targetObject: "customer",
-        viewKey: "customer_list",
+        targetObject: "company",
+        viewKey: "company_list",
         modifications: {
           pageSize: 100,
         },
@@ -728,33 +728,33 @@ describe("rollbackExtension — viewModifications", () => {
     ]);
     const version = await applyExtension(workspaceId, plan, "test-agent");
 
-    let view = await getView(workspaceId, "customer", "customer_list");
+    let view = await getView(workspaceId, "company", "company_list");
     expect((view!.config as { pageSize?: number }).pageSize).toBe(100);
 
     await rollbackExtension(workspaceId, version.extensionId, "test-agent");
 
-    view = await getView(workspaceId, "customer", "customer_list");
+    view = await getView(workspaceId, "company", "company_list");
     expect((view!.config as { pageSize?: number }).pageSize).toBe(20);
   });
 
   it("reverses all modification types in a combined plan", async () => {
     const plan = makePlan("Rollback All", [
       {
-        targetObject: "customer",
-        viewKey: "customer_list",
+        targetObject: "company",
+        viewKey: "company_list",
         modifications: {
-          reorderColumns: ["phone", "email", "name"],
+          reorderColumns: ["owner", "name", "industry", "lifecycle_stage"],
           addFilters: [{ field: "name", operator: "contains", value: "Acme" }],
           pageSize: 50,
         },
       },
       {
-        targetObject: "customer",
-        viewKey: "customer_form",
+        targetObject: "company",
+        viewKey: "company_form",
         modifications: {
           addSection: {
             title: "Extra Info",
-            fields: [{ field: "email" }],
+            fields: [{ field: "website" }],
           },
           addAction: "export",
         },
@@ -762,33 +762,33 @@ describe("rollbackExtension — viewModifications", () => {
     ]);
 
     // Capture original configs before apply
-    const originalList = await getView(workspaceId, "customer", "customer_list");
-    const originalForm = await getView(workspaceId, "customer", "customer_form");
+    const originalList = await getView(workspaceId, "company", "company_list");
+    const originalForm = await getView(workspaceId, "company", "company_form");
 
     const version = await applyExtension(workspaceId, plan, "test-agent");
 
     // Verify changes applied
-    let listView = await getView(workspaceId, "customer", "customer_list");
+    let listView = await getView(workspaceId, "company", "company_list");
     expect((listView!.config as { columns: Array<{ field: string }> }).columns.map(c => c.field))
-      .toEqual(["phone", "email", "name"]);
+      .toEqual(["owner", "name", "industry", "lifecycle_stage"]);
     expect((listView!.config as { pageSize?: number }).pageSize).toBe(50);
 
-    let formView = await getView(workspaceId, "customer", "customer_form");
-    expect((formView!.config as { sections: Array<{ title: string }> }).sections).toHaveLength(2);
+    let formView = await getView(workspaceId, "company", "company_form");
+    expect((formView!.config as { sections: Array<{ title: string }> }).sections).toHaveLength(4);
 
     // Rollback
     await rollbackExtension(workspaceId, version.extensionId, "test-agent");
 
     // Verify everything restored
-    listView = await getView(workspaceId, "customer", "customer_list");
+    listView = await getView(workspaceId, "company", "company_list");
     expect((listView!.config as { columns: Array<{ field: string }> }).columns.map(c => c.field))
       .toEqual((originalList!.config as { columns: Array<{ field: string }> }).columns.map(c => c.field));
     expect((listView!.config as { pageSize?: number }).pageSize)
       .toBe((originalList!.config as { pageSize?: number }).pageSize);
 
-    formView = await getView(workspaceId, "customer", "customer_form");
+    formView = await getView(workspaceId, "company", "company_form");
     const sections = (formView!.config as { sections: Array<{ title: string }> }).sections;
-    expect(sections).toHaveLength(1);
+    expect(sections).toHaveLength(3);
     expect(sections[0].title).toBe("基本信息");
 
     const actions = (formView!.config as { actions?: string[] }).actions ?? [];
@@ -802,11 +802,11 @@ describe("backward compatibility", () => {
   it("plans without viewModifications still validate and apply", async () => {
     const plan: ExtensionPlan = {
       name: "No View Mods",
-      targetModules: ["runory.customer"],
+      targetModules: ["runory.company"],
       riskLevel: "low",
       customFields: [
         {
-          targetObject: "customer",
+          targetObject: "company",
           fieldKey: "company_name",
           label: "Company Name",
           type: "text",
@@ -826,7 +826,7 @@ describe("backward compatibility", () => {
   it("preview without viewModifications returns empty array", async () => {
     const plan: ExtensionPlan = {
       name: "Empty Preview",
-      targetModules: ["runory.customer"],
+      targetModules: ["runory.company"],
       riskLevel: "low",
       customFields: [],
     };

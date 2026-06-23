@@ -13,36 +13,27 @@ import {
   useWorkspaceChangeEvent,
 } from "@/lib/api-hooks";
 
-const OBJECT_KEY = "customer";
-const VIEW_KEY = "customer_list";
+const OBJECT_KEY = "deal";
+const VIEW_KEY = "deal_list";
 const PAGE_SIZE = 20;
 
 const SORT_OPTIONS = [
   { value: "created_at:desc", label: "创建时间（最新）" },
   { value: "created_at:asc", label: "创建时间（最早）" },
-  { value: "name:asc", label: "客户名称（A-Z）" },
-  { value: "name:desc", label: "客户名称（Z-A）" },
-  { value: "email:asc", label: "邮箱（A-Z）" },
+  { value: "name:asc", label: "商机名称（A-Z）" },
+  { value: "name:desc", label: "商机名称（Z-A）" },
+  { value: "expected_close_date:asc", label: "预计成交日期（最近）" },
+  { value: "amount:desc", label: "金额（从高到低）" },
 ];
 
-export default function CustomerListPage() {
+export default function DealListPage() {
   const params = useParams();
   const router = useRouter();
   const workspaceId = params.workspaceId as string;
 
   const { data: installations = [], isLoading: loadingInst } = useInstallations(workspaceId);
-  const { data: objDetail, error: objError, isLoading: loadingObj } = useFields(workspaceId, OBJECT_KEY);
+  const { data: objDetail, isLoading: loadingObj } = useFields(workspaceId, OBJECT_KEY);
   const { data: views = [], isLoading: loadingViews } = useViews(workspaceId, OBJECT_KEY);
-
-  // If the customer object no longer exists (e.g. runory.customer module not installed),
-  // redirect to /companies where the new company object lives.
-  useEffect(() => {
-    if (loadingInst || loadingObj) return;
-    const customerObjectMissing = !!objError || (!objDetail && !loadingObj);
-    if (customerObjectMissing) {
-      router.replace(`/w/${workspaceId}/companies`);
-    }
-  }, [loadingInst, loadingObj, objError, objDetail, router, workspaceId]);
 
   // Search (debounced) + sort state
   const [searchInput, setSearchInput] = useState("");
@@ -75,7 +66,6 @@ export default function CustomerListPage() {
 
   const hasPack = installations.length > 0;
   const loading = loadingInst || (hasPack && (loadingObj || loadingViews || loadingRecords));
-  const customerObjectMissing = !loadingInst && !loadingObj && (!!objError || !objDetail);
 
   const fields: FieldDefinition[] = objDetail?.fields ?? [];
   const viewConfig = views.find((v) => v.viewKey === VIEW_KEY)?.config ?? null;
@@ -113,18 +103,18 @@ export default function CustomerListPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">客户</h1>
-          <p className="mt-1 text-sm text-slate-500">管理所有客户记录</p>
+          <h1 className="text-2xl font-bold text-slate-900">商机</h1>
+          <p className="mt-1 text-sm text-slate-500">管理所有商机记录</p>
         </div>
         {hasPack && (
           <button
             type="button"
             onClick={() =>
-              router.push(`/w/${workspaceId}/customers/new`)
+              router.push(`/w/${workspaceId}/deals/new`)
             }
             className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
           >
-            添加客户
+            添加商机
           </button>
         )}
       </div>
@@ -132,7 +122,7 @@ export default function CustomerListPage() {
       {!hasPack ? (
         <div className="rounded-lg border border-blue-200 bg-blue-50 p-8 text-center">
           <p className="text-base font-semibold text-blue-800">尚未安装业务模块</p>
-          <p className="mt-1 text-sm text-blue-700">安装 CRM Lite Pack 后即可开始管理客户。</p>
+          <p className="mt-1 text-sm text-blue-700">安装 CRM Lite Pack 后即可开始管理商机。</p>
           <Link
             href={`/w/${workspaceId}/dashboard`}
             className="mt-4 inline-block rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
@@ -149,7 +139,7 @@ export default function CustomerListPage() {
                   <p className="font-semibold">新的工作区字段已可用</p>
                   <p className="mt-1 text-purple-800">
                     {extensionFields.map((field) => field.label).join(", ")}
-                    {" "}已加入 Customer 列表和表单。此提示仅在字段变更后出现一次。
+                    {" "}已加入 Deal 列表和表单。此提示仅在字段变更后出现一次。
                   </p>
                 </div>
                 <button
@@ -169,7 +159,7 @@ export default function CustomerListPage() {
               type="search"
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
-              placeholder="搜索客户名称、邮箱、电话..."
+              placeholder="搜索商机名称、阶段..."
               className="w-full max-w-sm rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
             />
             <select
@@ -203,13 +193,13 @@ export default function CustomerListPage() {
               </div>
             ) : (
               <div className="rounded-lg border border-slate-200 bg-white p-8 text-center">
-                <p className="text-sm text-slate-500">还没有客户记录</p>
+                <p className="text-sm text-slate-500">还没有商机记录</p>
                 <button
                   type="button"
-                  onClick={() => router.push(`/w/${workspaceId}/customers/new`)}
+                  onClick={() => router.push(`/w/${workspaceId}/deals/new`)}
                   className="mt-3 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
                 >
-                  添加第一个客户
+                  添加第一个商机
                 </button>
               </div>
             )

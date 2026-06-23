@@ -3,22 +3,21 @@
 import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import useSWR from "swr";
 import SchemaForm from "@/components/SchemaForm";
 import type { FieldDefinition } from "@runory/platform-core";
 import {
   useFields,
   useViews,
   useRecord,
+  useRecords,
   useWorkspaceChangeEvent,
-  type WorkspaceRecord,
 } from "@/lib/api-hooks";
 import { notifyWorkspaceDataChanged } from "@/lib/workspace-events";
 
-const OBJECT_KEY = "contact";
-const VIEW_KEY = "contact_form";
+const OBJECT_KEY = "deal";
+const VIEW_KEY = "deal_form";
 
-export default function ContactDetailPage() {
+export default function DealDetailPage() {
   const params = useParams();
   const router = useRouter();
   const workspaceId = params.workspaceId as string;
@@ -28,11 +27,8 @@ export default function ContactDetailPage() {
   const { data: views = [], isLoading: loadingViews } = useViews(workspaceId, OBJECT_KEY);
   const { data: record, error: recordError, isLoading: loadingRecord, mutate: mutateRecord } = useRecord(workspaceId, OBJECT_KEY, recordId);
 
-  // Fetch linked company record (conditional on primary_company_id being present)
-  const primaryCompanyId = record?.primary_company_id as string | undefined;
-  const { data: companyRecord } = useSWR<WorkspaceRecord>(
-    primaryCompanyId ? `/api/workspaces/${workspaceId}/objects/company/records/${primaryCompanyId}` : null
-  );
+  // Fetch related tasks linked to this deal
+  const { data: relatedTasks = [] } = useRecords(workspaceId, "task", { search: recordId });
 
   useWorkspaceChangeEvent(workspaceId);
 
@@ -73,7 +69,7 @@ export default function ContactDetailPage() {
   };
 
   const handleDelete = async () => {
-    if (!confirm("确定要删除此联系人吗？此操作不可撤销。")) return;
+    if (!confirm("确定要删除此商机吗？此操作不可撤销。")) return;
     setDeleting(true);
     setError(null);
     try {
@@ -84,7 +80,7 @@ export default function ContactDetailPage() {
       const json = await res.json();
       if (json.success) {
         notifyWorkspaceDataChanged();
-        router.push(`/w/${workspaceId}/contacts`);
+        router.push(`/w/${workspaceId}/deals`);
         router.refresh();
       } else {
         setError(json.error?.message ?? "删除失败");
@@ -109,10 +105,10 @@ export default function ContactDetailPage() {
           </div>
         )}
         <Link
-          href={`/w/${workspaceId}/contacts`}
+          href={`/w/${workspaceId}/deals`}
           className="text-sm font-medium text-blue-600 hover:text-blue-800"
         >
-          ← 返回联系人列表
+          ← 返回商机列表
         </Link>
       </div>
     );
@@ -123,13 +119,13 @@ export default function ContactDetailPage() {
       <div className="flex items-center justify-between">
         <div>
           <Link
-            href={`/w/${workspaceId}/contacts`}
+            href={`/w/${workspaceId}/deals`}
             className="text-xs font-medium text-blue-600 hover:text-blue-800"
           >
-            ← 返回联系人列表
+            ← 返回商机列表
           </Link>
           <h1 className="mt-1 text-2xl font-bold text-slate-900">
-            联系人详情
+            商机详情
           </h1>
         </div>
         {!editing && (
@@ -197,23 +193,41 @@ export default function ContactDetailPage() {
               );
             })}
           </dl>
-          {primaryCompanyId && (
-            <div className="mt-4 border-t border-slate-100 pt-4">
-              <p className="text-xs font-medium uppercase tracking-wider text-slate-500">关联公司</p>
-              <div className="mt-1 text-sm">
-                {companyRecord ? (
-                  <Link
-                    href={`/w/${workspaceId}/companies/${primaryCompanyId}`}
-                    className="font-medium text-blue-600 hover:text-blue-800"
-                  >
-                    {String(companyRecord.name ?? primaryCompanyId)}
-                  </Link>
-                ) : (
-                  <span className="text-slate-400">加载中...</span>
-                )}
+
+          {/* Related tasks */}
+          {(() => {
+            const tasks = relatedTasks.filter(
+              (t) => String(t.deal_id) === recordId
+            );
+            if (tasks.length === 0) return null;
+            return (
+              <div className="mt-6 space-y-4 border-t border-slate-100 pt-4">
+                <div>
+                  <p className="text-xs font-medium uppercase tracking-wider text-slate-500">
+                    关联任务（{tasks.length}）
+                  </p>
+                  <ul className="mt-2 space-y-1">
+                    {tasks.map((t) => (
+                      <li key={String(t.id)}>
+                        <Link
+                          href={`/w/${workspaceId}/tasks/${t.id}`}
+                          className="text-sm font-medium text-blue-600 hover:text-blue-800"
+                        >
+                          {String(t.title ?? "未命名")}
+                        </Link>
+                        {t.status ? (
+                          <span className="ml-2 text-xs text-slate-500">
+                            {String(t.status)}
+                          </span>
+                        ) : null}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
               </div>
-            </div>
-          )}
+            );
+          })()}
+
           <div className="mt-4 border-t border-slate-100 pt-4 text-xs text-slate-400">
             <p>记录 ID：{record.id}</p>
             <p>创建时间：{record.created_at}</p>

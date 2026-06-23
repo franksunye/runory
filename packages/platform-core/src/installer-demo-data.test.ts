@@ -53,17 +53,22 @@ describe("installPack demo data", () => {
       includeDemoData: true,
     });
 
-    expect(result.demoRecordsCreated).toBe(6);
+    // 6 companies + 8 contacts + 6 deals + 6 tasks = 26 records
+    expect(result.demoRecordsCreated).toBe(26);
 
-    const customers = await getRecords(workspaceId, "customer");
+    const companies = await getRecords(workspaceId, "company");
     const contacts = await getRecords(workspaceId, "contact");
+    const deals = await getRecords(workspaceId, "deal");
     const tasks = await getRecords(workspaceId, "task");
 
-    expect(customers.map((row) => row.name)).toEqual(
-      expect.arrayContaining(["Acme Operations", "Nova Retail"])
+    expect(companies.map((row) => row.name)).toEqual(
+      expect.arrayContaining(["Acme Operations", "Nova Retail", "Vertex Manufacturing"])
     );
     expect(contacts.map((row) => row.email)).toEqual(
       expect.arrayContaining(["maya@acme.example", "jon@novaretail.example"])
+    );
+    expect(deals.map((row) => row.name)).toEqual(
+      expect.arrayContaining(["Acme Expansion Plan", "Nova Store Rollout"])
     );
     expect(tasks.map((row) => row.title)).toEqual(
       expect.arrayContaining([
@@ -72,17 +77,31 @@ describe("installPack demo data", () => {
       ])
     );
 
-    const acme = customers.find((row) => row.email === "ops@acme.example");
+    // Verify contact-first linking: contact's primary_company_id points to company
+    const acme = companies.find((row) => row.domain === "acme.example");
     const maya = contacts.find((row) => row.email === "maya@acme.example");
-    expect(maya?.customer_id).toBe(acme?.id);
+    expect(maya?.primary_company_id).toBe(acme?.id);
+
+    // Verify task multi-link: task links to company, contact, and deal
+    const acmeDeal = deals.find((row) => row.name === "Acme Expansion Plan");
+    const kickoffTask = tasks.find((row) => row.title === "Prepare Acme onboarding plan");
+    expect(kickoffTask?.company_id).toBe(acme?.id);
+    expect(kickoffTask?.contact_id).toBe(maya?.id);
+    expect(kickoffTask?.deal_id).toBe(acmeDeal?.id);
+
+    // Verify contact-first usage: contact-tom has no primary_company_id
+    const tom = contacts.find((row) => row.email === "tom@independent.example");
+    expect(tom).toBeDefined();
+    expect(tom?.primary_company_id).toBeNull();
   });
 
   it("does not seed demo records by default", async () => {
     const result = await installPack(workspaceId, "crm-lite-pack");
 
     expect(result.demoRecordsCreated).toBe(0);
-    expect(await getRecords(workspaceId, "customer")).toHaveLength(0);
+    expect(await getRecords(workspaceId, "company")).toHaveLength(0);
     expect(await getRecords(workspaceId, "contact")).toHaveLength(0);
+    expect(await getRecords(workspaceId, "deal")).toHaveLength(0);
     expect(await getRecords(workspaceId, "task")).toHaveLength(0);
   });
 
@@ -93,8 +112,9 @@ describe("installPack demo data", () => {
     });
 
     expect(second.demoRecordsCreated).toBe(0);
-    expect(await getRecords(workspaceId, "customer")).toHaveLength(2);
-    expect(await getRecords(workspaceId, "contact")).toHaveLength(2);
-    expect(await getRecords(workspaceId, "task")).toHaveLength(2);
+    expect(await getRecords(workspaceId, "company")).toHaveLength(6);
+    expect(await getRecords(workspaceId, "contact")).toHaveLength(8);
+    expect(await getRecords(workspaceId, "deal")).toHaveLength(6);
+    expect(await getRecords(workspaceId, "task")).toHaveLength(6);
   });
 });

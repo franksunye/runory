@@ -1,0 +1,219 @@
+id: runory.company
+name: Company Management
+version: 1.0.0
+coreCompatibility: ">=0.1.0"
+
+objects:
+  - key: company
+    label: Company
+    fields:
+      - key: name
+        label: 公司名称
+        type: text
+        ownership: module_owned
+        required: true
+      - key: domain
+        label: 域名
+        type: text
+        ownership: module_owned
+      - key: website
+        label: 网站
+        type: text
+        ownership: module_owned
+      - key: phone
+        label: 电话
+        type: phone
+        ownership: module_owned
+      - key: industry
+        label: 行业
+        type: select
+        ownership: module_owned
+        validation:
+          options: ["technology", "manufacturing", "services", "retail", "finance", "healthcare", "education", "other"]
+      - key: size
+        label: 规模
+        type: select
+        ownership: module_owned
+        validation:
+          options: ["1-10", "11-50", "51-200", "201-1000", "1000+"]
+      - key: source
+        label: 来源
+        type: text
+        ownership: module_owned
+      - key: owner
+        label: 负责人
+        type: text
+        ownership: module_owned
+      - key: lifecycle_stage
+        label: 生命周期阶段
+        type: select
+        ownership: module_owned
+        required: true
+        default_value: "lead"
+        validation:
+          options: ["lead", "marketing_qualified", "sales_qualified", "opportunity", "customer", "inactive"]
+      - key: address
+        label: 地址
+        type: text
+        ownership: module_owned
+      - key: notes
+        label: 备注
+        type: text
+        ownership: module_owned
+
+views:
+  - object: company
+    key: company_list
+    type: list
+    label: 公司列表
+    config:
+      columns:
+        - field: name
+          label: 公司名称
+        - field: industry
+          label: 行业
+        - field: lifecycle_stage
+          label: 阶段
+        - field: owner
+          label: 负责人
+      actions:
+        - create
+        - view
+      pageSize: 20
+
+  - object: company
+    key: company_form
+    type: form
+    label: 公司表单
+    config:
+      sections:
+        - title: 基本信息
+          fields:
+            - field: name
+              required: true
+            - field: domain
+            - field: website
+            - field: phone
+        - title: 分类信息
+          fields:
+            - field: industry
+            - field: size
+            - field: source
+            - field: owner
+        - title: 业务状态
+          fields:
+            - field: lifecycle_stage
+              required: true
+            - field: address
+            - field: notes
+
+permissions:
+  - company.read
+  - company.create
+  - company.update
+  - company.delete
+
+migrations:
+  install: migrations/install.sql
+  uninstallPolicy: retain_data
+
+ui:
+  navigation:
+    - label: 公司
+      route: /companies
+      icon: building
+      sortOrder: 10
+
+extensionPoints:
+  entities:
+    - entity: company
+      customFields:
+        enabled: true
+        allowedTypes: [text, number, date, select, boolean]
+        maxFields: 50
+        reservedKeys: [id, name, domain, website, phone, industry, size, source, owner, lifecycle_stage, address, notes, created_at, updated_at]
+      customRelations:
+        enabled: false
+  views:
+    - view: company_list
+      slots:
+        - id: company.list.columns
+          type: column_group
+          allowedExtensions: [customField]
+          risk: low
+      allowReorder: true
+      allowFilters: true
+      allowPageSizeChange: true
+    - view: company_form
+      slots:
+        - id: company.form.basic_fields.after
+          type: field_group
+          allowedExtensions: [customField]
+          risk: low
+      allowAddSection: true
+      allowAddAction: true
+
+dashboard:
+  widgets:
+    - key: company_total_metric
+      type: metric_card
+      label: 公司总数
+      icon: building
+      tone: indigo
+      data:
+        kind: count
+        object: company
+      sub:
+        kind: count
+        object: company
+        where: "lifecycle_stage = 'customer'"
+        template: "其中 {count} 个客户"
+      link: /companies
+
+    - key: new_companies_trend
+      type: trend_chart
+      label: 公司新增趋势
+      icon: trending-up
+      tone: indigo
+      data:
+        kind: timeseries
+        object: company
+        range: 14d
+      configurable:
+        - path: data.range
+          label: 时间范围
+          type: select
+          options: ["7d", "14d", "30d"]
+
+    - key: company_stage_breakdown
+      type: breakdown
+      label: 公司阶段分布
+      icon: pie-chart
+      tone: slate
+      data:
+        kind: group_count
+        object: company
+        groupBy: lifecycle_stage
+
+    - key: recent_companies_list
+      type: list
+      label: 最近公司
+      icon: clock
+      tone: slate
+      data:
+        kind: recent
+        object: company
+        orderBy: "created_at desc"
+        limit: 5
+        columns: [name, industry, lifecycle_stage]
+      link: /companies
+      configurable:
+        - path: data.limit
+          label: 显示条数
+          type: number
+          min: 1
+          max: 20
+
+upgradePolicy:
+  supportsWorkspaceExtensions: true
+  breakingChangePolicy: manual_review
