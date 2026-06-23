@@ -15,6 +15,7 @@ interface SchemaTableProps {
   records: RecordData[];
   workspaceId: string;
   objectKey: string;
+  basePath?: string;
 }
 
 interface ListColumn {
@@ -109,10 +110,11 @@ export default function SchemaTable({
   records,
   workspaceId,
   objectKey,
+  basePath,
 }: SchemaTableProps) {
   const fieldMap = new Map(fields.map((f) => [f.fieldKey, f]));
   const columns: ListColumn[] = viewConfig?.columns ?? [];
-  const basePath = `/w/${workspaceId}/${objectKey}s`;
+  const linkBase = basePath ?? `/w/${workspaceId}/${objectKey}s`;
 
   if (columns.length === 0) {
     return <p className="text-sm text-slate-500">列表未配置任何列。</p>;
@@ -174,7 +176,7 @@ export default function SchemaTable({
               })}
               <td className="whitespace-nowrap px-4 py-3 text-right text-sm">
                 <Link
-                  href={`${basePath}/${record.id}`}
+                  href={`${linkBase}/${record.id}`}
                   className="font-medium text-blue-600 hover:text-blue-800"
                 >
                   查看
