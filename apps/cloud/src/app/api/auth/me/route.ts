@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
-import { resolveSession, listUserWorkspaces, SESSION_COOKIE_NAME } from "@runory/platform-core";
-import { successResponse, getOrCreateRequestId } from "@/lib/http";
+import { resolveSession, listUserWorkspaces, execute, now, TABLES, SESSION_COOKIE_NAME } from "@runory/platform-core";
+import { requirePrincipal } from "@/lib/auth";
+import { successResponse, handleError, getOrCreateRequestId } from "@/lib/http";
 
 export const dynamic = "force-dynamic";
 
@@ -29,4 +30,34 @@ export async function GET(request: NextRequest) {
     },
     workspaces,
   }, 200, requestId);
+}
+
+// PATCH /api/auth/me — updates the current principal's display name
+export async function PATCH(request: NextRequest) {
+  const requestId = getOrCreateRequestId(request.headers.get("x-request-id"));
+  try {
+    const principal = await requirePrincipal(request);
+    const body = await request.json().catch(() => ({}));
+    const displayName = typeof body.displayName === "string" ? body.displayName.trim() : "";
+
+    if (!displayName) {
+      return handleError(new Error("显示名称不能为空"), requestId);
+    }
+    if (displayName.length > 64) {
+      return handleError(new Error("显示名称过长"), requestId);
+    }
+
+    await execute(
+      `UPDATE ${TABLES.users} SET display_name = ?, updated_at = ? WHERE id = ?`,
+      [displayName, now(), principal.userId]
+    );
+
+    return successResponse({
+      userId: principal.userId,
+      email: principal.email,
+      displayName,
+    }, 200, requestId);
+  } catch (e) {
+    return handleError(e, requestId);
+  }
 }

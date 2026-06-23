@@ -10,6 +10,7 @@ import {
 } from "./context";
 import { writeAuditEvent } from "./audit-service";
 import { exportWorkspace } from "./audit";
+import { authorizeWorkspace } from "./tenancy";
 import { createHash } from "node:crypto";
 
 // ── Types ──
@@ -184,6 +185,30 @@ export async function getExportJob(jobId: string, workspaceId: string): Promise<
     errorMessage: row.error_message, createdAt: row.created_at,
     completedAt: row.completed_at, updatedAt: row.updated_at,
   };
+}
+
+export async function listExportJobs(workspaceId: string, userId: string): Promise<ExportJob[]> {
+  const access = await authorizeWorkspace(workspaceId, userId, "admin");
+  if (!access) throw new AuthorizationError("Workspace admin role required");
+
+  const rows = await queryAll<{
+    id: string; workspace_id: string; organization_id: string; requested_by: string;
+    status: string; manifest_json: string | null; download_url: string | null;
+    download_expires_at: string | null; checksum: string | null; error_message: string | null;
+    created_at: string; completed_at: string | null; updated_at: string;
+  }>(
+    `SELECT * FROM ${TABLES.exportJobs} WHERE workspace_id = ? ORDER BY created_at DESC`,
+    [workspaceId]
+  );
+
+  return rows.map(r => ({
+    id: r.id, workspaceId: r.workspace_id, organizationId: r.organization_id,
+    requestedBy: r.requested_by, status: r.status as ExportJobStatus,
+    manifestJson: r.manifest_json, downloadUrl: r.download_url,
+    downloadExpiresAt: r.download_expires_at, checksum: r.checksum,
+    errorMessage: r.error_message, createdAt: r.created_at,
+    completedAt: r.completed_at, updatedAt: r.updated_at,
+  }));
 }
 
 // ── Workspace Archive ──

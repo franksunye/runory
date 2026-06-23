@@ -1,9 +1,19 @@
 import { NextRequest } from "next/server";
-import { createExportJob, runExportJob } from "@runory/platform-core";
+import { createExportJob, listExportJobs, runExportJob } from "@runory/platform-core";
 import { requireWorkspaceContext } from "@/lib/auth";
 import { successResponse, handleError, getOrCreateRequestId } from "@/lib/http";
 
 export const dynamic = "force-dynamic";
+
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const requestId = getOrCreateRequestId(request.headers.get("x-request-id"));
+  try {
+    const { id } = await params;
+    const { ctx, workspaceId } = await requireWorkspaceContext(request, id, "admin");
+    const jobs = await listExportJobs(workspaceId, ctx.principal!.userId);
+    return successResponse(jobs, 200, ctx.requestId);
+  } catch (e) { return handleError(e, requestId); }
+}
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const requestId = getOrCreateRequestId(request.headers.get("x-request-id"));

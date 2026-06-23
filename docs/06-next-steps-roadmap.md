@@ -4,6 +4,7 @@ Status: Approved v1.0
 Date: 2026-06-22
 Prerequisite: Cloud-first POC completed
 Detailed SaaS plan: [08-saas-core-implementation-plan.md](08-saas-core-implementation-plan.md)
+Next productization plan: [product/v0.2-productization-plan.md](product/v0.2-productization-plan.md)
 
 ## 1. Current Position
 
@@ -19,6 +20,8 @@ Track B — Product Runtime：让 CRM Lite 与 Agent 配置形成持续业务价
 SaaS Core 边界以 [07-saas-core-boundaries.md](07-saas-core-boundaries.md) 为准。本文件只维护跨领域优先级，不重复具体安全与数据模型清单。
 
 当前正式发布目标是 `Runory Cloud v0.1.0 — Early Access`。范围、阻塞项、验收证据和签发流程以 [releases/v0.1.0-cloud-early-access.md](releases/v0.1.0-cloud-early-access.md) 为准。
+
+`v0.1.0` 之后的下一阶段产品化目标以 [Runory Cloud 0.2 Productization Plan](product/v0.2-productization-plan.md) 为准：Workspace 层必须从技术/实施导航转向业务工作区，平台和管理能力进入 management surfaces。
 
 ## 2. Priority Order
 
@@ -130,6 +133,7 @@ SaaS Core 边界以 [07-saas-core-boundaries.md](07-saas-core-boundaries.md) 为
 - Catalog/release specification: [09-catalog-release-control-plane.md](09-catalog-release-control-plane.md)
 - SDK product and developer experience: [10-runory-sdk-product.md](10-runory-sdk-product.md)
 - v0.1.0 release definition: [releases/v0.1.0-cloud-early-access.md](releases/v0.1.0-cloud-early-access.md)
+- v0.2 productization plan: [product/v0.2-productization-plan.md](product/v0.2-productization-plan.md)
 - Historical POC result: [05-cloud-first-poc-progress.md](05-cloud-first-poc-progress.md)
 
 不要在本文件重新定义 SaaS 数据模型或权限边界；决策变化必须先更新 SaaS Core decision baseline，并记录迁移影响。

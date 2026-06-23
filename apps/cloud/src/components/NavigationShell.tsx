@@ -3,8 +3,8 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  ArrowLeft, Building2, ContactRound, CreditCard, FileText, GitBranch,
-  LayoutDashboard, LayoutGrid, Menu, ScrollText, Settings, UsersRound, X,
+  Activity, ArrowLeft, Building2, ContactRound, FileText,
+  LayoutDashboard, Menu, Settings, UsersRound, X,
   CheckSquare,
 } from "lucide-react";
 import { useState } from "react";
@@ -27,21 +27,47 @@ const ROLE_LABELS: Record<string, { label: string; sub: string; initial: string 
   viewer: { label: "访客", sub: "Viewer", initial: "访" },
 };
 
+// Routes that belong to the management layer — used to highlight the
+// "管理" entry when the user is on any admin sub-page.
+const MANAGEMENT_ROUTES = [
+  "/manage", "/modules", "/customize", "/workflows", "/members",
+  "/audit", "/export", "/api-keys", "/settings", "/billing",
+];
+
 export default function NavigationShell({ navigation, workspaceId, workspaceName, role = "member", children }: NavigationShellProps) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const canManageBilling = role === "owner" || role === "admin";
-  const items = [
-    { id: "dashboard", label: "仪表盘", route: "/dashboard", icon: LayoutDashboard, sortOrder: 10 },
-    { id: "modules", label: "模块中心", route: "/modules", icon: LayoutGrid, sortOrder: 20 },
+  const canManage = role === "owner" || role === "admin";
+
+  // Business layer — daily-use functions available to all members.
+  const businessItems = [
+    { id: "dashboard", label: "工作台", route: "/dashboard", icon: LayoutDashboard, sortOrder: 10 },
     ...navigation.map((item) => ({ ...item, icon: iconMap[item.icon as keyof typeof iconMap] ?? FileText })),
-    { id: "workflows", label: "工作流", route: "/workflows", icon: GitBranch, sortOrder: 40 },
-    ...(canManageBilling ? [{ id: "billing", label: "账单", route: "/billing", icon: CreditCard, sortOrder: 60 }] : []),
-    { id: "audit", label: "审计日志", route: "/audit", icon: ScrollText, sortOrder: 90 },
-    { id: "settings", label: "设置", route: "/settings", icon: Settings, sortOrder: 100 },
+    { id: "activity", label: "活动", route: "/activity", icon: Activity, sortOrder: 50 },
   ].sort((a, b) => a.sortOrder - b.sortOrder);
 
+  // Management layer — admin functions. Owner/admin get the "管理" hub;
+  // other roles get a simplified "设置" entry.
+  const managementItems = canManage
+    ? [{ id: "manage", label: "管理", route: "/manage", icon: Settings, sortOrder: 90 }]
+    : [{ id: "settings", label: "设置", route: "/settings", icon: Settings, sortOrder: 90 }];
+
   const roleDisplay = ROLE_LABELS[role] ?? ROLE_LABELS.member;
+
+  const isActive = (route: string) => {
+    const href = `/w/${workspaceId}${route}`;
+    return pathname === href || pathname.startsWith(`${href}/`);
+  };
+
+  const isManageActive = () => {
+    if (canManage) {
+      return MANAGEMENT_ROUTES.some((r) => {
+        const full = `/w/${workspaceId}${r}`;
+        return pathname === full || pathname.startsWith(`${full}/`);
+      });
+    }
+    return isActive("/settings");
+  };
 
   const sidebar = (
     <>
@@ -74,11 +100,20 @@ export default function NavigationShell({ navigation, workspaceId, workspaceName
             返回我的工作区
           </div>
         </Link>
-        <p className="px-3 pb-2 text-[10px] font-bold uppercase tracking-[.16em] text-slate-400">工作空间</p>
-        <nav className="space-y-1" aria-label="工作区导航">
-          {items.map((item) => {
+        <p className="px-3 pb-2 text-[10px] font-bold uppercase tracking-[.16em] text-slate-400">业务</p>
+        <nav className="space-y-1" aria-label="业务导航">
+          {businessItems.map((item) => {
             const href = `/w/${workspaceId}${item.route}`;
-            const active = pathname === href || pathname.startsWith(`${href}/`);
+            const active = isActive(item.route);
+            const Icon = item.icon;
+            return <Link key={item.id} href={href} onClick={() => setMobileOpen(false)} className={`flex min-h-11 items-center gap-3 rounded-lg px-3 text-sm font-semibold transition ${active ? "bg-indigo-50 text-indigo-700" : "text-slate-600 hover:bg-slate-100 hover:text-slate-950"}`}><Icon size={18} strokeWidth={active ? 2.3 : 1.9} /><span>{item.label}</span></Link>;
+          })}
+        </nav>
+        <p className="mt-5 px-3 pb-2 text-[10px] font-bold uppercase tracking-[.16em] text-slate-400">管理</p>
+        <nav className="space-y-1" aria-label="管理导航">
+          {managementItems.map((item) => {
+            const href = `/w/${workspaceId}${item.route}`;
+            const active = isManageActive();
             const Icon = item.icon;
             return <Link key={item.id} href={href} onClick={() => setMobileOpen(false)} className={`flex min-h-11 items-center gap-3 rounded-lg px-3 text-sm font-semibold transition ${active ? "bg-indigo-50 text-indigo-700" : "text-slate-600 hover:bg-slate-100 hover:text-slate-950"}`}><Icon size={18} strokeWidth={active ? 2.3 : 1.9} /><span>{item.label}</span></Link>;
           })}

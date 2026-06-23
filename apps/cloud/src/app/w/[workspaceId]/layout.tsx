@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useParams, usePathname, useRouter } from "next/navigation";
 import NavigationShell from "@/components/NavigationShell";
+import EarlyAccessBanner from "@/components/EarlyAccessBanner";
 import { WORKSPACE_NAVIGATION_CHANGED } from "@/lib/workspace-events";
 import type { NavigationItem } from "@runory/platform-core";
 
@@ -66,6 +67,7 @@ export default function WorkspaceLayout({
       workspaceName={workspaceName}
       role={organizationRole}
     >
+      <EarlyAccessBanner />
       {children}
     </NavigationShell>
   );

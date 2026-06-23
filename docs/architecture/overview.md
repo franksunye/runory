@@ -8,6 +8,7 @@ This document is the current architecture entry point. It defines system boundar
 
 Product definition: [../product/product-definition.md](../product/product-definition.md)  
 0.1 key experience scenarios: [../product/v0.1-key-experience-scenarios.md](../product/v0.1-key-experience-scenarios.md)  
+0.2 productization plan: [../product/v0.2-productization-plan.md](../product/v0.2-productization-plan.md)  
 Architecture decisions: [architecture-decision-record.md](architecture-decision-record.md)  
 Repository structure: [repository-structure.md](repository-structure.md)
 Cloud to Local deployment: [cloud-to-local-workspace.md](cloud-to-local-workspace.md)  

@@ -15,6 +15,15 @@ import {
 
 const OBJECT_KEY = "customer";
 const VIEW_KEY = "customer_list";
+const PAGE_SIZE = 20;
+
+const SORT_OPTIONS = [
+  { value: "created_at:desc", label: "创建时间（最新）" },
+  { value: "created_at:asc", label: "创建时间（最早）" },
+  { value: "name:asc", label: "客户名称（A-Z）" },
+  { value: "name:desc", label: "客户名称（Z-A）" },
+  { value: "email:asc", label: "邮箱（A-Z）" },
+];
 
 export default function CustomerListPage() {
   const params = useParams();
@@ -24,7 +33,33 @@ export default function CustomerListPage() {
   const { data: installations = [], isLoading: loadingInst } = useInstallations(workspaceId);
   const { data: objDetail, isLoading: loadingObj } = useFields(workspaceId, OBJECT_KEY);
   const { data: views = [], isLoading: loadingViews } = useViews(workspaceId, OBJECT_KEY);
-  const { data: records = [], isLoading: loadingRecords } = useRecords(workspaceId, OBJECT_KEY);
+
+  // Search (debounced) + sort state
+  const [searchInput, setSearchInput] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [sortValue, setSortValue] = useState("created_at:desc");
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(searchInput), 300);
+    return () => clearTimeout(t);
+  }, [searchInput]);
+
+  const [sortBy, sortOrder] = useMemo(() => {
+    const [field, order] = sortValue.split(":");
+    return [field, (order as "asc" | "desc") ?? "desc"];
+  }, [sortValue]);
+
+  // Reset visible count when search/sort changes
+  useEffect(() => {
+    setVisibleCount(PAGE_SIZE);
+  }, [debouncedSearch, sortValue]);
+
+  const { data: records = [], isLoading: loadingRecords } = useRecords(workspaceId, OBJECT_KEY, {
+    search: debouncedSearch || undefined,
+    sortBy,
+    sortOrder,
+  });
 
   useWorkspaceChangeEvent(workspaceId);
 
@@ -58,6 +93,11 @@ export default function CustomerListPage() {
     return <p className="text-sm text-slate-400">加载中...</p>;
   }
 
+  const totalCount = records.length;
+  const visibleRecords = records.slice(0, visibleCount);
+  const hasMore = visibleCount < totalCount;
+  const isSearching = debouncedSearch.length > 0;
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -79,15 +119,14 @@ export default function CustomerListPage() {
       </div>
 
       {!hasPack ? (
-        <div className="rounded-lg border border-blue-200 bg-blue-50 p-5 text-center">
-          <p className="text-sm text-blue-700">
-            尚未安装业务模块，无法显示客户列表。
-          </p>
+        <div className="rounded-lg border border-blue-200 bg-blue-50 p-8 text-center">
+          <p className="text-base font-semibold text-blue-800">尚未安装业务模块</p>
+          <p className="mt-1 text-sm text-blue-700">安装 CRM Lite Pack 后即可开始管理客户。</p>
           <Link
             href={`/w/${workspaceId}/dashboard`}
-            className="mt-2 inline-block text-sm font-medium text-blue-600 hover:text-blue-800"
+            className="mt-4 inline-block rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
           >
-            前往仪表盘安装 CRM Lite Pack →
+            安装 CRM Lite Pack
           </Link>
         </div>
       ) : viewConfig ? (
@@ -112,13 +151,79 @@ export default function CustomerListPage() {
               </div>
             </div>
           )}
-          <SchemaTable
-            fields={fields}
-            viewConfig={viewConfig}
-            records={records}
-            workspaceId={workspaceId}
-            objectKey={OBJECT_KEY}
-          />
+
+          {/* Search + Sort toolbar */}
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <input
+              type="search"
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              placeholder="搜索客户名称、邮箱、电话..."
+              className="w-full max-w-sm rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            />
+            <select
+              value={sortValue}
+              onChange={(e) => setSortValue(e.target.value)}
+              className="rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            >
+              {SORT_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Record count */}
+          <p className="text-xs text-slate-500">共 {totalCount} 条记录</p>
+
+          {/* Empty states */}
+          {totalCount === 0 ? (
+            isSearching ? (
+              <div className="rounded-lg border border-slate-200 bg-white p-8 text-center">
+                <p className="text-sm text-slate-500">没有找到匹配的记录</p>
+                <button
+                  type="button"
+                  onClick={() => setSearchInput("")}
+                  className="mt-3 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                >
+                  清除搜索
+                </button>
+              </div>
+            ) : (
+              <div className="rounded-lg border border-slate-200 bg-white p-8 text-center">
+                <p className="text-sm text-slate-500">还没有客户记录</p>
+                <button
+                  type="button"
+                  onClick={() => router.push(`/w/${workspaceId}/customers/new`)}
+                  className="mt-3 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+                >
+                  添加第一个客户
+                </button>
+              </div>
+            )
+          ) : (
+            <>
+              <SchemaTable
+                fields={fields}
+                viewConfig={viewConfig}
+                records={visibleRecords}
+                workspaceId={workspaceId}
+                objectKey={OBJECT_KEY}
+              />
+              {hasMore && (
+                <div className="flex justify-center pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setVisibleCount((c) => c + PAGE_SIZE)}
+                    className="rounded-md border border-slate-300 bg-white px-6 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                  >
+                    加载更多
+                  </button>
+                </div>
+              )}
+            </>
+          )}
         </div>
       ) : (
         <p className="text-sm text-slate-500">未找到列表视图配置。</p>

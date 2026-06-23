@@ -2,7 +2,8 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowRight, LogOut, Monitor, Plus, ShieldCheck } from "lucide-react";
+import { ArrowRight, Database, LogOut, Monitor, Plus, ShieldCheck, User } from "lucide-react";
+import Link from "next/link";
 
 interface WorkspaceEntry {
   workspaceId: string;
@@ -27,10 +28,15 @@ interface MeResponse {
   workspaces?: WorkspaceEntry[];
 }
 
+interface WorkspaceStats {
+  recordsTotal: number;
+}
+
 export default function DashboardPage() {
   const router = useRouter();
   const [me, setMe] = useState<MeResponse | null>(null);
   const [sessions, setSessions] = useState<SessionInfo[]>([]);
+  const [stats, setStats] = useState<Record<string, WorkspaceStats>>({});
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
@@ -61,6 +67,26 @@ export default function DashboardPage() {
         setIsAdmin(adminRes.ok);
       } catch {
         setIsAdmin(false);
+      }
+
+      // Fetch record counts for each workspace (best-effort, non-blocking)
+      const wsList: WorkspaceEntry[] = meJson.data.workspaces ?? [];
+      if (wsList.length > 0) {
+        const statsEntries = await Promise.all(
+          wsList.map(async (ws) => {
+            try {
+              const res = await fetch(`/api/workspaces/${ws.workspaceSlug}/stats`, { cache: "no-store" });
+              const json = await res.json();
+              if (json.success && json.data?.records) {
+                return [ws.workspaceId, { recordsTotal: json.data.records.total as number }] as const;
+              }
+            } catch {
+              // ignore stats fetch failures
+            }
+            return [ws.workspaceId, { recordsTotal: 0 }] as const;
+          })
+        );
+        setStats(Object.fromEntries(statsEntries));
       }
     } catch {
       router.replace("/login");
@@ -138,6 +164,12 @@ export default function DashboardPage() {
                 <ShieldCheck size={15} /> 平台管理
               </button>
             )}
+            <Link
+              href="/account"
+              className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-100"
+            >
+              <User size={15} /> 账户
+            </Link>
             <span className="text-sm text-slate-600">{me.principal?.email}</span>
             <button
               onClick={handleLogout}
@@ -169,7 +201,9 @@ export default function DashboardPage() {
                 <p className="text-sm text-slate-500">暂无工作区。请在右侧创建你的第一个工作区。</p>
               </div>
             ) : (
-              workspaces.map((ws) => (
+              workspaces.map((ws) => {
+                const wsStats = stats[ws.workspaceId];
+                return (
                 <button
                   key={ws.workspaceId}
                   onClick={() => router.push(`/w/${ws.workspaceSlug}/dashboard`)}
@@ -183,13 +217,20 @@ export default function DashboardPage() {
                       </span>
                     </div>
                     <p className="mt-1 text-xs text-slate-500">{ws.organizationName}</p>
+                    {wsStats && (
+                      <p className="mt-1.5 flex items-center gap-1 text-xs text-slate-500">
+                        <Database size={12} />
+                        {wsStats.recordsTotal} 条记录
+                      </p>
+                    )}
                     <p className="mt-2 text-xs font-semibold text-indigo-600">
                       进入工作区仪表盘
                     </p>
                   </div>
                   <ArrowRight size={18} className="text-slate-400 transition group-hover:translate-x-0.5 group-hover:text-slate-700" />
                 </button>
-              ))
+                );
+              })
             )}
           </div>
 

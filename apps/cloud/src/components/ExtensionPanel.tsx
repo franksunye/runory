@@ -60,6 +60,7 @@ export default function ExtensionPanel({
   } | null>(null);
   const [appliedSummary, setAppliedSummary] = useState<AppliedSummary | null>(null);
   const [busy, setBusy] = useState(false);
+  const [jsonEditorOpen, setJsonEditorOpen] = useState(false);
 
   const parsePlan = (): any | null => {
     try {
@@ -240,6 +241,25 @@ export default function ExtensionPanel({
 
   return (
     <div className="space-y-6">
+      <div className="rounded-lg border border-indigo-200 bg-gradient-to-r from-indigo-50 to-purple-50 px-5 py-4 shadow-sm">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-sm font-bold text-indigo-900">
+              推荐使用引导式定制流程
+            </p>
+            <p className="mt-1 text-xs text-indigo-700">
+              无需编辑 JSON，通过可视化向导一步步添加字段、预览变更并安全应用。
+            </p>
+          </div>
+          <Link
+            href={`/w/${workspaceId}/customize`}
+            className="inline-flex min-h-10 shrink-0 items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 text-sm font-semibold text-white transition hover:bg-indigo-700"
+          >
+            前往定制工作区
+          </Link>
+        </div>
+      </div>
+
       <div className="rounded-lg border border-indigo-100 bg-indigo-50/60 p-5">
         <p className="text-xs font-semibold uppercase tracking-[0.18em] text-indigo-600">
           Safe customization approval
@@ -297,16 +317,27 @@ export default function ExtensionPanel({
         <div className="mb-3 flex items-center justify-between gap-3">
           <div>
             <h3 className="text-sm font-semibold text-slate-700">
-              Agent Proposal
+              Agent Proposal（JSON 编辑器）
             </h3>
             <p className="mt-1 text-xs text-slate-500">
-              v0.1 示例直接展示结构化 plan；后续可由内置 Agent、Codex 插件或 MCP 自动生成。
+              面向高级用户和 MCP 集成；可直接编辑结构化 plan。
             </p>
           </div>
-          <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-700">
-            low risk
-          </span>
+          <div className="flex items-center gap-2">
+            <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-700">
+              low risk
+            </span>
+            <button
+              type="button"
+              onClick={() => setJsonEditorOpen(!jsonEditorOpen)}
+              className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50"
+            >
+              {jsonEditorOpen ? "收起" : "展开"}
+            </button>
+          </div>
         </div>
+        {jsonEditorOpen && (
+          <>
         <textarea
           value={planText}
           onChange={(e) => setPlanText(e.target.value)}
@@ -411,6 +442,8 @@ export default function ExtensionPanel({
               </div>
             </div>
           </div>
+        )}
+          </>
         )}
       </div>
 

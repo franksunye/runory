@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { getRollout, getRolloutProgress } from "@runory/platform-core";
+import { getRollout, getRolloutProgress, listRolloutTargets } from "@runory/platform-core";
 import { requirePlatformAdmin } from "@/lib/auth";
 import {
   successResponse,
@@ -9,7 +9,7 @@ import {
 
 export const dynamic = "force-dynamic";
 
-// GET /api/platform/rollouts/[rolloutId] — get rollout detail + progress
+// GET /api/platform/rollouts/[rolloutId] — get rollout detail + progress + targets
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ rolloutId: string }> }
@@ -19,12 +19,13 @@ export async function GET(
     await requirePlatformAdmin(request);
 
     const { rolloutId } = await params;
-    const [rollout, progress] = await Promise.all([
+    const [rollout, progress, targets] = await Promise.all([
       getRollout(rolloutId),
       getRolloutProgress(rolloutId),
+      listRolloutTargets(rolloutId),
     ]);
 
-    return successResponse({ rollout, progress }, 200, requestId);
+    return successResponse({ rollout, progress, targets }, 200, requestId);
   } catch (e) {
     return handleError(e, requestId);
   }

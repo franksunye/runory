@@ -68,9 +68,33 @@ export function useObjects(workspaceId: string) {
   return { data, error, isLoading, mutate };
 }
 
-export function useRecords(workspaceId: string, objectKey: string) {
+export interface RecordsQueryParams {
+  search?: string;
+  sortBy?: string;
+  sortOrder?: "asc" | "desc";
+  limit?: number;
+  offset?: number;
+}
+
+function buildRecordsQuery(params?: RecordsQueryParams): string {
+  if (!params) return "";
+  const parts: string[] = [];
+  if (params.search) parts.push(`search=${encodeURIComponent(params.search)}`);
+  if (params.sortBy) parts.push(`sortBy=${encodeURIComponent(params.sortBy)}`);
+  if (params.sortOrder) parts.push(`sortOrder=${encodeURIComponent(params.sortOrder)}`);
+  if (params.limit !== undefined) parts.push(`limit=${encodeURIComponent(String(params.limit))}`);
+  if (params.offset !== undefined) parts.push(`offset=${encodeURIComponent(String(params.offset))}`);
+  return parts.length > 0 ? `?${parts.join("&")}` : "";
+}
+
+export function useRecords(
+  workspaceId: string,
+  objectKey: string,
+  params?: RecordsQueryParams
+) {
+  const query = buildRecordsQuery(params);
   const { data, error, isLoading, mutate } = useSWR<WorkspaceRecord[]>(
-    workspaceKey(workspaceId, `objects/${objectKey}/records`)
+    workspaceKey(workspaceId, `objects/${objectKey}/records${query}`)
   );
   return { data, error, isLoading, mutate };
 }

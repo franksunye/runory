@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import useSWR from "swr";
 import SchemaForm from "@/components/SchemaForm";
 import type { FieldDefinition } from "@runory/platform-core";
 import {
@@ -10,6 +11,7 @@ import {
   useViews,
   useRecord,
   useWorkspaceChangeEvent,
+  type WorkspaceRecord,
 } from "@/lib/api-hooks";
 import { notifyWorkspaceDataChanged } from "@/lib/workspace-events";
 
@@ -25,6 +27,12 @@ export default function TaskDetailPage() {
   const { data: objDetail, isLoading: loadingObj } = useFields(workspaceId, OBJECT_KEY);
   const { data: views = [], isLoading: loadingViews } = useViews(workspaceId, OBJECT_KEY);
   const { data: record, error: recordError, isLoading: loadingRecord, mutate: mutateRecord } = useRecord(workspaceId, OBJECT_KEY, recordId);
+
+  // Fetch linked customer record (conditional on customer_id being present)
+  const customerId = record?.customer_id as string | undefined;
+  const { data: customerRecord } = useSWR<WorkspaceRecord>(
+    customerId ? `/api/workspaces/${workspaceId}/objects/customer/records/${customerId}` : null
+  );
 
   useWorkspaceChangeEvent(workspaceId);
 
@@ -189,6 +197,23 @@ export default function TaskDetailPage() {
               );
             })}
           </dl>
+          {customerId && (
+            <div className="mt-4 border-t border-slate-100 pt-4">
+              <p className="text-xs font-medium uppercase tracking-wider text-slate-500">关联客户</p>
+              <div className="mt-1 text-sm">
+                {customerRecord ? (
+                  <Link
+                    href={`/w/${workspaceId}/customers/${customerId}`}
+                    className="font-medium text-blue-600 hover:text-blue-800"
+                  >
+                    {String(customerRecord.name ?? customerId)}
+                  </Link>
+                ) : (
+                  <span className="text-slate-400">加载中...</span>
+                )}
+              </div>
+            </div>
+          )}
           <div className="mt-4 border-t border-slate-100 pt-4 text-xs text-slate-400">
             <p>记录 ID：{record.id}</p>
             <p>创建时间：{record.created_at}</p>

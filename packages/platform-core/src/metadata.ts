@@ -104,6 +104,38 @@ export async function resolveWorkspaceId(reference: string): Promise<string> {
   return workspace.id;
 }
 
+export async function updateWorkspaceName(
+  workspaceId: string,
+  name: string,
+  userId: string
+): Promise<{ id: string; name: string; slug: string; templateId: string | null; createdAt: string; updatedAt: string }> {
+  const trimmed = name.trim();
+  if (!trimmed) throw new Error("Workspace name is required");
+  if (trimmed.length > 100) throw new Error("Workspace name must be 100 characters or fewer");
+
+  const existing = await queryOne<{ id: string; name: string }>(
+    `SELECT id, name FROM ${TABLES.workspaces} WHERE id = ?`,
+    [workspaceId]
+  );
+  if (!existing) throw new Error("Workspace not found");
+
+  const ts = now();
+  await execute(
+    `UPDATE ${TABLES.workspaces} SET name = ?, updated_at = ? WHERE id = ?`,
+    [trimmed, ts, workspaceId]
+  );
+
+  const updated = await getWorkspace(workspaceId);
+  return {
+    id: updated!.id,
+    name: updated!.name,
+    slug: updated!.slug,
+    templateId: updated!.template_id,
+    createdAt: updated!.created_at,
+    updatedAt: updated!.updated_at,
+  };
+}
+
 // ── Navigation ──
 export async function getNavigation(workspaceId: string): Promise<NavigationItem[]> {
   const rows = await queryAll<{
@@ -216,16 +248,74 @@ export async function getInstallations(workspaceId: string) {
 }
 
 // ── Records (dynamic CRUD on business tables) ──
-export async function getRecords(workspaceId: string, objectKey: string): Promise<Record<string, unknown>[]> {
+
+export interface GetRecordsOptions {
+  search?: string;
+  sortBy?: string;
+  sortOrder?: "asc" | "desc";
+  limit?: number;
+  offset?: number;
+}
+
+const SEARCHABLE_FIELD_TYPES = new Set(["text", "email", "phone"]);
+
+export async function getRecords(
+  workspaceId: string,
+  objectKey: string,
+  options: GetRecordsOptions = {}
+): Promise<Record<string, unknown>[]> {
   // Get module-owned fields from business table
   const fields = await getFields(workspaceId, objectKey);
   const moduleFields = fields.filter(f => f.ownership === "module_owned");
   const columnNames = ["id", ...moduleFields.map(f => validateIdentifier(f.fieldKey)), "created_at", "updated_at"];
   const columns = columnNames.join(", ");
 
+  // Build WHERE clause (workspace filter + optional search across text fields)
+  const whereClauses: string[] = ["workspace_id = ?"];
+  const whereArgs: unknown[] = [workspaceId];
+
+  if (options.search) {
+    const searchableFields = moduleFields.filter(f => SEARCHABLE_FIELD_TYPES.has(f.type));
+    if (searchableFields.length > 0) {
+      const searchClauses = searchableFields.map(
+        f => `${validateIdentifier(f.fieldKey)} LIKE ?`
+      );
+      whereClauses.push(`(${searchClauses.join(" OR ")})`);
+      const term = `%${options.search}%`;
+      whereArgs.push(...searchableFields.map(() => term));
+    }
+  }
+
+  // Build ORDER BY (validate sort field exists; default created_at DESC)
+  const sortableKeys = new Set([
+    ...moduleFields.map(f => f.fieldKey),
+    "created_at",
+    "updated_at",
+  ]);
+  let orderBy = "created_at DESC";
+  if (options.sortBy && sortableKeys.has(options.sortBy)) {
+    const sortColumn = options.sortBy === "created_at" || options.sortBy === "updated_at"
+      ? options.sortBy
+      : validateIdentifier(options.sortBy);
+    const direction = options.sortOrder === "asc" ? "ASC" : "DESC";
+    orderBy = `${sortColumn} ${direction}`;
+  }
+
+  // Build LIMIT/OFFSET
+  let limitSql = "";
+  const limitArgs: unknown[] = [];
+  if (options.limit !== undefined && options.limit > 0) {
+    limitSql = " LIMIT ?";
+    limitArgs.push(options.limit);
+    if (options.offset !== undefined && options.offset > 0) {
+      limitSql += " OFFSET ?";
+      limitArgs.push(options.offset);
+    }
+  }
+
   const rows = await queryAll<Record<string, unknown>>(
-    `SELECT ${columns} FROM ${businessTable(objectKey)} WHERE workspace_id = ? ORDER BY created_at DESC`,
-    [workspaceId]
+    `SELECT ${columns} FROM ${businessTable(objectKey)} WHERE ${whereClauses.join(" AND ")} ORDER BY ${orderBy}${limitSql}`,
+    [...whereArgs, ...limitArgs]
   );
 
   // Merge extension field values

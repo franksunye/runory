@@ -9,6 +9,7 @@ import {
   useFields,
   useViews,
   useRecord,
+  useRecords,
   useWorkspaceChangeEvent,
 } from "@/lib/api-hooks";
 import { notifyWorkspaceDataChanged } from "@/lib/workspace-events";
@@ -25,6 +26,10 @@ export default function CustomerDetailPage() {
   const { data: objDetail, isLoading: loadingObj } = useFields(workspaceId, OBJECT_KEY);
   const { data: views = [], isLoading: loadingViews } = useViews(workspaceId, OBJECT_KEY);
   const { data: record, error: recordError, isLoading: loadingRecord, mutate: mutateRecord } = useRecord(workspaceId, OBJECT_KEY, recordId);
+
+  // Fetch related contacts and tasks linked to this customer
+  const { data: relatedContacts = [] } = useRecords(workspaceId, "contact", { search: recordId });
+  const { data: relatedTasks = [] } = useRecords(workspaceId, "task", { search: recordId });
 
   useWorkspaceChangeEvent(workspaceId);
 
@@ -189,6 +194,75 @@ export default function CustomerDetailPage() {
               );
             })}
           </dl>
+
+          {/* Related contacts and tasks */}
+          {(() => {
+            const contacts = relatedContacts.filter(
+              (c) => String(c.customer_id) === recordId
+            );
+            const tasks = relatedTasks.filter(
+              (t) => String(t.customer_id) === recordId
+            );
+            if (contacts.length === 0 && tasks.length === 0) return null;
+            return (
+              <div className="mt-6 space-y-4 border-t border-slate-100 pt-4">
+                {contacts.length > 0 && (
+                  <div>
+                    <p className="text-xs font-medium uppercase tracking-wider text-slate-500">
+                      关联联系人（{contacts.length}）
+                    </p>
+                    <ul className="mt-2 space-y-1">
+                      {contacts.map((c) => (
+                        <li key={String(c.id)}>
+                          <Link
+                            href={`/w/${workspaceId}/contacts/${c.id}`}
+                            className="text-sm font-medium text-blue-600 hover:text-blue-800"
+                          >
+                            {String(c.name ?? "未命名")}
+                          </Link>
+                          {c.role ? (
+                            <span className="ml-2 text-xs text-slate-500">
+                              {String(c.role)}
+                            </span>
+                          ) : null}
+                          {c.email ? (
+                            <span className="ml-2 text-xs text-slate-400">
+                              {String(c.email)}
+                            </span>
+                          ) : null}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {tasks.length > 0 && (
+                  <div>
+                    <p className="text-xs font-medium uppercase tracking-wider text-slate-500">
+                      关联任务（{tasks.length}）
+                    </p>
+                    <ul className="mt-2 space-y-1">
+                      {tasks.map((t) => (
+                        <li key={String(t.id)}>
+                          <Link
+                            href={`/w/${workspaceId}/tasks/${t.id}`}
+                            className="text-sm font-medium text-blue-600 hover:text-blue-800"
+                          >
+                            {String(t.title ?? "未命名")}
+                          </Link>
+                          {t.status ? (
+                            <span className="ml-2 text-xs text-slate-500">
+                              {String(t.status)}
+                            </span>
+                          ) : null}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+
           <div className="mt-4 border-t border-slate-100 pt-4 text-xs text-slate-400">
             <p>记录 ID：{record.id}</p>
             <p>创建时间：{record.created_at}</p>
