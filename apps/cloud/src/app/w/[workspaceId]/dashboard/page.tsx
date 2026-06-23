@@ -53,7 +53,7 @@ export default function DashboardPage() {
 
   useWorkspaceChangeEvent(workspaceId);
 
-  const loadLayout = useCallback(async () => {
+  const loadLayout = useCallback(async (): Promise<boolean> => {
     try {
       const res = await fetch(`/api/workspaces/${workspaceId}/dashboard/layout`, { cache: "no-store" });
       const json = await res.json();
@@ -65,12 +65,14 @@ export default function DashboardPage() {
         if (!packInstalled) {
           setHasData(false);
         }
+        return packInstalled;
       }
     } catch {
       // ignore
     } finally {
       setLoading(false);
     }
+    return false;
   }, [workspaceId]);
 
   const checkHasData = useCallback(async () => {
@@ -88,8 +90,8 @@ export default function DashboardPage() {
 
   useEffect(() => {
     void (async () => {
-      await loadLayout();
-      if (hasPack) await checkHasData();
+      const packInstalled = await loadLayout();
+      if (packInstalled) await checkHasData();
     })();
     const interval = setInterval(() => {
       void loadLayout();
