@@ -151,7 +151,9 @@ export default function DashboardPage() {
 
       <div className="mx-auto max-w-6xl px-6 py-10">
         <h1 className="text-2xl font-bold tracking-tight text-slate-950">我的工作区</h1>
-        <p className="mt-1 text-sm text-slate-600">选择一个工作区进入，或创建新的工作区。</p>
+        <p className="mt-1 text-sm text-slate-600">
+          这里是你的全局入口。选择一个工作区进入业务运行界面，或创建新的工作区。
+        </p>
 
         {error && (
           <div role="alert" className="mt-4 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">
@@ -171,7 +173,7 @@ export default function DashboardPage() {
                 <button
                   key={ws.workspaceId}
                   onClick={() => router.push(`/w/${ws.workspaceSlug}/dashboard`)}
-                  className="group flex w-full items-center justify-between rounded-2xl border border-slate-200 bg-white p-5 text-left transition hover:border-slate-300 hover:shadow-sm"
+                  className="group flex w-full items-center justify-between rounded-2xl border border-slate-200 bg-white p-5 text-left transition hover:border-indigo-200 hover:shadow-sm"
                 >
                   <div>
                     <div className="flex items-center gap-2">
@@ -181,6 +183,9 @@ export default function DashboardPage() {
                       </span>
                     </div>
                     <p className="mt-1 text-xs text-slate-500">{ws.organizationName}</p>
+                    <p className="mt-2 text-xs font-semibold text-indigo-600">
+                      进入工作区仪表盘
+                    </p>
                   </div>
                   <ArrowRight size={18} className="text-slate-400 transition group-hover:translate-x-0.5 group-hover:text-slate-700" />
                 </button>

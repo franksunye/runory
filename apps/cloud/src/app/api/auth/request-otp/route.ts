@@ -17,7 +17,10 @@ export async function POST(request: NextRequest) {
       ?? "127.0.0.1";
 
     const isDev = process.env.NODE_ENV !== "production";
-    const result = await requestOtp(body.email, ip, { devMode: isDev });
+    const result = await requestOtp(body.email, ip, {
+      devMode: isDev,
+      skipRateLimit: isDev,
+    });
 
     // Per SaaS Core Boundaries §4.2: "Interface responses must not leak whether email is already registered."
     // The response is identical for new and existing users.

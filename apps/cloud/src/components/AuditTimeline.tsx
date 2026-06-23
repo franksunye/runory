@@ -24,7 +24,10 @@ function summarizeChange(log: any): string {
   const after = log.after;
   if (after && typeof after === "object") {
     if (after.version !== undefined) {
-      return `版本 #${after.version}`;
+      const pieces = [`版本 #${after.version}`];
+      if (after.riskLevel) pieces.push(`风险：${after.riskLevel}`);
+      if (after.changeSummary) pieces.push(String(after.changeSummary));
+      return pieces.join(" · ");
     }
     if (after.modulesInstalled) {
       return `模块：${(after.modulesInstalled as string[]).join(", ")}`;

@@ -441,6 +441,208 @@ function ImportModal({ onClose, onImported }: { onClose: () => void; onImported:
 
 // ── Item Detail (versions + actions) ──
 
+function toList(value: unknown): any[] {
+  return Array.isArray(value) ? value : [];
+}
+
+function ManifestInsight({
+  item,
+  manifest,
+}: {
+  item: CatalogItem;
+  manifest: Record<string, unknown> | null;
+}) {
+  if (!manifest) {
+    return (
+      <div className="mb-4 rounded-lg border border-red-100 bg-red-50 p-3 text-sm text-red-700">
+        Manifest 无法解析，无法展示字段与属性。
+      </div>
+    );
+  }
+
+  const m = manifest as any;
+  const objects = toList(m.objects);
+  const views = toList(m.views);
+  const modules = toList(m.modules);
+  const packs = toList(m.packs);
+  const permissions = Array.isArray(m.permissions)
+    ? m.permissions.map(String)
+    : m.permissions && typeof m.permissions === "object"
+      ? Object.entries(m.permissions as Record<string, unknown>).map(
+          ([key, value]) => `${key}: ${JSON.stringify(value)}`
+        )
+      : [];
+
+  return (
+    <div className="mb-4 space-y-4">
+      <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+        <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+          Production operator view
+        </p>
+        <p className="mt-1 text-sm text-slate-600">
+          平台视角需要看到制品的业务定义、字段、权限、扩展点、依赖和发布证据。
+          这些信息用于判断一个版本是否可以验证、发布、灰度和升级。
+        </p>
+      </div>
+
+      {item.itemType === "module" && (
+        <div className="grid gap-4 lg:grid-cols-[1.4fr_1fr]">
+          <div className="rounded-xl border border-slate-200 bg-white p-4">
+            <h3 className="text-sm font-bold text-slate-900">Objects and fields</h3>
+            {objects.length === 0 ? (
+              <p className="mt-2 text-sm text-slate-500">Manifest 未声明对象。</p>
+            ) : (
+              <div className="mt-3 space-y-3">
+                {objects.map((object: any, index: number) => {
+                  const fields = toList(object.fields);
+                  const objectKey = String(
+                    object.key ?? object.objectKey ?? object.name ?? `object-${index + 1}`
+                  );
+                  return (
+                    <div key={objectKey} className="rounded-lg border border-slate-100">
+                      <div className="border-b border-slate-100 px-3 py-2">
+                        <p className="text-sm font-semibold text-slate-800">
+                          {objectKey}
+                          {object.label ? (
+                            <span className="ml-2 font-normal text-slate-500">
+                              {String(object.label)}
+                            </span>
+                          ) : null}
+                        </p>
+                      </div>
+                      {fields.length === 0 ? (
+                        <p className="px-3 py-2 text-xs text-slate-500">无字段声明</p>
+                      ) : (
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-xs">
+                            <thead className="bg-slate-50 text-slate-500">
+                              <tr>
+                                <th className="px-3 py-2 text-left font-semibold">Field</th>
+                                <th className="px-3 py-2 text-left font-semibold">Label</th>
+                                <th className="px-3 py-2 text-left font-semibold">Type</th>
+                                <th className="px-3 py-2 text-left font-semibold">Required</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                              {fields.map((field: any, fieldIndex: number) => (
+                                <tr key={String(field.key ?? field.fieldKey ?? fieldIndex)}>
+                                  <td className="px-3 py-2 font-mono text-slate-700">
+                                    {String(field.key ?? field.fieldKey ?? "—")}
+                                  </td>
+                                  <td className="px-3 py-2 text-slate-600">
+                                    {String(field.label ?? "—")}
+                                  </td>
+                                  <td className="px-3 py-2 text-slate-600">
+                                    {String(field.type ?? "—")}
+                                  </td>
+                                  <td className="px-3 py-2 text-slate-600">
+                                    {field.required ? "yes" : "no"}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          <div className="space-y-4">
+            <div className="rounded-xl border border-slate-200 bg-white p-4">
+              <h3 className="text-sm font-bold text-slate-900">Views</h3>
+              {views.length === 0 ? (
+                <p className="mt-2 text-sm text-slate-500">无视图声明。</p>
+              ) : (
+                <ul className="mt-2 space-y-1 text-xs text-slate-600">
+                  {views.map((view: any, index: number) => (
+                    <li key={String(view.key ?? view.viewKey ?? index)} className="rounded bg-slate-50 px-2 py-1">
+                      {String(view.key ?? view.viewKey ?? view.name ?? `view-${index + 1}`)}
+                      {view.type ? ` · ${String(view.type)}` : ""}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+
+            <div className="rounded-xl border border-slate-200 bg-white p-4">
+              <h3 className="text-sm font-bold text-slate-900">Permissions</h3>
+              {permissions.length === 0 ? (
+                <p className="mt-2 text-sm text-slate-500">无权限声明。</p>
+              ) : (
+                <ul className="mt-2 space-y-1 text-xs text-slate-600">
+                  {permissions.map((permission: string) => (
+                    <li key={permission} className="rounded bg-slate-50 px-2 py-1 font-mono">
+                      {permission}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+
+            <div className="rounded-xl border border-slate-200 bg-white p-4">
+              <h3 className="text-sm font-bold text-slate-900">Extension points</h3>
+              {!m.extensionPoints ? (
+                <p className="mt-2 text-sm text-slate-500">无扩展点声明。</p>
+              ) : (
+                <pre className="mt-2 max-h-48 overflow-auto rounded bg-slate-950 p-3 text-xs text-slate-100">
+                  {JSON.stringify(m.extensionPoints, null, 2)}
+                </pre>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {item.itemType === "pack" && (
+        <div className="rounded-xl border border-slate-200 bg-white p-4">
+          <h3 className="text-sm font-bold text-slate-900">Pack composition</h3>
+          <p className="mt-1 text-sm text-slate-500">
+            Pack 是商业交付单元。发布时应冻结依赖 lock，Workspace 安装时不重新解析 latest。
+          </p>
+          {modules.length === 0 ? (
+            <p className="mt-3 text-sm text-slate-500">Manifest 未声明 modules。</p>
+          ) : (
+            <ul className="mt-3 grid gap-2 sm:grid-cols-2">
+              {modules.map((moduleRef) => (
+                <li key={String(moduleRef)} className="rounded-lg bg-slate-50 px-3 py-2 font-mono text-xs text-slate-700">
+                  {String(moduleRef)}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+
+      {item.itemType === "template" && (
+        <div className="rounded-xl border border-slate-200 bg-white p-4">
+          <h3 className="text-sm font-bold text-slate-900">Template entry</h3>
+          <p className="mt-1 text-sm text-slate-500">
+            Template 是 Workspace 体验入口，应声明默认 Pack、导航、术语和首页布局。
+          </p>
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            <div className="rounded-lg bg-slate-50 p-3">
+              <p className="text-xs font-semibold text-slate-500">Packs</p>
+              <p className="mt-1 font-mono text-xs text-slate-700">
+                {packs.length > 0 ? packs.map(String).join(", ") : "—"}
+              </p>
+            </div>
+            <div className="rounded-lg bg-slate-50 p-3">
+              <p className="text-xs font-semibold text-slate-500">Default locale</p>
+              <p className="mt-1 font-mono text-xs text-slate-700">
+                {String(m.defaultLocale ?? "—")}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ItemDetail({ item, onBack, onChanged }: { item: CatalogItem; onBack: () => void; onChanged: () => void }) {
   const [versions, setVersions] = useState<CatalogVersion[]>([]);
   const [releases, setReleases] = useState<CatalogRelease[]>([]);
@@ -638,6 +840,8 @@ function ItemDetail({ item, onBack, onChanged }: { item: CatalogItem; onBack: ()
                         ) : null}
                       </div>
                     )}
+
+                    <ManifestInsight item={item} manifest={manifest} />
 
                     {/* Checksum */}
                     {version.artifactChecksum && (

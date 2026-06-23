@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  Building2, ChevronDown, ContactRound, CreditCard, FileText, GitBranch,
+  ArrowLeft, Building2, ContactRound, CreditCard, FileText, GitBranch,
   LayoutDashboard, LayoutGrid, Menu, ScrollText, Settings, UsersRound, X,
   CheckSquare,
 } from "lucide-react";
@@ -54,11 +54,26 @@ export default function NavigationShell({ navigation, workspaceId, workspaceName
         <button className="ml-auto md:hidden" onClick={() => setMobileOpen(false)} aria-label="关闭导航"><X size={20} /></button>
       </div>
       <div className="px-3 py-4">
-        <div className="mb-4 flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
-          <div className="grid size-9 shrink-0 place-items-center rounded-lg bg-indigo-100 text-indigo-600"><Building2 size={17} /></div>
-          <div className="min-w-0 flex-1"><p className="truncate text-sm font-semibold text-slate-800">{workspaceName}</p><p className="text-[11px] text-slate-500">企业工作区</p></div>
-          <ChevronDown size={15} className="text-slate-400" />
-        </div>
+        <Link
+          href="/dashboard"
+          onClick={() => setMobileOpen(false)}
+          className="group mb-4 block rounded-xl border border-slate-200 bg-slate-50 p-3 transition hover:border-indigo-200 hover:bg-indigo-50/70"
+          aria-label="返回我的工作区"
+        >
+          <div className="flex items-center gap-3">
+            <div className="grid size-9 shrink-0 place-items-center rounded-lg bg-indigo-100 text-indigo-600">
+              <Building2 size={17} />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-semibold text-slate-800">{workspaceName}</p>
+              <p className="text-[11px] text-slate-500">当前工作区</p>
+            </div>
+          </div>
+          <div className="mt-3 flex items-center gap-1 text-xs font-semibold text-indigo-600 opacity-90 transition group-hover:translate-x-[-1px] group-hover:text-indigo-700">
+            <ArrowLeft size={13} />
+            返回我的工作区
+          </div>
+        </Link>
         <p className="px-3 pb-2 text-[10px] font-bold uppercase tracking-[.16em] text-slate-400">工作空间</p>
         <nav className="space-y-1" aria-label="工作区导航">
           {items.map((item) => {
@@ -70,10 +85,17 @@ export default function NavigationShell({ navigation, workspaceId, workspaceName
         </nav>
       </div>
       <div className="mt-auto border-t border-slate-200/80 p-4">
+        <Link
+          href="/dashboard"
+          onClick={() => setMobileOpen(false)}
+          className="mb-2 flex items-center gap-2 rounded-lg px-2 py-2 text-xs font-semibold text-slate-500 transition hover:bg-slate-50 hover:text-slate-900"
+        >
+          <ArrowLeft size={14} />
+          我的工作区
+        </Link>
         <div className="flex items-center gap-3 rounded-xl p-2 hover:bg-slate-50">
           <div className="grid size-9 place-items-center rounded-lg bg-slate-900 text-xs font-bold text-white">{roleDisplay.initial}</div>
           <div className="min-w-0 flex-1"><p className="text-sm font-semibold">{roleDisplay.label}</p><p className="text-xs text-slate-500">{roleDisplay.sub}</p></div>
-          <ChevronDown size={15} className="text-slate-400" />
         </div>
       </div>
     </>

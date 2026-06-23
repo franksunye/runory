@@ -1,12 +1,16 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import DiffPreview from "./DiffPreview";
 import { notifyWorkspaceDataChanged } from "@/lib/workspace-events";
 
 interface ExtensionPanelProps {
   workspaceId: string;
   extensions: any[];
+  hasCrmPack: boolean;
+  installingPack?: boolean;
+  onInstallPack: () => void | Promise<void>;
   onRefresh: () => void;
 }
 
@@ -33,9 +37,18 @@ const EXAMPLE_PLAN = {
   ],
 };
 
+interface AppliedSummary {
+  version: number;
+  fields: Array<{ object: string; fieldKey: string; label: string }>;
+  affectedViews: string[];
+}
+
 export default function ExtensionPanel({
   workspaceId,
   extensions,
+  hasCrmPack,
+  installingPack = false,
+  onInstallPack,
   onRefresh,
 }: ExtensionPanelProps) {
   const [planText, setPlanText] = useState(JSON.stringify(EXAMPLE_PLAN, null, 2));
@@ -45,6 +58,7 @@ export default function ExtensionPanel({
     type: "success" | "error" | "info";
     text: string;
   } | null>(null);
+  const [appliedSummary, setAppliedSummary] = useState<AppliedSummary | null>(null);
   const [busy, setBusy] = useState(false);
 
   const parsePlan = (): any | null => {
@@ -60,10 +74,18 @@ export default function ExtensionPanel({
   };
 
   const handlePlan = async () => {
+    if (!hasCrmPack) {
+      setMessage({
+        type: "info",
+        text: "请先安装 CRM Lite Pack。安装后会创建 Customer 对象与字段，Plan 才能通过校验。",
+      });
+      return;
+    }
     const plan = parsePlan();
     if (!plan) return;
     setBusy(true);
     setMessage(null);
+    setAppliedSummary(null);
     try {
       const res = await fetch(`/api/workspaces/${workspaceId}/agent/plan`, {
         method: "POST",
@@ -95,10 +117,18 @@ export default function ExtensionPanel({
   };
 
   const handlePreview = async () => {
+    if (!hasCrmPack) {
+      setMessage({
+        type: "info",
+        text: "请先安装 CRM Lite Pack，然后再生成 Diff Preview。",
+      });
+      return;
+    }
     const plan = parsePlan();
     if (!plan) return;
     setBusy(true);
     setMessage(null);
+    setAppliedSummary(null);
     try {
       const res = await fetch(`/api/workspaces/${workspaceId}/agent/preview`, {
         method: "POST",
@@ -123,6 +153,13 @@ export default function ExtensionPanel({
   };
 
   const handleApply = async () => {
+    if (!hasCrmPack) {
+      setMessage({
+        type: "info",
+        text: "请先安装 CRM Lite Pack，然后再批准应用扩展。",
+      });
+      return;
+    }
     const plan = parsePlan();
     if (!plan) return;
     setBusy(true);
@@ -135,9 +172,23 @@ export default function ExtensionPanel({
       });
       const json = await res.json();
       if (json.success) {
+        const addedFields = (plan.customFields ?? []).map((field: any) => ({
+          object: field.targetObject,
+          fieldKey: field.fieldKey,
+          label: field.label,
+        }));
+        const affectedViews = addedFields.flatMap((field: { object: string }) => [
+          `${field.object}_list`,
+          `${field.object}_form`,
+        ]);
         setMessage({
           type: "success",
-          text: `扩展已应用（版本 #${json.data.version}）`,
+          text: `扩展已应用（版本 #${json.data.version}）。现在可以去客户列表验证新增字段。`,
+        });
+        setAppliedSummary({
+          version: json.data.version,
+          fields: addedFields,
+          affectedViews: Array.from(new Set(affectedViews)),
         });
         setDiff(null);
         setValidation(null);
@@ -189,10 +240,73 @@ export default function ExtensionPanel({
 
   return (
     <div className="space-y-6">
-      <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-        <h3 className="mb-3 text-sm font-semibold text-slate-700">
-          Extension Plan
+      <div className="rounded-lg border border-indigo-100 bg-indigo-50/60 p-5">
+        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-indigo-600">
+          Safe customization approval
+        </p>
+        <h3 className="mt-2 text-lg font-bold text-slate-950">
+          体验一次由 Agent 提议、Admin 批准的安全定制
         </h3>
+        <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
+          当前 0.1 先用内置示例模拟 Agent proposal：为 Customer 添加“客户等级”字段。
+          Admin 需要依次校验 Plan、查看 Diff Preview，然后显式 Apply。未来 Codex
+          插件、MCP 或 Skill 也会调用同一组受治理 API，Cloud UI 仍是最终审批与审计入口。
+        </p>
+        <ol className="mt-4 grid gap-3 text-sm sm:grid-cols-3">
+          <li className="rounded-xl bg-white p-3 text-slate-600 shadow-sm">
+            <span className="font-semibold text-slate-950">1. Plan</span>
+            <br />
+            验证字段、对象、扩展点和风险等级。
+          </li>
+          <li className="rounded-xl bg-white p-3 text-slate-600 shadow-sm">
+            <span className="font-semibold text-slate-950">2. Preview</span>
+            <br />
+            查看会新增什么字段、影响哪些视图。
+          </li>
+          <li className="rounded-xl bg-white p-3 text-slate-600 shadow-sm">
+            <span className="font-semibold text-slate-950">3. Apply</span>
+            <br />
+            Admin 批准后正式改变 Workspace。
+          </li>
+        </ol>
+      </div>
+
+      {!hasCrmPack && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-900 shadow-sm">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="font-semibold">需要先安装 CRM Lite Pack</p>
+              <p className="mt-1 text-amber-800">
+                这个 Agent Proposal 会给 Customer 对象添加字段；当前工作区还没有 Customer 的
+                object/field metadata，所以需要先安装基础业务 Pack。
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => void onInstallPack()}
+              disabled={installingPack || busy}
+              className="min-w-fit rounded-md bg-amber-600 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-700 disabled:opacity-50"
+            >
+              {installingPack ? "安装中..." : "安装 CRM Lite Pack"}
+            </button>
+          </div>
+        </div>
+      )}
+
+      <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <div>
+            <h3 className="text-sm font-semibold text-slate-700">
+              Agent Proposal
+            </h3>
+            <p className="mt-1 text-xs text-slate-500">
+              v0.1 示例直接展示结构化 plan；后续可由内置 Agent、Codex 插件或 MCP 自动生成。
+            </p>
+          </div>
+          <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-700">
+            low risk
+          </span>
+        </div>
         <textarea
           value={planText}
           onChange={(e) => setPlanText(e.target.value)}
@@ -204,26 +318,35 @@ export default function ExtensionPanel({
           <button
             type="button"
             onClick={handlePlan}
-            disabled={busy}
+            disabled={busy || !hasCrmPack}
             className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+            title={!hasCrmPack ? "请先安装 CRM Lite Pack" : undefined}
           >
-            Plan（校验）
+            1. Validate Plan
           </button>
           <button
             type="button"
             onClick={handlePreview}
-            disabled={busy}
+            disabled={busy || !hasCrmPack}
             className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+            title={!hasCrmPack ? "请先安装 CRM Lite Pack" : undefined}
           >
-            Preview（预览）
+            2. Preview Diff
           </button>
           <button
             type="button"
             onClick={handleApply}
-            disabled={busy}
+            disabled={busy || !hasCrmPack || !diff}
             className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+            title={
+              !hasCrmPack
+                ? "请先安装 CRM Lite Pack"
+                : !diff
+                  ? "请先生成 Diff Preview，再由 Admin 批准应用"
+                  : undefined
+            }
           >
-            Apply（应用）
+            3. Approve & Apply
           </button>
         </div>
 
@@ -255,9 +378,51 @@ export default function ExtensionPanel({
             {message.text}
           </div>
         )}
+
+        {appliedSummary && (
+          <div className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <p className="font-semibold">
+                  已完成审批并应用到 Workspace
+                </p>
+                <p className="mt-1 text-emerald-800">
+                  版本 #{appliedSummary.version} 已新增{" "}
+                  {appliedSummary.fields.map((field) => field.label).join(", ")}
+                  ，影响视图：{appliedSummary.affectedViews.join(", ")}。
+                </p>
+                <p className="mt-1 text-xs text-emerald-700">
+                  下一步建议：打开客户列表查看新增列，再进入一条客户记录编辑并保存字段值。
+                </p>
+              </div>
+              <div className="flex min-w-fit flex-wrap gap-2">
+                <Link
+                  href={`/w/${workspaceId}/customers`}
+                  className="rounded-md bg-emerald-700 px-3 py-2 text-xs font-semibold text-white hover:bg-emerald-800"
+                >
+                  查看客户列表
+                </Link>
+                <Link
+                  href={`/w/${workspaceId}/audit`}
+                  className="rounded-md border border-emerald-300 bg-white px-3 py-2 text-xs font-semibold text-emerald-800 hover:bg-emerald-100"
+                >
+                  查看审计日志
+                </Link>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
-      {diff && <DiffPreview diff={diff} />}
+      {diff && (
+        <div className="space-y-3">
+          <DiffPreview diff={diff} />
+          <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+            这是正式变更前的审批点。点击 <strong>Approve & Apply</strong> 后，
+            Workspace schema、列表/表单视图和 Audit Log 会发生正式变化。
+          </div>
+        </div>
+      )}
 
       <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
         <h3 className="mb-3 text-sm font-semibold text-slate-700">

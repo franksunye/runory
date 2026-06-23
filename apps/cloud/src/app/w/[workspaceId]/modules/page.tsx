@@ -123,7 +123,11 @@ export default function ModulesPage() {
         `/api/workspaces/${workspaceId}/packs/${item.id}/install`,
         {
           method: "POST",
-          headers: { "X-Requested-With": "XMLHttpRequest" },
+          headers: {
+            "Content-Type": "application/json",
+            "X-Requested-With": "XMLHttpRequest",
+          },
+          body: JSON.stringify({ includeDemoData: item.id === "crm-lite-pack" }),
         }
       );
       const json = await response.json();

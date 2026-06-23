@@ -4,6 +4,7 @@ import { parse as parseYaml } from "yaml";
 import { queryOne, execute, genId, now, db, validateIdentifier } from "./db";
 import { TABLES, MODULES_DIR, PACKS_DIR, TEMPLATES_DIR } from "./contracts";
 import { getDeploymentMode, renderSqlWithPrefix, getBusinessTablePrefix, getTablePrefix } from "./platform-config";
+import { createRecord, getRecords } from "./metadata";
 import {
   moduleManifestSchema,
   packManifestSchema,
@@ -29,6 +30,24 @@ export function loadPackManifest(packId: string): PackManifest {
   }
   const raw = parseYaml(readFileSync(manifestPath, "utf-8"));
   return packManifestSchema.parse(raw);
+}
+
+interface DemoRecord {
+  object: string;
+  alias?: string;
+  match?: { field: string; value: string | number | boolean };
+  data: Record<string, unknown>;
+}
+
+interface PackDemoData {
+  records: DemoRecord[];
+}
+
+function loadPackDemoData(packId: string): PackDemoData | null {
+  const demoPath = resolve(PACKS_DIR, packId, "demo-data.json");
+  if (!existsSync(demoPath)) return null;
+  const raw = JSON.parse(readFileSync(demoPath, "utf-8")) as PackDemoData;
+  return { records: Array.isArray(raw.records) ? raw.records : [] };
 }
 
 export function loadTemplateManifest(templateId: string): TemplateManifest {
@@ -59,6 +78,52 @@ export interface InstallResult {
   viewsCreated: string[];
   navigationItemsCreated: number;
   ddlExecuted: boolean;
+  demoRecordsCreated: number;
+}
+
+export interface InstallPackOptions {
+  includeDemoData?: boolean;
+}
+
+function resolveDemoValue(value: unknown, aliases: Map<string, Record<string, unknown>>): unknown {
+  if (typeof value !== "string" || !value.startsWith("$")) return value;
+  const match = /^\$([A-Za-z0-9_-]+)\.([A-Za-z0-9_]+)$/.exec(value);
+  if (!match) return value;
+  const [, alias, field] = match;
+  return aliases.get(alias)?.[field] ?? value;
+}
+
+async function seedPackDemoData(workspaceId: string, packId: string): Promise<number> {
+  const demo = loadPackDemoData(packId);
+  if (!demo) return 0;
+
+  let created = 0;
+  const aliases = new Map<string, Record<string, unknown>>();
+
+  for (const record of demo.records) {
+    validateIdentifier(record.object);
+    const data = Object.fromEntries(
+      Object.entries(record.data).map(([key, value]) => [
+        validateIdentifier(key),
+        resolveDemoValue(value, aliases),
+      ])
+    );
+
+    let existing: Record<string, unknown> | undefined;
+    if (record.match) {
+      validateIdentifier(record.match.field);
+      const resolvedMatchValue = resolveDemoValue(record.match.value, aliases);
+      existing = (await getRecords(workspaceId, record.object)).find(
+        (row) => row[record.match!.field] === resolvedMatchValue
+      );
+    }
+
+    const row = existing ?? (await createRecord(workspaceId, record.object, data));
+    if (!existing) created++;
+    if (record.alias) aliases.set(record.alias, row);
+  }
+
+  return created;
 }
 
 // ── Topological Sort (Kahn's algorithm) ──
@@ -119,7 +184,11 @@ function topologicalSort<T extends { id: string; dependencies?: string[] }>(item
   return sorted;
 }
 
-export async function installPack(workspaceId: string, packId: string): Promise<InstallResult> {
+export async function installPack(
+  workspaceId: string,
+  packId: string,
+  options: InstallPackOptions = {}
+): Promise<InstallResult> {
   const pack = loadPackManifest(packId);
   const deploymentMode = getDeploymentMode();
 
@@ -225,5 +294,17 @@ export async function installPack(workspaceId: string, packId: string): Promise<
     await installOneModule(moduleId);
   }
 
-  return { packId, modulesInstalled, objectsCreated, viewsCreated, navigationItemsCreated, ddlExecuted };
+  const demoRecordsCreated = options.includeDemoData
+    ? await seedPackDemoData(workspaceId, packId)
+    : 0;
+
+  return {
+    packId,
+    modulesInstalled,
+    objectsCreated,
+    viewsCreated,
+    navigationItemsCreated,
+    ddlExecuted,
+    demoRecordsCreated,
+  };
 }

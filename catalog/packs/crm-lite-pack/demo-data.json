@@ -1,0 +1,76 @@
+{
+  "records": [
+    {
+      "object": "customer",
+      "alias": "customer-acme",
+      "match": { "field": "email", "value": "ops@acme.example" },
+      "data": {
+        "name": "Acme Operations",
+        "email": "ops@acme.example",
+        "phone": "+1 415 555 0188"
+      }
+    },
+    {
+      "object": "customer",
+      "alias": "customer-nova",
+      "match": { "field": "email", "value": "hello@novaretail.example" },
+      "data": {
+        "name": "Nova Retail",
+        "email": "hello@novaretail.example",
+        "phone": "+1 212 555 0142"
+      }
+    },
+    {
+      "object": "contact",
+      "alias": "contact-maya",
+      "match": { "field": "email", "value": "maya@acme.example" },
+      "data": {
+        "customer_id": "$customer-acme.id",
+        "name": "Maya Chen",
+        "email": "maya@acme.example",
+        "phone": "+1 415 555 0191",
+        "role": "Operations Lead"
+      }
+    },
+    {
+      "object": "contact",
+      "alias": "contact-jon",
+      "match": { "field": "email", "value": "jon@novaretail.example" },
+      "data": {
+        "customer_id": "$customer-nova.id",
+        "name": "Jon Miller",
+        "email": "jon@novaretail.example",
+        "phone": "+1 212 555 0170",
+        "role": "Store Manager"
+      }
+    },
+    {
+      "object": "task",
+      "alias": "task-kickoff",
+      "match": { "field": "title", "value": "Prepare Acme onboarding plan" },
+      "data": {
+        "title": "Prepare Acme onboarding plan",
+        "description": "Review stakeholders, success criteria, and first-week checklist.",
+        "status": "in_progress",
+        "priority": "high",
+        "due_date": "2026-07-03",
+        "assignee": "Alex",
+        "customer_id": "$customer-acme.id"
+      }
+    },
+    {
+      "object": "task",
+      "alias": "task-followup",
+      "match": { "field": "title", "value": "Follow up with Nova Retail" },
+      "data": {
+        "title": "Follow up with Nova Retail",
+        "description": "Confirm store rollout timeline and contact ownership.",
+        "status": "todo",
+        "priority": "medium",
+        "due_date": "2026-07-08",
+        "assignee": "Sam",
+        "customer_id": "$customer-nova.id"
+      }
+    }
+  ]
+}

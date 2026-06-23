@@ -13,7 +13,10 @@ export async function POST(
   try {
     const { id, packId } = await params;
     const { ctx, workspaceId } = await requireWorkspaceContext(request, id, "admin");
-    const result = await installPack(workspaceId, packId);
+    const body = await request.json().catch(() => ({})) as { includeDemoData?: boolean };
+    const result = await installPack(workspaceId, packId, {
+      includeDemoData: body.includeDemoData === true,
+    });
     return successResponse(result, 201, ctx.requestId);
   } catch (e) {
     return handleError(e, requestId);

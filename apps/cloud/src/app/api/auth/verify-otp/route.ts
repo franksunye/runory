@@ -21,7 +21,10 @@ export async function POST(request: NextRequest) {
     const userAgent = request.headers.get("user-agent") ?? "";
 
     const isDev = process.env.NODE_ENV !== "production";
-    const result = await verifyOtp(body.email, body.code, ip, userAgent, { devMode: isDev });
+    const result = await verifyOtp(body.email, body.code, ip, userAgent, {
+      devMode: isDev,
+      skipRateLimit: isDev,
+    });
 
     // Set session cookie
     const response = successResponse({

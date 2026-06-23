@@ -55,7 +55,7 @@ export default function SettingsPage() {
     loadData();
   }, [loadData]);
 
-  const hasCrmPack = installations.length > 0;
+  const hasCrmPack = installations.some((inst) => inst.packId === CRM_LITE_PACK_ID);
 
   const handleInstallPack = async () => {
     setInstalling(true);
@@ -64,12 +64,23 @@ export default function SettingsPage() {
     try {
       const res = await fetch(
         `/api/workspaces/${workspaceId}/packs/${CRM_LITE_PACK_ID}/install`,
-        { method: "POST", headers: { "X-Requested-With": "XMLHttpRequest" } }
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-Requested-With": "XMLHttpRequest",
+          },
+          body: JSON.stringify({ includeDemoData: true }),
+        }
       );
       const json = await res.json();
       if (json.success) {
+        const demoText =
+          json.data.demoRecordsCreated > 0
+            ? `，并导入 ${json.data.demoRecordsCreated} 条 demo 数据`
+            : "";
         setMessage(
-          `CRM Lite Pack 安装成功，已创建对象：${json.data.objectsCreated.join(", ")}`
+          `CRM Lite Pack 安装成功，已创建对象：${json.data.objectsCreated.join(", ")}${demoText}`
         );
         await loadData();
         notifyWorkspaceNavigationChanged();
@@ -249,6 +260,9 @@ export default function SettingsPage() {
       <ExtensionPanel
         workspaceId={workspaceId}
         extensions={extensions}
+        hasCrmPack={hasCrmPack}
+        installingPack={installing}
+        onInstallPack={handleInstallPack}
         onRefresh={loadData}
       />
     </div>

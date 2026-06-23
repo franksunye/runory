@@ -31,7 +31,11 @@ export default function DashboardPage() {
   const handleInstallPack = async () => {
     setInstalling(true); setError(null);
     try {
-      const response = await fetch(`/api/workspaces/${workspaceId}/packs/${CRM_LITE_PACK_ID}/install`, { method: "POST", headers: { "X-Requested-With": "XMLHttpRequest" } });
+      const response = await fetch(`/api/workspaces/${workspaceId}/packs/${CRM_LITE_PACK_ID}/install`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Requested-With": "XMLHttpRequest" },
+        body: JSON.stringify({ includeDemoData: true }),
+      });
       const json = await response.json();
       if (!json.success) throw new Error(json.error?.message ?? "安装失败");
       await refreshAll(); notifyWorkspaceNavigationChanged(); notifyWorkspaceDataChanged(); router.refresh();

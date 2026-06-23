@@ -132,7 +132,7 @@ export interface OtpRequestResult {
 export async function requestOtp(
   rawEmail: string,
   ip: string,
-  options: { devMode?: boolean; purpose?: "login" | "org_deletion" } = {}
+  options: { devMode?: boolean; purpose?: "login" | "org_deletion"; skipRateLimit?: boolean } = {}
 ): Promise<OtpRequestResult> {
   if (!isValidEmail(rawEmail)) {
     throw new AuthenticationError("Invalid email address");
@@ -142,9 +142,12 @@ export async function requestOtp(
   const purpose = options.purpose ?? "login";
   const ipHashed = hashIp(ip);
 
-  // Rate limit: per email and per IP
-  await checkRateLimit("otp_request_per_email", sha256(emailNormalized), RATE_LIMITS.otp_request_per_email);
-  await checkRateLimit("otp_request_per_ip", ipHashed, RATE_LIMITS.otp_request_per_ip);
+  // Rate limit: per email and per IP. Local UI development can explicitly
+  // bypass this so repeated manual login tests do not lock the dev account.
+  if (!options.skipRateLimit) {
+    await checkRateLimit("otp_request_per_email", sha256(emailNormalized), RATE_LIMITS.otp_request_per_email);
+    await checkRateLimit("otp_request_per_ip", ipHashed, RATE_LIMITS.otp_request_per_ip);
+  }
 
   // Check if auth identity exists
   const existingIdentity = await queryOne<{ id: string; user_id: string }>(
@@ -202,7 +205,7 @@ export async function verifyOtp(
   code: string,
   ip: string,
   userAgent: string,
-  options: { devMode?: boolean } = {}
+  options: { devMode?: boolean; skipRateLimit?: boolean } = {}
 ): Promise<OtpVerifyResult> {
   if (!isValidEmail(rawEmail)) {
     throw new AuthenticationError("Invalid email address");
@@ -211,9 +214,12 @@ export async function verifyOtp(
   const emailNormalized = normalizeEmail(rawEmail);
   const ipHashed = hashIp(ip);
 
-  // Rate limit verification attempts
-  await checkRateLimit("otp_verify_per_email", sha256(emailNormalized), RATE_LIMITS.otp_verify_per_email);
-  await checkRateLimit("otp_verify_per_ip", ipHashed, RATE_LIMITS.otp_verify_per_ip);
+  // Rate limit verification attempts. Challenge-level max attempts still
+  // applies even when local development bypasses aggregate rate limits.
+  if (!options.skipRateLimit) {
+    await checkRateLimit("otp_verify_per_email", sha256(emailNormalized), RATE_LIMITS.otp_verify_per_email);
+    await checkRateLimit("otp_verify_per_ip", ipHashed, RATE_LIMITS.otp_verify_per_ip);
+  }
 
   // Find the most recent pending challenge for this email
   const challenge = await queryOne<{

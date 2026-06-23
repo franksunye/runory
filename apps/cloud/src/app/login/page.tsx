@@ -9,6 +9,7 @@ import { useI18n } from "@/i18n/locale-provider";
 export default function LoginPage() {
   const router = useRouter();
   const { t } = useI18n();
+  const isDev = process.env.NODE_ENV !== "production";
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -92,6 +93,16 @@ export default function LoginPage() {
           {error && (
             <div role="alert" className="mb-4 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">
               {error}
+            </div>
+          )}
+
+          {isDev && !sent && (
+            <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+              <p className="font-semibold">Local development login</p>
+              <p className="mt-1">
+                Use <span className="font-mono font-semibold">admin@runory.local</span>,
+                then enter the 6-digit development code shown on this page.
+              </p>
             </div>
           )}
 

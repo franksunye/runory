@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import SchemaTable from "@/components/SchemaTable";
@@ -32,6 +33,26 @@ export default function CustomerListPage() {
 
   const fields: FieldDefinition[] = objDetail?.fields ?? [];
   const viewConfig = views.find((v) => v.viewKey === VIEW_KEY)?.config ?? null;
+  const extensionFields = fields.filter((field) => field.ownership === "workspace_extension");
+  const extensionSignature = useMemo(
+    () => extensionFields.map((field) => field.fieldKey).sort().join("|"),
+    [extensionFields]
+  );
+  const extensionNoticeKey = `runory:${workspaceId}:${OBJECT_KEY}:extension-notice:${extensionSignature}`;
+  const [showExtensionNotice, setShowExtensionNotice] = useState(false);
+
+  useEffect(() => {
+    if (!extensionSignature) {
+      setShowExtensionNotice(false);
+      return;
+    }
+    setShowExtensionNotice(localStorage.getItem(extensionNoticeKey) !== "dismissed");
+  }, [extensionNoticeKey, extensionSignature]);
+
+  const dismissExtensionNotice = () => {
+    localStorage.setItem(extensionNoticeKey, "dismissed");
+    setShowExtensionNotice(false);
+  };
 
   if (loading) {
     return <p className="text-sm text-slate-400">加载中...</p>;
@@ -70,13 +91,35 @@ export default function CustomerListPage() {
           </Link>
         </div>
       ) : viewConfig ? (
-        <SchemaTable
-          fields={fields}
-          viewConfig={viewConfig}
-          records={records}
-          workspaceId={workspaceId}
-          objectKey={OBJECT_KEY}
-        />
+        <div className="space-y-3">
+          {showExtensionNotice && (
+            <div className="rounded-lg border border-purple-200 bg-purple-50 px-4 py-3 text-sm text-purple-900">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <p className="font-semibold">新的工作区字段已可用</p>
+                  <p className="mt-1 text-purple-800">
+                    {extensionFields.map((field) => field.label).join(", ")}
+                    {" "}已加入 Customer 列表和表单。此提示仅在字段变更后出现一次。
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={dismissExtensionNotice}
+                  className="min-w-fit rounded-md border border-purple-300 bg-white px-3 py-1.5 text-xs font-semibold text-purple-800 hover:bg-purple-100"
+                >
+                  知道了
+                </button>
+              </div>
+            </div>
+          )}
+          <SchemaTable
+            fields={fields}
+            viewConfig={viewConfig}
+            records={records}
+            workspaceId={workspaceId}
+            objectKey={OBJECT_KEY}
+          />
+        </div>
       ) : (
         <p className="text-sm text-slate-500">未找到列表视图配置。</p>
       )}

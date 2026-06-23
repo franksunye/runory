@@ -2,18 +2,23 @@ import { NextRequest, NextResponse } from "next/server";
 
 export function middleware(request: NextRequest) {
   const response = NextResponse.next();
+  const isDev = process.env.NODE_ENV !== "production";
 
   // ── Security Headers ──
   // Content-Security-Policy: restrict to self, allow inline styles (Tailwind needs this)
   // Note: 'unsafe-inline' is kept for script-src because Next.js requires it without a nonce setup.
-  // 'unsafe-eval' is intentionally omitted to keep XSS protection strong.
+  // Next.js dev mode needs 'unsafe-eval' for React Refresh / webpack evaluation.
+  // It remains omitted in production to keep XSS protection strong.
+  const scriptSrc = isDev
+    ? "script-src 'self' 'unsafe-inline' 'unsafe-eval'"
+    : "script-src 'self' 'unsafe-inline'";
   response.headers.set(
     "Content-Security-Policy",
-    "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self'; frame-ancestors 'none'"
+    `default-src 'self'; ${scriptSrc}; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self'; frame-ancestors 'none'`
   );
 
   // HSTS: only in production (HTTPS)
-  if (process.env.NODE_ENV === "production") {
+  if (!isDev) {
     response.headers.set(
       "Strict-Transport-Security",
       "max-age=31536000; includeSubDomains; preload"
