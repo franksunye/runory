@@ -132,6 +132,85 @@ extensionPoints:
       allowAddSection: true
       allowAddAction: true
 
+dashboard:
+  widgets:
+    - key: open_tasks_metric
+      type: metric_card
+      label: 待办任务
+      icon: list-checks
+      tone: amber
+      data:
+        kind: count
+        object: task
+        where: "status in ('todo', 'in_progress')"
+      sub:
+        kind: count
+        object: task
+        where: "status in ('todo', 'in_progress') and due_date < today"
+        template: "{count} 个已逾期"
+      link: /tasks
+
+    - key: done_tasks_metric
+      type: metric_card
+      label: 已完成任务
+      icon: check-circle
+      tone: green
+      data:
+        kind: count
+        object: task
+        where: "status = 'done'"
+      link: /tasks
+
+    - key: task_status_breakdown
+      type: breakdown
+      label: 任务状态分布
+      icon: pie-chart
+      tone: slate
+      data:
+        kind: group_count
+        object: task
+        groupBy: status
+      configurable:
+        - path: data.groupBy
+          label: 分组字段
+          type: select
+          options: [status, priority, assignee]
+
+    - key: open_tasks_list
+      type: list
+      label: 待办任务
+      icon: check-square
+      tone: amber
+      data:
+        kind: recent
+        object: task
+        where: "status in ('todo', 'in_progress')"
+        orderBy: "priority desc, due_date asc"
+        limit: 8
+        columns: [title, status, priority, due_date, assignee]
+      link: /tasks
+      configurable:
+        - path: data.limit
+          label: 显示条数
+          type: number
+          min: 1
+          max: 20
+
+    - key: new_tasks_trend
+      type: trend_chart
+      label: 任务新增趋势
+      icon: trending-up
+      tone: amber
+      data:
+        kind: timeseries
+        object: task
+        range: 14d
+      configurable:
+        - path: data.range
+          label: 时间范围
+          type: select
+          options: ["7d", "14d", "30d"]
+
 upgradePolicy:
   supportsWorkspaceExtensions: true
   breakingChangePolicy: manual_review

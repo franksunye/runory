@@ -36,5 +36,6 @@
   "rolloutTargets": "rollout_targets",
   "compatibilityReports": "compatibility_reports",
   "workflowDefinitions": "workflow_definitions",
-  "workflowInstances": "workflow_instances"
+  "workflowInstances": "workflow_instances",
+  "workspaceDashboardLayout": "workspace_dashboard_layout"
 }

@@ -98,6 +98,57 @@ extensionPoints:
       allowAddSection: true
       allowAddAction: true
 
+dashboard:
+  widgets:
+    - key: customer_total_metric
+      type: metric_card
+      label: 客户总数
+      icon: users
+      tone: indigo
+      data:
+        kind: count
+        object: customer
+      sub:
+        kind: count
+        object: customer
+        where: "created_at >= now"
+        template: "本周新增 {count}"
+      link: /customers
+
+    - key: new_customers_trend
+      type: trend_chart
+      label: 客户新增趋势
+      icon: trending-up
+      tone: indigo
+      data:
+        kind: timeseries
+        object: customer
+        range: 14d
+      configurable:
+        - path: data.range
+          label: 时间范围
+          type: select
+          options: ["7d", "14d", "30d"]
+
+    - key: recent_customers_list
+      type: list
+      label: 最近客户
+      icon: clock
+      tone: slate
+      data:
+        kind: recent
+        object: customer
+        orderBy: "created_at desc"
+        limit: 5
+        columns: [name, email, phone]
+      link: /customers
+      configurable:
+        - path: data.limit
+          label: 显示条数
+          type: number
+          min: 1
+          max: 20
+
 upgradePolicy:
   supportsWorkspaceExtensions: true
   breakingChangePolicy: manual_review

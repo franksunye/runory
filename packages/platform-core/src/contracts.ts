@@ -82,6 +82,7 @@ export const TABLES = {
   agentRuns: `${PREFIXES.runoryRuntime}agent_runs`,
   workflowDefinitions: `${PREFIXES.runoryRuntime}workflow_definitions`,
   workflowInstances: `${PREFIXES.runoryRuntime}workflow_instances`,
+  workspaceDashboardLayout: `${PREFIXES.runoryRuntime}workspace_dashboard_layout`,
 
   // Runory Catalog & Release Control Plane.
   catalogItems: `${PREFIXES.runoryCatalog}items`,

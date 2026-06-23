@@ -10,6 +10,30 @@ modules:
 
 defaultTemplate: small-business-crm
 
+dashboard:
+  defaultLayout:
+    - zone: metrics
+      widgets:
+        - { module: runory.customer, widget: customer_total_metric, instance: default }
+        - { module: runory.contact,  widget: contact_total_metric,  instance: default }
+        - { module: runory.task,     widget: open_tasks_metric,     instance: default }
+        - { module: runory.task,     widget: done_tasks_metric,     instance: default }
+
+    - zone: trends
+      widgets:
+        - { module: runory.customer, widget: new_customers_trend, instance: default }
+        - { module: runory.task,     widget: new_tasks_trend,     instance: default }
+
+    - zone: lists
+      widgets:
+        - { module: runory.task,     widget: open_tasks_list,      instance: default }
+        - { module: runory.task,     widget: task_status_breakdown, instance: default }
+        - { module: runory.customer, widget: recent_customers_list, instance: default }
+
+    - zone: activity
+      widgets:
+        - { module: _platform, widget: business_activity_feed, instance: default }
+
 marketplace:
   category: crm
   license: runory_official

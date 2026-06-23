@@ -82,6 +82,12 @@ Templates may localize navigation labels, dashboard titles, terminology, empty s
 - Translated documentation routes, `hreflang`, localized sitemap, and optional URL prefixes.
 - Additional locales only after translation ownership and release QA are defined.
 
+### v0.4 public launch
+
+Runory `v0.4` uses English-first launch readiness as a release gate. English must be complete across public website, onboarding, workspace, pack install, workbench, Agent operations, errors, and documentation. Chinese remains supported, but public launch readiness is judged primarily against English self-service usage.
+
+See [../product/v0.4-public-free-launch-plan.md](../product/v0.4-public-free-launch-plan.md).
+
 ## Acceptance Gate
 
 Cloud v0.1 is not internationalization-complete until a new user can switch between English and Chinese and complete sign-in, workspace entry, CRM Lite navigation, core CRUD, Module installation, and audit inspection without mixed-language blocking UI. English must remain fully usable when Chinese translations are incomplete.

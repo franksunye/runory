@@ -33,6 +33,8 @@ Runory Cloud
 + Schema-driven UI
 ```
 
+Early official business packs should grow as a composable portfolio, not as one monolithic suite. The current product direction is documented in [Business Pack Portfolio Strategy](./business-pack-portfolio-strategy.md).
+
 ## 3. What Runory Is Not
 
 Runory is not:

@@ -56,7 +56,15 @@ export type AuditAction =
   | "module.install"
   | "module.upgrade"
   | "module.upgrade_failed"
-  | "module.compatibility_override";
+  | "module.compatibility_override"
+  // Dashboard Workbench Composition (v0.2.1)
+  | "dashboard.widget.hide"
+  | "dashboard.widget.show"
+  | "dashboard.widget.reorder"
+  | "dashboard.widget.configure"
+  | "dashboard.widget.add"
+  | "dashboard.widget.remove"
+  | "dashboard.layout.reset";
 
 export interface AuditEventInput {
   workspaceId: string;

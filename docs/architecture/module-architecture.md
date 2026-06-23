@@ -60,6 +60,10 @@ Finance Operations Pack
 = runory.expense + runory.approval + runory.budget + runory.payment
 ```
 
+A Pack may reuse modules that are also used by other packs. For example, both `crm-lite-pack` and `fsm-pack` can depend on `runory.company`, `runory.contact`, and `runory.task`.
+
+Shared business modules are still business modules, not SaaS Core. SaaS Core remains responsible for tenancy, auth, workspace, catalog, installation, audit, extension runtime, and usage. A reusable object such as `company` belongs to one Official Business Module and is reused by packs through dependency composition.
+
 ### Template
 
 Workspace experience overlay. Example:

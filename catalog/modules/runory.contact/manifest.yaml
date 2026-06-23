@@ -103,3 +103,20 @@ extensionPoints:
           type: field_group
           allowedExtensions: [customField]
           risk: low
+
+dashboard:
+  widgets:
+    - key: contact_total_metric
+      type: metric_card
+      label: 联系人总数
+      icon: user-plus
+      tone: emerald
+      data:
+        kind: count
+        object: contact
+      sub:
+        kind: count
+        object: contact
+        where: "created_at >= now"
+        template: "本周新增 {count}"
+      link: /contacts

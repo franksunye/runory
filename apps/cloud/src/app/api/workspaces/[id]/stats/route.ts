@@ -1,4 +1,4 @@
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import {
   queryOne,
   queryAll,
@@ -12,6 +12,8 @@ import { successResponse, handleError, getOrCreateRequestId } from "@/lib/http";
 export const dynamic = "force-dynamic";
 
 // GET /api/workspaces/[id]/stats — returns business workbench data
+// @deprecated since v0.2.1 — use /api/workspaces/[id]/widgets/[module]/[key] instead.
+// This endpoint is preserved for backward compatibility and will be removed in v0.2.2.
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -54,7 +56,7 @@ export async function GET(
     const hasPack = installations.length > 0;
 
     if (!hasPack) {
-      return successResponse(
+      const response = successResponse(
         {
           hasPack: false,
           metrics: null,
@@ -67,6 +69,10 @@ export async function GET(
         200,
         ctx.requestId
       );
+      response.headers.set("Deprecation", "true");
+      response.headers.set("Sunset", "v0.2.2");
+      response.headers.set("Link", '</api/workspaces/[id]/widgets/[module]/[key]>; rel="successor-version"');
+      return response;
     }
 
     // ── Business Metrics ──
@@ -153,7 +159,7 @@ export async function GET(
       [workspaceId]
     );
 
-    return successResponse(
+    const response = successResponse(
       {
         hasPack: true,
         metrics: {
@@ -177,6 +183,10 @@ export async function GET(
       200,
       ctx.requestId
     );
+    response.headers.set("Deprecation", "true");
+    response.headers.set("Sunset", "v0.2.2");
+    response.headers.set("Link", '</api/workspaces/[id]/widgets/[module]/[key]>; rel="successor-version"');
+    return response;
   } catch (e) {
     return handleError(e, requestId);
   }

@@ -101,6 +101,91 @@ export const permissionChangePolicySchema = z.object({
   requiresExplicitConsent: z.boolean().default(false),
 });
 
+// ── Dashboard Widgets (v0.2.1 Workbench Composition) ──
+// See docs/product/v0.2.1-workbench-composition-plan.md
+
+export const DASHBOARD_ZONES = ["metrics", "trends", "lists", "activity"] as const;
+export type DashboardZone = (typeof DASHBOARD_ZONES)[number];
+
+export const WIDGET_TYPES = ["metric_card", "trend_chart", "breakdown", "list", "activity_feed"] as const;
+export type WidgetType = (typeof WIDGET_TYPES)[number];
+
+export const WIDGET_DATA_KINDS = ["count", "group_count", "recent", "timeseries"] as const;
+export type WidgetDataKind = (typeof WIDGET_DATA_KINDS)[number];
+
+// Configurable field declaration — what a workspace admin can override
+export const widgetConfigurableFieldSchema = z.object({
+  path: z.string(),                              // dot-path into widget, e.g. "data.limit"
+  label: z.string(),
+  type: z.enum(["text", "number", "select", "multiselect"]),
+  options: z.array(z.string()).optional(),       // for select / multiselect
+  min: z.number().optional(),                    // for number
+  max: z.number().optional(),                    // for number
+});
+
+// Widget data intent — declarative, platform resolves to safe SQL
+export const widgetDataIntentSchema = z.object({
+  kind: z.enum(WIDGET_DATA_KINDS),
+  object: z.string(),                            // must be a declared object of this module
+  where: z.string().optional(),                  // restricted expression, platform-parsed
+  orderBy: z.string().optional(),                // "field asc|desc, ..."
+  limit: z.number().optional(),                  // for recent
+  groupBy: z.string().optional(),                // for group_count / timeseries
+  range: z.enum(["7d", "14d", "30d"]).optional(), // for timeseries
+  columns: z.array(z.string()).optional(),       // for recent
+});
+
+// Sub-label intent for metric_card (optional secondary metric)
+export const widgetSubIntentSchema = widgetDataIntentSchema.extend({
+  template: z.string().optional(),               // e.g. "{count} 个已逾期"
+});
+
+// Widget declaration — a module's contribution to the workbench
+export const widgetDeclarationSchema = z.object({
+  key: z.string(),
+  type: z.enum(WIDGET_TYPES),
+  label: z.string(),
+  icon: z.string().default("file"),
+  tone: z.string().default("slate"),
+  data: widgetDataIntentSchema,
+  sub: widgetSubIntentSchema.optional(),         // metric_card only
+  link: z.string().optional(),
+  configurable: z.array(widgetConfigurableFieldSchema).optional(),
+});
+
+export type WidgetDeclaration = z.infer<typeof widgetDeclarationSchema>;
+export type WidgetDataIntent = z.infer<typeof widgetDataIntentSchema>;
+export type WidgetConfigurableField = z.infer<typeof widgetConfigurableFieldSchema>;
+
+// Module dashboard section
+export const moduleDashboardSchema = z.object({
+  widgets: z.array(widgetDeclarationSchema),
+});
+
+// Pack layout item — a reference to a widget with optional config override
+export const packLayoutItemSchema = z.object({
+  module: z.string(),                            // module id, or "_platform"
+  widget: z.string(),                            // widget key
+  instance: z.string().default("default"),       // for multi-instance widgets
+  config: z.record(z.unknown()).optional(),      // config override applied to widget
+});
+
+// Pack layout zone — a group of widgets in a zone
+export const packLayoutZoneSchema = z.object({
+  zone: z.enum(DASHBOARD_ZONES),
+  widgets: z.array(packLayoutItemSchema),
+});
+
+// Pack dashboard section
+export const packDashboardSchema = z.object({
+  defaultLayout: z.array(packLayoutZoneSchema),
+});
+
+export type PackLayoutItem = z.infer<typeof packLayoutItemSchema>;
+export type PackLayoutZone = z.infer<typeof packLayoutZoneSchema>;
+export type ModuleDashboard = z.infer<typeof moduleDashboardSchema>;
+export type PackDashboard = z.infer<typeof packDashboardSchema>;
+
 export const moduleManifestSchema = z.object({
   id: z.string(),
   name: z.string(),
@@ -128,6 +213,7 @@ export const moduleManifestSchema = z.object({
     })).optional(),
   }).optional(),
   extensionPoints: extensionPointSchema.optional(),
+  dashboard: moduleDashboardSchema.optional(),
   upgradePolicy: z.object({
     supportsWorkspaceExtensions: z.boolean().default(true),
     breakingChangePolicy: z.string().default("manual_review"),
@@ -149,6 +235,7 @@ export const packManifestSchema = z.object({
   modules: z.array(z.string()),
   defaultTemplate: z.string().optional(),
   releaseCompatibility: releaseCompatibilitySchema.optional(),
+  dashboard: packDashboardSchema.optional(),
   marketplace: z.object({
     category: z.string(),
     license: z.string(),

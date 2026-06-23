@@ -18,6 +18,7 @@ import {
   type TemplateManifest,
 } from "@runory/contracts";
 import { valid as semverValid, validRange as semverValidRange } from "semver";
+import { validateModuleDashboard, validatePackDashboard } from "./dashboard";
 
 // ── Types ──
 
@@ -486,6 +487,77 @@ function checkExtensionPointCompatibility(
   };
 }
 
+// ── Dashboard Widget Validation (v0.2.1) ──
+
+function checkModuleDashboardWidgets(
+  manifest: ModuleManifest | null
+): ValidationCheck {
+  if (!manifest) {
+    return {
+      name: "dashboard_widgets",
+      status: "failed",
+      message: "Manifest not available for dashboard widget check",
+    };
+  }
+  if (!manifest.dashboard?.widgets) {
+    return {
+      name: "dashboard_widgets",
+      status: "passed",
+      message: "No dashboard widgets declared",
+    };
+  }
+  const errors = validateModuleDashboard(manifest);
+  if (errors.length > 0) {
+    return {
+      name: "dashboard_widgets",
+      status: "failed",
+      message: `Dashboard widget issues: ${errors.join("; ")}`,
+      details: { errors },
+    };
+  }
+  return {
+    name: "dashboard_widgets",
+    status: "passed",
+    message: `Dashboard widgets validated (${manifest.dashboard.widgets.length} widgets)`,
+  };
+}
+
+function checkPackDashboardLayout(
+  manifest: PackManifest | null
+): ValidationCheck {
+  if (!manifest) {
+    return {
+      name: "dashboard_layout",
+      status: "failed",
+      message: "Manifest not available for dashboard layout check",
+    };
+  }
+  if (!manifest.dashboard?.defaultLayout) {
+    return {
+      name: "dashboard_layout",
+      status: "passed",
+      message: "No dashboard layout declared",
+    };
+  }
+  const errors = validatePackDashboard(manifest);
+  if (errors.length > 0) {
+    return {
+      name: "dashboard_layout",
+      status: "failed",
+      message: `Dashboard layout issues: ${errors.join("; ")}`,
+      details: { errors },
+    };
+  }
+  const totalWidgets = manifest.dashboard.defaultLayout.reduce(
+    (sum, z) => sum + z.widgets.length, 0
+  );
+  return {
+    name: "dashboard_layout",
+    status: "passed",
+    message: `Dashboard layout validated (${manifest.dashboard.defaultLayout.length} zones, ${totalWidgets} widgets)`,
+  };
+}
+
 // ── Run Catalog Validation (docs/09 §9) ──
 
 export async function runCatalogValidation(
@@ -615,6 +687,24 @@ export async function runCatalogValidation(
     checks.push(
       await runCheck("extension_point_compatibility", () =>
         checkExtensionPointCompatibility(parsedManifest as ModuleManifest | null)
+      )
+    );
+  }
+
+  // 11. Dashboard widgets validation (modules, v0.2.1)
+  if (item.itemType === "module") {
+    checks.push(
+      await runCheck("dashboard_widgets", () =>
+        checkModuleDashboardWidgets(parsedManifest as ModuleManifest | null)
+      )
+    );
+  }
+
+  // 12. Dashboard layout validation (packs, v0.2.1)
+  if (item.itemType === "pack") {
+    checks.push(
+      await runCheck("dashboard_layout", () =>
+        checkPackDashboardLayout(parsedManifest as PackManifest | null)
       )
     );
   }
