@@ -86,12 +86,17 @@ extensionPoints:
           type: column_group
           allowedExtensions: [customField]
           risk: low
+      allowReorder: true
+      allowFilters: true
+      allowPageSizeChange: true
     - view: customer_form
       slots:
         - id: customer.form.basic_fields.after
           type: field_group
           allowedExtensions: [customField]
           risk: low
+      allowAddSection: true
+      allowAddAction: true
 
 upgradePolicy:
   supportsWorkspaceExtensions: true

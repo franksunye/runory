@@ -80,6 +80,8 @@ export const TABLES = {
   extensionVersions: `${PREFIXES.runoryRuntime}extension_versions`,
   extensionFieldValues: `${PREFIXES.runoryRuntime}extension_field_values`,
   agentRuns: `${PREFIXES.runoryRuntime}agent_runs`,
+  workflowDefinitions: `${PREFIXES.runoryRuntime}workflow_definitions`,
+  workflowInstances: `${PREFIXES.runoryRuntime}workflow_instances`,
 
   // Runory Catalog & Release Control Plane.
   catalogItems: `${PREFIXES.runoryCatalog}items`,

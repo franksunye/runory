@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import DiffPreview from "./DiffPreview";
+import { notifyWorkspaceDataChanged } from "@/lib/workspace-events";
 
 interface ExtensionPanelProps {
   workspaceId: string;
@@ -140,6 +141,7 @@ export default function ExtensionPanel({
         });
         setDiff(null);
         setValidation(null);
+        notifyWorkspaceDataChanged();
         onRefresh();
       } else {
         setMessage({ type: "error", text: json.error?.message ?? "应用失败" });
@@ -170,6 +172,7 @@ export default function ExtensionPanel({
           type: "success",
           text: `已回滚至版本 #${json.data.version}`,
         });
+        notifyWorkspaceDataChanged();
         onRefresh();
       } else {
         setMessage({ type: "error", text: json.error?.message ?? "回滚失败" });

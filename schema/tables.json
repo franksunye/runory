@@ -34,5 +34,7 @@
   "packVersionLocks": "pack_version_locks",
   "releaseRollouts": "release_rollouts",
   "rolloutTargets": "rollout_targets",
-  "compatibilityReports": "compatibility_reports"
+  "compatibilityReports": "compatibility_reports",
+  "workflowDefinitions": "workflow_definitions",
+  "workflowInstances": "workflow_instances"
 }

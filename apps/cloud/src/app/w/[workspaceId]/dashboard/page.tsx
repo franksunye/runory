@@ -1,38 +1,32 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { Activity, ArrowRight, Boxes, CheckCircle2, Clock3, PackagePlus, Puzzle, RefreshCw, ShieldCheck, Sparkles } from "lucide-react";
+import { Activity, ArrowRight, Boxes, CheckCircle2, CheckSquare, Clock3, PackagePlus, Puzzle, RefreshCw, ShieldCheck, Sparkles } from "lucide-react";
 import AuditTimeline from "@/components/AuditTimeline";
-import { notifyWorkspaceNavigationChanged } from "@/lib/workspace-events";
+import { notifyWorkspaceNavigationChanged, notifyWorkspaceDataChanged } from "@/lib/workspace-events";
+import { useInstallations, useExtensions, useAuditLogs, useRecords, useWorkspaceChangeEvent } from "@/lib/api-hooks";
 
 const CRM_LITE_PACK_ID = "crm-lite-pack";
-type Installation = { id: string; moduleId: string; moduleVersion: string; packId?: string | null; status: string };
 
 export default function DashboardPage() {
   const workspaceId = useParams().workspaceId as string;
   const router = useRouter();
-  const [installations, setInstallations] = useState<Installation[]>([]);
-  const [extensions, setExtensions] = useState<unknown[]>([]);
-  const [auditLogs, setAuditLogs] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
   const [installing, setInstalling] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const loadData = useCallback(async () => {
-    try {
-      const responses = await Promise.all(["installations", "extensions", "audit"].map((path) => fetch(`/api/workspaces/${workspaceId}/${path}`)));
-      if (responses.some((response) => !response.ok)) throw new Error("工作区数据暂时无法加载");
-      const [inst, ext, audit] = await Promise.all(responses.map((response) => response.json()));
-      if (inst.success) setInstallations(inst.data);
-      if (ext.success) setExtensions(ext.data);
-      if (audit.success) setAuditLogs(audit.data.slice(0, 5));
-    } catch (cause) { setError(cause instanceof Error ? cause.message : "加载数据失败"); }
-    finally { setLoading(false); }
-  }, [workspaceId]);
+  const { data: installations = [], isLoading: loadingInst, mutate: mutateInstallations } = useInstallations(workspaceId);
+  const { data: extensions = [], isLoading: loadingExt, mutate: mutateExtensions } = useExtensions(workspaceId);
+  const { data: auditLogs = [], isLoading: loadingAudit, mutate: mutateAudit } = useAuditLogs(workspaceId, 5);
+  const { data: taskRecords = [], isLoading: loadingTasks } = useRecords(workspaceId, "task");
+  const loading = loadingInst && loadingExt && loadingAudit && loadingTasks;
 
-  useEffect(() => { void loadData(); }, [loadData]);
+  useWorkspaceChangeEvent(workspaceId);
+
+  const refreshAll = async () => {
+    await Promise.all([mutateInstallations(), mutateExtensions(), mutateAudit()]);
+  };
 
   const handleInstallPack = async () => {
     setInstalling(true); setError(null);
@@ -40,7 +34,7 @@ export default function DashboardPage() {
       const response = await fetch(`/api/workspaces/${workspaceId}/packs/${CRM_LITE_PACK_ID}/install`, { method: "POST", headers: { "X-Requested-With": "XMLHttpRequest" } });
       const json = await response.json();
       if (!json.success) throw new Error(json.error?.message ?? "安装失败");
-      await loadData(); notifyWorkspaceNavigationChanged(); router.refresh();
+      await refreshAll(); notifyWorkspaceNavigationChanged(); notifyWorkspaceDataChanged(); router.refresh();
     } catch (cause) { setError(cause instanceof Error ? cause.message : "安装失败"); }
     finally { setInstalling(false); }
   };
@@ -50,13 +44,14 @@ export default function DashboardPage() {
   const cards = [
     { label: "已安装模块", value: installations.length, note: "官方能力正常运行", icon: Boxes, tone: "bg-indigo-50 text-indigo-600" },
     { label: "工作区扩展", value: extensions.length, note: "受控配置与定制", icon: Puzzle, tone: "bg-violet-50 text-violet-600" },
+    { label: "任务总数", value: taskRecords.length, note: "跨模块任务管理", icon: CheckSquare, tone: "bg-blue-50 text-blue-600" },
     { label: "近期变更", value: auditLogs.length, note: "全部操作可追溯", icon: Activity, tone: "bg-emerald-50 text-emerald-600" },
   ];
 
   return <div className="space-y-6">
     <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
       <div><p className="app-eyebrow">Workspace overview</p><h1 className="mt-2 text-3xl font-bold tracking-[-.025em] text-slate-950">工作区仪表盘</h1><p className="mt-2 text-sm text-slate-500">管理已安装能力、扩展状态与最近活动。</p></div>
-      <button onClick={() => { setLoading(true); void loadData(); }} className="app-button-secondary self-start"><RefreshCw size={16} />刷新数据</button>
+      <button onClick={() => { void refreshAll(); }} className="app-button-secondary self-start"><RefreshCw size={16} />刷新数据</button>
     </header>
     {error && <div role="alert" className="app-error">{error}</div>}
 
@@ -67,7 +62,7 @@ export default function DashboardPage() {
       </div>
     </section>
 
-    <section className="grid gap-4 sm:grid-cols-3">{cards.map(({ label, value, note, icon: Icon, tone }) => <article key={label} className="app-card p-5"><div className="flex items-start justify-between"><p className="text-sm font-semibold text-slate-600">{label}</p><span className={`grid size-9 place-items-center rounded-lg ${tone}`}><Icon size={18} /></span></div><strong className="mt-5 block text-3xl tracking-tight text-slate-950">{value}</strong><p className="mt-1 text-xs text-slate-500">{note}</p></article>)}</section>
+    <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">{cards.map(({ label, value, note, icon: Icon, tone }) => <article key={label} className="app-card p-5"><div className="flex items-start justify-between"><p className="text-sm font-semibold text-slate-600">{label}</p><span className={`grid size-9 place-items-center rounded-lg ${tone}`}><Icon size={18} /></span></div><strong className="mt-5 block text-3xl tracking-tight text-slate-950">{value}</strong><p className="mt-1 text-xs text-slate-500">{note}</p></article>)}</section>
 
     <section className="grid gap-5 lg:grid-cols-[1.08fr_.92fr]">
       <article className="app-card p-5 sm:p-6"><div className="mb-5 flex items-center justify-between"><div><h3 className="font-bold text-slate-900">最近活动</h3><p className="mt-1 text-xs text-slate-500">工作区配置与业务变更</p></div><Link href={`/w/${workspaceId}/audit`} className="flex items-center gap-1 text-xs font-bold text-indigo-600">查看全部 <ArrowRight size={14} /></Link></div><AuditTimeline logs={auditLogs} /></article>
@@ -76,4 +71,4 @@ export default function DashboardPage() {
   </div>;
 }
 
-function DashboardSkeleton() { return <div className="animate-pulse space-y-6" aria-label="正在加载仪表盘"><div className="h-20 w-2/3 rounded-xl bg-slate-200" /><div className="h-44 rounded-2xl bg-slate-200" /><div className="grid gap-4 sm:grid-cols-3">{[1,2,3].map((key) => <div key={key} className="h-36 rounded-2xl bg-slate-200" />)}</div></div>; }
+function DashboardSkeleton() { return <div className="animate-pulse space-y-6" aria-label="正在加载仪表盘"><div className="h-20 w-2/3 rounded-xl bg-slate-200" /><div className="h-44 rounded-2xl bg-slate-200" /><div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">{[1,2,3,4].map((key) => <div key={key} className="h-36 rounded-2xl bg-slate-200" />)}</div></div>; }

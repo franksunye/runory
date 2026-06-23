@@ -429,6 +429,13 @@ describe("Pack Lock Resolution", () => {
     );
     await freezeCatalogVersion(adminPrincipal, contact.catalogVersionId);
 
+    const task = await importFromDevCatalog(
+      adminPrincipal,
+      "runory.task",
+      "module"
+    );
+    await freezeCatalogVersion(adminPrincipal, task.catalogVersionId);
+
     // Import and freeze the pack
     const pack = await importFromDevCatalog(
       adminPrincipal,
@@ -442,15 +449,17 @@ describe("Pack Lock Resolution", () => {
       pack.catalogVersionId
     );
 
-    // crm-lite-pack references 2 modules: runory.customer:^1.0.0, runory.contact:^1.0.0
-    expect(locks).toHaveLength(2);
+    // crm-lite-pack references 3 modules: runory.customer:^1.0.0, runory.contact:^1.0.0, runory.task:^1.0.0
+    expect(locks).toHaveLength(3);
 
     // Verify lock entries match expected modules
     const moduleItemIds = locks.map((l) => l.moduleItemId);
     const customerItem = await getCatalogItemByName("runory.customer", "module");
     const contactItem = await getCatalogItemByName("runory.contact", "module");
+    const taskItem = await getCatalogItemByName("runory.task", "module");
     expect(moduleItemIds).toContain(customerItem.id);
     expect(moduleItemIds).toContain(contactItem.id);
+    expect(moduleItemIds).toContain(taskItem.id);
 
     // Each lock should have a resolved version and range
     for (const lock of locks) {
@@ -476,6 +485,13 @@ describe("Pack Lock Resolution", () => {
       "module"
     );
     await freezeCatalogVersion(adminPrincipal, contact.catalogVersionId);
+
+    const task = await importFromDevCatalog(
+      adminPrincipal,
+      "runory.task",
+      "module"
+    );
+    await freezeCatalogVersion(adminPrincipal, task.catalogVersionId);
 
     const pack = await importFromDevCatalog(
       adminPrincipal,

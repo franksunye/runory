@@ -13,10 +13,10 @@ import {
 } from "@/lib/api-hooks";
 import { notifyWorkspaceDataChanged } from "@/lib/workspace-events";
 
-const OBJECT_KEY = "contact";
-const VIEW_KEY = "contact_form";
+const OBJECT_KEY = "task";
+const VIEW_KEY = "task_form";
 
-export default function ContactDetailPage() {
+export default function TaskDetailPage() {
   const params = useParams();
   const router = useRouter();
   const workspaceId = params.workspaceId as string;
@@ -65,7 +65,7 @@ export default function ContactDetailPage() {
   };
 
   const handleDelete = async () => {
-    if (!confirm("确定要删除此联系人吗？此操作不可撤销。")) return;
+    if (!confirm("确定要删除此任务吗？此操作不可撤销。")) return;
     setDeleting(true);
     setError(null);
     try {
@@ -76,7 +76,7 @@ export default function ContactDetailPage() {
       const json = await res.json();
       if (json.success) {
         notifyWorkspaceDataChanged();
-        router.push(`/w/${workspaceId}/contacts`);
+        router.push(`/w/${workspaceId}/tasks`);
         router.refresh();
       } else {
         setError(json.error?.message ?? "删除失败");
@@ -101,10 +101,10 @@ export default function ContactDetailPage() {
           </div>
         )}
         <Link
-          href={`/w/${workspaceId}/contacts`}
+          href={`/w/${workspaceId}/tasks`}
           className="text-sm font-medium text-blue-600 hover:text-blue-800"
         >
-          ← 返回联系人列表
+          ← 返回任务列表
         </Link>
       </div>
     );
@@ -115,13 +115,13 @@ export default function ContactDetailPage() {
       <div className="flex items-center justify-between">
         <div>
           <Link
-            href={`/w/${workspaceId}/contacts`}
+            href={`/w/${workspaceId}/tasks`}
             className="text-xs font-medium text-blue-600 hover:text-blue-800"
           >
-            ← 返回联系人列表
+            ← 返回任务列表
           </Link>
           <h1 className="mt-1 text-2xl font-bold text-slate-900">
-            联系人详情
+            任务详情
           </h1>
         </div>
         {!editing && (

@@ -66,6 +66,11 @@ export const extensionPointSchema = z.object({
       allowedExtensions: z.array(z.string()),
       risk: z.string().default("low"),
     })),
+    allowReorder: z.boolean().default(false),
+    allowFilters: z.boolean().default(false),
+    allowAddSection: z.boolean().default(false),
+    allowAddAction: z.boolean().default(false),
+    allowPageSizeChange: z.boolean().default(false),
   })).optional(),
 });
 
@@ -190,16 +195,77 @@ export const customFieldPlanSchema = z.object({
   }).optional(),
 });
 
+export const viewModificationPlanSchema = z.object({
+  targetObject: z.string(),
+  viewKey: z.string(),
+  modifications: z.object({
+    reorderColumns: z.array(z.string()).optional(),
+    addFilters: z.array(z.object({
+      field: z.string(),
+      operator: z.enum(["eq", "neq", "contains", "gt", "lt", "gte", "lte", "in"]),
+      value: z.union([z.string(), z.number(), z.boolean(), z.array(z.string())]),
+    })).optional(),
+    addSection: z.object({
+      title: z.string(),
+      fields: z.array(z.object({
+        field: z.string(),
+        required: z.boolean().optional(),
+      })),
+      afterSection: z.string().optional(),
+    }).optional(),
+    addAction: z.string().optional(),
+    pageSize: z.number().optional(),
+  }),
+});
+
 export const extensionPlanSchema = z.object({
   name: z.string(),
   description: z.string().optional(),
   targetModules: z.array(z.string()),
   riskLevel: z.enum(["low", "medium", "high"]).default("low"),
-  customFields: z.array(customFieldPlanSchema),
+  customFields: z.array(customFieldPlanSchema).default([]),
+  viewModifications: z.array(viewModificationPlanSchema).optional(),
 });
 
 export type ExtensionPlan = z.infer<typeof extensionPlanSchema>;
 export type CustomFieldPlan = z.infer<typeof customFieldPlanSchema>;
+export type ViewModificationPlan = z.infer<typeof viewModificationPlanSchema>;
+
+// ── Workflow Runtime ──
+export const workflowConditionSchema = z.object({
+  field: z.string(),
+  operator: z.enum(["eq", "neq", "gt", "lt", "gte", "lte", "contains", "in"]),
+  value: z.union([z.string(), z.number(), z.boolean(), z.array(z.string())]),
+});
+
+export const workflowTransitionSchema = z.object({
+  fromStatus: z.string(),
+  toStatus: z.string(),
+  label: z.string(),
+  // If conditions met, auto-suggest this transition
+  conditions: z.array(workflowConditionSchema).optional(),
+  // If true, requires approver
+  requiresApproval: z.boolean().default(false),
+  // Role required to execute this transition
+  requiredRole: z.enum(["admin", "member", "viewer"]).default("member"),
+});
+
+export const workflowDefinitionSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  targetObject: z.string(),
+  initialState: z.string(),
+  states: z.array(z.object({
+    name: z.string(),
+    label: z.string(),
+    type: z.enum(["initial", "intermediate", "approved", "rejected", "final"]).default("intermediate"),
+  })),
+  transitions: z.array(workflowTransitionSchema),
+});
+
+export type WorkflowDefinition = z.infer<typeof workflowDefinitionSchema>;
+export type WorkflowTransition = z.infer<typeof workflowTransitionSchema>;
+export type WorkflowCondition = z.infer<typeof workflowConditionSchema>;
 
 // ── API Response Types ──
 export interface ToolEnvelope<T> {

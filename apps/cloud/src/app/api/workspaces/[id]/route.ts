@@ -17,7 +17,15 @@ export async function GET(
     if (!workspace) {
       return notFound(`Workspace ${id} not found`, ctx.requestId);
     }
-    return successResponse(workspace, 200, ctx.requestId);
+    return successResponse(
+      {
+        ...workspace,
+        organizationId: ctx.organizationId,
+        organizationRole: ctx.organizationRole,
+      },
+      200,
+      ctx.requestId
+    );
   } catch (e) {
     return handleError(e, requestId);
   }

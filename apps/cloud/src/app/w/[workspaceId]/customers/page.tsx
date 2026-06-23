@@ -1,10 +1,16 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import SchemaTable from "@/components/SchemaTable";
 import type { FieldDefinition } from "@runory/platform-core";
+import {
+  useInstallations,
+  useFields,
+  useViews,
+  useRecords,
+  useWorkspaceChangeEvent,
+} from "@/lib/api-hooks";
 
 const OBJECT_KEY = "customer";
 const VIEW_KEY = "customer_list";
@@ -14,52 +20,18 @@ export default function CustomerListPage() {
   const router = useRouter();
   const workspaceId = params.workspaceId as string;
 
-  const [fields, setFields] = useState<FieldDefinition[]>([]);
-  const [viewConfig, setViewConfig] = useState<any>(null);
-  const [records, setRecords] = useState<any[]>([]);
-  const [hasPack, setHasPack] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { data: installations = [], isLoading: loadingInst } = useInstallations(workspaceId);
+  const { data: objDetail, isLoading: loadingObj } = useFields(workspaceId, OBJECT_KEY);
+  const { data: views = [], isLoading: loadingViews } = useViews(workspaceId, OBJECT_KEY);
+  const { data: records = [], isLoading: loadingRecords } = useRecords(workspaceId, OBJECT_KEY);
 
-  useEffect(() => {
-    (async () => {
-      try {
-        const instRes = await fetch(
-          `/api/workspaces/${workspaceId}/installations`
-        );
-        const instJson = await instRes.json();
-        const installed =
-          instJson.success && instJson.data.length > 0;
-        setHasPack(installed);
-        if (!installed) {
-          setLoading(false);
-          return;
-        }
+  useWorkspaceChangeEvent(workspaceId);
 
-        const [objRes, viewsRes, recordsRes] = await Promise.all([
-          fetch(`/api/workspaces/${workspaceId}/objects/${OBJECT_KEY}`),
-          fetch(`/api/workspaces/${workspaceId}/objects/${OBJECT_KEY}/views`),
-          fetch(`/api/workspaces/${workspaceId}/objects/${OBJECT_KEY}/records`),
-        ]);
-        const objJson = await objRes.json();
-        const viewsJson = await viewsRes.json();
-        const recordsJson = await recordsRes.json();
+  const hasPack = installations.length > 0;
+  const loading = loadingInst || (hasPack && (loadingObj || loadingViews || loadingRecords));
 
-        if (objJson.success) setFields(objJson.data.fields);
-        if (viewsJson.success) {
-          const view = viewsJson.data.find(
-            (v: any) => v.viewKey === VIEW_KEY
-          );
-          setViewConfig(view?.config ?? null);
-        }
-        if (recordsJson.success) setRecords(recordsJson.data);
-      } catch (e) {
-        setError(e instanceof Error ? e.message : "加载失败");
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, [workspaceId]);
+  const fields: FieldDefinition[] = objDetail?.fields ?? [];
+  const viewConfig = views.find((v) => v.viewKey === VIEW_KEY)?.config ?? null;
 
   if (loading) {
     return <p className="text-sm text-slate-400">加载中...</p>;
@@ -84,12 +56,6 @@ export default function CustomerListPage() {
           </button>
         )}
       </div>
-
-      {error && (
-        <div className="rounded-md bg-red-50 px-4 py-3 text-sm text-red-700">
-          {error}
-        </div>
-      )}
 
       {!hasPack ? (
         <div className="rounded-lg border border-blue-200 bg-blue-50 p-5 text-center">

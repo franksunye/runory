@@ -12,10 +12,10 @@ import {
   useWorkspaceChangeEvent,
 } from "@/lib/api-hooks";
 
-const OBJECT_KEY = "contact";
-const VIEW_KEY = "contact_list";
+const OBJECT_KEY = "task";
+const VIEW_KEY = "task_list";
 
-export default function ContactListPage() {
+export default function TaskListPage() {
   const params = useParams();
   const router = useRouter();
   const workspaceId = params.workspaceId as string;
@@ -41,16 +41,18 @@ export default function ContactListPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">联系人</h1>
-          <p className="mt-1 text-sm text-slate-500">管理所有联系人记录</p>
+          <h1 className="text-2xl font-bold text-slate-900">任务</h1>
+          <p className="mt-1 text-sm text-slate-500">管理所有任务记录</p>
         </div>
         {hasPack && (
           <button
             type="button"
-            onClick={() => router.push(`/w/${workspaceId}/contacts/new`)}
+            onClick={() =>
+              router.push(`/w/${workspaceId}/tasks/new`)
+            }
             className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
           >
-            添加联系人
+            添加任务
           </button>
         )}
       </div>
@@ -58,7 +60,7 @@ export default function ContactListPage() {
       {!hasPack ? (
         <div className="rounded-lg border border-blue-200 bg-blue-50 p-5 text-center">
           <p className="text-sm text-blue-700">
-            尚未安装业务模块，无法显示联系人列表。
+            尚未安装业务模块，无法显示任务列表。
           </p>
           <Link
             href={`/w/${workspaceId}/dashboard`}

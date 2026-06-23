@@ -1,10 +1,17 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import SchemaForm from "@/components/SchemaForm";
 import type { FieldDefinition } from "@runory/platform-core";
+import {
+  useFields,
+  useViews,
+  useRecord,
+  useWorkspaceChangeEvent,
+} from "@/lib/api-hooks";
+import { notifyWorkspaceDataChanged } from "@/lib/workspace-events";
 
 const OBJECT_KEY = "customer";
 const VIEW_KEY = "customer_form";
@@ -15,47 +22,20 @@ export default function CustomerDetailPage() {
   const workspaceId = params.workspaceId as string;
   const recordId = params.id as string;
 
-  const [fields, setFields] = useState<FieldDefinition[]>([]);
-  const [viewConfig, setViewConfig] = useState<any>(null);
-  const [record, setRecord] = useState<Record<string, any> | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { data: objDetail, isLoading: loadingObj } = useFields(workspaceId, OBJECT_KEY);
+  const { data: views = [], isLoading: loadingViews } = useViews(workspaceId, OBJECT_KEY);
+  const { data: record, error: recordError, isLoading: loadingRecord, mutate: mutateRecord } = useRecord(workspaceId, OBJECT_KEY, recordId);
+
+  useWorkspaceChangeEvent(workspaceId);
+
   const [editing, setEditing] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    (async () => {
-      try {
-        const [objRes, viewsRes, recordRes] = await Promise.all([
-          fetch(`/api/workspaces/${workspaceId}/objects/${OBJECT_KEY}`),
-          fetch(`/api/workspaces/${workspaceId}/objects/${OBJECT_KEY}/views`),
-          fetch(
-            `/api/workspaces/${workspaceId}/objects/${OBJECT_KEY}/records/${recordId}`
-          ),
-        ]);
-        const objJson = await objRes.json();
-        const viewsJson = await viewsRes.json();
-        const recordJson = await recordRes.json();
-        if (objJson.success) setFields(objJson.data.fields);
-        if (viewsJson.success) {
-          const view = viewsJson.data.find(
-            (v: any) => v.viewKey === VIEW_KEY
-          );
-          setViewConfig(view?.config ?? null);
-        }
-        if (recordJson.success) {
-          setRecord(recordJson.data);
-        } else {
-          setError(recordJson.error?.message ?? "记录不存在");
-        }
-      } catch (e) {
-        setError(e instanceof Error ? e.message : "加载失败");
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, [workspaceId, recordId]);
+  const loading = loadingObj || loadingViews || loadingRecord;
+  const fields: FieldDefinition[] = objDetail?.fields ?? [];
+  const viewConfig = views.find((v) => v.viewKey === VIEW_KEY)?.config ?? null;
 
   const handleUpdate = async (data: Record<string, any>) => {
     setSubmitting(true);
@@ -71,7 +51,8 @@ export default function CustomerDetailPage() {
       );
       const json = await res.json();
       if (json.success) {
-        setRecord(json.data);
+        await mutateRecord(json.data);
+        notifyWorkspaceDataChanged();
         setEditing(false);
       } else {
         setError(json.error?.message ?? "更新失败");
@@ -94,6 +75,7 @@ export default function CustomerDetailPage() {
       );
       const json = await res.json();
       if (json.success) {
+        notifyWorkspaceDataChanged();
         router.push(`/w/${workspaceId}/customers`);
         router.refresh();
       } else {
@@ -113,9 +95,9 @@ export default function CustomerDetailPage() {
   if (!record) {
     return (
       <div className="space-y-4">
-        {error && (
+        {(error || recordError) && (
           <div className="rounded-md bg-red-50 px-4 py-3 text-sm text-red-700">
-            {error}
+            {error ?? (recordError instanceof Error ? recordError.message : "记录不存在")}
           </div>
         )}
         <Link

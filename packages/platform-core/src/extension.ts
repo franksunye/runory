@@ -88,10 +88,118 @@ export async function validateExtensionPlan(workspaceId: string, plan: Extension
     }
   }
 
+  // Validate view modifications
+  for (const vm of plan.viewModifications ?? []) {
+    // Check targetObject exists
+    const fields = await getFields(workspaceId, vm.targetObject);
+    if (fields.length === 0) {
+      errors.push(`Object "${vm.targetObject}" not found or has no fields`);
+      continue;
+    }
+
+    // Check viewKey exists
+    const view = await getView(workspaceId, vm.targetObject, vm.viewKey);
+    if (!view) {
+      errors.push(`View "${vm.viewKey}" not found for object "${vm.targetObject}"`);
+      continue;
+    }
+
+    const config = view.config as Record<string, unknown>;
+    const fieldKeys = new Set(fields.map(f => f.fieldKey));
+
+    // Load extension point permissions for this view
+    let allowReorder = false, allowFilters = false, allowAddSection = false, allowAddAction = false, allowPageSizeChange = false;
+    if (view.moduleId) {
+      try {
+        const manifest = loadModuleManifest(view.moduleId);
+        const viewExtPoint = manifest.extensionPoints?.views?.find(v => v.view === vm.viewKey);
+        if (viewExtPoint) {
+          allowReorder = viewExtPoint.allowReorder;
+          allowFilters = viewExtPoint.allowFilters;
+          allowAddSection = viewExtPoint.allowAddSection;
+          allowAddAction = viewExtPoint.allowAddAction;
+          allowPageSizeChange = viewExtPoint.allowPageSizeChange;
+        }
+      } catch {
+        // If we can't load manifest, skip extension point validation
+      }
+    }
+
+    const mods = vm.modifications;
+
+    // Validate reorderColumns
+    if (mods.reorderColumns) {
+      if (!allowReorder) {
+        errors.push(`View "${vm.viewKey}" does not allow column reordering`);
+      }
+      const currentColumns = ((config.columns as Array<{ field: string }>) ?? []).map(c => c.field);
+      const currentSet = new Set(currentColumns);
+      const reorderSet = new Set(mods.reorderColumns);
+
+      // Check all reorderColumns exist in current columns
+      for (const col of mods.reorderColumns) {
+        if (!currentSet.has(col)) {
+          errors.push(`Column "${col}" not found in view "${vm.viewKey}"`);
+        }
+      }
+
+      // Check reorderColumns includes ALL existing columns
+      for (const col of currentColumns) {
+        if (!reorderSet.has(col)) {
+          errors.push(`reorderColumns must include all existing columns. Missing: "${col}"`);
+        }
+      }
+    }
+
+    // Validate addFilters
+    if (mods.addFilters) {
+      if (!allowFilters) {
+        errors.push(`View "${vm.viewKey}" does not allow adding filters`);
+      }
+      for (const filter of mods.addFilters) {
+        if (!fieldKeys.has(filter.field)) {
+          errors.push(`Filter field "${filter.field}" not found in object "${vm.targetObject}"`);
+        }
+      }
+    }
+
+    // Validate addSection
+    if (mods.addSection) {
+      if (!allowAddSection) {
+        errors.push(`View "${vm.viewKey}" does not allow adding sections`);
+      }
+      for (const sf of mods.addSection.fields) {
+        if (!fieldKeys.has(sf.field)) {
+          errors.push(`Section field "${sf.field}" not found in object "${vm.targetObject}"`);
+        }
+      }
+    }
+
+    // Validate addAction
+    if (mods.addAction && !allowAddAction) {
+      errors.push(`View "${vm.viewKey}" does not allow adding actions`);
+    }
+
+    // Validate pageSize
+    if (mods.pageSize !== undefined && !allowPageSizeChange) {
+      errors.push(`View "${vm.viewKey}" does not allow page size changes`);
+    }
+  }
+
   return { valid: errors.length === 0, errors };
 }
 
 // ── Preview (compute diff) ──
+
+export interface ViewModificationDiff {
+  targetObject: string;
+  viewKey: string;
+  modifications: Array<{
+    type: "reorderColumns" | "addFilters" | "addSection" | "addAction" | "pageSize";
+    details: Record<string, unknown>;
+  }>;
+  before: Record<string, unknown> | null;
+}
 
 export interface DiffPreview {
   plan: ExtensionPlan;
@@ -104,6 +212,7 @@ export interface DiffPreview {
     slot: string | null;
   }>;
   affectedViews: string[];
+  viewModifications: ViewModificationDiff[];
   riskLevel: string;
 }
 
@@ -131,10 +240,44 @@ export async function previewExtension(workspaceId: string, plan: ExtensionPlan)
     }
   }
 
+  // Compute view modification diffs
+  const viewModifications: ViewModificationDiff[] = [];
+  for (const vm of plan.viewModifications ?? []) {
+    const view = await getView(workspaceId, vm.targetObject, vm.viewKey);
+    const before = view ? JSON.parse(JSON.stringify(view.config)) as Record<string, unknown> : null;
+
+    const modifications: ViewModificationDiff["modifications"] = [];
+    if (vm.modifications.reorderColumns) {
+      modifications.push({ type: "reorderColumns", details: { columns: vm.modifications.reorderColumns } });
+    }
+    if (vm.modifications.addFilters) {
+      modifications.push({ type: "addFilters", details: { filters: vm.modifications.addFilters } });
+    }
+    if (vm.modifications.addSection) {
+      modifications.push({ type: "addSection", details: { section: vm.modifications.addSection } });
+    }
+    if (vm.modifications.addAction) {
+      modifications.push({ type: "addAction", details: { action: vm.modifications.addAction } });
+    }
+    if (vm.modifications.pageSize !== undefined) {
+      modifications.push({ type: "pageSize", details: { pageSize: vm.modifications.pageSize } });
+    }
+
+    viewModifications.push({
+      targetObject: vm.targetObject,
+      viewKey: vm.viewKey,
+      modifications,
+      before,
+    });
+
+    affectedViews.push(vm.viewKey);
+  }
+
   return {
     plan,
     addedFields,
     affectedViews: [...new Set(affectedViews)],
+    viewModifications,
     riskLevel: plan.riskLevel,
   };
 }
@@ -229,6 +372,73 @@ export async function applyExtension(workspaceId: string, plan: ExtensionPlan, c
     }
   }
 
+  // Apply view modifications
+  // Use a cache so multiple modifications to the same view are merged correctly
+  const viewConfigCache = new Map<string, { id: string; config: Record<string, unknown> }>();
+
+  for (const vm of plan.viewModifications ?? []) {
+    const cacheKey = `${vm.targetObject}:${vm.viewKey}`;
+    let viewEntry = viewConfigCache.get(cacheKey);
+
+    if (!viewEntry) {
+      const view = await getView(workspaceId, vm.targetObject, vm.viewKey);
+      if (!view) continue;
+      viewEntry = {
+        id: view.id,
+        config: JSON.parse(JSON.stringify(view.config)) as Record<string, unknown>,
+      };
+      viewConfigCache.set(cacheKey, viewEntry);
+    }
+
+    const config = viewEntry.config;
+    const mods = vm.modifications;
+
+    if (mods.reorderColumns) {
+      const currentColumns = (config.columns as Array<{ field: string; label?: string }>) ?? [];
+      const colMap = new Map(currentColumns.map(c => [c.field, c]));
+      config.columns = mods.reorderColumns
+        .map(field => colMap.get(field))
+        .filter((c): c is { field: string; label?: string } => c !== undefined);
+    }
+
+    if (mods.addFilters) {
+      if (!config.filters) config.filters = [];
+      (config.filters as unknown[]).push(...mods.addFilters);
+    }
+
+    if (mods.addSection) {
+      if (!config.sections) config.sections = [];
+      const sections = config.sections as Array<{ title: string; fields: Array<{ field: string; required?: boolean }> }>;
+      if (mods.addSection.afterSection) {
+        const idx = sections.findIndex(s => s.title === mods.addSection!.afterSection);
+        if (idx >= 0) {
+          sections.splice(idx + 1, 0, mods.addSection);
+        } else {
+          sections.push(mods.addSection);
+        }
+      } else {
+        sections.push(mods.addSection);
+      }
+    }
+
+    if (mods.addAction) {
+      if (!config.actions) config.actions = [];
+      (config.actions as string[]).push(mods.addAction);
+    }
+
+    if (mods.pageSize !== undefined) {
+      config.pageSize = mods.pageSize;
+    }
+  }
+
+  // Write all modified views as part of the same atomic batch
+  for (const viewEntry of viewConfigCache.values()) {
+    writes.push({
+      sql: `UPDATE ${TABLES.viewDefinitions} SET config_json = ? WHERE id = ? AND workspace_id = ?`,
+      args: [JSON.stringify(viewEntry.config), viewEntry.id, workspaceId],
+    });
+  }
+
   // Update extension current version
   writes.push({
     sql: `UPDATE ${TABLES.extensionDefinitions} SET current_version = ?, updated_at = ? WHERE id = ? AND workspace_id = ?`,
@@ -277,8 +487,8 @@ export async function rollbackExtension(workspaceId: string, extensionId: string
   const currentVersion = extDef.current_version;
   if (currentVersion === 0) throw new Error("No versions to rollback");
 
-  const currentVer = await queryOne<{ manifest_json: string }>(
-    `SELECT ev.manifest_json FROM ${TABLES.extensionVersions} ev
+  const currentVer = await queryOne<{ manifest_json: string; diff_json: string | null }>(
+    `SELECT ev.manifest_json, ev.diff_json FROM ${TABLES.extensionVersions} ev
      JOIN ${TABLES.extensionDefinitions} ed ON ed.id = ev.extension_id
      WHERE ev.extension_id = ? AND ev.version = ? AND ed.workspace_id = ?`,
     [extensionId, currentVersion, workspaceId]
@@ -286,6 +496,7 @@ export async function rollbackExtension(workspaceId: string, extensionId: string
   if (!currentVer) throw new Error("Current version not found");
 
   const plan = JSON.parse(currentVer.manifest_json) as ExtensionPlan;
+  const diff = currentVer.diff_json ? JSON.parse(currentVer.diff_json) as DiffPreview : null;
 
   const writes: Array<{ sql: string; args?: unknown[] }> = [];
 
@@ -329,6 +540,70 @@ export async function rollbackExtension(workspaceId: string, extensionId: string
     writes.push({
       sql: `DELETE FROM ${TABLES.extensionFieldValues} WHERE workspace_id = ? AND object_key = ? AND field_key = ?`,
       args: [workspaceId, cf.targetObject, cf.fieldKey],
+    });
+  }
+
+  // Reverse view modifications
+  // Use a cache so multiple modifications to the same view are merged correctly
+  const rollbackViewCache = new Map<string, { id: string; config: Record<string, unknown> }>();
+
+  for (const vm of plan.viewModifications ?? []) {
+    const cacheKey = `${vm.targetObject}:${vm.viewKey}`;
+    let viewEntry = rollbackViewCache.get(cacheKey);
+
+    if (!viewEntry) {
+      const view = await getView(workspaceId, vm.targetObject, vm.viewKey);
+      if (!view) continue;
+      viewEntry = {
+        id: view.id,
+        config: JSON.parse(JSON.stringify(view.config)) as Record<string, unknown>,
+      };
+      rollbackViewCache.set(cacheKey, viewEntry);
+    }
+
+    const config = viewEntry.config;
+    const mods = vm.modifications;
+
+    // Find the before config from the diff for restoring original values
+    const vmDiff = diff?.viewModifications?.find(v => v.targetObject === vm.targetObject && v.viewKey === vm.viewKey);
+    const before = vmDiff?.before;
+
+    if (mods.reorderColumns && before) {
+      // Restore original column order
+      config.columns = before.columns ?? config.columns;
+    }
+
+    if (mods.addFilters) {
+      // Remove filters that were added (match by field + operator)
+      const filters = (config.filters as Array<{ field: string; operator: string; value: unknown }>) ?? [];
+      config.filters = filters.filter(f =>
+        !mods.addFilters!.some(af => af.field === f.field && af.operator === f.operator)
+      );
+    }
+
+    if (mods.addSection) {
+      // Remove the section that was added (match by title)
+      const sections = (config.sections as Array<{ title: string }>) ?? [];
+      config.sections = sections.filter(s => s.title !== mods.addSection!.title);
+    }
+
+    if (mods.addAction) {
+      // Remove the action that was added
+      const actions = (config.actions as string[]) ?? [];
+      config.actions = actions.filter(a => a !== mods.addAction);
+    }
+
+    if (mods.pageSize !== undefined && before) {
+      // Restore original page size
+      config.pageSize = before.pageSize ?? config.pageSize;
+    }
+  }
+
+  // Write all restored views as part of the same atomic batch
+  for (const viewEntry of rollbackViewCache.values()) {
+    writes.push({
+      sql: `UPDATE ${TABLES.viewDefinitions} SET config_json = ? WHERE id = ? AND workspace_id = ?`,
+      args: [JSON.stringify(viewEntry.config), viewEntry.id, workspaceId],
     });
   }
 

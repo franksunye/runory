@@ -22,3 +22,4 @@ export * from "./catalog-validation";
 export * from "./catalog-release";
 export * from "./catalog-compatibility";
 export * from "./catalog-rollout";
+export * from "./workflow";

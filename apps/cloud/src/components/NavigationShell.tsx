@@ -3,8 +3,9 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  Building2, ChevronDown, ContactRound, FileText, LayoutDashboard,
-  LayoutGrid, Menu, ScrollText, Settings, UsersRound, X,
+  Building2, ChevronDown, ContactRound, CreditCard, FileText, GitBranch,
+  LayoutDashboard, LayoutGrid, Menu, ScrollText, Settings, UsersRound, X,
+  CheckSquare,
 } from "lucide-react";
 import { useState } from "react";
 import type { NavigationItem } from "@runory/platform-core";
@@ -17,7 +18,7 @@ interface NavigationShellProps {
   children: React.ReactNode;
 }
 
-const iconMap = { users: UsersRound, contact: ContactRound, file: FileText };
+const iconMap = { users: UsersRound, contact: ContactRound, file: FileText, "check-square": CheckSquare };
 
 const ROLE_LABELS: Record<string, { label: string; sub: string; initial: string }> = {
   owner: { label: "所有者", sub: "Owner", initial: "所" },
@@ -29,10 +30,13 @@ const ROLE_LABELS: Record<string, { label: string; sub: string; initial: string 
 export default function NavigationShell({ navigation, workspaceId, workspaceName, role = "member", children }: NavigationShellProps) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const canManageBilling = role === "owner" || role === "admin";
   const items = [
     { id: "dashboard", label: "仪表盘", route: "/dashboard", icon: LayoutDashboard, sortOrder: 10 },
     { id: "modules", label: "模块中心", route: "/modules", icon: LayoutGrid, sortOrder: 20 },
     ...navigation.map((item) => ({ ...item, icon: iconMap[item.icon as keyof typeof iconMap] ?? FileText })),
+    { id: "workflows", label: "工作流", route: "/workflows", icon: GitBranch, sortOrder: 40 },
+    ...(canManageBilling ? [{ id: "billing", label: "账单", route: "/billing", icon: CreditCard, sortOrder: 60 }] : []),
     { id: "audit", label: "审计日志", route: "/audit", icon: ScrollText, sortOrder: 90 },
     { id: "settings", label: "设置", route: "/settings", icon: Settings, sortOrder: 100 },
   ].sort((a, b) => a.sortOrder - b.sortOrder);

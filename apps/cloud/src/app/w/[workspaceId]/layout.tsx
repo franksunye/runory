@@ -17,6 +17,7 @@ export default function WorkspaceLayout({
   const router = useRouter();
   const [navigation, setNavigation] = useState<NavigationItem[]>([]);
   const [workspaceName, setWorkspaceName] = useState("");
+  const [organizationRole, setOrganizationRole] = useState<string | undefined>(undefined);
   const [loading, setLoading] = useState(true);
 
   const loadWorkspaceShell = useCallback(async () => {
@@ -29,6 +30,7 @@ export default function WorkspaceLayout({
       const navJson = await navRes.json();
       if (wsJson.success) {
         setWorkspaceName(wsJson.data.name);
+        setOrganizationRole(wsJson.data.organizationRole ?? undefined);
         if (workspaceRef !== wsJson.data.slug) {
           const prefix = `/w/${workspaceRef}`;
           router.replace(`/w/${wsJson.data.slug}${pathname.slice(prefix.length)}`);
@@ -62,6 +64,7 @@ export default function WorkspaceLayout({
       navigation={navigation}
       workspaceId={workspaceRef}
       workspaceName={workspaceName}
+      role={organizationRole}
     >
       {children}
     </NavigationShell>
