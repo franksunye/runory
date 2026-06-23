@@ -7,6 +7,7 @@ Change: Cloud-first pivot — see [../04-architecture-pivot-cloud-first.md](../0
 This document is the current architecture entry point. It defines system boundaries that should stay consistent across Cloud implementation, modules, extensions, and POC work.
 
 Product definition: [../product/product-definition.md](../product/product-definition.md)  
+0.1 key experience scenarios: [../product/v0.1-key-experience-scenarios.md](../product/v0.1-key-experience-scenarios.md)  
 Architecture decisions: [architecture-decision-record.md](architecture-decision-record.md)  
 Repository structure: [repository-structure.md](repository-structure.md)
 Cloud to Local deployment: [cloud-to-local-workspace.md](cloud-to-local-workspace.md)  
