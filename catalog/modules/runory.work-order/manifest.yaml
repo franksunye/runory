@@ -1,0 +1,302 @@
+id: runory.work-order
+name: Work Order Management
+version: 1.0.0
+coreCompatibility: ">=0.1.0"
+
+dependencies:
+  - runory.company
+  - runory.contact
+  - runory.service-site
+  - runory.asset
+  - runory.technician
+
+objects:
+  - key: work_order
+    label: Work Order
+    fields:
+      - key: title
+        label: 工单标题
+        type: text
+        ownership: module_owned
+        required: true
+      - key: description
+        label: 描述
+        type: text
+        ownership: module_owned
+      - key: status
+        label: 状态
+        type: select
+        ownership: module_owned
+        required: true
+        default_value: "new"
+        validation:
+          options: ["new", "triaged", "scheduled", "in_progress", "blocked", "completed", "cancelled"]
+      - key: priority
+        label: 优先级
+        type: select
+        ownership: module_owned
+        default_value: "medium"
+        validation:
+          options: ["low", "medium", "high", "urgent"]
+      - key: company_id
+        label: 关联公司
+        type: text
+        ownership: module_owned
+      - key: contact_id
+        label: 关联联系人
+        type: text
+        ownership: module_owned
+      - key: service_site_id
+        label: 服务地点
+        type: text
+        ownership: module_owned
+      - key: asset_id
+        label: 关联资产
+        type: text
+        ownership: module_owned
+      - key: assigned_to
+        label: 分配技师
+        type: text
+        ownership: module_owned
+      - key: requested_at
+        label: 申请时间
+        type: date
+        ownership: module_owned
+      - key: scheduled_start
+        label: 计划开始
+        type: date
+        ownership: module_owned
+      - key: scheduled_end
+        label: 计划结束
+        type: date
+        ownership: module_owned
+      - key: completed_at
+        label: 完成时间
+        type: date
+        ownership: module_owned
+      - key: sla_due_at
+        label: SLA 截止
+        type: date
+        ownership: module_owned
+      - key: source
+        label: 来源
+        type: text
+        ownership: module_owned
+      - key: notes
+        label: 备注
+        type: text
+        ownership: module_owned
+
+views:
+  - object: work_order
+    key: work_order_list
+    type: list
+    label: 工单列表
+    config:
+      columns:
+        - field: title
+          label: 工单标题
+        - field: status
+          label: 状态
+        - field: priority
+          label: 优先级
+        - field: assigned_to
+          label: 分配技师
+        - field: scheduled_start
+          label: 计划开始
+      actions:
+        - create
+        - view
+      pageSize: 20
+
+  - object: work_order
+    key: work_order_form
+    type: form
+    label: 工单表单
+    config:
+      sections:
+        - title: 基本信息
+          fields:
+            - field: title
+              required: true
+            - field: description
+            - field: status
+              required: true
+            - field: priority
+        - title: 关联信息
+          fields:
+            - field: company_id
+            - field: contact_id
+            - field: service_site_id
+            - field: asset_id
+        - title: 分配与排程
+          fields:
+            - field: assigned_to
+            - field: requested_at
+            - field: scheduled_start
+            - field: scheduled_end
+            - field: sla_due_at
+        - title: 其他
+          fields:
+            - field: completed_at
+            - field: source
+            - field: notes
+
+permissions:
+  - work_order.read
+  - work_order.create
+  - work_order.update
+  - work_order.delete
+
+# ── Cross-Pack Relations (v0.2.4) ──
+# work_order references objects owned by shared modules (company, contact)
+# and FSM-owned modules (service_site, asset, technician).
+relations:
+  - object: work_order
+    targetObject: company
+    targetModule: runory.company
+    type: many_to_one
+    foreignKey: company_id
+    label: 关联公司
+  - object: work_order
+    targetObject: contact
+    targetModule: runory.contact
+    type: many_to_one
+    foreignKey: contact_id
+    label: 关联联系人
+  - object: work_order
+    targetObject: service_site
+    targetModule: runory.service-site
+    type: many_to_one
+    foreignKey: service_site_id
+    label: 服务地点
+  - object: work_order
+    targetObject: asset
+    targetModule: runory.asset
+    type: many_to_one
+    foreignKey: asset_id
+    label: 关联资产
+  - object: work_order
+    targetObject: technician
+    targetModule: runory.technician
+    type: many_to_one
+    foreignKey: assigned_to
+    label: 分配技师
+
+migrations:
+  install: migrations/install.sql
+  uninstallPolicy: retain_data
+
+ui:
+  navigation:
+    - label: 工单
+      route: /work-orders
+      icon: clipboard-list
+      sortOrder: 35
+
+extensionPoints:
+  entities:
+    - entity: work_order
+      customFields:
+        enabled: true
+        allowedTypes: [text, number, date, select, boolean]
+        maxFields: 40
+        reservedKeys: [id, title, description, status, priority, company_id, contact_id, service_site_id, asset_id, assigned_to, requested_at, scheduled_start, scheduled_end, completed_at, sla_due_at, source, notes, created_at, updated_at]
+      customRelations:
+        enabled: false
+  views:
+    - view: work_order_list
+      slots:
+        - id: work_order.list.columns
+          type: column_group
+          allowedExtensions: [customField]
+          risk: low
+      allowReorder: true
+      allowFilters: true
+      allowPageSizeChange: true
+    - view: work_order_form
+      slots:
+        - id: work_order.form.basic_fields.after
+          type: field_group
+          allowedExtensions: [customField]
+          risk: low
+      allowAddSection: true
+      allowAddAction: true
+
+dashboard:
+  widgets:
+    - key: open_work_orders_metric
+      type: metric_card
+      label: 待处理工单
+      icon: clipboard-list
+      tone: red
+      data:
+        kind: count
+        object: work_order
+        where: "status not in ('completed', 'cancelled')"
+      sub:
+        kind: count
+        object: work_order
+        where: "status = 'blocked'"
+        template: "{count} 个阻塞中"
+      link: /work-orders
+
+    - key: overdue_work_orders_metric
+      type: metric_card
+      label: 逾期工单
+      icon: alert-circle
+      tone: red
+      data:
+        kind: count
+        object: work_order
+        where: "status not in ('completed', 'cancelled') and sla_due_at < today"
+      link: /work-orders
+
+    - key: work_order_status_breakdown
+      type: breakdown
+      label: 工单状态分布
+      icon: pie-chart
+      tone: red
+      data:
+        kind: group_count
+        object: work_order
+        groupBy: status
+
+    - key: work_orders_needing_dispatch_list
+      type: list
+      label: 待分配工单
+      icon: clipboard-list
+      tone: red
+      data:
+        kind: recent
+        object: work_order
+        where: "status in ('new', 'triaged')"
+        orderBy: "priority desc, requested_at asc"
+        limit: 8
+        columns: [title, status, priority, company_id, requested_at]
+      link: /work-orders
+      configurable:
+        - path: data.limit
+          label: 显示条数
+          type: number
+          min: 1
+          max: 20
+
+    - key: new_work_orders_trend
+      type: trend_chart
+      label: 工单新增趋势
+      icon: trending-up
+      tone: red
+      data:
+        kind: timeseries
+        object: work_order
+        range: 14d
+      configurable:
+        - path: data.range
+          label: 时间范围
+          type: select
+          options: ["7d", "14d", "30d"]
+
+upgradePolicy:
+  supportsWorkspaceExtensions: true
+  breakingChangePolicy: manual_review

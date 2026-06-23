@@ -1,0 +1,382 @@
+{
+  "records": [
+    {
+      "object": "technician",
+      "alias": "tech-david",
+      "match": { "field": "email", "value": "david@runory.fsm" },
+      "data": {
+        "name": "David Park",
+        "email": "david@runory.fsm",
+        "phone": "+1 415 555 0201",
+        "skills": "HVAC, Electrical, Plumbing",
+        "region": "San Francisco Bay Area",
+        "availability_status": "available"
+      }
+    },
+    {
+      "object": "technician",
+      "alias": "tech-maria",
+      "match": { "field": "email", "value": "maria@runory.fsm" },
+      "data": {
+        "name": "Maria Garcia",
+        "email": "maria@runory.fsm",
+        "phone": "+1 415 555 0202",
+        "skills": "Network, Server Hardware, Cabling",
+        "region": "San Francisco Bay Area",
+        "availability_status": "busy"
+      }
+    },
+    {
+      "object": "technician",
+      "alias": "tech-james",
+      "match": { "field": "email", "value": "james@runory.fsm" },
+      "data": {
+        "name": "James Wilson",
+        "email": "james@runory.fsm",
+        "phone": "+1 415 555 0203",
+        "skills": "Refrigeration, Kitchen Equipment",
+        "region": "New York Metro",
+        "availability_status": "available"
+      }
+    },
+    {
+      "object": "service_site",
+      "alias": "site-acme-hq",
+      "match": { "field": "name", "value": "Acme HQ - San Francisco" },
+      "data": {
+        "name": "Acme HQ - San Francisco",
+        "company_id": { "$lookup": { "object": "company", "field": "domain", "value": "acme.example" } },
+        "primary_contact_id": { "$lookup": { "object": "contact", "field": "email", "value": "maya@acme.example" } },
+        "address": "500 Market Street, Suite 200",
+        "city": "San Francisco",
+        "region": "CA",
+        "postal_code": "94105",
+        "access_notes": "Building lobby, check in with security. Parking validation available.",
+        "service_notes": "Server room on 3rd floor. HVAC unit services the entire floor.",
+        "status": "active"
+      }
+    },
+    {
+      "object": "service_site",
+      "alias": "site-acme-warehouse",
+      "match": { "field": "name", "value": "Acme Warehouse - Oakland" },
+      "data": {
+        "name": "Acme Warehouse - Oakland",
+        "company_id": { "$lookup": { "object": "company", "field": "domain", "value": "acme.example" } },
+        "primary_contact_id": { "$lookup": { "object": "contact", "field": "email", "value": "maya@acme.example" } },
+        "address": "1100 Industrial Parkway",
+        "city": "Oakland",
+        "region": "CA",
+        "postal_code": "94621",
+        "access_notes": "Loading dock entrance on Industrial Parkway. Ring bell for access.",
+        "service_notes": "Multiple HVAC units. Main unit is rooftop, requires ladder access.",
+        "status": "active"
+      }
+    },
+    {
+      "object": "service_site",
+      "alias": "site-nova-store",
+      "match": { "field": "name", "value": "Nova Retail - Manhattan Flagship" },
+      "data": {
+        "name": "Nova Retail - Manhattan Flagship",
+        "company_id": { "$lookup": { "object": "company", "field": "domain", "value": "novaretail.example" } },
+        "primary_contact_id": { "$lookup": { "object": "contact", "field": "email", "value": "jon@novaretail.example" } },
+        "address": "350 Fifth Avenue",
+        "city": "New York",
+        "region": "NY",
+        "postal_code": "10118",
+        "access_notes": "Store entrance on Fifth Avenue. Service entrance on 34th Street.",
+        "service_notes": "Refrigeration units in back of house. Point-of-sale systems throughout.",
+        "status": "active"
+      }
+    },
+    {
+      "object": "service_site",
+      "alias": "site-vertex-plant",
+      "match": { "field": "name", "value": "Vertex Manufacturing Plant" },
+      "data": {
+        "name": "Vertex Manufacturing Plant",
+        "company_id": { "$lookup": { "object": "company", "field": "domain", "value": "vertexmfg.example" } },
+        "primary_contact_id": { "$lookup": { "object": "contact", "field": "email", "value": "sara@vertexmfg.example" } },
+        "address": "2000 Industrial Boulevard",
+        "city": "Chicago",
+        "region": "IL",
+        "postal_code": "60601",
+        "access_notes": "Main gate entrance. Safety gear required beyond reception.",
+        "service_notes": "Production line machinery. CNC machines and robotic assembly units.",
+        "status": "active"
+      }
+    },
+    {
+      "object": "asset",
+      "alias": "asset-acme-hvac",
+      "match": { "field": "serial_number", "value": "HVAC-ACME-001" },
+      "data": {
+        "name": "Rooftop HVAC Unit",
+        "serial_number": "HVAC-ACME-001",
+        "asset_type": "HVAC",
+        "company_id": { "$lookup": { "object": "company", "field": "domain", "value": "acme.example" } },
+        "service_site_id": "$site-acme-hq.id",
+        "installed_at": "2023-03-15",
+        "warranty_until": "2026-09-15",
+        "status": "active",
+        "notes": "Main HVAC unit for 3rd floor server room. Annual maintenance due."
+      }
+    },
+    {
+      "object": "asset",
+      "alias": "asset-acme-warehouse-hvac",
+      "match": { "field": "serial_number", "value": "HVAC-ACME-002" },
+      "data": {
+        "name": "Warehouse HVAC Unit",
+        "serial_number": "HVAC-ACME-002",
+        "asset_type": "HVAC",
+        "company_id": { "$lookup": { "object": "company", "field": "domain", "value": "acme.example" } },
+        "service_site_id": "$site-acme-warehouse.id",
+        "installed_at": "2022-11-20",
+        "warranty_until": "2025-11-20",
+        "status": "maintenance",
+        "notes": "Rooftop unit. Currently under maintenance due to refrigerant leak."
+      }
+    },
+    {
+      "object": "asset",
+      "alias": "asset-nova-fridge",
+      "match": { "field": "serial_number", "value": "FRIDGE-NOVA-001" },
+      "data": {
+        "name": "Walk-in Refrigeration Unit",
+        "serial_number": "FRIDGE-NOVA-001",
+        "asset_type": "Refrigeration",
+        "company_id": { "$lookup": { "object": "company", "field": "domain", "value": "novaretail.example" } },
+        "service_site_id": "$site-nova-store.id",
+        "installed_at": "2023-06-10",
+        "warranty_until": "2026-06-10",
+        "status": "active",
+        "notes": "Main refrigeration for perishable goods. Temperature logs required."
+      }
+    },
+    {
+      "object": "asset",
+      "alias": "asset-vertex-cnc",
+      "match": { "field": "serial_number", "value": "CNC-VTX-001" },
+      "data": {
+        "name": "CNC Machining Center",
+        "serial_number": "CNC-VTX-001",
+        "asset_type": "Manufacturing Equipment",
+        "company_id": { "$lookup": { "object": "company", "field": "domain", "value": "vertexmfg.example" } },
+        "service_site_id": "$site-vertex-plant.id",
+        "installed_at": "2023-01-05",
+        "warranty_until": "2026-01-05",
+        "status": "active",
+        "notes": "Primary CNC machine for precision parts. Calibration check recommended."
+      }
+    },
+    {
+      "object": "work_order",
+      "alias": "wo-acme-hvac-urgent",
+      "match": { "field": "title", "value": "Acme HVAC emergency repair" },
+      "data": {
+        "title": "Acme HVAC emergency repair",
+        "description": "Server room temperature rising. HVAC unit not cooling effectively. Urgent — risk of server overheating.",
+        "status": "scheduled",
+        "priority": "urgent",
+        "company_id": { "$lookup": { "object": "company", "field": "domain", "value": "acme.example" } },
+        "contact_id": { "$lookup": { "object": "contact", "field": "email", "value": "maya@acme.example" } },
+        "service_site_id": "$site-acme-hq.id",
+        "asset_id": "$asset-acme-hvac.id",
+        "assigned_to": "$tech-david.id",
+        "requested_at": "2026-06-20",
+        "scheduled_start": "2026-06-23",
+        "scheduled_end": "2026-06-23",
+        "sla_due_at": "2026-06-24",
+        "source": "customer_call",
+        "notes": "Customer reports temperature alarm triggered twice in last 24 hours."
+      }
+    },
+    {
+      "object": "work_order",
+      "alias": "wo-acme-warehouse-overdue",
+      "match": { "field": "title", "value": "Acme warehouse HVAC refrigerant recharge" },
+      "data": {
+        "title": "Acme warehouse HVAC refrigerant recharge",
+        "description": "Warehouse HVAC unit requires refrigerant recharge. Currently under maintenance.",
+        "status": "in_progress",
+        "priority": "high",
+        "company_id": { "$lookup": { "object": "company", "field": "domain", "value": "acme.example" } },
+        "contact_id": { "$lookup": { "object": "contact", "field": "email", "value": "maya@acme.example" } },
+        "service_site_id": "$site-acme-warehouse.id",
+        "asset_id": "$asset-acme-warehouse-hvac.id",
+        "assigned_to": "$tech-david.id",
+        "requested_at": "2026-06-10",
+        "scheduled_start": "2026-06-15",
+        "scheduled_end": "2026-06-18",
+        "sla_due_at": "2026-06-20",
+        "source": "preventive_maintenance",
+        "notes": "SLA breached. Customer has been notified of delay."
+      }
+    },
+    {
+      "object": "work_order",
+      "alias": "wo-nova-fridge-check",
+      "match": { "field": "title", "value": "Nova Retail refrigeration inspection" },
+      "data": {
+        "title": "Nova Retail refrigeration inspection",
+        "description": "Quarterly inspection of walk-in refrigeration unit. Temperature log review.",
+        "status": "scheduled",
+        "priority": "medium",
+        "company_id": { "$lookup": { "object": "company", "field": "domain", "value": "novaretail.example" } },
+        "contact_id": { "$lookup": { "object": "contact", "field": "email", "value": "jon@novaretail.example" } },
+        "service_site_id": "$site-nova-store.id",
+        "asset_id": "$asset-nova-fridge.id",
+        "assigned_to": "$tech-james.id",
+        "requested_at": "2026-06-18",
+        "scheduled_start": "2026-06-25",
+        "scheduled_end": "2026-06-25",
+        "sla_due_at": "2026-06-30",
+        "source": "preventive_maintenance"
+      }
+    },
+    {
+      "object": "work_order",
+      "alias": "wo-vertex-cnc-calibration",
+      "match": { "field": "title", "value": "Vertex CNC calibration and service" },
+      "data": {
+        "title": "Vertex CNC calibration and service",
+        "description": "Annual calibration and preventive maintenance for CNC machining center.",
+        "status": "new",
+        "priority": "medium",
+        "company_id": { "$lookup": { "object": "company", "field": "domain", "value": "vertexmfg.example" } },
+        "contact_id": { "$lookup": { "object": "contact", "field": "email", "value": "sara@vertexmfg.example" } },
+        "service_site_id": "$site-vertex-plant.id",
+        "asset_id": "$asset-vertex-cnc.id",
+        "requested_at": "2026-06-22",
+        "sla_due_at": "2026-07-10",
+        "source": "preventive_maintenance"
+      }
+    },
+    {
+      "object": "work_order",
+      "alias": "wo-acme-completed",
+      "match": { "field": "title", "value": "Acme server room HVAC filter replacement" },
+      "data": {
+        "title": "Acme server room HVAC filter replacement",
+        "description": "Scheduled filter replacement for server room HVAC unit. Completed successfully.",
+        "status": "completed",
+        "priority": "low",
+        "company_id": { "$lookup": { "object": "company", "field": "domain", "value": "acme.example" } },
+        "contact_id": { "$lookup": { "object": "contact", "field": "email", "value": "maya@acme.example" } },
+        "service_site_id": "$site-acme-hq.id",
+        "asset_id": "$asset-acme-hvac.id",
+        "assigned_to": "$tech-david.id",
+        "requested_at": "2026-06-01",
+        "scheduled_start": "2026-06-05",
+        "scheduled_end": "2026-06-05",
+        "completed_at": "2026-06-05",
+        "sla_due_at": "2026-06-10",
+        "source": "preventive_maintenance"
+      }
+    },
+    {
+      "object": "work_order",
+      "alias": "wo-nova-blocked",
+      "match": { "field": "title", "value": "Nova Retail POS system diagnostic" },
+      "data": {
+        "title": "Nova Retail POS system diagnostic",
+        "description": "POS system intermittent failures. Requires diagnostic visit. Blocked pending parts.",
+        "status": "blocked",
+        "priority": "high",
+        "company_id": { "$lookup": { "object": "company", "field": "domain", "value": "novaretail.example" } },
+        "contact_id": { "$lookup": { "object": "contact", "field": "email", "value": "jon@novaretail.example" } },
+        "service_site_id": "$site-nova-store.id",
+        "assigned_to": "$tech-james.id",
+        "requested_at": "2026-06-15",
+        "scheduled_start": "2026-06-22",
+        "sla_due_at": "2026-06-28",
+        "source": "customer_call",
+        "notes": "Waiting for replacement power supply unit. ETA 2 days."
+      }
+    },
+    {
+      "object": "service_visit",
+      "alias": "visit-acme-urgent",
+      "match": { "field": "notes", "value": "Scheduled visit for urgent HVAC repair" },
+      "data": {
+        "work_order_id": "$wo-acme-hvac-urgent.id",
+        "technician_id": "$tech-david.id",
+        "scheduled_start": "2026-06-23",
+        "scheduled_end": "2026-06-23",
+        "status": "scheduled",
+        "notes": "Scheduled visit for urgent HVAC repair"
+      }
+    },
+    {
+      "object": "service_visit",
+      "alias": "visit-acme-warehouse",
+      "match": { "field": "notes", "value": "Ongoing visit for warehouse HVAC recharge" },
+      "data": {
+        "work_order_id": "$wo-acme-warehouse-overdue.id",
+        "technician_id": "$tech-david.id",
+        "scheduled_start": "2026-06-15",
+        "scheduled_end": "2026-06-18",
+        "actual_start": "2026-06-15",
+        "status": "on_site",
+        "notes": "Ongoing visit for warehouse HVAC recharge"
+      }
+    },
+    {
+      "object": "service_visit",
+      "alias": "visit-nova-fridge",
+      "match": { "field": "notes", "value": "Scheduled quarterly inspection visit" },
+      "data": {
+        "work_order_id": "$wo-nova-fridge-check.id",
+        "technician_id": "$tech-james.id",
+        "scheduled_start": "2026-06-25",
+        "scheduled_end": "2026-06-25",
+        "status": "scheduled",
+        "notes": "Scheduled quarterly inspection visit"
+      }
+    },
+    {
+      "object": "service_visit",
+      "alias": "visit-acme-completed",
+      "match": { "field": "notes", "value": "Completed filter replacement visit" },
+      "data": {
+        "work_order_id": "$wo-acme-completed.id",
+        "technician_id": "$tech-david.id",
+        "scheduled_start": "2026-06-05",
+        "scheduled_end": "2026-06-05",
+        "actual_start": "2026-06-05",
+        "actual_end": "2026-06-05",
+        "status": "completed",
+        "notes": "Completed filter replacement visit"
+      }
+    },
+    {
+      "object": "service_report",
+      "alias": "report-acme-filter",
+      "match": { "field": "summary", "value": "HVAC filter replacement completed" },
+      "data": {
+        "work_order_id": "$wo-acme-completed.id",
+        "service_visit_id": "$visit-acme-completed.id",
+        "summary": "HVAC filter replacement completed",
+        "resolution": "Replaced primary and secondary filters. System tested and operating within normal parameters. Temperature stable at 68°F.",
+        "customer_signature": "Maya Chen",
+        "created_by": "David Park",
+        "completed_at": "2026-06-05"
+      }
+    },
+    {
+      "object": "service_report",
+      "alias": "report-acme-warehouse-progress",
+      "match": { "field": "summary", "value": "Warehouse HVAC refrigerant recharge in progress" },
+      "data": {
+        "work_order_id": "$wo-acme-warehouse-overdue.id",
+        "service_visit_id": "$visit-acme-warehouse.id",
+        "summary": "Warehouse HVAC refrigerant recharge in progress",
+        "resolution": "Identified refrigerant leak at condenser coil joint. Recharge in progress. Additional visit may be required for full repair.",
+        "created_by": "David Park",
+        "completed_at": "2026-06-18"
+      }
+    }
+  ]
+}

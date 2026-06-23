@@ -1,0 +1,50 @@
+id: small-business-field-service
+name: Small Business Field Service
+version: 1.0.0
+
+terminology:
+  customer: 客户
+  contact: 联系人
+  work_order: 工单
+  service_site: 服务地点
+  asset: 资产
+  technician: 技师
+  service_visit: 服务行程
+  service_report: 服务报告
+
+navigation:
+  - dashboard
+  - work-orders
+  - service-visits
+  - service-sites
+  - assets
+  - technicians
+  - companies
+  - contacts
+  - service-reports
+
+homepage:
+  layout: fsm_overview
+  widgets:
+    - open_work_orders
+    - today_schedule
+    - recent_activity
+
+roleEntry:
+  owner: /dashboard
+  dispatcher: /work-orders
+  technician: /service-visits
+
+compatiblePacks:
+  - "fsm-pack:^1.0.0"
+
+compatibleModules:
+  - "runory.company:^1.0.0"
+  - "runory.contact:^2.0.0"
+  - "runory.task:^2.0.0"
+  - "runory.service-site:^1.0.0"
+  - "runory.asset:^1.0.0"
+  - "runory.technician:^1.0.0"
+  - "runory.work-order:^1.0.0"
+  - "runory.service-visit:^1.0.0"
+  - "runory.service-report:^1.0.0"

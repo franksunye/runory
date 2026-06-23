@@ -1,0 +1,203 @@
+id: runory.service-visit
+name: Service Visit Management
+version: 1.0.0
+coreCompatibility: ">=0.1.0"
+
+dependencies:
+  - runory.work-order
+  - runory.technician
+
+objects:
+  - key: service_visit
+    label: Service Visit
+    fields:
+      - key: work_order_id
+        label: 关联工单
+        type: text
+        ownership: module_owned
+        required: true
+      - key: technician_id
+        label: 分配技师
+        type: text
+        ownership: module_owned
+      - key: scheduled_start
+        label: 计划开始
+        type: date
+        ownership: module_owned
+        required: true
+      - key: scheduled_end
+        label: 计划结束
+        type: date
+        ownership: module_owned
+      - key: actual_start
+        label: 实际开始
+        type: date
+        ownership: module_owned
+      - key: actual_end
+        label: 实际结束
+        type: date
+        ownership: module_owned
+      - key: status
+        label: 状态
+        type: select
+        ownership: module_owned
+        required: true
+        default_value: "scheduled"
+        validation:
+          options: ["scheduled", "en_route", "on_site", "completed", "cancelled"]
+      - key: notes
+        label: 备注
+        type: text
+        ownership: module_owned
+
+views:
+  - object: service_visit
+    key: service_visit_list
+    type: list
+    label: 服务行程列表
+    config:
+      columns:
+        - field: work_order_id
+          label: 关联工单
+        - field: technician_id
+          label: 分配技师
+        - field: scheduled_start
+          label: 计划开始
+        - field: status
+          label: 状态
+      actions:
+        - create
+        - view
+      pageSize: 20
+
+  - object: service_visit
+    key: service_visit_form
+    type: form
+    label: 服务行程表单
+    config:
+      sections:
+        - title: 基本信息
+          fields:
+            - field: work_order_id
+              required: true
+            - field: technician_id
+            - field: status
+              required: true
+        - title: 排程信息
+          fields:
+            - field: scheduled_start
+              required: true
+            - field: scheduled_end
+            - field: actual_start
+            - field: actual_end
+        - title: 其他
+          fields:
+            - field: notes
+
+permissions:
+  - service_visit.read
+  - service_visit.create
+  - service_visit.update
+  - service_visit.delete
+
+# ── Cross-Pack Relations (v0.2.4) ──
+relations:
+  - object: service_visit
+    targetObject: work_order
+    targetModule: runory.work-order
+    type: many_to_one
+    foreignKey: work_order_id
+    label: 关联工单
+  - object: service_visit
+    targetObject: technician
+    targetModule: runory.technician
+    type: many_to_one
+    foreignKey: technician_id
+    label: 分配技师
+
+migrations:
+  install: migrations/install.sql
+  uninstallPolicy: retain_data
+
+ui:
+  navigation:
+    - label: 服务行程
+      route: /service-visits
+      icon: calendar
+      sortOrder: 45
+
+extensionPoints:
+  entities:
+    - entity: service_visit
+      customFields:
+        enabled: true
+        allowedTypes: [text, number, date, select, boolean]
+        maxFields: 20
+        reservedKeys: [id, work_order_id, technician_id, scheduled_start, scheduled_end, actual_start, actual_end, status, notes, created_at, updated_at]
+      customRelations:
+        enabled: false
+  views:
+    - view: service_visit_list
+      slots:
+        - id: service_visit.list.columns
+          type: column_group
+          allowedExtensions: [customField]
+          risk: low
+      allowReorder: true
+      allowFilters: true
+      allowPageSizeChange: true
+    - view: service_visit_form
+      slots:
+        - id: service_visit.form.basic_fields.after
+          type: field_group
+          allowedExtensions: [customField]
+          risk: low
+      allowAddSection: true
+      allowAddAction: true
+
+dashboard:
+  widgets:
+    - key: scheduled_visits_today_metric
+      type: metric_card
+      label: 今日行程
+      icon: calendar
+      tone: blue
+      data:
+        kind: count
+        object: service_visit
+        where: "scheduled_start = today and status not in ('completed', 'cancelled')"
+      link: /service-visits
+
+    - key: service_visit_status_breakdown
+      type: breakdown
+      label: 行程状态分布
+      icon: pie-chart
+      tone: blue
+      data:
+        kind: group_count
+        object: service_visit
+        groupBy: status
+
+    - key: today_schedule_list
+      type: list
+      label: 今日行程
+      icon: calendar
+      tone: blue
+      data:
+        kind: recent
+        object: service_visit
+        where: "scheduled_start = today"
+        orderBy: "scheduled_start asc"
+        limit: 10
+        columns: [work_order_id, technician_id, scheduled_start, status]
+      link: /service-visits
+      configurable:
+        - path: data.limit
+          label: 显示条数
+          type: number
+          min: 1
+          max: 20
+
+upgradePolicy:
+  supportsWorkspaceExtensions: true
+  breakingChangePolicy: manual_review

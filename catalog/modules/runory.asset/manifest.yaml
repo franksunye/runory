@@ -1,0 +1,193 @@
+id: runory.asset
+name: Asset Management
+version: 1.0.0
+coreCompatibility: ">=0.1.0"
+
+dependencies:
+  - runory.company
+  - runory.service-site
+
+objects:
+  - key: asset
+    label: Asset
+    fields:
+      - key: name
+        label: 资产名称
+        type: text
+        ownership: module_owned
+        required: true
+      - key: serial_number
+        label: 序列号
+        type: text
+        ownership: module_owned
+      - key: asset_type
+        label: 资产类型
+        type: text
+        ownership: module_owned
+      - key: company_id
+        label: 关联公司
+        type: text
+        ownership: module_owned
+      - key: service_site_id
+        label: 所在服务地点
+        type: text
+        ownership: module_owned
+      - key: installed_at
+        label: 安装日期
+        type: date
+        ownership: module_owned
+      - key: warranty_until
+        label: 保修截止
+        type: date
+        ownership: module_owned
+      - key: status
+        label: 状态
+        type: select
+        ownership: module_owned
+        required: true
+        default_value: "active"
+        validation:
+          options: ["active", "maintenance", "retired"]
+      - key: notes
+        label: 备注
+        type: text
+        ownership: module_owned
+
+views:
+  - object: asset
+    key: asset_list
+    type: list
+    label: 资产列表
+    config:
+      columns:
+        - field: name
+          label: 资产名称
+        - field: serial_number
+          label: 序列号
+        - field: asset_type
+          label: 类型
+        - field: status
+          label: 状态
+        - field: service_site_id
+          label: 所在地点
+      actions:
+        - create
+        - view
+      pageSize: 20
+
+  - object: asset
+    key: asset_form
+    type: form
+    label: 资产表单
+    config:
+      sections:
+        - title: 基本信息
+          fields:
+            - field: name
+              required: true
+            - field: serial_number
+            - field: asset_type
+            - field: status
+              required: true
+        - title: 关联信息
+          fields:
+            - field: company_id
+            - field: service_site_id
+        - title: 维保信息
+          fields:
+            - field: installed_at
+            - field: warranty_until
+            - field: notes
+
+permissions:
+  - asset.read
+  - asset.create
+  - asset.update
+  - asset.delete
+
+# ── Cross-Pack Relations (v0.2.4) ──
+relations:
+  - object: asset
+    targetObject: company
+    targetModule: runory.company
+    type: many_to_one
+    foreignKey: company_id
+    label: 关联公司
+  - object: asset
+    targetObject: service_site
+    targetModule: runory.service-site
+    type: many_to_one
+    foreignKey: service_site_id
+    label: 所在服务地点
+
+migrations:
+  install: migrations/install.sql
+  uninstallPolicy: retain_data
+
+ui:
+  navigation:
+    - label: 资产
+      route: /assets
+      icon: package
+      sortOrder: 50
+
+extensionPoints:
+  entities:
+    - entity: asset
+      customFields:
+        enabled: true
+        allowedTypes: [text, number, date, select, boolean]
+        maxFields: 30
+        reservedKeys: [id, name, serial_number, asset_type, company_id, service_site_id, installed_at, warranty_until, status, notes, created_at, updated_at]
+      customRelations:
+        enabled: false
+  views:
+    - view: asset_list
+      slots:
+        - id: asset.list.columns
+          type: column_group
+          allowedExtensions: [customField]
+          risk: low
+      allowReorder: true
+      allowFilters: true
+      allowPageSizeChange: true
+    - view: asset_form
+      slots:
+        - id: asset.form.basic_fields.after
+          type: field_group
+          allowedExtensions: [customField]
+          risk: low
+      allowAddSection: true
+      allowAddAction: true
+
+dashboard:
+  widgets:
+    - key: active_assets_metric
+      type: metric_card
+      label: 活跃资产
+      icon: package
+      tone: violet
+      data:
+        kind: count
+        object: asset
+        where: "status = 'active'"
+      sub:
+        kind: count
+        object: asset
+        where: "status = 'maintenance'"
+        template: "{count} 个维护中"
+      link: /assets
+
+    - key: asset_status_breakdown
+      type: breakdown
+      label: 资产状态分布
+      icon: pie-chart
+      tone: violet
+      data:
+        kind: group_count
+        object: asset
+        groupBy: status
+
+upgradePolicy:
+  supportsWorkspaceExtensions: true
+  breakingChangePolicy: manual_review

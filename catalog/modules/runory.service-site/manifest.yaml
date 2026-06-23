@@ -1,0 +1,212 @@
+id: runory.service-site
+name: Service Site Management
+version: 1.0.0
+coreCompatibility: ">=0.1.0"
+
+dependencies:
+  - runory.company
+
+objects:
+  - key: service_site
+    label: Service Site
+    fields:
+      - key: name
+        label: 地点名称
+        type: text
+        ownership: module_owned
+        required: true
+      - key: company_id
+        label: 关联公司
+        type: text
+        ownership: module_owned
+      - key: primary_contact_id
+        label: 主要联系人
+        type: text
+        ownership: module_owned
+      - key: address
+        label: 地址
+        type: text
+        ownership: module_owned
+        required: true
+      - key: city
+        label: 城市
+        type: text
+        ownership: module_owned
+      - key: region
+        label: 区域
+        type: text
+        ownership: module_owned
+      - key: postal_code
+        label: 邮编
+        type: text
+        ownership: module_owned
+      - key: access_notes
+        label: 进入说明
+        type: text
+        ownership: module_owned
+      - key: service_notes
+        label: 服务备注
+        type: text
+        ownership: module_owned
+      - key: status
+        label: 状态
+        type: select
+        ownership: module_owned
+        required: true
+        default_value: "active"
+        validation:
+          options: ["active", "inactive"]
+
+views:
+  - object: service_site
+    key: service_site_list
+    type: list
+    label: 服务地点列表
+    config:
+      columns:
+        - field: name
+          label: 地点名称
+        - field: address
+          label: 地址
+        - field: city
+          label: 城市
+        - field: status
+          label: 状态
+      actions:
+        - create
+        - view
+      pageSize: 20
+
+  - object: service_site
+    key: service_site_form
+    type: form
+    label: 服务地点表单
+    config:
+      sections:
+        - title: 基本信息
+          fields:
+            - field: name
+              required: true
+            - field: address
+              required: true
+            - field: city
+            - field: region
+            - field: postal_code
+        - title: 关联信息
+          fields:
+            - field: company_id
+            - field: primary_contact_id
+        - title: 服务说明
+          fields:
+            - field: access_notes
+            - field: service_notes
+            - field: status
+              required: true
+
+permissions:
+  - service_site.read
+  - service_site.create
+  - service_site.update
+  - service_site.delete
+
+# ── Cross-Pack Relations (v0.2.4) ──
+# service_site references objects owned by shared modules.
+relations:
+  - object: service_site
+    targetObject: company
+    targetModule: runory.company
+    type: many_to_one
+    foreignKey: company_id
+    label: 关联公司
+  - object: service_site
+    targetObject: contact
+    targetModule: runory.contact
+    type: many_to_one
+    foreignKey: primary_contact_id
+    label: 主要联系人
+
+migrations:
+  install: migrations/install.sql
+  uninstallPolicy: retain_data
+
+ui:
+  navigation:
+    - label: 服务地点
+      route: /service-sites
+      icon: map-pin
+      sortOrder: 40
+
+extensionPoints:
+  entities:
+    - entity: service_site
+      customFields:
+        enabled: true
+        allowedTypes: [text, number, date, select, boolean]
+        maxFields: 30
+        reservedKeys: [id, name, company_id, primary_contact_id, address, city, region, postal_code, access_notes, service_notes, status, created_at, updated_at]
+      customRelations:
+        enabled: false
+  views:
+    - view: service_site_list
+      slots:
+        - id: service_site.list.columns
+          type: column_group
+          allowedExtensions: [customField]
+          risk: low
+      allowReorder: true
+      allowFilters: true
+      allowPageSizeChange: true
+    - view: service_site_form
+      slots:
+        - id: service_site.form.basic_fields.after
+          type: field_group
+          allowedExtensions: [customField]
+          risk: low
+      allowAddSection: true
+      allowAddAction: true
+
+dashboard:
+  widgets:
+    - key: active_service_sites_metric
+      type: metric_card
+      label: 活跃服务地点
+      icon: map-pin
+      tone: cyan
+      data:
+        kind: count
+        object: service_site
+        where: "status = 'active'"
+      link: /service-sites
+
+    - key: service_site_status_breakdown
+      type: breakdown
+      label: 服务地点状态分布
+      icon: pie-chart
+      tone: cyan
+      data:
+        kind: group_count
+        object: service_site
+        groupBy: status
+
+    - key: recent_service_sites_list
+      type: list
+      label: 最近服务地点
+      icon: map-pin
+      tone: cyan
+      data:
+        kind: recent
+        object: service_site
+        orderBy: "created_at desc"
+        limit: 5
+        columns: [name, address, city, status]
+      link: /service-sites
+      configurable:
+        - path: data.limit
+          label: 显示条数
+          type: number
+          min: 1
+          max: 20
+
+upgradePolicy:
+  supportsWorkspaceExtensions: true
+  breakingChangePolicy: manual_review

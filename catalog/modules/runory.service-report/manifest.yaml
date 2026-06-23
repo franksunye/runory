@@ -1,0 +1,176 @@
+id: runory.service-report
+name: Service Report Management
+version: 1.0.0
+coreCompatibility: ">=0.1.0"
+
+dependencies:
+  - runory.work-order
+  - runory.service-visit
+
+objects:
+  - key: service_report
+    label: Service Report
+    fields:
+      - key: work_order_id
+        label: 关联工单
+        type: text
+        ownership: module_owned
+        required: true
+      - key: service_visit_id
+        label: 关联行程
+        type: text
+        ownership: module_owned
+      - key: summary
+        label: 服务摘要
+        type: text
+        ownership: module_owned
+        required: true
+      - key: resolution
+        label: 解决方案
+        type: text
+        ownership: module_owned
+      - key: customer_signature
+        label: 客户签字
+        type: text
+        ownership: module_owned
+      - key: photos
+        label: 照片
+        type: text
+        ownership: module_owned
+      - key: created_by
+        label: 创建人
+        type: text
+        ownership: module_owned
+      - key: completed_at
+        label: 完成时间
+        type: date
+        ownership: module_owned
+
+views:
+  - object: service_report
+    key: service_report_list
+    type: list
+    label: 服务报告列表
+    config:
+      columns:
+        - field: work_order_id
+          label: 关联工单
+        - field: summary
+          label: 服务摘要
+        - field: created_by
+          label: 创建人
+        - field: completed_at
+          label: 完成时间
+      actions:
+        - create
+        - view
+      pageSize: 20
+
+  - object: service_report
+    key: service_report_form
+    type: form
+    label: 服务报告表单
+    config:
+      sections:
+        - title: 基本信息
+          fields:
+            - field: work_order_id
+              required: true
+            - field: service_visit_id
+            - field: summary
+              required: true
+        - title: 服务详情
+          fields:
+            - field: resolution
+            - field: customer_signature
+            - field: photos
+        - title: 完成信息
+          fields:
+            - field: created_by
+            - field: completed_at
+
+permissions:
+  - service_report.read
+  - service_report.create
+  - service_report.update
+  - service_report.delete
+
+# ── Cross-Pack Relations (v0.2.4) ──
+relations:
+  - object: service_report
+    targetObject: work_order
+    targetModule: runory.work-order
+    type: many_to_one
+    foreignKey: work_order_id
+    label: 关联工单
+  - object: service_report
+    targetObject: service_visit
+    targetModule: runory.service-visit
+    type: many_to_one
+    foreignKey: service_visit_id
+    label: 关联行程
+
+migrations:
+  install: migrations/install.sql
+  uninstallPolicy: retain_data
+
+ui:
+  navigation:
+    - label: 服务报告
+      route: /service-reports
+      icon: file-text
+      sortOrder: 55
+
+extensionPoints:
+  entities:
+    - entity: service_report
+      customFields:
+        enabled: true
+        allowedTypes: [text, number, date, select, boolean]
+        maxFields: 20
+        reservedKeys: [id, work_order_id, service_visit_id, summary, resolution, customer_signature, photos, created_by, completed_at, created_at, updated_at]
+      customRelations:
+        enabled: false
+  views:
+    - view: service_report_list
+      slots:
+        - id: service_report.list.columns
+          type: column_group
+          allowedExtensions: [customField]
+          risk: low
+      allowReorder: true
+      allowFilters: true
+      allowPageSizeChange: true
+    - view: service_report_form
+      slots:
+        - id: service_report.form.basic_fields.after
+          type: field_group
+          allowedExtensions: [customField]
+          risk: low
+      allowAddSection: true
+      allowAddAction: true
+
+dashboard:
+  widgets:
+    - key: recent_service_reports_list
+      type: list
+      label: 最近服务报告
+      icon: file-text
+      tone: emerald
+      data:
+        kind: recent
+        object: service_report
+        orderBy: "completed_at desc"
+        limit: 5
+        columns: [work_order_id, summary, created_by, completed_at]
+      link: /service-reports
+      configurable:
+        - path: data.limit
+          label: 显示条数
+          type: number
+          min: 1
+          max: 20
+
+upgradePolicy:
+  supportsWorkspaceExtensions: true
+  breakingChangePolicy: manual_review

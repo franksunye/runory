@@ -1,0 +1,61 @@
+id: fsm-pack
+name: Field Service Management Pack
+version: 1.0.0
+coreCompatibility: ">=0.1.0"
+
+# FSM Pack composes shared business modules (company, contact, task) with
+# FSM-specific modules. Shared modules are reused, not duplicated.
+modules:
+  - "runory.company:^1.0.0"
+  - "runory.contact:^2.0.0"
+  - "runory.task:^2.0.0"
+  - "runory.service-site:^1.0.0"
+  - "runory.asset:^1.0.0"
+  - "runory.technician:^1.0.0"
+  - "runory.work-order:^1.0.0"
+  - "runory.service-visit:^1.0.0"
+  - "runory.service-report:^1.0.0"
+
+defaultTemplate: small-business-field-service
+
+# Pack-specific terminology overlay (v0.2.3).
+# FSM labels the shared "company" object as "客户" (Customer) for field-service
+# context, without forking the underlying object definition.
+terminology:
+  - object: company
+    label: 客户
+    navigationLabel: 客户
+    route: /companies
+  - object: task
+    label: 服务任务
+    navigationLabel: 服务任务
+    route: /tasks
+
+# FSM operational workbench — focuses on dispatch, schedule, and completion.
+dashboard:
+  defaultLayout:
+    - zone: metrics
+      widgets:
+        - { module: runory.work-order,    widget: open_work_orders_metric,        instance: default }
+        - { module: runory.work-order,    widget: overdue_work_orders_metric,     instance: default }
+        - { module: runory.service-visit, widget: scheduled_visits_today_metric,  instance: default }
+        - { module: runory.asset,         widget: active_assets_metric,           instance: default }
+
+    - zone: trends
+      widgets:
+        - { module: runory.work-order, widget: new_work_orders_trend, instance: default }
+
+    - zone: lists
+      widgets:
+        - { module: runory.work-order,    widget: work_orders_needing_dispatch_list, instance: default }
+        - { module: runory.service-visit, widget: today_schedule_list,               instance: default }
+        - { module: runory.service-report, widget: recent_service_reports_list,      instance: default }
+
+    - zone: activity
+      widgets:
+        - { module: _platform, widget: business_activity_feed, instance: default }
+
+marketplace:
+  category: field_service
+  license: runory_official
+  publisher: runory
