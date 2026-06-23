@@ -1,0 +1,34 @@
+{
+  "records": [
+    {
+      "object": "task",
+      "alias": "task-service-visit",
+      "match": { "field": "title", "value": "Service visit for Acme" },
+      "data": {
+        "title": "Service visit for Acme",
+        "description": "On-site service visit scheduled for Acme Operations.",
+        "status": "todo",
+        "priority": "high",
+        "due_date": "2026-07-10",
+        "assignee": "Field Team",
+        "company_id": { "$lookup": { "object": "company", "field": "domain", "value": "acme.example" } },
+        "contact_id": { "$lookup": { "object": "contact", "field": "email", "value": "maya@acme.example" } }
+      }
+    },
+    {
+      "object": "task",
+      "alias": "task-nova-checkin",
+      "match": { "field": "title", "value": "Nova Retail service check-in" },
+      "data": {
+        "title": "Nova Retail service check-in",
+        "description": "Post-installation check-in with Nova Retail.",
+        "status": "in_progress",
+        "priority": "medium",
+        "due_date": "2026-07-06",
+        "assignee": "Field Team",
+        "company_id": { "$lookup": { "object": "company", "field": "domain", "value": "novaretail.example" } },
+        "contact_id": { "$lookup": { "object": "contact", "field": "email", "value": "jon@novaretail.example" } }
+      }
+    }
+  ]
+}

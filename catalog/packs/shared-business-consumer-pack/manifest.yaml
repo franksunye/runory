@@ -1,0 +1,29 @@
+id: shared-business-consumer-pack
+name: Shared Business Consumer Pack
+version: 1.0.0
+coreCompatibility: ">=0.1.0"
+
+# Shares runory.company and runory.task with crm-lite-pack.
+# This pack validates that two packs can depend on the same shared business
+# modules without duplicate install or duplicate navigation chaos (v0.2.3).
+modules:
+  - "runory.company:^1.0.0"
+  - "runory.task:^2.0.0"
+
+# Pack-specific terminology overlay (v0.2.3).
+# This pack labels the shared "company" object as "客户企业" (Customer Enterprise)
+# and "task" as "服务工单" (Service Order) without forking the underlying objects.
+terminology:
+  - object: company
+    label: 客户企业
+    navigationLabel: 客户企业
+    route: /companies
+  - object: task
+    label: 服务工单
+    navigationLabel: 服务工单
+    route: /tasks
+
+marketplace:
+  category: shared_module_validation
+  license: runory_official
+  publisher: runory

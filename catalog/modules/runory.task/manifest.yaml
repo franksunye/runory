@@ -102,6 +102,29 @@ permissions:
   - task.update
   - task.delete
 
+# ── Cross-Pack Relations (v0.2.3) ──
+# task references objects owned by other shared modules. These declarations
+# enable cross-pack data integrity validation without coupling pack install order.
+relations:
+  - object: task
+    targetObject: company
+    targetModule: runory.company
+    type: many_to_one
+    foreignKey: company_id
+    label: 关联公司
+  - object: task
+    targetObject: contact
+    targetModule: runory.contact
+    type: many_to_one
+    foreignKey: contact_id
+    label: 关联联系人
+  - object: task
+    targetObject: deal
+    targetModule: runory.deal
+    type: many_to_one
+    foreignKey: deal_id
+    label: 关联商机
+
 migrations:
   install: migrations/install.sql
   uninstallPolicy: retain_data

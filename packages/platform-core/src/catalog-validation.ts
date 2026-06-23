@@ -16,6 +16,7 @@ import {
   type ModuleManifest,
   type PackManifest,
   type TemplateManifest,
+  type RelationDeclaration,
 } from "@runory/contracts";
 import { valid as semverValid, validRange as semverValidRange } from "semver";
 import { validateModuleDashboard, validatePackDashboard } from "./dashboard";
@@ -558,6 +559,146 @@ function checkPackDashboardLayout(
   };
 }
 
+// ── Object Ownership Check (v0.2.3) ──
+//
+// One object key, one owning module. A module version is rejected if any of
+// its object keys is already owned by a *different* catalog item (module) in
+// a ready/deprecated version. The same catalog item upgrading to a new version
+// is allowed (compatible upgrade).
+
+async function checkObjectOwnership(
+  manifest: ModuleManifest | null,
+  catalogItemId: string
+): Promise<ValidationCheck> {
+  if (!manifest) {
+    return {
+      name: "object_ownership",
+      status: "failed",
+      message: "Manifest not available for object ownership check",
+    };
+  }
+  if (manifest.objects.length === 0) {
+    return {
+      name: "object_ownership",
+      status: "passed",
+      message: "No objects declared",
+    };
+  }
+
+  const conflicts: Array<{ objectKey: string; ownerItemName: string }> = [];
+  for (const obj of manifest.objects) {
+    // Find any ready/deprecated version of a *different* catalog item that
+    // declares the same object key.
+    const rows = await queryAll<{ item_name: string; item_id: string }>(
+      `SELECT ci.name AS item_name, ci.id AS item_id
+       FROM ${TABLES.catalogVersions} cv
+       JOIN ${TABLES.catalogItems} ci ON ci.id = cv.catalog_item_id
+       WHERE ci.item_type = 'module'
+         AND ci.id != ?
+         AND cv.lifecycle_status IN ('ready', 'deprecated')
+         AND cv.manifest_json LIKE ?`,
+      [catalogItemId, `%"key": "${obj.key}"%`]
+    );
+    if (rows.length > 0) {
+      conflicts.push({ objectKey: obj.key, ownerItemName: rows[0].item_name });
+    }
+  }
+
+  if (conflicts.length > 0) {
+    return {
+      name: "object_ownership",
+      status: "failed",
+      message: `Object key ownership conflict: ${conflicts
+        .map((c) => `'${c.objectKey}' already owned by '${c.ownerItemName}'`)
+        .join(", ")}`,
+      details: { conflicts },
+    };
+  }
+  return {
+    name: "object_ownership",
+    status: "passed",
+    message: `${manifest.objects.length} object(s) declared, no ownership conflicts`,
+  };
+}
+
+// ── Cross-Pack Relations Check (v0.2.3) ──
+//
+// Validates that relation target modules exist as active catalog items.
+// The target object key is not checked at validation time (it may not yet be
+// installed), but the target module must exist in the catalog.
+
+async function checkCrossPackRelations(
+  manifest: ModuleManifest | null
+): Promise<ValidationCheck> {
+  if (!manifest) {
+    return {
+      name: "cross_pack_relations",
+      status: "failed",
+      message: "Manifest not available for cross-pack relations check",
+    };
+  }
+  const relations: RelationDeclaration[] = manifest.relations ?? [];
+  if (relations.length === 0) {
+    return {
+      name: "cross_pack_relations",
+      status: "passed",
+      message: "No cross-pack relations declared",
+    };
+  }
+
+  // Verify each relation's object is declared in this module
+  const declaredObjects = new Set(manifest.objects.map((o) => o.key));
+  const localErrors: string[] = [];
+  for (const rel of relations) {
+    if (!declaredObjects.has(rel.object)) {
+      localErrors.push(
+        `relation targets object '${rel.object}' which is not declared by this module`
+      );
+    }
+    // Verify foreignKey exists as a field on the object
+    const obj = manifest.objects.find((o) => o.key === rel.object);
+    if (obj && !obj.fields.some((f) => f.key === rel.foreignKey)) {
+      localErrors.push(
+        `relation foreignKey '${rel.foreignKey}' not found on object '${rel.object}'`
+      );
+    }
+  }
+  if (localErrors.length > 0) {
+    return {
+      name: "cross_pack_relations",
+      status: "failed",
+      message: `Cross-pack relation errors: ${localErrors.join("; ")}`,
+      details: { errors: localErrors },
+    };
+  }
+
+  // Verify target modules exist as active catalog items
+  const missingTargets: string[] = [];
+  for (const rel of relations) {
+    const depItem = await queryOne<{ id: string }>(
+      `SELECT id FROM ${TABLES.catalogItems} WHERE name = ? AND item_type = 'module' AND status = 'active'`,
+      [rel.targetModule]
+    );
+    if (!depItem) {
+      missingTargets.push(rel.targetModule);
+    }
+  }
+
+  if (missingTargets.length > 0) {
+    return {
+      name: "cross_pack_relations",
+      status: "failed",
+      message: `Cross-pack relation target modules not found in catalog: ${missingTargets.join(", ")}`,
+      details: { missingTargets },
+    };
+  }
+  return {
+    name: "cross_pack_relations",
+    status: "passed",
+    message: `${relations.length} cross-pack relation(s) validated, all target modules exist`,
+  };
+}
+
 // ── Run Catalog Validation (docs/09 §9) ──
 
 export async function runCatalogValidation(
@@ -705,6 +846,24 @@ export async function runCatalogValidation(
     checks.push(
       await runCheck("dashboard_layout", () =>
         checkPackDashboardLayout(parsedManifest as PackManifest | null)
+      )
+    );
+  }
+
+  // 13. Object ownership check (modules, v0.2.3)
+  if (item.itemType === "module") {
+    checks.push(
+      await runCheck("object_ownership", () =>
+        checkObjectOwnership(parsedManifest as ModuleManifest | null, item.id)
+      )
+    );
+  }
+
+  // 14. Cross-pack relations check (modules, v0.2.3)
+  if (item.itemType === "module") {
+    checks.push(
+      await runCheck("cross_pack_relations", () =>
+        checkCrossPackRelations(parsedManifest as ModuleManifest | null)
       )
     );
   }

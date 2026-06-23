@@ -186,6 +186,20 @@ export type PackLayoutZone = z.infer<typeof packLayoutZoneSchema>;
 export type ModuleDashboard = z.infer<typeof moduleDashboardSchema>;
 export type PackDashboard = z.infer<typeof packDashboardSchema>;
 
+// ── Cross-Pack Relations (v0.2.3) ──
+// A module can declare that its objects reference objects owned by another module.
+// This enables cross-pack data integrity without coupling pack install order.
+export const relationDeclarationSchema = z.object({
+  object: z.string(),                  // this module's object key (must be declared in objects[])
+  targetObject: z.string(),            // target object key (may be owned by another module)
+  targetModule: z.string(),            // target module id (e.g., "runory.company")
+  type: z.enum(["many_to_one", "one_to_many", "many_to_many"]),
+  foreignKey: z.string(),              // field on this object that stores the target id
+  label: z.string().optional(),        // human-readable relation label
+});
+
+export type RelationDeclaration = z.infer<typeof relationDeclarationSchema>;
+
 export const moduleManifestSchema = z.object({
   id: z.string(),
   name: z.string(),
@@ -197,6 +211,7 @@ export const moduleManifestSchema = z.object({
   dependencies: z.array(z.string()).optional(),
   objects: z.array(objectDefinitionSchema),
   views: z.array(viewDefinitionSchema),
+  relations: z.array(relationDeclarationSchema).optional(),
   permissions: z.array(z.string()).optional(),
   permissionChangePolicy: permissionChangePolicySchema.optional(),
   migrations: z.object({
@@ -225,6 +240,17 @@ export const moduleManifestSchema = z.object({
 export type ModuleManifest = z.infer<typeof moduleManifestSchema>;
 
 // ── Pack Manifest ──
+export const packTerminologyEntrySchema = z.object({
+  object: z.string(),                  // shared object key (e.g., "company")
+  label: z.string().optional(),        // alternative object label for this pack
+  navigationLabel: z.string().optional(), // alternative navigation label for this pack
+  route: z.string().optional(),        // explicit navigation route to override (e.g., "/companies")
+});
+
+export const packTerminologySchema = z.array(packTerminologyEntrySchema);
+
+export type PackTerminologyEntry = z.infer<typeof packTerminologyEntrySchema>;
+
 export const packManifestSchema = z.object({
   id: z.string(),
   name: z.string(),
@@ -235,6 +261,7 @@ export const packManifestSchema = z.object({
   modules: z.array(z.string()),
   defaultTemplate: z.string().optional(),
   releaseCompatibility: releaseCompatibilitySchema.optional(),
+  terminology: packTerminologySchema.optional(),
   dashboard: packDashboardSchema.optional(),
   marketplace: z.object({
     category: z.string(),

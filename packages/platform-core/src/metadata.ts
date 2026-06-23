@@ -145,8 +145,45 @@ export async function getNavigation(workspaceId: string): Promise<NavigationItem
     `SELECT * FROM ${TABLES.navigationItems} WHERE workspace_id = ? AND enabled = 1 ORDER BY sort_order`,
     [workspaceId]
   );
+
+  // ── Pack Terminology Overlay (v0.2.3) ──
+  // Merge terminology overlays from all installed packs. Later installations
+  // take precedence (last pack wins) so the most recently installed pack can
+  // relabel shared objects for its context.
+  const packRows = await queryAll<{ terminology_json: string | null }>(
+    `SELECT terminology_json FROM ${TABLES.packInstallations}
+     WHERE workspace_id = ? AND terminology_json IS NOT NULL
+     ORDER BY installed_at ASC`,
+    [workspaceId]
+  );
+
+  // Build a route → navigationLabel override map.
+  // Terminology entries can specify an explicit `route` to override. If `route`
+  // is omitted, derive it from the object key (e.g., "task" → "/tasks").
+  const routeLabelOverrides = new Map<string, string>();
+  for (const row of packRows) {
+    if (!row.terminology_json) continue;
+    try {
+      const entries = JSON.parse(row.terminology_json) as Array<{
+        object: string;
+        navigationLabel?: string;
+        route?: string;
+      }>;
+      for (const entry of entries) {
+        if (entry.navigationLabel) {
+          const route = entry.route ?? `/${entry.object}s`;
+          routeLabelOverrides.set(route, entry.navigationLabel);
+        }
+      }
+    } catch {
+      // Skip unparseable terminology
+    }
+  }
+
   return rows.map(r => ({
-    id: r.id, workspaceId: r.workspace_id, label: r.label, route: r.route,
+    id: r.id, workspaceId: r.workspace_id,
+    label: routeLabelOverrides.get(r.route) ?? r.label,
+    route: r.route,
     icon: r.icon, sortOrder: r.sort_order, moduleId: r.module_id, enabled: r.enabled === 1,
   }));
 }

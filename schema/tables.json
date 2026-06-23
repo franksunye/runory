@@ -37,5 +37,6 @@
   "compatibilityReports": "compatibility_reports",
   "workflowDefinitions": "workflow_definitions",
   "workflowInstances": "workflow_instances",
-  "workspaceDashboardLayout": "workspace_dashboard_layout"
+  "workspaceDashboardLayout": "workspace_dashboard_layout",
+  "packInstallations": "pack_installations"
 }

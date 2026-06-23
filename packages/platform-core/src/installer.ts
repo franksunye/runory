@@ -2,7 +2,7 @@ import { readFileSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { parse as parseYaml } from "yaml";
 import { queryOne, execute, genId, now, db, validateIdentifier } from "./db";
-import { TABLES, MODULES_DIR, PACKS_DIR, TEMPLATES_DIR } from "./contracts";
+import { TABLES, MODULES_DIR, PACKS_DIR, TEMPLATES_DIR, businessTable } from "./contracts";
 import { getDeploymentMode, renderSqlWithPrefix, getBusinessTablePrefix, getTablePrefix } from "./platform-config";
 import { createRecord, getRecords } from "./metadata";
 import {
@@ -12,6 +12,7 @@ import {
   type ModuleManifest,
   type PackManifest,
   type TemplateManifest,
+  type PackTerminologyEntry,
 } from "@runory/contracts";
 
 export function loadModuleManifest(moduleId: string): ModuleManifest {
@@ -93,6 +94,41 @@ function resolveDemoValue(value: unknown, aliases: Map<string, Record<string, un
   return aliases.get(alias)?.[field] ?? value;
 }
 
+// ── Cross-pack demo data lookup (v0.2.3) ──
+//
+// Supports `$lookup` objects in demo data to reference records created by
+// other packs. Example:
+//   "company_id": { "$lookup": { "object": "company", "field": "domain", "value": "acme.example" } }
+//
+// This enables demo data from pack B to reference records seeded by pack A
+// without coupling to pack A's internal aliases.
+
+interface DemoLookup {
+  $lookup: {
+    object: string;
+    field: string;
+    value: string | number | boolean;
+  };
+}
+
+function isDemoLookup(value: unknown): value is DemoLookup {
+  if (typeof value !== "object" || value === null) return false;
+  const obj = value as Record<string, unknown>;
+  return "$lookup" in obj && typeof obj.$lookup === "object" && obj.$lookup !== null;
+}
+
+async function resolveDemoLookup(
+  workspaceId: string,
+  lookup: DemoLookup
+): Promise<string | null> {
+  const { object, field, value } = lookup.$lookup;
+  validateIdentifier(object);
+  validateIdentifier(field);
+  const records = await getRecords(workspaceId, object);
+  const found = records.find((r) => r[field] === value);
+  return (found?.id as string) ?? null;
+}
+
 async function seedPackDemoData(workspaceId: string, packId: string): Promise<number> {
   const demo = loadPackDemoData(packId);
   if (!demo) return 0;
@@ -102,12 +138,16 @@ async function seedPackDemoData(workspaceId: string, packId: string): Promise<nu
 
   for (const record of demo.records) {
     validateIdentifier(record.object);
-    const data = Object.fromEntries(
-      Object.entries(record.data).map(([key, value]) => [
-        validateIdentifier(key),
-        resolveDemoValue(value, aliases),
-      ])
-    );
+    const data: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(record.data)) {
+      // Resolve $lookup first (cross-pack references), then $alias references
+      if (isDemoLookup(value)) {
+        const lookedUp = await resolveDemoLookup(workspaceId, value);
+        data[validateIdentifier(key)] = lookedUp ?? value;
+      } else {
+        data[validateIdentifier(key)] = resolveDemoValue(value, aliases);
+      }
+    }
 
     let existing: Record<string, unknown> | undefined;
     if (record.match) {
@@ -217,6 +257,23 @@ export async function installModule(
     return { moduleId, objectsCreated, viewsCreated, navigationItemsCreated, ddlExecuted, skipped: true };
   }
 
+  // ── Object Ownership Enforcement (v0.2.3) ──
+  // One object key, one owning module. If another module already owns any of
+  // the same object keys in this workspace, refuse to install.
+  for (const obj of manifest.objects) {
+    const existingOwner = await queryOne<{ module_id: string }>(
+      `SELECT module_id FROM ${TABLES.objectDefinitions}
+       WHERE workspace_id = ? AND object_key = ? AND module_id IS NOT NULL`,
+      [workspaceId, obj.key]
+    );
+    if (existingOwner && existingOwner.module_id !== moduleId) {
+      throw new Error(
+        `Object key '${obj.key}' is already owned by module '${existingOwner.module_id}'. ` +
+        `Module '${moduleId}' cannot claim ownership of the same object key.`
+      );
+    }
+  }
+
   // Run migration (multi-statement DDL, e.g. CREATE TABLE)
   if (deploymentMode === "local") {
     const migrationSql = loadModuleMigration(moduleId, manifest.migrations.install);
@@ -313,6 +370,33 @@ export async function installPack(
       navigationItemsCreated += result.navigationItemsCreated;
       if (result.ddlExecuted) ddlExecuted = true;
     }
+  }
+
+  // ── Pack Installation Tracking (v0.2.3) ──
+  // Record this pack installation (including terminology overlay) so the
+  // navigation API can present pack-specific labels for shared objects.
+  // Idempotent: if the pack is already tracked, update the terminology.
+  const terminologyJson = pack.terminology
+    ? JSON.stringify(pack.terminology)
+    : null;
+  const existingPack = await queryOne<{ id: string }>(
+    `SELECT id FROM ${TABLES.packInstallations} WHERE workspace_id = ? AND pack_id = ?`,
+    [workspaceId, packId]
+  );
+  if (existingPack) {
+    await execute(
+      `UPDATE ${TABLES.packInstallations}
+       SET pack_version = ?, terminology_json = ?, installed_at = ?
+       WHERE id = ?`,
+      [pack.version, terminologyJson, now(), existingPack.id]
+    );
+  } else {
+    await execute(
+      `INSERT INTO ${TABLES.packInstallations}
+       (id, workspace_id, pack_id, pack_version, terminology_json, installed_at)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [genId("pkinst"), workspaceId, packId, pack.version, terminologyJson, now()]
+    );
   }
 
   const demoRecordsCreated = options.includeDemoData
