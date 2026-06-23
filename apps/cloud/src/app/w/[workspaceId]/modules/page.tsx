@@ -112,7 +112,7 @@ export default function ModulesPage() {
 
   const isInstalled = (item: CatalogItem) =>
     installations.some(
-      (inst) => inst.moduleId === item.id || inst.packId === item.id
+      (inst) => inst.moduleId === item.name || inst.packId === item.name
     );
 
   const handleInstall = async (item: CatalogItem) => {
@@ -120,14 +120,14 @@ export default function ModulesPage() {
     setError(null);
     try {
       const response = await fetch(
-        `/api/workspaces/${workspaceId}/packs/${item.id}/install`,
+        `/api/workspaces/${workspaceId}/packs/${item.name}/install`,
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
             "X-Requested-With": "XMLHttpRequest",
           },
-          body: JSON.stringify({ includeDemoData: item.id === "crm-lite-pack" }),
+          body: JSON.stringify({ includeDemoData: true }),
         }
       );
       const json = await response.json();
