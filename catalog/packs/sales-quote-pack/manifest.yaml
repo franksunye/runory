@@ -1,0 +1,61 @@
+id: sales-quote-pack
+name: Sales Quote Pack
+version: 1.0.0
+coreCompatibility: ">=0.1.0"
+
+# Sales Quote Pack composes shared business modules (company, contact, deal)
+# with FSM-owned modules (work_order, service_site, asset) and Quote-specific
+# modules. Shared and FSM modules are reused, not duplicated.
+modules:
+  - "runory.company:^1.0.0"
+  - "runory.contact:^2.0.0"
+  - "runory.deal:^1.0.0"
+  - "runory.product-service:^1.0.0"
+  - "runory.price-book:^1.0.0"
+  - "runory.quote:^1.0.0"
+  - "runory.quote-approval:^1.0.0"
+
+defaultTemplate: small-business-sales-quote
+
+# Pack-specific terminology overlay (v0.2.3).
+# Sales Quote labels the shared "company" object as "客户" (Customer) for
+# commercial proposal context, without forking the underlying object definition.
+terminology:
+  - object: company
+    label: 客户
+    navigationLabel: 客户
+    route: /companies
+  - object: deal
+    label: 商机
+    navigationLabel: 商机
+    route: /deals
+
+# Sales Quote workbench — focuses on commercial proposals, approvals, and value.
+dashboard:
+  defaultLayout:
+    - zone: metrics
+      widgets:
+        - { module: runory.quote,            widget: open_quotes_metric,            instance: default }
+        - { module: runory.quote,            widget: pending_approvals_metric,      instance: default }
+        - { module: runory.quote-approval,   widget: pending_quote_approvals_metric, instance: default }
+        - { module: runory.product-service,  widget: active_products_metric,        instance: default }
+
+    - zone: trends
+      widgets:
+        - { module: runory.quote, widget: new_quotes_trend, instance: default }
+
+    - zone: lists
+      widgets:
+        - { module: runory.quote,           widget: quotes_needing_approval_list,  instance: default }
+        - { module: runory.quote,           widget: recently_accepted_quotes_list, instance: default }
+        - { module: runory.quote,           widget: expiring_quotes_list,          instance: default }
+        - { module: runory.quote-approval,  widget: pending_quote_approvals_list,  instance: default }
+
+    - zone: activity
+      widgets:
+        - { module: _platform, widget: business_activity_feed, instance: default }
+
+marketplace:
+  category: sales_quote
+  license: runory_official
+  publisher: runory

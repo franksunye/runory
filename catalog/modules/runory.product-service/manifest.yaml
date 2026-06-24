@@ -1,0 +1,197 @@
+id: runory.product-service
+name: Product / Service Catalog
+version: 1.0.0
+coreCompatibility: ">=0.1.0"
+
+objects:
+  - key: product_service
+    label: Product / Service
+    fields:
+      - key: name
+        label: 名称
+        type: text
+        ownership: module_owned
+        required: true
+      - key: type
+        label: 类型
+        type: select
+        ownership: module_owned
+        required: true
+        default_value: "service"
+        validation:
+          options: ["product", "service", "bundle"]
+      - key: sku
+        label: SKU
+        type: text
+        ownership: module_owned
+      - key: description
+        label: 描述
+        type: text
+        ownership: module_owned
+      - key: unit
+        label: 单位
+        type: text
+        ownership: module_owned
+      - key: default_price
+        label: 默认价格
+        type: number
+        ownership: module_owned
+      - key: currency
+        label: 币种
+        type: text
+        ownership: module_owned
+        default_value: "CNY"
+      - key: active
+        label: 启用
+        type: boolean
+        ownership: module_owned
+        default_value: "true"
+      - key: tax_category
+        label: 税类
+        type: text
+        ownership: module_owned
+      - key: notes
+        label: 备注
+        type: text
+        ownership: module_owned
+
+views:
+  - object: product_service
+    key: product_service_list
+    type: list
+    label: 产品/服务列表
+    config:
+      columns:
+        - field: name
+          label: 名称
+        - field: type
+          label: 类型
+        - field: sku
+          label: SKU
+        - field: default_price
+          label: 默认价格
+        - field: currency
+          label: 币种
+        - field: active
+          label: 启用
+      actions:
+        - create
+        - view
+      pageSize: 20
+
+  - object: product_service
+    key: product_service_form
+    type: form
+    label: 产品/服务表单
+    config:
+      sections:
+        - title: 基本信息
+          fields:
+            - field: name
+              required: true
+            - field: type
+              required: true
+            - field: sku
+            - field: description
+        - title: 定价
+          fields:
+            - field: default_price
+            - field: currency
+            - field: unit
+            - field: tax_category
+        - title: 状态
+          fields:
+            - field: active
+            - field: notes
+
+permissions:
+  - product_service.read
+  - product_service.create
+  - product_service.update
+  - product_service.delete
+
+migrations:
+  install: migrations/install.sql
+  uninstallPolicy: retain_data
+
+ui:
+  navigation:
+    - label: 产品/服务
+      route: /products-services
+      icon: package
+      sortOrder: 70
+
+extensionPoints:
+  entities:
+    - entity: product_service
+      customFields:
+        enabled: true
+        allowedTypes: [text, number, date, select, boolean]
+        maxFields: 30
+        reservedKeys: [id, name, type, sku, description, unit, default_price, currency, active, tax_category, notes, created_at, updated_at]
+      customRelations:
+        enabled: false
+  views:
+    - view: product_service_list
+      slots:
+        - id: product_service.list.columns
+          type: column_group
+          allowedExtensions: [customField]
+          risk: low
+      allowReorder: true
+      allowFilters: true
+      allowPageSizeChange: true
+    - view: product_service_form
+      slots:
+        - id: product_service.form.basic_fields.after
+          type: field_group
+          allowedExtensions: [customField]
+          risk: low
+      allowAddSection: true
+      allowAddAction: true
+
+dashboard:
+  widgets:
+    - key: active_products_metric
+      type: metric_card
+      label: 启用产品/服务
+      icon: package
+      tone: indigo
+      data:
+        kind: count
+        object: product_service
+        where: "active = 1"
+      link: /products-services
+
+    - key: product_type_breakdown
+      type: breakdown
+      label: 产品类型分布
+      icon: pie-chart
+      tone: indigo
+      data:
+        kind: group_count
+        object: product_service
+        groupBy: type
+
+    - key: recent_products_list
+      type: list
+      label: 最近产品/服务
+      icon: package
+      tone: indigo
+      data:
+        kind: recent
+        object: product_service
+        orderBy: "created_at desc"
+        limit: 5
+        columns: [name, type, default_price, currency]
+      link: /products-services
+      configurable:
+        - path: data.limit
+          label: 显示条数
+          type: number
+          min: 1
+          max: 20
+
+upgradePolicy:
+  supportsWorkspaceExtensions: true
+  breakingChangePolicy: manual_review

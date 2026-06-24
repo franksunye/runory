@@ -1,0 +1,48 @@
+id: small-business-sales-quote
+name: Small Business Sales Quote
+version: 1.0.0
+
+terminology:
+  customer: 客户
+  contact: 联系人
+  deal: 商机
+  quote: 报价
+  quote_line: 报价项
+  quote_approval: 报价审批
+  product_service: 产品/服务
+  price_book: 价格表
+
+navigation:
+  - dashboard
+  - quotes
+  - quote-approvals
+  - quote-lines
+  - products-services
+  - price-books
+  - companies
+  - contacts
+  - deals
+
+homepage:
+  layout: sales_quote_overview
+  widgets:
+    - open_quotes
+    - pending_approvals
+    - recent_activity
+
+roleEntry:
+  owner: /dashboard
+  sales: /quotes
+  manager: /quote-approvals
+
+compatiblePacks:
+  - "sales-quote-pack:^1.0.0"
+
+compatibleModules:
+  - "runory.company:^1.0.0"
+  - "runory.contact:^2.0.0"
+  - "runory.deal:^1.0.0"
+  - "runory.product-service:^1.0.0"
+  - "runory.price-book:^1.0.0"
+  - "runory.quote:^1.0.0"
+  - "runory.quote-approval:^1.0.0"

@@ -1,0 +1,192 @@
+id: runory.quote-approval
+name: Quote Approval Management
+version: 1.0.0
+coreCompatibility: ">=0.1.0"
+
+dependencies:
+  - runory.quote
+
+objects:
+  - key: quote_approval
+    label: Quote Approval
+    fields:
+      - key: quote_id
+        label: 关联报价
+        type: text
+        ownership: module_owned
+        required: true
+      - key: status
+        label: 状态
+        type: select
+        ownership: module_owned
+        required: true
+        default_value: "pending"
+        validation:
+          options: ["pending", "approved", "rejected", "cancelled"]
+      - key: requested_by
+        label: 申请人
+        type: text
+        ownership: module_owned
+      - key: reviewed_by
+        label: 审批人
+        type: text
+        ownership: module_owned
+      - key: requested_at
+        label: 申请时间
+        type: date
+        ownership: module_owned
+      - key: reviewed_at
+        label: 审批时间
+        type: date
+        ownership: module_owned
+      - key: decision_notes
+        label: 审批意见
+        type: text
+        ownership: module_owned
+
+views:
+  - object: quote_approval
+    key: quote_approval_list
+    type: list
+    label: 报价审批列表
+    config:
+      columns:
+        - field: quote_id
+          label: 关联报价
+        - field: status
+          label: 状态
+        - field: requested_by
+          label: 申请人
+        - field: reviewed_by
+          label: 审批人
+        - field: requested_at
+          label: 申请时间
+      actions:
+        - create
+        - view
+      pageSize: 20
+
+  - object: quote_approval
+    key: quote_approval_form
+    type: form
+    label: 报价审批表单
+    config:
+      sections:
+        - title: 基本信息
+          fields:
+            - field: quote_id
+              required: true
+            - field: status
+              required: true
+        - title: 申请人信息
+          fields:
+            - field: requested_by
+            - field: requested_at
+        - title: 审批信息
+          fields:
+            - field: reviewed_by
+            - field: reviewed_at
+            - field: decision_notes
+
+permissions:
+  - quote_approval.read
+  - quote_approval.create
+  - quote_approval.update
+  - quote_approval.delete
+
+# ── Cross-Pack Relations (v0.2.5) ──
+# quote_approval references quote (same pack).
+relations:
+  - object: quote_approval
+    targetObject: quote
+    targetModule: runory.quote
+    type: many_to_one
+    foreignKey: quote_id
+    label: 关联报价
+
+migrations:
+  install: migrations/install.sql
+  uninstallPolicy: retain_data
+
+ui:
+  navigation:
+    - label: 报价审批
+      route: /quote-approvals
+      icon: check-square
+      sortOrder: 35
+
+extensionPoints:
+  entities:
+    - entity: quote_approval
+      customFields:
+        enabled: true
+        allowedTypes: [text, number, date, select, boolean]
+        maxFields: 20
+        reservedKeys: [id, quote_id, status, requested_by, reviewed_by, requested_at, reviewed_at, decision_notes, created_at, updated_at]
+      customRelations:
+        enabled: false
+  views:
+    - view: quote_approval_list
+      slots:
+        - id: quote_approval.list.columns
+          type: column_group
+          allowedExtensions: [customField]
+          risk: low
+      allowReorder: true
+      allowFilters: true
+      allowPageSizeChange: true
+    - view: quote_approval_form
+      slots:
+        - id: quote_approval.form.basic_fields.after
+          type: field_group
+          allowedExtensions: [customField]
+          risk: low
+      allowAddSection: true
+      allowAddAction: true
+
+dashboard:
+  widgets:
+    - key: pending_quote_approvals_metric
+      type: metric_card
+      label: 待审批报价
+      icon: clock
+      tone: amber
+      data:
+        kind: count
+        object: quote_approval
+        where: "status = 'pending'"
+      link: /quote-approvals
+
+    - key: quote_approval_status_breakdown
+      type: breakdown
+      label: 报价审批状态分布
+      icon: pie-chart
+      tone: amber
+      data:
+        kind: group_count
+        object: quote_approval
+        groupBy: status
+
+    - key: pending_quote_approvals_list
+      type: list
+      label: 待审批报价
+      icon: clock
+      tone: amber
+      data:
+        kind: recent
+        object: quote_approval
+        where: "status = 'pending'"
+        orderBy: "requested_at asc"
+        limit: 8
+        columns: [quote_id, requested_by, requested_at]
+      link: /quote-approvals
+      configurable:
+        - path: data.limit
+          label: 显示条数
+          type: number
+          min: 1
+          max: 20
+
+upgradePolicy:
+  supportsWorkspaceExtensions: true
+  breakingChangePolicy: manual_review

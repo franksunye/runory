@@ -1,0 +1,512 @@
+id: runory.quote
+name: Quote Management
+version: 1.0.0
+coreCompatibility: ">=0.1.0"
+
+dependencies:
+  - runory.company
+  - runory.contact
+  - runory.deal
+  - runory.product-service
+  - runory.price-book
+
+objects:
+  - key: quote
+    label: Quote
+    fields:
+      - key: quote_number
+        label: 报价编号
+        type: text
+        ownership: module_owned
+        required: true
+      - key: title
+        label: 标题
+        type: text
+        ownership: module_owned
+        required: true
+      - key: status
+        label: 状态
+        type: select
+        ownership: module_owned
+        required: true
+        default_value: "draft"
+        validation:
+          options: ["draft", "pending_approval", "approved", "sent", "accepted", "rejected", "expired", "withdrawn"]
+      - key: version
+        label: 版本
+        type: number
+        ownership: module_owned
+        required: true
+        default_value: "1"
+      - key: company_id
+        label: 关联公司
+        type: text
+        ownership: module_owned
+      - key: contact_id
+        label: 关联联系人
+        type: text
+        ownership: module_owned
+      - key: deal_id
+        label: 关联商机
+        type: text
+        ownership: module_owned
+      - key: work_order_id
+        label: 关联工单
+        type: text
+        ownership: module_owned
+      - key: service_site_id
+        label: 服务地点
+        type: text
+        ownership: module_owned
+      - key: asset_id
+        label: 关联资产
+        type: text
+        ownership: module_owned
+      - key: currency
+        label: 币种
+        type: text
+        ownership: module_owned
+        required: true
+        default_value: "CNY"
+      - key: subtotal_amount
+        label: 小计金额
+        type: number
+        ownership: module_owned
+      - key: discount_amount
+        label: 折扣金额
+        type: number
+        ownership: module_owned
+      - key: tax_amount
+        label: 税额
+        type: number
+        ownership: module_owned
+      - key: total_amount
+        label: 总金额
+        type: number
+        ownership: module_owned
+      - key: valid_until
+        label: 有效期至
+        type: date
+        ownership: module_owned
+      - key: owner
+        label: 负责人
+        type: text
+        ownership: module_owned
+      - key: terms
+        label: 条款
+        type: text
+        ownership: module_owned
+      - key: notes
+        label: 备注
+        type: text
+        ownership: module_owned
+
+  - key: quote_line
+    label: Quote Line
+    fields:
+      - key: quote_id
+        label: 关联报价
+        type: text
+        ownership: module_owned
+        required: true
+      - key: product_service_id
+        label: 产品/服务
+        type: text
+        ownership: module_owned
+      - key: description
+        label: 描述
+        type: text
+        ownership: module_owned
+        required: true
+      - key: quantity
+        label: 数量
+        type: number
+        ownership: module_owned
+        required: true
+      - key: unit
+        label: 单位
+        type: text
+        ownership: module_owned
+      - key: unit_price
+        label: 单价
+        type: number
+        ownership: module_owned
+        required: true
+      - key: discount_amount
+        label: 折扣金额
+        type: number
+        ownership: module_owned
+      - key: tax_amount
+        label: 税额
+        type: number
+        ownership: module_owned
+      - key: line_total
+        label: 行小计
+        type: number
+        ownership: module_owned
+      - key: sort_order
+        label: 排序
+        type: number
+        ownership: module_owned
+
+views:
+  - object: quote
+    key: quote_list
+    type: list
+    label: 报价列表
+    config:
+      columns:
+        - field: quote_number
+          label: 报价编号
+        - field: title
+          label: 标题
+        - field: status
+          label: 状态
+        - field: total_amount
+          label: 总金额
+        - field: currency
+          label: 币种
+        - field: valid_until
+          label: 有效期至
+      actions:
+        - create
+        - view
+      pageSize: 20
+
+  - object: quote
+    key: quote_form
+    type: form
+    label: 报价表单
+    config:
+      sections:
+        - title: 基本信息
+          fields:
+            - field: quote_number
+              required: true
+            - field: title
+              required: true
+            - field: status
+              required: true
+            - field: version
+              required: true
+        - title: 关联信息
+          fields:
+            - field: company_id
+            - field: contact_id
+            - field: deal_id
+            - field: work_order_id
+            - field: service_site_id
+            - field: asset_id
+        - title: 金额
+          fields:
+            - field: currency
+              required: true
+            - field: subtotal_amount
+            - field: discount_amount
+            - field: tax_amount
+            - field: total_amount
+        - title: 其他
+          fields:
+            - field: valid_until
+            - field: owner
+            - field: terms
+            - field: notes
+
+  - object: quote_line
+    key: quote_line_list
+    type: list
+    label: 报价项列表
+    config:
+      columns:
+        - field: quote_id
+          label: 关联报价
+        - field: description
+          label: 描述
+        - field: quantity
+          label: 数量
+        - field: unit_price
+          label: 单价
+        - field: line_total
+          label: 行小计
+      actions:
+        - create
+        - view
+      pageSize: 50
+
+  - object: quote_line
+    key: quote_line_form
+    type: form
+    label: 报价项表单
+    config:
+      sections:
+        - title: 基本信息
+          fields:
+            - field: quote_id
+              required: true
+            - field: product_service_id
+            - field: description
+              required: true
+        - title: 金额
+          fields:
+            - field: quantity
+              required: true
+            - field: unit
+            - field: unit_price
+              required: true
+            - field: discount_amount
+            - field: tax_amount
+            - field: line_total
+        - title: 其他
+          fields:
+            - field: sort_order
+
+permissions:
+  - quote.read
+  - quote.create
+  - quote.update
+  - quote.delete
+  - quote_line.read
+  - quote_line.create
+  - quote_line.update
+  - quote_line.delete
+
+# ── Cross-Pack Relations (v0.2.5) ──
+# quote references objects owned by shared modules (company, contact, deal)
+# and FSM-owned modules (work_order, service_site, asset).
+# quote_line references quote (same module) and product_service (same pack).
+relations:
+  - object: quote
+    targetObject: company
+    targetModule: runory.company
+    type: many_to_one
+    foreignKey: company_id
+    label: 关联公司
+  - object: quote
+    targetObject: contact
+    targetModule: runory.contact
+    type: many_to_one
+    foreignKey: contact_id
+    label: 关联联系人
+  - object: quote
+    targetObject: deal
+    targetModule: runory.deal
+    type: many_to_one
+    foreignKey: deal_id
+    label: 关联商机
+  - object: quote
+    targetObject: work_order
+    targetModule: runory.work-order
+    type: many_to_one
+    foreignKey: work_order_id
+    label: 关联工单
+  - object: quote
+    targetObject: service_site
+    targetModule: runory.service-site
+    type: many_to_one
+    foreignKey: service_site_id
+    label: 服务地点
+  - object: quote
+    targetObject: asset
+    targetModule: runory.asset
+    type: many_to_one
+    foreignKey: asset_id
+    label: 关联资产
+  - object: quote_line
+    targetObject: quote
+    targetModule: runory.quote
+    type: many_to_one
+    foreignKey: quote_id
+    label: 关联报价
+  - object: quote_line
+    targetObject: product_service
+    targetModule: runory.product-service
+    type: many_to_one
+    foreignKey: product_service_id
+    label: 产品/服务
+
+migrations:
+  install: migrations/install.sql
+  uninstallPolicy: retain_data
+
+ui:
+  navigation:
+    - label: 报价
+      route: /quotes
+      icon: file-text
+      sortOrder: 30
+    - label: 报价项
+      route: /quote-lines
+      icon: list
+      sortOrder: 32
+
+extensionPoints:
+  entities:
+    - entity: quote
+      customFields:
+        enabled: true
+        allowedTypes: [text, number, date, select, boolean]
+        maxFields: 40
+        reservedKeys: [id, quote_number, title, status, version, company_id, contact_id, deal_id, work_order_id, service_site_id, asset_id, currency, subtotal_amount, discount_amount, tax_amount, total_amount, valid_until, owner, terms, notes, created_at, updated_at]
+      customRelations:
+        enabled: false
+    - entity: quote_line
+      customFields:
+        enabled: true
+        allowedTypes: [text, number, date, select, boolean]
+        maxFields: 20
+        reservedKeys: [id, quote_id, product_service_id, description, quantity, unit, unit_price, discount_amount, tax_amount, line_total, sort_order, created_at, updated_at]
+      customRelations:
+        enabled: false
+  views:
+    - view: quote_list
+      slots:
+        - id: quote.list.columns
+          type: column_group
+          allowedExtensions: [customField]
+          risk: low
+      allowReorder: true
+      allowFilters: true
+      allowPageSizeChange: true
+    - view: quote_form
+      slots:
+        - id: quote.form.basic_fields.after
+          type: field_group
+          allowedExtensions: [customField]
+          risk: low
+      allowAddSection: true
+      allowAddAction: true
+    - view: quote_line_list
+      slots:
+        - id: quote_line.list.columns
+          type: column_group
+          allowedExtensions: [customField]
+          risk: low
+      allowReorder: true
+      allowFilters: true
+      allowPageSizeChange: true
+    - view: quote_line_form
+      slots:
+        - id: quote_line.form.basic_fields.after
+          type: field_group
+          allowedExtensions: [customField]
+          risk: low
+      allowAddSection: true
+      allowAddAction: true
+
+dashboard:
+  widgets:
+    - key: open_quotes_metric
+      type: metric_card
+      label: 待处理报价
+      icon: file-text
+      tone: indigo
+      data:
+        kind: count
+        object: quote
+        where: "status not in ('accepted', 'rejected', 'expired', 'withdrawn')"
+      sub:
+        kind: count
+        object: quote
+        where: "status = 'draft'"
+        template: "{count} 个草稿中"
+      link: /quotes
+
+    - key: pending_approvals_metric
+      type: metric_card
+      label: 待审批报价
+      icon: clock
+      tone: amber
+      data:
+        kind: count
+        object: quote
+        where: "status = 'pending_approval'"
+      link: /quotes
+
+    - key: quote_status_breakdown
+      type: breakdown
+      label: 报价状态分布
+      icon: pie-chart
+      tone: indigo
+      data:
+        kind: group_count
+        object: quote
+        groupBy: status
+
+    - key: quotes_needing_approval_list
+      type: list
+      label: 待审批报价
+      icon: clock
+      tone: amber
+      data:
+        kind: recent
+        object: quote
+        where: "status = 'pending_approval'"
+        orderBy: "created_at asc"
+        limit: 8
+        columns: [quote_number, title, total_amount, currency, valid_until]
+      link: /quotes
+      configurable:
+        - path: data.limit
+          label: 显示条数
+          type: number
+          min: 1
+          max: 20
+
+    - key: recently_accepted_quotes_list
+      type: list
+      label: 最近已接受报价
+      icon: check-circle
+      tone: emerald
+      data:
+        kind: recent
+        object: quote
+        where: "status = 'accepted'"
+        orderBy: "created_at desc"
+        limit: 5
+        columns: [quote_number, title, total_amount, currency]
+      link: /quotes
+      configurable:
+        - path: data.limit
+          label: 显示条数
+          type: number
+          min: 1
+          max: 20
+
+    - key: expiring_quotes_list
+      type: list
+      label: 即将到期报价
+      icon: alert-circle
+      tone: red
+      data:
+        kind: recent
+        object: quote
+        where: "status in ('sent', 'approved') and valid_until < date('now', '+7 days')"
+        orderBy: "valid_until asc"
+        limit: 5
+        columns: [quote_number, title, total_amount, currency, valid_until]
+      link: /quotes
+      configurable:
+        - path: data.limit
+          label: 显示条数
+          type: number
+          min: 1
+          max: 20
+
+    - key: new_quotes_trend
+      type: trend_chart
+      label: 报价新增趋势
+      icon: trending-up
+      tone: indigo
+      data:
+        kind: timeseries
+        object: quote
+        range: 14d
+      configurable:
+        - path: data.range
+          label: 时间范围
+          type: select
+          options: ["7d", "14d", "30d"]
+
+upgradePolicy:
+  supportsWorkspaceExtensions: true
+  breakingChangePolicy: manual_review

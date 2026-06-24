@@ -124,7 +124,15 @@ async function resolveDemoLookup(
   const { object, field, value } = lookup.$lookup;
   validateIdentifier(object);
   validateIdentifier(field);
-  const records = await getRecords(workspaceId, object);
+  // If the target object's table doesn't exist (e.g., FSM objects when only
+  // CRM is installed), getRecords throws. Return null so optional cross-pack
+  // fields remain empty instead of crashing the demo data seed.
+  let records: Record<string, unknown>[];
+  try {
+    records = await getRecords(workspaceId, object);
+  } catch {
+    return null;
+  }
   const found = records.find((r) => r[field] === value);
   return (found?.id as string) ?? null;
 }
@@ -140,10 +148,12 @@ async function seedPackDemoData(workspaceId: string, packId: string): Promise<nu
     validateIdentifier(record.object);
     const data: Record<string, unknown> = {};
     for (const [key, value] of Object.entries(record.data)) {
-      // Resolve $lookup first (cross-pack references), then $alias references
+      // Resolve $lookup first (cross-pack references), then $alias references.
+      // If the lookup target is not installed (e.g., FSM objects when only CRM
+      // is installed), store null so optional cross-pack fields remain empty.
       if (isDemoLookup(value)) {
         const lookedUp = await resolveDemoLookup(workspaceId, value);
-        data[validateIdentifier(key)] = lookedUp ?? value;
+        data[validateIdentifier(key)] = lookedUp;
       } else {
         data[validateIdentifier(key)] = resolveDemoValue(value, aliases);
       }
