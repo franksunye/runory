@@ -73,15 +73,30 @@ export async function provisionWorkspaceTenant(
   actor: ActorIdentity
 ): Promise<WorkspaceAccess> {
   const timestamp = now();
-  const userId = genId("usr");
   const organizationId = genId("org");
   const organizationSlug = `${workspaceId.replace(/[^a-z0-9]/gi, "").slice(-12).toLowerCase()}-org`;
 
+  // Resolve the actual saas_users.id for the actor.
+  // actor.externalId may already be a saas_users.id (e.g. when the actor
+  // was created via OTP login), or it may be an external identity string.
+  // We look up by both id and external_id to avoid creating a duplicate
+  // user record.
+  const existingUser = await queryOne<{ id: string }>(
+    `SELECT id FROM ${TABLES.users} WHERE id = ? OR external_id = ?`,
+    [actor.externalId, actor.externalId]
+  );
+
+  const userId = existingUser?.id ?? genId("usr");
+
   await batch([
-    {
+    // Only insert user if it doesn't already exist (by id).
+    // If the user already exists (looked up by id or external_id above),
+    // skip the insert entirely to avoid creating a duplicate record with
+    // a mismatched external_id.
+    ...(existingUser ? [] : [{
       sql: `INSERT INTO ${TABLES.users} (id, external_id, email, display_name, status, created_at, updated_at) VALUES (?, ?, ?, ?, 'active', ?, ?) ON CONFLICT(external_id) DO UPDATE SET email = excluded.email, display_name = excluded.display_name, updated_at = excluded.updated_at`,
       args: [userId, actor.externalId, actor.email ?? null, actor.displayName, timestamp, timestamp],
-    },
+    }]),
     {
       sql: `INSERT INTO ${TABLES.organizations} (id, name, slug, status, created_at, updated_at) VALUES (?, ?, ?, 'active', ?, ?)`,
       args: [organizationId, workspaceName, organizationSlug, timestamp, timestamp],
@@ -91,23 +106,19 @@ export async function provisionWorkspaceTenant(
       args: [workspaceId, organizationId, timestamp],
     },
     {
-      sql: `INSERT INTO ${TABLES.organizationMemberships} (id, organization_id, user_id, role, status, created_at, updated_at) SELECT ?, ?, id, 'owner', 'active', ?, ? FROM ${TABLES.users} WHERE external_id = ?`,
-      args: [genId("orgmem"), organizationId, timestamp, timestamp, actor.externalId],
+      sql: `INSERT INTO ${TABLES.organizationMemberships} (id, organization_id, user_id, role, status, created_at, updated_at) VALUES (?, ?, ?, 'owner', 'active', ?, ?)`,
+      args: [genId("orgmem"), organizationId, userId, timestamp, timestamp],
     },
     {
-      sql: `INSERT INTO ${TABLES.workspaceMemberships} (id, workspace_id, user_id, role, status, created_at, updated_at) SELECT ?, ?, id, 'admin', 'active', ?, ? FROM ${TABLES.users} WHERE external_id = ?`,
-      args: [genId("wsmem"), workspaceId, timestamp, timestamp, actor.externalId],
+      sql: `INSERT INTO ${TABLES.workspaceMemberships} (id, workspace_id, user_id, role, status, created_at, updated_at) VALUES (?, ?, ?, 'admin', 'active', ?, ?)`,
+      args: [genId("wsmem"), workspaceId, userId, timestamp, timestamp],
     },
   ]);
 
-  const user = await queryOne<{ id: string }>(
-    `SELECT id FROM ${TABLES.users} WHERE external_id = ?`,
-    [actor.externalId]
-  );
   return {
     workspaceId,
     organizationId,
-    userId: user!.id,
+    userId,
     workspaceRole: "admin",
     organizationRole: "owner",
     role: "admin",
