@@ -261,6 +261,15 @@ export const onboardingChecklistItemSchema = z.object({
 });
 export type OnboardingChecklistItem = z.infer<typeof onboardingChecklistItemSchema>;
 
+// v0.3.6 — Pack-aware permission groups
+export const packPermissionGroupSchema = z.object({
+  key: z.string(),                            // e.g. "sales_admin", "service_agent"
+  label: z.string(),                          // e.g. "销售管理员"
+  description: z.string().optional(),
+  permissions: z.array(z.string()).default([]),  // e.g. ["deal.read", "deal.create"]
+});
+export type PackPermissionGroup = z.infer<typeof packPermissionGroupSchema>;
+
 export const packManifestSchema = z.object({
   id: z.string(),
   name: z.string(),
@@ -282,6 +291,8 @@ export const packManifestSchema = z.object({
   description: z.string().optional(),
   recommended: z.boolean().optional(),
   onboardingChecklist: z.array(onboardingChecklistItemSchema).optional(),
+  // v0.3.6 — Pack-aware permission groups
+  permissionGroups: z.array(packPermissionGroupSchema).optional(),
 });
 
 export type PackManifest = z.infer<typeof packManifestSchema>;

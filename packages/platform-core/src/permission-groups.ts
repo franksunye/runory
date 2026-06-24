@@ -1,0 +1,192 @@
+import { queryAll, queryOne, execute, genId, now } from "./db";
+import { TABLES } from "./contracts";
+
+// ── Pack-aware Permission Groups (v0.3.6) ──
+
+export interface PackPermissionGroup {
+  id: string;
+  workspaceId: string;
+  packId: string;
+  groupKey: string;
+  label: string;
+  description: string | null;
+  permissions: string[];
+  createdAt: string;
+}
+
+export interface PackPermissionAssignment {
+  id: string;
+  workspaceId: string;
+  groupId: string;
+  userId: string;
+  assignedBy: string | null;
+  assignedAt: string;
+}
+
+/**
+ * Sync permission groups from a pack manifest into the database (v0.3.6).
+ * Called during pack installation. Idempotent — existing groups are updated, not duplicated.
+ */
+export async function syncPackPermissionGroups(
+  workspaceId: string,
+  packId: string,
+  groups: Array<{ key: string; label: string; description?: string; permissions: string[] }>
+): Promise<{ created: number; updated: number }> {
+  let created = 0;
+  let updated = 0;
+
+  for (const group of groups) {
+    const existing = await queryOne<{ id: string }>(
+      `SELECT id FROM ${TABLES.packPermissionGroups}
+       WHERE workspace_id = ? AND pack_id = ? AND group_key = ?`,
+      [workspaceId, packId, group.key]
+    );
+
+    if (existing) {
+      await execute(
+        `UPDATE ${TABLES.packPermissionGroups}
+         SET label = ?, description = ?, permissions_json = ?
+         WHERE id = ?`,
+        [group.label, group.description ?? null, JSON.stringify(group.permissions), existing.id]
+      );
+      updated++;
+    } else {
+      await execute(
+        `INSERT INTO ${TABLES.packPermissionGroups}
+         (id, workspace_id, pack_id, group_key, label, description, permissions_json, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        [genId("ppg"), workspaceId, packId, group.key, group.label, group.description ?? null, JSON.stringify(group.permissions), now()]
+      );
+      created++;
+    }
+  }
+
+  return { created, updated };
+}
+
+/**
+ * Get all permission groups for a workspace, optionally filtered by pack.
+ */
+export async function getPackPermissionGroups(
+  workspaceId: string,
+  packId?: string
+): Promise<PackPermissionGroup[]> {
+  const sql = packId
+    ? `SELECT * FROM ${TABLES.packPermissionGroups} WHERE workspace_id = ? AND pack_id = ? ORDER BY pack_id, group_key`
+    : `SELECT * FROM ${TABLES.packPermissionGroups} WHERE workspace_id = ? ORDER BY pack_id, group_key`;
+  const params = packId ? [workspaceId, packId] : [workspaceId];
+
+  const rows = await queryAll<{
+    id: string; workspace_id: string; pack_id: string; group_key: string;
+    label: string; description: string | null; permissions_json: string; created_at: string;
+  }>(sql, params);
+
+  return rows.map(r => ({
+    id: r.id,
+    workspaceId: r.workspace_id,
+    packId: r.pack_id,
+    groupKey: r.group_key,
+    label: r.label,
+    description: r.description,
+    permissions: r.permissions_json ? JSON.parse(r.permissions_json) : [],
+    createdAt: r.created_at,
+  }));
+}
+
+/**
+ * Assign a user to a permission group.
+ */
+export async function assignPackPermissionGroup(
+  workspaceId: string,
+  groupId: string,
+  userId: string,
+  assignedBy: string
+): Promise<{ assigned: boolean }> {
+  const existing = await queryOne<{ id: string }>(
+    `SELECT id FROM ${TABLES.packPermissionAssignments}
+     WHERE workspace_id = ? AND group_id = ? AND user_id = ?`,
+    [workspaceId, groupId, userId]
+  );
+  if (existing) {
+    return { assigned: false }; // Already assigned
+  }
+
+  await execute(
+    `INSERT INTO ${TABLES.packPermissionAssignments}
+     (id, workspace_id, group_id, user_id, assigned_by, assigned_at)
+     VALUES (?, ?, ?, ?, ?, ?)`,
+    [genId("ppa"), workspaceId, groupId, userId, assignedBy, now()]
+  );
+  return { assigned: true };
+}
+
+/**
+ * Remove a user from a permission group.
+ */
+export async function removePackPermissionAssignment(
+  workspaceId: string,
+  groupId: string,
+  userId: string
+): Promise<{ removed: boolean }> {
+  const result = await execute(
+    `DELETE FROM ${TABLES.packPermissionAssignments}
+     WHERE workspace_id = ? AND group_id = ? AND user_id = ?`,
+    [workspaceId, groupId, userId]
+  );
+  return { removed: true };
+}
+
+/**
+ * Get all permission group assignments for a user in a workspace.
+ */
+export async function getUserPermissionGroups(
+  workspaceId: string,
+  userId: string
+): Promise<Array<{ groupId: string; packId: string; groupKey: string; label: string; permissions: string[] }>> {
+  const rows = await queryAll<{
+    ppa_id: string; ppg_id: string; ppg_pack_id: string; ppg_group_key: string;
+    ppg_label: string; ppg_permissions_json: string;
+  }>(
+    `SELECT ppa.id AS ppa_id, ppg.id AS ppg_id, ppg.pack_id AS ppg_pack_id,
+            ppg.group_key AS ppg_group_key, ppg.label AS ppg_label,
+            ppg.permissions_json AS ppg_permissions_json
+     FROM ${TABLES.packPermissionAssignments} ppa
+     JOIN ${TABLES.packPermissionGroups} ppg ON ppg.id = ppa.group_id
+     WHERE ppa.workspace_id = ? AND ppa.user_id = ?`,
+    [workspaceId, userId]
+  );
+
+  return rows.map(r => ({
+    groupId: r.ppg_id,
+    packId: r.ppg_pack_id,
+    groupKey: r.ppg_group_key,
+    label: r.ppg_label,
+    permissions: r.ppg_permissions_json ? JSON.parse(r.ppg_permissions_json) : [],
+  }));
+}
+
+/**
+ * Get all assignments for a permission group.
+ */
+export async function getPermissionGroupAssignments(
+  workspaceId: string,
+  groupId: string
+): Promise<PackPermissionAssignment[]> {
+  const rows = await queryAll<{
+    id: string; workspace_id: string; group_id: string; user_id: string;
+    assigned_by: string | null; assigned_at: string;
+  }>(
+    `SELECT * FROM ${TABLES.packPermissionAssignments}
+     WHERE workspace_id = ? AND group_id = ? ORDER BY assigned_at`,
+    [workspaceId, groupId]
+  );
+
+  return rows.map(r => ({
+    id: r.id,
+    workspaceId: r.workspace_id,
+    groupId: r.group_id,
+    userId: r.user_id,
+    assignedBy: r.assigned_by,
+    assignedAt: r.assigned_at,
+  }));
+}

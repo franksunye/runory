@@ -84,6 +84,8 @@ export const TABLES = {
   workflowInstances: `${PREFIXES.runoryRuntime}workflow_instances`,
   workspaceDashboardLayout: `${PREFIXES.runoryRuntime}workspace_dashboard_layout`,
   packInstallations: `${PREFIXES.runoryRuntime}pack_installations`,
+  packPermissionGroups: `${PREFIXES.runoryRuntime}pack_permission_groups`,
+  packPermissionAssignments: `${PREFIXES.runoryRuntime}pack_permission_assignments`,
   relationDefinitions: `${PREFIXES.runoryRuntime}relation_definitions`,
   automationDefinitions: `${PREFIXES.runoryRuntime}automation_definitions`,
   automationRuns: `${PREFIXES.runoryRuntime}automation_runs`,

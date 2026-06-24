@@ -31,11 +31,68 @@ export default function LandingPageDetailPage() {
   const [editing, setEditing] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [publishing, setPublishing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const loading = loadingObj || loadingViews || loadingRecord;
   const fields: FieldDefinition[] = objDetail?.fields ?? [];
   const viewConfig = views.find((v) => v.viewKey === VIEW_KEY)?.config ?? null;
+  const currentStatus = record?.status as string | undefined;
+  const isPublished = currentStatus === "published";
+  const isUnpublished = currentStatus === "unpublished";
+
+  const handlePublish = async () => {
+    setPublishing(true);
+    setError(null);
+    try {
+      const res = await fetch(
+        `/api/workspaces/${workspaceId}/objects/${OBJECT_KEY}/records/${recordId}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json", "X-Requested-With": "XMLHttpRequest" },
+          body: JSON.stringify({ action: "publish" }),
+        }
+      );
+      const json = await res.json();
+      if (json.success) {
+        await mutateRecord(json.data.record);
+        notifyWorkspaceDataChanged();
+      } else {
+        setError(json.error?.message ?? "发布失败");
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "发布失败");
+    } finally {
+      setPublishing(false);
+    }
+  };
+
+  const handleUnpublish = async () => {
+    if (!confirm("确定要下线此落地页吗？下线后公共页面将无法访问。")) return;
+    setPublishing(true);
+    setError(null);
+    try {
+      const res = await fetch(
+        `/api/workspaces/${workspaceId}/objects/${OBJECT_KEY}/records/${recordId}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json", "X-Requested-With": "XMLHttpRequest" },
+          body: JSON.stringify({ action: "unpublish" }),
+        }
+      );
+      const json = await res.json();
+      if (json.success) {
+        await mutateRecord(json.data.record);
+        notifyWorkspaceDataChanged();
+      } else {
+        setError(json.error?.message ?? "下线失败");
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "下线失败");
+    } finally {
+      setPublishing(false);
+    }
+  };
 
   const handleUpdate = async (data: Record<string, any>) => {
     setSubmitting(true);
@@ -126,6 +183,26 @@ export default function LandingPageDetailPage() {
         </div>
         {!editing && (
           <div className="flex gap-2">
+            {!isPublished && (
+              <button
+                type="button"
+                onClick={handlePublish}
+                disabled={publishing}
+                className="rounded-md border border-emerald-300 bg-emerald-50 px-4 py-2 text-sm font-medium text-emerald-700 hover:bg-emerald-100 disabled:opacity-50"
+              >
+                {publishing ? "处理中..." : "发布"}
+              </button>
+            )}
+            {isPublished && (
+              <button
+                type="button"
+                onClick={handleUnpublish}
+                disabled={publishing}
+                className="rounded-md border border-amber-300 bg-amber-50 px-4 py-2 text-sm font-medium text-amber-700 hover:bg-amber-100 disabled:opacity-50"
+              >
+                {publishing ? "处理中..." : "下线"}
+              </button>
+            )}
             <button
               type="button"
               onClick={() => setEditing(true)}

@@ -39,6 +39,9 @@ export async function GET(
               installedAt: installation.installedAt,
               demoDataStatus: installation.demoDataStatus,
               demoDataLoadedAt: installation.demoDataLoadedAt,
+              installErrorMessage: installation.installErrorMessage,
+              demoDataErrorMessage: installation.demoDataErrorMessage,
+              updateAvailable: installation.packVersion !== manifest.version,
             }
           : { installed: false },
         demoDataAvailable: hasPackDemoData(packId),

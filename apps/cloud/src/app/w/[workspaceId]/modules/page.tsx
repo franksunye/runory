@@ -24,11 +24,14 @@ interface PackSummary {
   marketplace: { category: string; license: string; publisher: string } | null;
   demoDataAvailable: boolean;
   installed: boolean;
+  updateAvailable: boolean;
   installation?: {
     packVersion: string;
     installedAt: string;
     demoDataStatus: "none" | "loaded" | "error";
     demoDataLoadedAt: string | null;
+    installErrorMessage: string | null;
+    demoDataErrorMessage: string | null;
   };
   release?: { channel: string; releasedAt: string };
 }
@@ -270,6 +273,12 @@ function PackCard({ pack, workspaceId, installing, loadingDemo, onInstall, onLoa
             <span className="app-badge bg-slate-100 text-slate-600">
               <CheckCircle2 size={12} />
               已安装
+            </span>
+          )}
+          {pack.updateAvailable && (
+            <span className="app-badge bg-blue-50 text-blue-700">
+              <RefreshCw size={12} />
+              有更新
             </span>
           )}
         </div>

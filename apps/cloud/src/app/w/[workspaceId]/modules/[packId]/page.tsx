@@ -33,6 +33,7 @@ interface PackDetail {
     demoDataLoadedAt?: string | null;
     installErrorMessage?: string | null;
     demoDataErrorMessage?: string | null;
+    updateAvailable?: boolean;
   };
   demoDataAvailable: boolean;
 }
@@ -240,6 +241,21 @@ export default function PackDetailPage() {
           )}
         </div>
       </header>
+
+      {/* Update available indicator (v0.3.4) */}
+      {installation.installed && installation.updateAvailable && (
+        <section className="app-card border-l-4 border-l-blue-400 p-4">
+          <div className="flex items-center gap-2">
+            <RefreshCw size={16} className="text-blue-600" />
+            <div>
+              <p className="text-sm font-bold text-blue-700">有可用更新</p>
+              <p className="mt-0.5 text-xs text-slate-600">
+                已安装版本 v{installation.packVersion} → 最新版本 v{detail.pack.version}
+              </p>
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* Diagnostics (v0.3.6) */}
       {installation.installed && (installation.installErrorMessage || installation.demoDataErrorMessage) && (

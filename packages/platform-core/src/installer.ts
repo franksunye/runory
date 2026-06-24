@@ -537,6 +537,12 @@ export async function installPack(
     await updatePackDemoDataStatus(workspaceId, packId, "loaded");
   }
 
+  // v0.3.6 — Sync pack-aware permission groups
+  if (pack.permissionGroups && pack.permissionGroups.length > 0) {
+    const { syncPackPermissionGroups } = await import("./permission-groups");
+    await syncPackPermissionGroups(workspaceId, packId, pack.permissionGroups);
+  }
+
   return {
     packId,
     modulesInstalled,

@@ -29,11 +29,14 @@ interface PackSummary {
   marketplace: { category: string; license: string; publisher: string } | null;
   demoDataAvailable: boolean;
   installed: boolean;
+  updateAvailable: boolean;
   installation?: {
     packVersion: string;
     installedAt: string;
     demoDataStatus: "none" | "loaded" | "error";
     demoDataLoadedAt: string | null;
+    installErrorMessage: string | null;
+    demoDataErrorMessage: string | null;
   };
   release?: {
     channel: string;
@@ -82,12 +85,15 @@ export async function GET(
         marketplace: manifest.marketplace ?? null,
         demoDataAvailable: hasPackDemoData(packId),
         installed: !!installation,
+        updateAvailable: !!installation && installation.packVersion !== manifest.version,
         installation: installation
           ? {
               packVersion: installation.packVersion,
               installedAt: installation.installedAt,
               demoDataStatus: installation.demoDataStatus,
               demoDataLoadedAt: installation.demoDataLoadedAt,
+              installErrorMessage: installation.installErrorMessage,
+              demoDataErrorMessage: installation.demoDataErrorMessage,
             }
           : undefined,
         release: active

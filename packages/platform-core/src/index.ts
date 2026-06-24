@@ -26,3 +26,4 @@ export * from "./catalog-seed";
 export * from "./workflow";
 export * from "./automation";
 export * from "./dashboard";
+export * from "./permission-groups";

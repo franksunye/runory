@@ -13,6 +13,7 @@ import {
   UserPlus,
   Users,
   X,
+  KeyRound,
 } from "lucide-react";
 
 type OrgRole = "owner" | "admin" | "member";
@@ -56,6 +57,23 @@ function formatDate(iso: string): string {
   }
 }
 
+// v0.3.6 — Pack permission groups
+interface PermissionGroup {
+  id: string;
+  packId: string;
+  groupKey: string;
+  label: string;
+  description: string | null;
+  permissions: string[];
+}
+
+interface GroupAssignment {
+  id: string;
+  groupId: string;
+  userId: string;
+  assignedAt: string;
+}
+
 export default function MembersPage() {
   const params = useParams();
   const workspaceId = params.workspaceId as string;
@@ -81,6 +99,12 @@ export default function MembersPage() {
   // Confirmation state
   const [confirmRemove, setConfirmRemove] = useState<OrgMember | null>(null);
 
+  // v0.3.6 — Pack permission groups state
+  const [permGroups, setPermGroups] = useState<PermissionGroup[]>([]);
+  const [groupAssignments, setGroupAssignments] = useState<Record<string, GroupAssignment[]>>({});
+  const [loadingGroups, setLoadingGroups] = useState(false);
+  const [assigningGroupId, setAssigningGroupId] = useState<string | null>(null);
+
   const canManage = currentRole === "owner" || currentRole === "admin";
 
   const loadData = useCallback(async () => {
@@ -95,14 +119,29 @@ export default function MembersPage() {
       setOrgId(organizationId);
       setCurrentRole((wsJson.data.organizationRole as OrgRole) ?? "member");
 
-      const [membersRes, invitationsRes] = await Promise.all([
+      const [membersRes, invitationsRes, groupsRes] = await Promise.all([
         fetch(`/api/organizations/${organizationId}/members`),
         fetch(`/api/organizations/${organizationId}/invitations`),
+        fetch(`/api/workspaces/${workspaceId}/permission-groups`),
       ]);
       const membersJson = await membersRes.json();
       const invitationsJson = await invitationsRes.json();
+      const groupsJson = await groupsRes.json();
       if (membersJson.success) setMembers(membersJson.data);
       if (invitationsJson.success) setInvitations(invitationsJson.data);
+      if (groupsJson.success) {
+        setPermGroups(groupsJson.data);
+        // Load assignments for each group
+        const assignmentMap: Record<string, GroupAssignment[]> = {};
+        await Promise.all(
+          groupsJson.data.map(async (g: PermissionGroup) => {
+            const aRes = await fetch(`/api/workspaces/${workspaceId}/permission-groups/${g.id}/assignments`);
+            const aJson = await aRes.json();
+            if (aJson.success) assignmentMap[g.id] = aJson.data;
+          })
+        );
+        setGroupAssignments(assignmentMap);
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : "加载失败");
     } finally {
@@ -213,6 +252,50 @@ export default function MembersPage() {
       setError(e instanceof Error ? e.message : "更新角色失败");
     } finally {
       setChangingRoleUserId(null);
+    }
+  };
+
+  // v0.3.6 — Pack permission group assignment handlers
+  const handleAssignGroup = async (groupId: string, userId: string) => {
+    setAssigningGroupId(groupId);
+    setError(null);
+    try {
+      const res = await fetch(`/api/workspaces/${workspaceId}/permission-groups/${groupId}/assignments`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Requested-With": "XMLHttpRequest" },
+        body: JSON.stringify({ userId }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        await loadData();
+      } else {
+        setError(json.error?.message ?? "分配权限组失败");
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "分配权限组失败");
+    } finally {
+      setAssigningGroupId(null);
+    }
+  };
+
+  const handleRemoveGroupAssignment = async (groupId: string, userId: string) => {
+    setAssigningGroupId(groupId);
+    setError(null);
+    try {
+      const res = await fetch(
+        `/api/workspaces/${workspaceId}/permission-groups/${groupId}/assignments?userId=${userId}`,
+        { method: "DELETE", headers: { "X-Requested-With": "XMLHttpRequest" } }
+      );
+      const json = await res.json();
+      if (json.success) {
+        await loadData();
+      } else {
+        setError(json.error?.message ?? "移除权限组失败");
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "移除权限组失败");
+    } finally {
+      setAssigningGroupId(null);
     }
   };
 
@@ -408,6 +491,74 @@ export default function MembersPage() {
           </ul>
         )}
       </section>
+
+      {/* Pack permission groups (v0.3.6) */}
+      {permGroups.length > 0 && (
+        <section className="app-card p-5 sm:p-6">
+          <div className="mb-4 flex items-center gap-2">
+            <KeyRound size={18} className="text-indigo-600" />
+            <h2 className="text-sm font-bold text-slate-900">Pack 权限组</h2>
+            <span className="app-badge bg-slate-100 text-slate-600">{permGroups.length}</span>
+          </div>
+          <p className="mb-4 text-xs text-slate-500">
+            Pack 安装时声明的权限组，可将成员分配到对应组以获得特定 pack 的操作权限。
+          </p>
+          <div className="space-y-4">
+            {permGroups.map((group) => {
+              const assignments = groupAssignments[group.id] ?? [];
+              const assignedUserIds = new Set(assignments.map(a => a.userId));
+              return (
+                <div key={group.id} className="rounded-lg border border-slate-200 p-4">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <p className="text-sm font-bold text-slate-800">{group.label}</p>
+                      <p className="mt-0.5 text-xs text-slate-500">
+                        {group.description ?? group.groupKey} · {group.packId}
+                      </p>
+                      <div className="mt-1.5 flex flex-wrap gap-1">
+                        {group.permissions.slice(0, 5).map((p) => (
+                          <span key={p} className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-mono text-slate-600">{p}</span>
+                        ))}
+                        {group.permissions.length > 5 && (
+                          <span className="text-[10px] text-slate-400">+{group.permissions.length - 5} more</span>
+                        )}
+                      </div>
+                    </div>
+                    <span className="app-badge bg-indigo-50 text-indigo-700">{assignments.length} 人</span>
+                  </div>
+                  <div className="mt-3 border-t border-slate-100 pt-3">
+                    <p className="mb-2 text-xs font-semibold text-slate-600">分配成员：</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {members.map((m) => {
+                        const isAssigned = assignedUserIds.has(m.userId);
+                        return (
+                          <button
+                            key={m.userId}
+                            type="button"
+                            onClick={() =>
+                              isAssigned
+                                ? handleRemoveGroupAssignment(group.id, m.userId)
+                                : handleAssignGroup(group.id, m.userId)
+                            }
+                            disabled={assigningGroupId === group.id}
+                            className={`rounded-full px-2.5 py-1 text-xs font-medium transition disabled:opacity-50 ${
+                              isAssigned
+                                ? "bg-indigo-100 text-indigo-700 hover:bg-indigo-200"
+                                : "bg-slate-50 text-slate-500 hover:bg-slate-100"
+                            }`}
+                          >
+                            {m.displayName}{isAssigned && " ✓"}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
 
       {/* Remove confirmation modal */}
       {confirmRemove && (

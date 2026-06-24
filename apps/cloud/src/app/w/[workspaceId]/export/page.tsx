@@ -11,6 +11,7 @@ import {
   Loader2,
   Package,
   RefreshCw,
+  Upload,
   XCircle,
 } from "lucide-react";
 
@@ -74,6 +75,19 @@ export default function ExportPage() {
   const [objectKey, setObjectKey] = useState<string>("");
   const [creating, setCreating] = useState(false);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
+
+  // Import state (v0.3.6)
+  const [importData, setImportData] = useState<string>("");
+  const [importing, setImporting] = useState(false);
+  const [importResult, setImportResult] = useState<{
+    valid: boolean;
+    dryRun?: boolean;
+    applied?: boolean;
+    errors?: string[];
+    warnings?: string[];
+    stats?: Record<string, number>;
+    imported?: Record<string, number>;
+  } | null>(null);
 
   const loadData = useCallback(async () => {
     setError(null);
@@ -179,6 +193,34 @@ export default function ExportPage() {
       setError(e instanceof Error ? e.message : "下载失败");
     } finally {
       setDownloadingId(null);
+    }
+  };
+
+  const handleImport = async (dryRun: boolean) => {
+    if (!importData.trim()) {
+      setError("请粘贴导出的 JSON 数据");
+      return;
+    }
+    setImporting(true);
+    setError(null);
+    setImportResult(null);
+    try {
+      const parsed = JSON.parse(importData);
+      const res = await fetch(`/api/workspaces/${workspaceId}/import`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Requested-With": "XMLHttpRequest" },
+        body: JSON.stringify({ data: parsed, dryRun }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        setImportResult(json.data);
+      } else {
+        setError(json.error?.message ?? "导入失败");
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "导入失败：JSON 解析错误");
+    } finally {
+      setImporting(false);
     }
   };
 
@@ -347,6 +389,71 @@ export default function ExportPage() {
               );
             })}
           </ul>
+        )}
+      </section>
+
+      {/* Import (v0.3.6) */}
+      <section className="app-card p-5 sm:p-6">
+        <div className="mb-4 flex items-center gap-2">
+          <Upload size={18} className="text-slate-500" />
+          <h2 className="text-sm font-bold text-slate-900">数据导入</h2>
+        </div>
+        <p className="mb-3 text-xs text-slate-500">
+          粘贴之前导出的 JSON 数据以导入工作区元数据（对象、字段、视图、导航）。导入前请先使用"验证"进行预检。
+        </p>
+        <textarea
+          value={importData}
+          onChange={(e) => setImportData(e.target.value)}
+          placeholder='{"workspace": {...}, "objects": [...], "fields": [...], ...}'
+          className="app-input mb-3 h-32 font-mono text-xs"
+          aria-label="导入 JSON 数据"
+        />
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => handleImport(true)}
+            disabled={importing || !importData.trim()}
+            className="app-button-secondary"
+          >
+            {importing ? "处理中..." : "验证（Dry Run）"}
+          </button>
+          <button
+            type="button"
+            onClick={() => handleImport(false)}
+            disabled={importing || !importData.trim()}
+            className="app-button-primary"
+          >
+            {importing ? "处理中..." : "执行导入"}
+          </button>
+        </div>
+        {importResult && (
+          <div className={`mt-4 rounded-md p-4 text-sm ${importResult.valid ? "bg-emerald-50 text-emerald-800" : "bg-red-50 text-red-800"}`}>
+            <p className="font-bold">
+              {importResult.valid ? "✓ 验证通过" : "✗ 验证失败"}
+              {importResult.dryRun && "（Dry Run）"}
+              {importResult.applied && "（已应用）"}
+            </p>
+            {importResult.errors && importResult.errors.length > 0 && (
+              <ul className="mt-2 list-disc pl-5 text-xs">
+                {importResult.errors.map((err, i) => <li key={i}>{err}</li>)}
+              </ul>
+            )}
+            {importResult.warnings && importResult.warnings.length > 0 && (
+              <ul className="mt-2 list-disc pl-5 text-xs text-amber-700">
+                {importResult.warnings.map((w, i) => <li key={i}>{w}</li>)}
+              </ul>
+            )}
+            {importResult.stats && (
+              <div className="mt-2 text-xs">
+                <p>数据统计：{Object.entries(importResult.stats).map(([k, v]) => `${k}: ${v}`).join(" · ")}</p>
+              </div>
+            )}
+            {importResult.imported && (
+              <div className="mt-1 text-xs">
+                <p>已导入：{Object.entries(importResult.imported).map(([k, v]) => `${k}: ${v}`).join(" · ")}</p>
+              </div>
+            )}
+          </div>
         )}
       </section>
     </div>

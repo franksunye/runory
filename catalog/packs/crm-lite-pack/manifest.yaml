@@ -55,3 +55,50 @@ marketplace:
   category: crm
   license: runory_official
   publisher: runory
+
+# v0.3.6 — Pack-aware permission groups
+permissionGroups:
+  - key: sales_admin
+    label: "销售管理员"
+    description: "管理公司、联系人、商机和任务的完整权限"
+    permissions:
+      - company.read
+      - company.create
+      - company.update
+      - company.delete
+      - contact.read
+      - contact.create
+      - contact.update
+      - contact.delete
+      - deal.read
+      - deal.create
+      - deal.update
+      - deal.delete
+      - task.read
+      - task.create
+      - task.update
+      - task.delete
+  - key: sales_agent
+    label: "销售专员"
+    description: "可查看和创建公司、联系人、商机，管理自己的任务"
+    permissions:
+      - company.read
+      - company.create
+      - company.update
+      - contact.read
+      - contact.create
+      - contact.update
+      - deal.read
+      - deal.create
+      - deal.update
+      - task.read
+      - task.create
+      - task.update
+  - key: sales_viewer
+    label: "销售只读"
+    description: "仅可查看 CRM 数据，不可编辑"
+    permissions:
+      - company.read
+      - contact.read
+      - deal.read
+      - task.read
