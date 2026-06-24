@@ -37,13 +37,10 @@ export default function ObjectListPage({
   viewKey,
   basePath,
   title,
-  subtitle = "管理所有记录",
-  searchPlaceholder = "搜索...",
-  sortOptions = [
-    { value: "created_at:desc", label: "创建时间（最新）" },
-    { value: "created_at:asc", label: "创建时间（最早）" },
-  ],
-  createLabel = "添加",
+  subtitle,
+  searchPlaceholder,
+  sortOptions,
+  createLabel,
   packName,
   pageSize = 20,
 }: ObjectListPageProps) {
@@ -52,13 +49,21 @@ export default function ObjectListPage({
   const workspaceId = params.workspaceId as string;
   const { t } = useI18n();
 
+  const effectiveSubtitle = subtitle ?? t("workspace.subtitle");
+  const effectiveSearchPlaceholder = searchPlaceholder ?? t("workspace.search");
+  const effectiveCreateLabel = createLabel ?? t("workspace.addRecord");
+  const effectiveSortOptions = sortOptions ?? [
+    { value: "created_at:desc", label: t("workspace.sortNewest") },
+    { value: "created_at:asc", label: t("workspace.sortOldest") },
+  ];
+
   const { data: installations = [], isLoading: loadingInst } = useInstallations(workspaceId);
   const { data: objDetail, isLoading: loadingObj } = useFields(workspaceId, objectKey);
   const { data: views = [], isLoading: loadingViews } = useViews(workspaceId, objectKey);
 
   const [searchInput, setSearchInput] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [sortValue, setSortValue] = useState(sortOptions[0]?.value ?? "created_at:desc");
+  const [sortValue, setSortValue] = useState(effectiveSortOptions[0]?.value ?? "created_at:desc");
   const [visibleCount, setVisibleCount] = useState(pageSize);
 
   useEffect(() => {
@@ -125,7 +130,7 @@ export default function ObjectListPage({
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">{title}</h1>
-          {subtitle && <p className="mt-1 text-sm text-slate-500">{subtitle}</p>}
+          {effectiveSubtitle && <p className="mt-1 text-sm text-slate-500">{effectiveSubtitle}</p>}
         </div>
         {hasPack && (
           <button
@@ -133,7 +138,7 @@ export default function ObjectListPage({
             onClick={() => router.push(`${basePath}/new`)}
             className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
           >
-            {createLabel}
+            {effectiveCreateLabel}
           </button>
         )}
       </div>
@@ -181,7 +186,7 @@ export default function ObjectListPage({
               type="search"
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
-              placeholder={searchPlaceholder}
+              placeholder={effectiveSearchPlaceholder}
               className="w-full max-w-sm rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
             />
             <select
@@ -189,7 +194,7 @@ export default function ObjectListPage({
               onChange={(e) => setSortValue(e.target.value)}
               className="rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
             >
-              {sortOptions.map((opt) => (
+              {effectiveSortOptions.map((opt) => (
                 <option key={opt.value} value={opt.value}>
                   {opt.label}
                 </option>

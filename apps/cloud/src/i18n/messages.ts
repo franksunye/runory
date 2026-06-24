@@ -243,6 +243,19 @@ export const en = {
   "workspace.earlyAccess.message": "You are using Runory Early Access. Some features are still being refined. Feedback is welcome.",
   "workspace.earlyAccess.viewPlans": "View plan info",
   "workspace.earlyAccess.dismiss": "Close notice",
+  // Field strings (v0.3.6)
+  "workspace.field.enterPlaceholder": "Enter {label}",
+  "workspace.field.selectPlaceholder": "Select",
+  "workspace.field.lookupPlaceholder": "Select {label}",
+  "workspace.field.clear": "Clear",
+  "workspace.field.searchToSelect": "Search to select...",
+  "workspace.field.noMatchFound": "No matching records found",
+  // List/Detail page strings (v0.3.6)
+  "workspace.subtitle": "Manage all records",
+  "workspace.sortNewest": "Created time (newest)",
+  "workspace.sortOldest": "Created time (oldest)",
+  "workspace.addRecord": "Add",
+  "workspace.relatedRecords": "Related {target}",
 } as const;
 
 export type MessageKey = keyof typeof en;
@@ -273,6 +286,10 @@ export const zh: Messages = {
   "workspace.nav.roleOwner": "所有者", "workspace.nav.roleAdmin": "工作区管理员", "workspace.nav.roleMember": "成员", "workspace.nav.roleViewer": "访客", "workspace.nav.roleOwnerInitial": "所", "workspace.nav.roleAdminInitial": "管", "workspace.nav.roleMemberInitial": "成", "workspace.nav.roleViewerInitial": "访", "workspace.nav.categoryCrm": "客户关系", "workspace.nav.categoryFieldService": "现场服务", "workspace.nav.categorySales": "销售报价", "workspace.nav.categoryMarketing": "营销获客", "workspace.nav.categoryAiVisibility": "AI 可见性", "workspace.nav.categoryCustomerService": "客户服务", "workspace.nav.categoryAfterSales": "售后服务", "workspace.nav.categoryGeneral": "业务", "workspace.nav.expandSidebar": "展开侧边栏", "workspace.nav.collapseSidebar": "折叠侧边栏", "workspace.nav.closeNav": "关闭导航", "workspace.nav.workspaceNav": "工作区导航", "workspace.nav.myWorkspaces": "我的工作区", "workspace.nav.closeOverlay": "关闭导航遮罩", "workspace.nav.openNav": "打开导航", "workspace.nav.business": "业务", "workspace.nav.management": "管理", "workspace.nav.dataBoundary": "每个工作区独立管理其业务数据",
   // Early access (v0.3.6)
   "workspace.earlyAccess.message": "您正在使用 Runory Early Access 版本。部分功能仍在完善中，欢迎反馈。", "workspace.earlyAccess.viewPlans": "查看方案信息", "workspace.earlyAccess.dismiss": "关闭提示",
+  // Field strings (v0.3.6)
+  "workspace.field.enterPlaceholder": "请输入{label}", "workspace.field.selectPlaceholder": "请选择", "workspace.field.lookupPlaceholder": "请选择{label}", "workspace.field.clear": "清除", "workspace.field.searchToSelect": "搜索以选择...", "workspace.field.noMatchFound": "未找到匹配记录",
+  // List/Detail page strings (v0.3.6)
+  "workspace.subtitle": "管理所有记录", "workspace.sortNewest": "创建时间（最新）", "workspace.sortOldest": "创建时间（最早）", "workspace.addRecord": "添加", "workspace.relatedRecords": "关联{target}",
 };
 
 export const messages = { en, zh } as const;

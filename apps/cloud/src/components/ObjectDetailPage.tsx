@@ -187,7 +187,7 @@ export default function ObjectDetailPage({
       .map((r) => ({
         foreignKey: r.foreignKey,
         parentObjectKey: r.targetObjectKey,
-        label: r.label ?? `关联${r.targetObjectKey}`,
+        label: r.label ?? t("workspace.relatedRecords", { target: r.targetObjectKey }),
         titleField: "name",
         routeBase: `/w/{workspaceId}/${r.targetObjectKey.replace(/_/g, "-")}s`,
       }));
@@ -201,7 +201,7 @@ export default function ObjectDetailPage({
       .map((r) => ({
         objectKey: r.objectKey,
         foreignKey: r.foreignKey,
-        label: r.label ?? `关联${r.objectKey}`,
+        label: r.label ?? t("workspace.relatedRecords", { target: r.objectKey }),
         titleField: "name",
         routeBase: `/w/{workspaceId}/${r.objectKey.replace(/_/g, "-")}s`,
       }));

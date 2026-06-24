@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { FieldDefinition } from "@runory/platform-core";
+import { useI18n } from "@/i18n/locale-provider";
 
 interface SchemaFieldProps {
   field: FieldDefinition;
@@ -11,8 +12,11 @@ interface SchemaFieldProps {
 }
 
 export default function SchemaField({ field, value, onChange, workspaceId }: SchemaFieldProps) {
+  const { t } = useI18n();
   const baseClass =
     "w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500";
+
+  const enterPlaceholder = t("workspace.field.enterPlaceholder", { label: field.label });
 
   const renderInput = () => {
     switch (field.type) {
@@ -23,7 +27,7 @@ export default function SchemaField({ field, value, onChange, workspaceId }: Sch
             className={baseClass}
             value={value ?? ""}
             onChange={(e) => onChange(e.target.value)}
-            placeholder={`请输入${field.label}`}
+            placeholder={enterPlaceholder}
           />
         );
       case "phone":
@@ -33,7 +37,7 @@ export default function SchemaField({ field, value, onChange, workspaceId }: Sch
             className={baseClass}
             value={value ?? ""}
             onChange={(e) => onChange(e.target.value)}
-            placeholder={`请输入${field.label}`}
+            placeholder={enterPlaceholder}
           />
         );
       case "number":
@@ -45,7 +49,7 @@ export default function SchemaField({ field, value, onChange, workspaceId }: Sch
             onChange={(e) =>
               onChange(e.target.value === "" ? null : Number(e.target.value))
             }
-            placeholder={`请输入${field.label}`}
+            placeholder={enterPlaceholder}
           />
         );
       case "date":
@@ -75,7 +79,7 @@ export default function SchemaField({ field, value, onChange, workspaceId }: Sch
             value={value ?? ""}
             onChange={(e) => onChange(e.target.value)}
           >
-            <option value="">请选择</option>
+            <option value="">{t("workspace.field.selectPlaceholder")}</option>
             {options.map((opt) => (
               <option key={opt} value={opt}>
                 {opt}
@@ -93,7 +97,8 @@ export default function SchemaField({ field, value, onChange, workspaceId }: Sch
             targetObject={targetObject}
             value={value}
             onChange={onChange}
-            placeholder={`请选择${field.label}`}
+            placeholder={t("workspace.field.lookupPlaceholder", { label: field.label })}
+            t={t}
           />
         );
       }
@@ -105,7 +110,7 @@ export default function SchemaField({ field, value, onChange, workspaceId }: Sch
             className={baseClass}
             value={value ?? ""}
             onChange={(e) => onChange(e.target.value)}
-            placeholder={`请输入${field.label}`}
+            placeholder={enterPlaceholder}
           />
         );
     }
@@ -123,18 +128,22 @@ export default function SchemaField({ field, value, onChange, workspaceId }: Sch
 // object and stores the selected record's id. Falls back to a plain text input
 // when workspaceId or targetObject is unavailable.
 
+type TFunc = (key: import("@/i18n/messages").MessageKey, params?: Record<string, string | number>) => string;
+
 function LookupField({
   workspaceId,
   targetObject,
   value,
   onChange,
   placeholder,
+  t,
 }: {
   workspaceId?: string;
   targetObject: string;
   value: any;
   onChange: (value: any) => void;
   placeholder: string;
+  t: TFunc;
 }) {
   const [options, setOptions] = useState<Array<{ id: string; label: string }>>([]);
   const [loading, setLoading] = useState(false);
@@ -194,7 +203,7 @@ function LookupField({
             onClick={() => onChange(null)}
             className="text-xs text-slate-400 hover:text-red-600"
           >
-            清除
+            {t("workspace.field.clear")}
           </button>
         </div>
       )}
@@ -203,9 +212,9 @@ function LookupField({
         className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
         value={search}
         onChange={(e) => setSearch(e.target.value)}
-        placeholder="搜索以选择..."
+        placeholder={t("workspace.field.searchToSelect")}
       />
-      {loading && <p className="text-xs text-slate-400">加载中...</p>}
+      {loading && <p className="text-xs text-slate-400">{t("workspace.loading")}</p>}
       {!loading && options.length > 0 && (
         <ul className="max-h-40 overflow-y-auto rounded-md border border-slate-200 bg-white">
           {options.map((opt) => (
@@ -225,7 +234,7 @@ function LookupField({
         </ul>
       )}
       {!loading && options.length === 0 && search && (
-        <p className="text-xs text-slate-400">未找到匹配记录</p>
+        <p className="text-xs text-slate-400">{t("workspace.field.noMatchFound")}</p>
       )}
     </div>
   );
