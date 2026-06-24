@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { FieldDefinition } from "@runory/platform-core";
 import SchemaField from "./SchemaField";
+import { useI18n } from "@/i18n/locale-provider";
 
 type RecordData = Record<string, string | number | boolean | null>;
 type ViewConfig = {
@@ -29,9 +30,10 @@ export default function SchemaForm({
   viewConfig,
   initialValues = {},
   onSubmit,
-  submitLabel = "保存",
+  submitLabel,
   workspaceId,
 }: SchemaFormProps) {
+  const { t } = useI18n();
   const fieldMap = new Map(fields.map((f) => [f.fieldKey, f]));
   const sections: FormSection[] = viewConfig?.sections ?? [];
 
@@ -66,7 +68,7 @@ export default function SchemaForm({
         if (required) {
           const v = values[sf.field];
           if (v === "" || v === null || v === undefined) {
-            newErrors[sf.field] = `${fieldDef?.label ?? sf.field}为必填项`;
+            newErrors[sf.field] = t("workspace.form.required", { field: fieldDef?.label ?? sf.field });
           }
         }
       }
@@ -79,7 +81,7 @@ export default function SchemaForm({
   };
 
   if (sections.length === 0) {
-    return <p className="text-sm text-slate-500">表单未配置任何字段。</p>;
+    return <p className="text-sm text-slate-500">{t("workspace.form.noFields")}</p>;
   }
 
   return (
@@ -111,7 +113,7 @@ export default function SchemaForm({
                     {required && <span className="text-red-500">*</span>}
                     {isExtension && (
                       <span className="rounded bg-purple-100 px-1.5 py-0.5 text-[10px] font-medium text-purple-700">
-                        扩展
+                        {t("workspace.extension")}
                       </span>
                     )}
                   </label>
@@ -137,7 +139,7 @@ export default function SchemaForm({
           type="submit"
           className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
         >
-          {submitLabel}
+          {submitLabel ?? t("workspace.save")}
         </button>
       </div>
     </form>

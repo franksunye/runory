@@ -15,6 +15,8 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { NavigationItem } from "@runory/platform-core";
+import { useI18n } from "@/i18n/locale-provider";
+import type { MessageKey } from "@/i18n/messages";
 
 // ── Types ──
 
@@ -102,12 +104,23 @@ function resolveIcon(
 
 // ── Role Labels ──
 
-const ROLE_LABELS: Record<string, { label: string; sub: string; initial: string }> = {
-  owner: { label: "所有者", sub: "Owner", initial: "所" },
-  admin: { label: "工作区管理员", sub: "Admin", initial: "管" },
-  member: { label: "成员", sub: "Member", initial: "成" },
-  viewer: { label: "访客", sub: "Viewer", initial: "访" },
+type TFunc = (key: MessageKey, params?: Record<string, string | number>) => string;
+
+const ROLE_LABEL_KEY: Record<string, { labelKey: MessageKey; sub: string; initialKey: MessageKey }> = {
+  owner: { labelKey: "workspace.nav.roleOwner", sub: "Owner", initialKey: "workspace.nav.roleOwnerInitial" },
+  admin: { labelKey: "workspace.nav.roleAdmin", sub: "Admin", initialKey: "workspace.nav.roleAdminInitial" },
+  member: { labelKey: "workspace.nav.roleMember", sub: "Member", initialKey: "workspace.nav.roleMemberInitial" },
+  viewer: { labelKey: "workspace.nav.roleViewer", sub: "Viewer", initialKey: "workspace.nav.roleViewerInitial" },
 };
+
+function getRoleDisplay(role: string, t: TFunc) {
+  const entry = ROLE_LABEL_KEY[role] ?? ROLE_LABEL_KEY.member;
+  return {
+    label: t(entry.labelKey),
+    sub: entry.sub,
+    initial: t(entry.initialKey),
+  };
+}
 
 const MANAGEMENT_ROUTES = [
   "/manage", "/modules", "/customize", "/workflows", "/automations", "/members",
@@ -116,16 +129,21 @@ const MANAGEMENT_ROUTES = [
 
 // ── Pack category display names ──
 
-const CATEGORY_LABELS: Record<string, string> = {
-  crm: "客户关系",
-  field_service: "现场服务",
-  sales: "销售报价",
-  marketing: "营销获客",
-  ai_visibility: "AI 可见性",
-  customer_service: "客户服务",
-  after_sales: "售后服务",
-  general: "业务",
+const CATEGORY_LABEL_KEY: Record<string, MessageKey> = {
+  crm: "workspace.nav.categoryCrm",
+  field_service: "workspace.nav.categoryFieldService",
+  sales: "workspace.nav.categorySales",
+  marketing: "workspace.nav.categoryMarketing",
+  ai_visibility: "workspace.nav.categoryAiVisibility",
+  customer_service: "workspace.nav.categoryCustomerService",
+  after_sales: "workspace.nav.categoryAfterSales",
+  general: "workspace.nav.categoryGeneral",
 };
+
+function getCategoryLabel(category: string, t: TFunc): string | undefined {
+  const key = CATEGORY_LABEL_KEY[category];
+  return key ? t(key) : undefined;
+}
 
 // ── Component ──
 
@@ -139,6 +157,7 @@ export default function NavigationShell({
   children,
 }: NavigationShellProps) {
   const pathname = usePathname();
+  const { t } = useI18n();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
@@ -215,10 +234,10 @@ export default function NavigationShell({
 
   // Management items
   const managementItems = canManage
-    ? [{ id: "manage", label: "管理", route: "/manage", icon: Settings, sortOrder: 90 }]
-    : [{ id: "settings", label: "设置", route: "/settings", icon: Settings, sortOrder: 90 }];
+    ? [{ id: "manage", label: t("workspace.nav.manage"), route: "/manage", icon: Settings, sortOrder: 90 }]
+    : [{ id: "settings", label: t("workspace.nav.settings"), route: "/settings", icon: Settings, sortOrder: 90 }];
 
-  const roleDisplay = ROLE_LABELS[role] ?? ROLE_LABELS.member;
+  const roleDisplay = getRoleDisplay(role, t);
 
   // ── Sidebar content ──
 
@@ -268,32 +287,32 @@ export default function NavigationShell({
         <button
           className="ml-auto hidden rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 md:block"
           onClick={() => setCollapsed(!collapsed)}
-          aria-label={collapsed ? "展开侧边栏" : "折叠侧边栏"}
+          aria-label={collapsed ? t("workspace.nav.expandSidebar") : t("workspace.nav.collapseSidebar")}
         >
           {collapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
         </button>
         <button
           className="ml-auto rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 md:hidden"
           onClick={() => setMobileOpen(false)}
-          aria-label="关闭导航"
+          aria-label={t("workspace.nav.closeNav")}
         >
           <X size={20} />
         </button>
       </div>
 
       {/* Scrollable Nav Area */}
-      <nav className="flex-1 overflow-y-auto px-3 py-4" aria-label="工作区导航">
+      <nav className="flex-1 overflow-y-auto px-3 py-4" aria-label={t("workspace.nav.workspaceNav")}>
         {/* Dashboard */}
-        {renderNavItem({ id: "dashboard", label: "工作台", route: "/dashboard", icon: LayoutDashboard })}
+        {renderNavItem({ id: "dashboard", label: t("workspace.nav.dashboard"), route: "/dashboard", icon: LayoutDashboard })}
 
         {/* Pack Groups */}
         {packGroups.length > 0 && !collapsed && (
-          <p className="sidebar-group-label mt-5">业务</p>
+          <p className="sidebar-group-label mt-5">{t("workspace.nav.business")}</p>
         )}
         <div className={collapsed ? "mt-4 space-y-1" : "space-y-1"}>
           {packGroups.map(({ pack, items }) => {
             if (items.length === 0) return null;
-            const groupLabel = CATEGORY_LABELS[pack.category] ?? pack.packName;
+            const groupLabel = getCategoryLabel(pack.category, t) ?? pack.packName;
             const isExpanded = expandedGroups.has(pack.packId) || collapsed;
 
             if (collapsed) {
@@ -333,10 +352,10 @@ export default function NavigationShell({
         </div>
 
         {/* Activity */}
-        {renderNavItem({ id: "activity", label: "活动", route: "/activity", icon: Activity })}
+        {renderNavItem({ id: "activity", label: t("workspace.nav.activity"), route: "/activity", icon: Activity })}
 
         {/* Management */}
-        {!collapsed && <p className="sidebar-group-label mt-5">管理</p>}
+        {!collapsed && <p className="sidebar-group-label mt-5">{t("workspace.nav.management")}</p>}
         <div className={collapsed ? "mt-4 space-y-1" : "space-y-1"}>
           {managementItems.map((item) => {
             const href = `/w/${workspaceId}${item.route}`;
@@ -368,10 +387,10 @@ export default function NavigationShell({
           href="/dashboard"
           onClick={() => setMobileOpen(false)}
           className={`mb-2 flex items-center gap-2 rounded-lg px-2 py-2 text-xs font-semibold text-slate-500 transition hover:bg-slate-50 hover:text-slate-900 ${collapsed ? "justify-center" : ""}`}
-          title={collapsed ? "我的工作区" : undefined}
+          title={collapsed ? t("workspace.nav.myWorkspaces") : undefined}
         >
           <ArrowLeft size={14} />
-          {!collapsed && <span>我的工作区</span>}
+          {!collapsed && <span>{t("workspace.nav.myWorkspaces")}</span>}
         </Link>
 
         {/* Role display */}
@@ -390,7 +409,7 @@ export default function NavigationShell({
         {/* Data boundary notice */}
         {!collapsed && (
           <p className="mt-2 px-2 text-[10px] leading-relaxed text-slate-400">
-            每个工作区独立管理其业务数据
+            {t("workspace.nav.dataBoundary")}
           </p>
         )}
       </div>
@@ -416,7 +435,7 @@ export default function NavigationShell({
           <button
             className="absolute inset-0 bg-slate-950/35"
             onClick={() => setMobileOpen(false)}
-            aria-label="关闭导航遮罩"
+            aria-label={t("workspace.nav.closeOverlay")}
           />
           <aside className="relative flex h-full w-[min(86vw,300px)] flex-col bg-white shadow-2xl">
             {sidebarContent}
@@ -431,7 +450,7 @@ export default function NavigationShell({
           <button
             className="grid size-10 place-items-center rounded-lg border border-slate-200 bg-white"
             onClick={() => setMobileOpen(true)}
-            aria-label="打开导航"
+            aria-label={t("workspace.nav.openNav")}
           >
             <Menu size={20} />
           </button>

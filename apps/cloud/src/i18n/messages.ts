@@ -190,6 +190,59 @@ export const en = {
   "workspace.nav.customize": "Customize",
   "workspace.nav.export": "Import / Export",
   "workspace.nav.manage": "Manage",
+  // Form strings (v0.3.6)
+  "workspace.form.required": "{field} is required",
+  "workspace.form.noFields": "Form has no configured fields.",
+  // Table strings (v0.3.6)
+  "workspace.table.justNow": "Just now",
+  "workspace.table.minutesAgo": "{min} min ago",
+  "workspace.table.hoursAgo": "{hr} hr ago",
+  "workspace.table.daysAgo": "{day} d ago",
+  "workspace.table.monthsAgo": "{month} mo ago",
+  "workspace.table.yearsAgo": "{years} yr ago",
+  "workspace.table.statusTodo": "To do",
+  "workspace.table.statusInProgress": "In progress",
+  "workspace.table.statusDone": "Done",
+  "workspace.table.statusCancelled": "Cancelled",
+  "workspace.table.priorityLow": "Low",
+  "workspace.table.priorityMedium": "Medium",
+  "workspace.table.priorityHigh": "High",
+  "workspace.table.priorityUrgent": "Urgent",
+  "workspace.table.noColumns": "List has no configured columns.",
+  "workspace.table.noData": "No data",
+  "workspace.table.actions": "Actions",
+  "workspace.table.view": "View",
+  // Navigation strings (v0.3.6)
+  "workspace.nav.roleOwner": "Owner",
+  "workspace.nav.roleAdmin": "Workspace Admin",
+  "workspace.nav.roleMember": "Member",
+  "workspace.nav.roleViewer": "Viewer",
+  "workspace.nav.roleOwnerInitial": "O",
+  "workspace.nav.roleAdminInitial": "A",
+  "workspace.nav.roleMemberInitial": "M",
+  "workspace.nav.roleViewerInitial": "V",
+  "workspace.nav.categoryCrm": "Customer Relations",
+  "workspace.nav.categoryFieldService": "Field Service",
+  "workspace.nav.categorySales": "Sales Quotes",
+  "workspace.nav.categoryMarketing": "Marketing",
+  "workspace.nav.categoryAiVisibility": "AI Visibility",
+  "workspace.nav.categoryCustomerService": "Customer Service",
+  "workspace.nav.categoryAfterSales": "After Sales",
+  "workspace.nav.categoryGeneral": "Business",
+  "workspace.nav.expandSidebar": "Expand sidebar",
+  "workspace.nav.collapseSidebar": "Collapse sidebar",
+  "workspace.nav.closeNav": "Close navigation",
+  "workspace.nav.workspaceNav": "Workspace navigation",
+  "workspace.nav.myWorkspaces": "My workspaces",
+  "workspace.nav.closeOverlay": "Close navigation overlay",
+  "workspace.nav.openNav": "Open navigation",
+  "workspace.nav.business": "Business",
+  "workspace.nav.management": "Management",
+  "workspace.nav.dataBoundary": "Each workspace manages its own business data",
+  // Early access (v0.3.6)
+  "workspace.earlyAccess.message": "You are using Runory Early Access. Some features are still being refined. Feedback is welcome.",
+  "workspace.earlyAccess.viewPlans": "View plan info",
+  "workspace.earlyAccess.dismiss": "Close notice",
 } as const;
 
 export type MessageKey = keyof typeof en;
@@ -212,6 +265,14 @@ export const zh: Messages = {
   // Workspace common (v0.3.6)
   "workspace.loading": "加载中...", "workspace.loadFailed": "加载失败", "workspace.retry": "重试", "workspace.refresh": "刷新", "workspace.save": "保存", "workspace.saving": "保存中...", "workspace.cancel": "取消", "workspace.delete": "删除", "workspace.deleting": "删除中...", "workspace.edit": "编辑", "workspace.create": "创建", "workspace.search": "搜索...", "workspace.clearSearch": "清除搜索", "workspace.loadMore": "加载更多", "workspace.recordCount": "共 {count} 条记录", "workspace.noResults": "没有找到匹配的记录", "workspace.noRecords": "还没有{title}记录", "workspace.addFirst": "添加第一个{title}", "workspace.add": "添加{title}", "workspace.backToList": "返回{title}列表", "workspace.detailTitle": "{title}详情", "workspace.createTitle": "新建{title}", "workspace.createSubtitle": "填写信息后保存", "workspace.deleteConfirm": "确定要删除此{label}吗？此操作不可撤销。", "workspace.createFailed": "创建失败", "workspace.updateFailed": "更新失败", "workspace.deleteFailed": "删除失败", "workspace.viewNotFound": "未找到列表视图配置。", "workspace.recordNotFound": "记录不存在", "workspace.noPack": "尚未安装业务模块", "workspace.noPackHint": "安装 {packName} 后即可开始使用。", "workspace.goDashboard": "前往工作台", "workspace.extensionNotice": "新的工作区字段已可用", "workspace.extensionNoticeBody": "{fields} 已加入 {title} 列表和表单。此提示仅在字段变更后出现一次。", "workspace.dismiss": "知道了", "workspace.extension": "扩展", "workspace.recordId": "记录 ID：{id}", "workspace.createdAt": "创建时间：{time}", "workspace.updatedAt": "更新时间：{time}", "workspace.yes": "是", "workspace.no": "否",
   "workspace.nav.dashboard": "工作台", "workspace.nav.settings": "设置", "workspace.nav.members": "成员与权限", "workspace.nav.audit": "审计日志", "workspace.nav.trash": "回收站", "workspace.nav.activity": "活动", "workspace.nav.modules": "模块", "workspace.nav.automations": "自动化", "workspace.nav.workflows": "工作流", "workspace.nav.apiKeys": "API 密钥", "workspace.nav.billing": "账单", "workspace.nav.customize": "自定义", "workspace.nav.export": "导入 / 导出", "workspace.nav.manage": "管理",
+  // Form strings (v0.3.6)
+  "workspace.form.required": "{field}为必填项", "workspace.form.noFields": "表单未配置任何字段。",
+  // Table strings (v0.3.6)
+  "workspace.table.justNow": "刚刚", "workspace.table.minutesAgo": "{min}分钟前", "workspace.table.hoursAgo": "{hr}小时前", "workspace.table.daysAgo": "{day}天前", "workspace.table.monthsAgo": "{month}个月前", "workspace.table.yearsAgo": "{years}年前", "workspace.table.statusTodo": "待办", "workspace.table.statusInProgress": "进行中", "workspace.table.statusDone": "已完成", "workspace.table.statusCancelled": "已取消", "workspace.table.priorityLow": "低", "workspace.table.priorityMedium": "中", "workspace.table.priorityHigh": "高", "workspace.table.priorityUrgent": "紧急", "workspace.table.noColumns": "列表未配置任何列。", "workspace.table.noData": "暂无数据", "workspace.table.actions": "操作", "workspace.table.view": "查看",
+  // Navigation strings (v0.3.6)
+  "workspace.nav.roleOwner": "所有者", "workspace.nav.roleAdmin": "工作区管理员", "workspace.nav.roleMember": "成员", "workspace.nav.roleViewer": "访客", "workspace.nav.roleOwnerInitial": "所", "workspace.nav.roleAdminInitial": "管", "workspace.nav.roleMemberInitial": "成", "workspace.nav.roleViewerInitial": "访", "workspace.nav.categoryCrm": "客户关系", "workspace.nav.categoryFieldService": "现场服务", "workspace.nav.categorySales": "销售报价", "workspace.nav.categoryMarketing": "营销获客", "workspace.nav.categoryAiVisibility": "AI 可见性", "workspace.nav.categoryCustomerService": "客户服务", "workspace.nav.categoryAfterSales": "售后服务", "workspace.nav.categoryGeneral": "业务", "workspace.nav.expandSidebar": "展开侧边栏", "workspace.nav.collapseSidebar": "折叠侧边栏", "workspace.nav.closeNav": "关闭导航", "workspace.nav.workspaceNav": "工作区导航", "workspace.nav.myWorkspaces": "我的工作区", "workspace.nav.closeOverlay": "关闭导航遮罩", "workspace.nav.openNav": "打开导航", "workspace.nav.business": "业务", "workspace.nav.management": "管理", "workspace.nav.dataBoundary": "每个工作区独立管理其业务数据",
+  // Early access (v0.3.6)
+  "workspace.earlyAccess.message": "您正在使用 Runory Early Access 版本。部分功能仍在完善中，欢迎反馈。", "workspace.earlyAccess.viewPlans": "查看方案信息", "workspace.earlyAccess.dismiss": "关闭提示",
 };
 
 export const messages = { en, zh } as const;
