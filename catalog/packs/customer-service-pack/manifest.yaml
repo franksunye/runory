@@ -1,6 +1,6 @@
 id: customer-service-pack
 name: Customer Service Pack
-version: 1.0.0
+version: 1.0.1
 coreCompatibility: ">=0.1.0"
 
 # Customer Service Pack adds support communication and issue resolution.
@@ -10,8 +10,8 @@ coreCompatibility: ">=0.1.0"
 # installed, and gracefully resolve to null otherwise.
 modules:
   - "runory.company:^1.0.0"
-  - "runory.contact:^1.0.0"
-  - "runory.task:^1.0.0"
+  - "runory.contact:^2.0.0"
+  - "runory.task:^2.0.0"
   - "runory.ticket:^1.0.0"
   - "runory.conversation:^1.0.0"
   - "runory.knowledge:^1.0.0"

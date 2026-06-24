@@ -1,6 +1,6 @@
 id: after-sales-pack
 name: After-sales Service Pack
-version: 1.0.0
+version: 1.0.1
 coreCompatibility: ">=0.1.0"
 
 # After-sales Service Pack adds post-sale obligations: warranty,
@@ -12,8 +12,8 @@ coreCompatibility: ">=0.1.0"
 # are also installed, and gracefully resolve to null otherwise.
 modules:
   - "runory.company:^1.0.0"
-  - "runory.contact:^1.0.0"
-  - "runory.task:^1.0.0"
+  - "runory.contact:^2.0.0"
+  - "runory.task:^2.0.0"
   - "runory.warranty:^1.0.0"
   - "runory.entitlement:^1.0.0"
   - "runory.return-request:^1.0.0"
