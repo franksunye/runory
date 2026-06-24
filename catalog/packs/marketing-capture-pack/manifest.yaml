@@ -1,0 +1,63 @@
+id: marketing-capture-pack
+name: Marketing Capture Pack
+version: 1.0.0
+coreCompatibility: ">=0.1.0"
+
+# Marketing Capture Pack composes shared business modules (company, contact,
+# deal) with marketing-specific modules for public demand capture.
+modules:
+  - "runory.company:^1.0.0"
+  - "runory.contact:^2.0.0"
+  - "runory.deal:^1.0.0"
+  - "runory.campaign:^1.0.0"
+  - "runory.form:^1.0.0"
+  - "runory.landing-page:^1.0.0"
+  - "runory.submission:^1.0.0"
+  - "runory.consent:^1.0.0"
+
+defaultTemplate: small-business-marketing-capture
+
+# Pack-specific terminology overlay (v0.2.3).
+# Marketing Capture labels the shared "company" object as "客户" (Customer)
+# and "deal" as "商机" (Opportunity) for marketing context.
+terminology:
+  - object: company
+    label: 客户
+    navigationLabel: 客户
+    route: /companies
+  - object: deal
+    label: 商机
+    navigationLabel: 商机
+    route: /deals
+
+# Marketing workbench — focuses on capture, conversion, and consent.
+dashboard:
+  defaultLayout:
+    - zone: metrics
+      widgets:
+        - { module: runory.submission,     widget: new_submissions_metric,          instance: default }
+        - { module: runory.campaign,       widget: active_campaigns_metric,         instance: default }
+        - { module: runory.form,           widget: published_forms_metric,          instance: default }
+        - { module: runory.landing-page,   widget: published_landing_pages_metric,  instance: default }
+        - { module: runory.consent,        widget: active_consents_metric,          instance: default }
+
+    - zone: trends
+      widgets:
+        - { module: runory.submission, widget: new_submissions_trend, instance: default }
+
+    - zone: lists
+      widgets:
+        - { module: runory.submission,   widget: recent_submissions_list,          instance: default }
+        - { module: runory.campaign,     widget: recent_campaigns_list,            instance: default }
+        - { module: runory.form,         widget: recent_forms_list,                instance: default }
+        - { module: runory.landing-page, widget: recent_landing_pages_list,        instance: default }
+        - { module: runory.consent,      widget: recent_consents_list,             instance: default }
+
+    - zone: activity
+      widgets:
+        - { module: _platform, widget: business_activity_feed, instance: default }
+
+marketplace:
+  category: marketing_capture
+  license: runory_official
+  publisher: runory

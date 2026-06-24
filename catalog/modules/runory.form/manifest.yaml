@@ -1,0 +1,205 @@
+id: runory.form
+name: Form Management
+version: 1.0.0
+coreCompatibility: ">=0.1.0"
+
+objects:
+  - key: form
+    label: Form
+    fields:
+      - key: name
+        label: 名称
+        type: text
+        ownership: module_owned
+        required: true
+      - key: slug
+        label: 路径标识
+        type: text
+        ownership: module_owned
+        required: true
+        description: "URL-friendly identifier (e.g., contact-us)"
+      - key: status
+        label: 状态
+        type: select
+        ownership: module_owned
+        required: true
+        default_value: "draft"
+        validation:
+          options: ["draft", "pending_review", "published", "unpublished"]
+      - key: target_object
+        label: 目标对象
+        type: select
+        ownership: module_owned
+        default_value: "contact"
+        validation:
+          options: ["contact", "company", "deal"]
+        description: "Object to create from submissions"
+      - key: fields_json
+        label: 表单字段
+        type: text
+        ownership: module_owned
+        description: "JSON array of field definitions"
+      - key: submit_button_label
+        label: 提交按钮文案
+        type: text
+        ownership: module_owned
+        default_value: "提交"
+      - key: success_message
+        label: 成功提示
+        type: text
+        ownership: module_owned
+        default_value: "感谢您的提交，我们会尽快与您联系。"
+      - key: campaign_id
+        label: 关联活动
+        type: text
+        ownership: module_owned
+      - key: notes
+        label: 备注
+        type: text
+        ownership: module_owned
+
+views:
+  - object: form
+    key: form_list
+    type: list
+    label: 表单列表
+    config:
+      columns:
+        - field: name
+          label: 名称
+        - field: slug
+          label: 路径标识
+        - field: status
+          label: 状态
+        - field: target_object
+          label: 目标对象
+      actions:
+        - create
+        - view
+      pageSize: 20
+
+  - object: form
+    key: form_form
+    type: form
+    label: 表单配置
+    config:
+      sections:
+        - title: 基本信息
+          fields:
+            - field: name
+              required: true
+            - field: slug
+              required: true
+            - field: status
+              required: true
+        - title: 提交配置
+          fields:
+            - field: target_object
+            - field: submit_button_label
+            - field: success_message
+        - title: 高级
+          fields:
+            - field: fields_json
+            - field: campaign_id
+            - field: notes
+
+permissions:
+  - form.read
+  - form.create
+  - form.update
+  - form.delete
+
+# ── Cross-Pack Relations (v0.2.6) ──
+relations:
+  - object: form
+    targetObject: campaign
+    targetModule: runory.campaign
+    type: many_to_one
+    foreignKey: campaign_id
+    label: 关联活动
+
+migrations:
+  install: migrations/install.sql
+  uninstallPolicy: retain_data
+
+ui:
+  navigation:
+    - label: 表单
+      route: /forms
+      icon: file-plus
+      sortOrder: 42
+
+extensionPoints:
+  entities:
+    - entity: form
+      customFields:
+        enabled: true
+        allowedTypes: [text, number, date, select, boolean]
+        maxFields: 20
+        reservedKeys: [id, name, slug, status, target_object, fields_json, submit_button_label, success_message, campaign_id, notes, created_at, updated_at]
+      customRelations:
+        enabled: false
+  views:
+    - view: form_list
+      slots:
+        - id: form.list.columns
+          type: column_group
+          allowedExtensions: [customField]
+          risk: low
+      allowReorder: true
+      allowFilters: true
+      allowPageSizeChange: true
+    - view: form_form
+      slots:
+        - id: form.form.basic_fields.after
+          type: field_group
+          allowedExtensions: [customField]
+          risk: low
+      allowAddSection: true
+      allowAddAction: true
+
+dashboard:
+  widgets:
+    - key: published_forms_metric
+      type: metric_card
+      label: 已发布表单
+      icon: file-plus
+      tone: violet
+      data:
+        kind: count
+        object: form
+        where: "status = 'published'"
+      link: /forms
+
+    - key: form_status_breakdown
+      type: breakdown
+      label: 表单状态分布
+      icon: pie-chart
+      tone: violet
+      data:
+        kind: group_count
+        object: form
+        groupBy: status
+
+    - key: recent_forms_list
+      type: list
+      label: 最近表单
+      icon: file-plus
+      tone: violet
+      data:
+        kind: recent
+        object: form
+        orderBy: "created_at desc"
+        limit: 5
+        columns: [name, slug, status, target_object]
+      link: /forms
+      configurable:
+        - path: data.limit
+          label: 显示条数
+          type: number
+          min: 1
+          max: 20
+
+upgradePolicy:
+  supportsWorkspaceExtensions: true
+  breakingChangePolicy: manual_review

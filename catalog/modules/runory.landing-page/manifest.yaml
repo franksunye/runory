@@ -1,0 +1,225 @@
+id: runory.landing-page
+name: Landing Page Management
+version: 1.0.0
+coreCompatibility: ">=0.1.0"
+
+objects:
+  - key: landing_page
+    label: Landing Page
+    fields:
+      - key: title
+        label: 标题
+        type: text
+        ownership: module_owned
+        required: true
+      - key: slug
+        label: 路径标识
+        type: text
+        ownership: module_owned
+        required: true
+        description: "Public URL path (e.g., /p/summer-promo)"
+      - key: status
+        label: 状态
+        type: select
+        ownership: module_owned
+        required: true
+        default_value: "draft"
+        validation:
+          options: ["draft", "pending_review", "published", "unpublished"]
+      - key: headline
+        label: 主标题
+        type: text
+        ownership: module_owned
+      - key: subheadline
+        label: 副标题
+        type: text
+        ownership: module_owned
+      - key: body_html
+        label: 正文内容
+        type: text
+        ownership: module_owned
+        description: "HTML content of the landing page"
+      - key: cta_text
+        label: 行动号召文案
+        type: text
+        ownership: module_owned
+        default_value: "立即申请"
+      - key: form_id
+        label: 关联表单
+        type: text
+        ownership: module_owned
+      - key: campaign_id
+        label: 关联活动
+        type: text
+        ownership: module_owned
+      - key: meta_description
+        label: SEO 描述
+        type: text
+        ownership: module_owned
+      - key: published_at
+        label: 发布时间
+        type: date
+        ownership: module_owned
+      - key: owner
+        label: 负责人
+        type: text
+        ownership: module_owned
+
+views:
+  - object: landing_page
+    key: landing_page_list
+    type: list
+    label: 落地页列表
+    config:
+      columns:
+        - field: title
+          label: 标题
+        - field: slug
+          label: 路径标识
+        - field: status
+          label: 状态
+        - field: campaign_id
+          label: 关联活动
+        - field: published_at
+          label: 发布时间
+      actions:
+        - create
+        - view
+      pageSize: 20
+
+  - object: landing_page
+    key: landing_page_form
+    type: form
+    label: 落地页配置
+    config:
+      sections:
+        - title: 基本信息
+          fields:
+            - field: title
+              required: true
+            - field: slug
+              required: true
+            - field: status
+              required: true
+        - title: 内容
+          fields:
+            - field: headline
+            - field: subheadline
+            - field: body_html
+            - field: cta_text
+        - title: 关联
+          fields:
+            - field: form_id
+            - field: campaign_id
+        - title: SEO 与发布
+          fields:
+            - field: meta_description
+            - field: published_at
+            - field: owner
+
+permissions:
+  - landing_page.read
+  - landing_page.create
+  - landing_page.update
+  - landing_page.delete
+
+# ── Cross-Pack Relations (v0.2.6) ──
+relations:
+  - object: landing_page
+    targetObject: form
+    targetModule: runory.form
+    type: many_to_one
+    foreignKey: form_id
+    label: 关联表单
+  - object: landing_page
+    targetObject: campaign
+    targetModule: runory.campaign
+    type: many_to_one
+    foreignKey: campaign_id
+    label: 关联活动
+
+migrations:
+  install: migrations/install.sql
+  uninstallPolicy: retain_data
+
+ui:
+  navigation:
+    - label: 落地页
+      route: /landing-pages
+      icon: layout
+      sortOrder: 41
+
+extensionPoints:
+  entities:
+    - entity: landing_page
+      customFields:
+        enabled: true
+        allowedTypes: [text, number, date, select, boolean]
+        maxFields: 20
+        reservedKeys: [id, title, slug, status, headline, subheadline, body_html, cta_text, form_id, campaign_id, meta_description, published_at, owner, created_at, updated_at]
+      customRelations:
+        enabled: false
+  views:
+    - view: landing_page_list
+      slots:
+        - id: landing_page.list.columns
+          type: column_group
+          allowedExtensions: [customField]
+          risk: low
+      allowReorder: true
+      allowFilters: true
+      allowPageSizeChange: true
+    - view: landing_page_form
+      slots:
+        - id: landing_page.form.basic_fields.after
+          type: field_group
+          allowedExtensions: [customField]
+          risk: low
+      allowAddSection: true
+      allowAddAction: true
+
+dashboard:
+  widgets:
+    - key: published_landing_pages_metric
+      type: metric_card
+      label: 已发布落地页
+      icon: layout
+      tone: violet
+      data:
+        kind: count
+        object: landing_page
+        where: "status = 'published'"
+      link: /landing-pages
+
+    - key: landing_page_status_breakdown
+      type: breakdown
+      label: 落地页状态分布
+      icon: pie-chart
+      tone: violet
+      data:
+        kind: group_count
+        object: landing_page
+        groupBy: status
+
+    - key: recent_landing_pages_list
+      type: list
+      label: 最近落地页
+      icon: layout
+      tone: violet
+      data:
+        kind: recent
+        object: landing_page
+        orderBy: "created_at desc"
+        limit: 5
+        columns: [title, slug, status, published_at]
+      link: /landing-pages
+      configurable:
+        - path: data.limit
+          label: 显示条数
+          type: number
+          min: 1
+          max: 20
+
+upgradePolicy:
+  supportsWorkspaceExtensions: true
+  breakingChangePolicy: manual_review

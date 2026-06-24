@@ -1,0 +1,212 @@
+id: runory.consent
+name: Consent Management
+version: 1.0.0
+coreCompatibility: ">=0.1.0"
+
+dependencies:
+  - runory.contact
+
+objects:
+  - key: consent
+    label: Consent
+    fields:
+      - key: contact_id
+        label: 关联联系人
+        type: text
+        ownership: module_owned
+        required: true
+      - key: purpose
+        label: 同意目的
+        type: text
+        ownership: module_owned
+        required: true
+        description: "e.g., marketing_emails, data_processing, cookie_tracking"
+      - key: status
+        label: 状态
+        type: select
+        ownership: module_owned
+        required: true
+        default_value: "granted"
+        validation:
+          options: ["granted", "withdrawn", "expired"]
+      - key: granted_at
+        label: 授予时间
+        type: date
+        ownership: module_owned
+      - key: withdrawn_at
+        label: 撤回时间
+        type: date
+        ownership: module_owned
+      - key: source
+        label: 来源
+        type: text
+        ownership: module_owned
+        description: "Where consent was captured (e.g., form_submission, explicit_opt_in)"
+      - key: submission_id
+        label: 关联提交
+        type: text
+        ownership: module_owned
+      - key: policy_version
+        label: 政策版本
+        type: text
+        ownership: module_owned
+      - key: notes
+        label: 备注
+        type: text
+        ownership: module_owned
+
+views:
+  - object: consent
+    key: consent_list
+    type: list
+    label: 同意记录列表
+    config:
+      columns:
+        - field: contact_id
+          label: 关联联系人
+        - field: purpose
+          label: 同意目的
+        - field: status
+          label: 状态
+        - field: granted_at
+          label: 授予时间
+        - field: withdrawn_at
+          label: 撤回时间
+        - field: source
+          label: 来源
+      actions:
+        - create
+        - view
+      pageSize: 20
+
+  - object: consent
+    key: consent_form
+    type: form
+    label: 同意记录表单
+    config:
+      sections:
+        - title: 基本信息
+          fields:
+            - field: contact_id
+              required: true
+            - field: purpose
+              required: true
+            - field: status
+              required: true
+        - title: 时间
+          fields:
+            - field: granted_at
+            - field: withdrawn_at
+        - title: 来源
+          fields:
+            - field: source
+            - field: submission_id
+            - field: policy_version
+            - field: notes
+
+permissions:
+  - consent.read
+  - consent.create
+  - consent.update
+  - consent.delete
+
+# ── Cross-Pack Relations (v0.2.6) ──
+relations:
+  - object: consent
+    targetObject: contact
+    targetModule: runory.contact
+    type: many_to_one
+    foreignKey: contact_id
+    label: 关联联系人
+  - object: consent
+    targetObject: submission
+    targetModule: runory.submission
+    type: many_to_one
+    foreignKey: submission_id
+    label: 关联提交
+
+migrations:
+  install: migrations/install.sql
+  uninstallPolicy: retain_data
+
+ui:
+  navigation:
+    - label: 同意记录
+      route: /consents
+      icon: shield-check
+      sortOrder: 44
+
+extensionPoints:
+  entities:
+    - entity: consent
+      customFields:
+        enabled: true
+        allowedTypes: [text, number, date, select, boolean]
+        maxFields: 15
+        reservedKeys: [id, contact_id, purpose, status, granted_at, withdrawn_at, source, submission_id, policy_version, notes, created_at, updated_at]
+      customRelations:
+        enabled: false
+  views:
+    - view: consent_list
+      slots:
+        - id: consent.list.columns
+          type: column_group
+          allowedExtensions: [customField]
+          risk: low
+      allowReorder: true
+      allowFilters: true
+      allowPageSizeChange: true
+    - view: consent_form
+      slots:
+        - id: consent.form.basic_fields.after
+          type: field_group
+          allowedExtensions: [customField]
+          risk: low
+      allowAddSection: true
+      allowAddAction: true
+
+dashboard:
+  widgets:
+    - key: active_consents_metric
+      type: metric_card
+      label: 有效同意
+      icon: shield-check
+      tone: violet
+      data:
+        kind: count
+        object: consent
+        where: "status = 'granted'"
+      link: /consents
+
+    - key: consent_status_breakdown
+      type: breakdown
+      label: 同意状态分布
+      icon: pie-chart
+      tone: violet
+      data:
+        kind: group_count
+        object: consent
+        groupBy: status
+
+    - key: recent_consents_list
+      type: list
+      label: 最近同意记录
+      icon: shield-check
+      tone: violet
+      data:
+        kind: recent
+        object: consent
+        orderBy: "created_at desc"
+        limit: 5
+        columns: [contact_id, purpose, status, granted_at]
+      link: /consents
+      configurable:
+        - path: data.limit
+          label: 显示条数
+          type: number
+          min: 1
+          max: 20
+
+upgradePolicy:
+  supportsWorkspaceExtensions: true
+  breakingChangePolicy: manual_review

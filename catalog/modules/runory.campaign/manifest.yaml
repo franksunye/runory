@@ -1,0 +1,200 @@
+id: runory.campaign
+name: Campaign Management
+version: 1.0.0
+coreCompatibility: ">=0.1.0"
+
+objects:
+  - key: campaign
+    label: Campaign
+    fields:
+      - key: name
+        label: 名称
+        type: text
+        ownership: module_owned
+        required: true
+      - key: status
+        label: 状态
+        type: select
+        ownership: module_owned
+        required: true
+        default_value: "planning"
+        validation:
+          options: ["planning", "active", "paused", "completed", "archived"]
+      - key: source
+        label: 来源
+        type: text
+        ownership: module_owned
+        description: "UTM source (e.g., newsletter, google, linkedin)"
+      - key: medium
+        label: 媒介
+        type: text
+        ownership: module_owned
+        description: "UTM medium (e.g., email, cpc, social)"
+      - key: start_date
+        label: 开始日期
+        type: date
+        ownership: module_owned
+      - key: end_date
+        label: 结束日期
+        type: date
+        ownership: module_owned
+      - key: budget
+        label: 预算
+        type: number
+        ownership: module_owned
+      - key: currency
+        label: 币种
+        type: text
+        ownership: module_owned
+        default_value: "CNY"
+      - key: owner
+        label: 负责人
+        type: text
+        ownership: module_owned
+      - key: notes
+        label: 备注
+        type: text
+        ownership: module_owned
+
+views:
+  - object: campaign
+    key: campaign_list
+    type: list
+    label: 营销活动列表
+    config:
+      columns:
+        - field: name
+          label: 名称
+        - field: status
+          label: 状态
+        - field: source
+          label: 来源
+        - field: medium
+          label: 媒介
+        - field: start_date
+          label: 开始日期
+        - field: end_date
+          label: 结束日期
+      actions:
+        - create
+        - view
+      pageSize: 20
+
+  - object: campaign
+    key: campaign_form
+    type: form
+    label: 营销活动表单
+    config:
+      sections:
+        - title: 基本信息
+          fields:
+            - field: name
+              required: true
+            - field: status
+              required: true
+        - title: 来源归因
+          fields:
+            - field: source
+            - field: medium
+        - title: 时间与预算
+          fields:
+            - field: start_date
+            - field: end_date
+            - field: budget
+            - field: currency
+        - title: 其他
+          fields:
+            - field: owner
+            - field: notes
+
+permissions:
+  - campaign.read
+  - campaign.create
+  - campaign.update
+  - campaign.delete
+
+migrations:
+  install: migrations/install.sql
+  uninstallPolicy: retain_data
+
+ui:
+  navigation:
+    - label: 营销活动
+      route: /campaigns
+      icon: megaphone
+      sortOrder: 40
+
+extensionPoints:
+  entities:
+    - entity: campaign
+      customFields:
+        enabled: true
+        allowedTypes: [text, number, date, select, boolean]
+        maxFields: 20
+        reservedKeys: [id, name, status, source, medium, start_date, end_date, budget, currency, owner, notes, created_at, updated_at]
+      customRelations:
+        enabled: false
+  views:
+    - view: campaign_list
+      slots:
+        - id: campaign.list.columns
+          type: column_group
+          allowedExtensions: [customField]
+          risk: low
+      allowReorder: true
+      allowFilters: true
+      allowPageSizeChange: true
+    - view: campaign_form
+      slots:
+        - id: campaign.form.basic_fields.after
+          type: field_group
+          allowedExtensions: [customField]
+          risk: low
+      allowAddSection: true
+      allowAddAction: true
+
+dashboard:
+  widgets:
+    - key: active_campaigns_metric
+      type: metric_card
+      label: 进行中活动
+      icon: megaphone
+      tone: violet
+      data:
+        kind: count
+        object: campaign
+        where: "status = 'active'"
+      link: /campaigns
+
+    - key: campaign_status_breakdown
+      type: breakdown
+      label: 活动状态分布
+      icon: pie-chart
+      tone: violet
+      data:
+        kind: group_count
+        object: campaign
+        groupBy: status
+
+    - key: recent_campaigns_list
+      type: list
+      label: 最近营销活动
+      icon: megaphone
+      tone: violet
+      data:
+        kind: recent
+        object: campaign
+        orderBy: "created_at desc"
+        limit: 5
+        columns: [name, status, source, medium, start_date]
+      link: /campaigns
+      configurable:
+        - path: data.limit
+          label: 显示条数
+          type: number
+          min: 1
+          max: 20
+
+upgradePolicy:
+  supportsWorkspaceExtensions: true
+  breakingChangePolicy: manual_review

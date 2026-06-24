@@ -1,0 +1,49 @@
+id: small-business-marketing-capture
+name: Small Business Marketing Capture
+version: 1.0.0
+
+terminology:
+  customer: 客户
+  contact: 联系人
+  deal: 商机
+  campaign: 营销活动
+  form: 表单
+  landing_page: 落地页
+  submission: 提交记录
+  consent: 同意记录
+
+navigation:
+  - dashboard
+  - submissions
+  - campaigns
+  - forms
+  - landing-pages
+  - consents
+  - companies
+  - contacts
+  - deals
+
+homepage:
+  layout: marketing_capture_overview
+  widgets:
+    - new_submissions
+    - active_campaigns
+    - recent_activity
+
+roleEntry:
+  owner: /dashboard
+  marketing: /campaigns
+  sales: /submissions
+
+compatiblePacks:
+  - "marketing-capture-pack:^1.0.0"
+
+compatibleModules:
+  - "runory.company:^1.0.0"
+  - "runory.contact:^2.0.0"
+  - "runory.deal:^1.0.0"
+  - "runory.campaign:^1.0.0"
+  - "runory.form:^1.0.0"
+  - "runory.landing-page:^1.0.0"
+  - "runory.submission:^1.0.0"
+  - "runory.consent:^1.0.0"

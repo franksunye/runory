@@ -1,0 +1,302 @@
+id: runory.submission
+name: Form Submission Management
+version: 1.0.0
+coreCompatibility: ">=0.1.0"
+
+dependencies:
+  - runory.company
+  - runory.contact
+  - runory.deal
+  - runory.form
+  - runory.landing-page
+  - runory.campaign
+
+objects:
+  - key: submission
+    label: Submission
+    fields:
+      - key: form_id
+        label: 关联表单
+        type: text
+        ownership: module_owned
+        required: true
+      - key: landing_page_id
+        label: 来源落地页
+        type: text
+        ownership: module_owned
+      - key: campaign_id
+        label: 来源活动
+        type: text
+        ownership: module_owned
+      - key: status
+        label: 状态
+        type: select
+        ownership: module_owned
+        required: true
+        default_value: "new"
+        validation:
+          options: ["new", "processing", "converted", "rejected", "spam"]
+      - key: payload_json
+        label: 提交数据
+        type: text
+        ownership: module_owned
+        description: "JSON of submitted form fields"
+      - key: contact_id
+        label: 关联联系人
+        type: text
+        ownership: module_owned
+      - key: company_id
+        label: 关联公司
+        type: text
+        ownership: module_owned
+      - key: deal_id
+        label: 关联商机
+        type: text
+        ownership: module_owned
+      - key: source_url
+        label: 来源 URL
+        type: text
+        ownership: module_owned
+      - key: referrer
+        label: 来源页面
+        type: text
+        ownership: module_owned
+      - key: ip_address
+        label: IP 地址
+        type: text
+        ownership: module_owned
+      - key: user_agent
+        label: 用户代理
+        type: text
+        ownership: module_owned
+      - key: consent_given
+        label: 已获同意
+        type: boolean
+        ownership: module_owned
+        default_value: "false"
+      - key: consent_text
+        label: 同意条款
+        type: text
+        ownership: module_owned
+      - key: processed_by
+        label: 处理人
+        type: text
+        ownership: module_owned
+      - key: processed_at
+        label: 处理时间
+        type: date
+        ownership: module_owned
+      - key: notes
+        label: 备注
+        type: text
+        ownership: module_owned
+
+views:
+  - object: submission
+    key: submission_list
+    type: list
+    label: 提交列表
+    config:
+      columns:
+        - field: status
+          label: 状态
+        - field: form_id
+          label: 关联表单
+        - field: campaign_id
+          label: 来源活动
+        - field: contact_id
+          label: 关联联系人
+        - field: company_id
+          label: 关联公司
+        - field: consent_given
+          label: 已获同意
+        - field: created_at
+          label: 提交时间
+      actions:
+        - create
+        - view
+      pageSize: 20
+
+  - object: submission
+    key: submission_form
+    type: form
+    label: 提交详情
+    config:
+      sections:
+        - title: 基本信息
+          fields:
+            - field: form_id
+              required: true
+            - field: status
+              required: true
+        - title: 来源归因
+          fields:
+            - field: landing_page_id
+            - field: campaign_id
+            - field: source_url
+            - field: referrer
+        - title: 关联记录
+          fields:
+            - field: contact_id
+            - field: company_id
+            - field: deal_id
+        - title: 提交数据
+          fields:
+            - field: payload_json
+        - title: 同意与处理
+          fields:
+            - field: consent_given
+            - field: consent_text
+            - field: ip_address
+            - field: user_agent
+            - field: processed_by
+            - field: processed_at
+            - field: notes
+
+permissions:
+  - submission.read
+  - submission.create
+  - submission.update
+  - submission.delete
+
+# ── Cross-Pack Relations (v0.2.6) ──
+# submission references form/landing_page/campaign (same pack) and
+# company/contact/deal (shared CRM modules).
+relations:
+  - object: submission
+    targetObject: form
+    targetModule: runory.form
+    type: many_to_one
+    foreignKey: form_id
+    label: 关联表单
+  - object: submission
+    targetObject: landing_page
+    targetModule: runory.landing-page
+    type: many_to_one
+    foreignKey: landing_page_id
+    label: 来源落地页
+  - object: submission
+    targetObject: campaign
+    targetModule: runory.campaign
+    type: many_to_one
+    foreignKey: campaign_id
+    label: 来源活动
+  - object: submission
+    targetObject: company
+    targetModule: runory.company
+    type: many_to_one
+    foreignKey: company_id
+    label: 关联公司
+  - object: submission
+    targetObject: contact
+    targetModule: runory.contact
+    type: many_to_one
+    foreignKey: contact_id
+    label: 关联联系人
+  - object: submission
+    targetObject: deal
+    targetModule: runory.deal
+    type: many_to_one
+    foreignKey: deal_id
+    label: 关联商机
+
+migrations:
+  install: migrations/install.sql
+  uninstallPolicy: retain_data
+
+ui:
+  navigation:
+    - label: 提交记录
+      route: /submissions
+      icon: inbox
+      sortOrder: 43
+
+extensionPoints:
+  entities:
+    - entity: submission
+      customFields:
+        enabled: true
+        allowedTypes: [text, number, date, select, boolean]
+        maxFields: 20
+        reservedKeys: [id, form_id, landing_page_id, campaign_id, status, payload_json, contact_id, company_id, deal_id, source_url, referrer, ip_address, user_agent, consent_given, consent_text, processed_by, processed_at, notes, created_at, updated_at]
+      customRelations:
+        enabled: false
+  views:
+    - view: submission_list
+      slots:
+        - id: submission.list.columns
+          type: column_group
+          allowedExtensions: [customField]
+          risk: low
+      allowReorder: true
+      allowFilters: true
+      allowPageSizeChange: true
+    - view: submission_form
+      slots:
+        - id: submission.form.basic_fields.after
+          type: field_group
+          allowedExtensions: [customField]
+          risk: low
+      allowAddSection: true
+      allowAddAction: true
+
+dashboard:
+  widgets:
+    - key: new_submissions_metric
+      type: metric_card
+      label: 新提交
+      icon: inbox
+      tone: violet
+      data:
+        kind: count
+        object: submission
+        where: "status = 'new'"
+      link: /submissions
+
+    - key: submission_status_breakdown
+      type: breakdown
+      label: 提交状态分布
+      icon: pie-chart
+      tone: violet
+      data:
+        kind: group_count
+        object: submission
+        groupBy: status
+
+    - key: recent_submissions_list
+      type: list
+      label: 最近提交
+      icon: inbox
+      tone: violet
+      data:
+        kind: recent
+        object: submission
+        orderBy: "created_at desc"
+        limit: 8
+        columns: [status, form_id, campaign_id, consent_given, created_at]
+      link: /submissions
+      configurable:
+        - path: data.limit
+          label: 显示条数
+          type: number
+          min: 1
+          max: 20
+
+    - key: new_submissions_trend
+      type: trend_chart
+      label: 提交新增趋势
+      icon: trending-up
+      tone: violet
+      data:
+        kind: timeseries
+        object: submission
+        range: 14d
+      configurable:
+        - path: data.range
+          label: 时间范围
+          type: select
+          options: ["7d", "14d", "30d"]
+
+upgradePolicy:
+  supportsWorkspaceExtensions: true
+  breakingChangePolicy: manual_review
