@@ -685,3 +685,129 @@ export async function getExtensionVersions(workspaceId: string, extensionId: str
     createdAt: r.created_at,
   }));
 }
+
+// ── Business-Language Diff Rendering (v0.3.5) ──
+
+export interface DiffSummaryLine {
+  category: "field" | "view" | "risk";
+  icon: string;
+  message: string;
+  detail?: string;
+}
+
+export interface DiffSummary {
+  lines: DiffSummaryLine[];
+  riskLabel: string;
+  overallSummary: string;
+}
+
+const RISK_LABELS: Record<string, string> = {
+  low: "低风险",
+  medium: "中风险",
+  high: "高风险",
+};
+
+const VIEW_MOD_LABELS: Record<string, string> = {
+  reorderColumns: "调整列顺序",
+  addFilters: "添加筛选条件",
+  addSection: "添加分组",
+  addAction: "添加操作按钮",
+  pageSize: "调整分页大小",
+};
+
+/**
+ * Convert a DiffPreview (JSON-shaped) into human-readable business-language
+ * summary lines. This is the primary approval experience — JSON remains
+ * available for debugging but is not the default view.
+ */
+export function renderDiffPreview(diff: DiffPreview): DiffSummary {
+  const lines: DiffSummaryLine[] = [];
+
+  // Field additions
+  for (const field of diff.addedFields) {
+    const parts: string[] = [
+      `在「${field.object}」对象上新增字段「${field.label}」(${field.fieldKey})`,
+      `类型: ${field.type}`,
+    ];
+    if (field.listColumn) {
+      parts.push("显示在列表中");
+    }
+    if (field.slot) {
+      parts.push(`位置: ${field.slot}`);
+    }
+    lines.push({
+      category: "field",
+      icon: "plus",
+      message: `新增字段: ${field.label}`,
+      detail: parts.join(" · "),
+    });
+  }
+
+  // View modifications
+  for (const vm of diff.viewModifications) {
+    const modDescriptions = vm.modifications.map(m => {
+      const label = VIEW_MOD_LABELS[m.type] ?? m.type;
+      switch (m.type) {
+        case "reorderColumns":
+          return `${label}: ${(m.details.columns as string[])?.join(" → ") ?? ""}`;
+        case "addFilters":
+          return `${label}: ${JSON.stringify(m.details.filters)}`;
+        case "addSection":
+          return `${label}: ${(m.details.section as { title?: string })?.title ?? "新分组"}`;
+        case "addAction":
+          return `${label}: ${(m.details.action as { label?: string })?.label ?? "新操作"}`;
+        case "pageSize":
+          return `${label}: ${m.details.pageSize}`;
+        default:
+          return label;
+      }
+    });
+
+    lines.push({
+      category: "view",
+      icon: "layout",
+      message: `修改视图: ${vm.targetObject}/${vm.viewKey}`,
+      detail: modDescriptions.join(" · "),
+    });
+  }
+
+  // Affected views summary (if any not already covered by viewModifications)
+  const coveredViews = new Set(diff.viewModifications.map(vm => `${vm.targetObject}/${vm.viewKey}`));
+  for (const view of diff.affectedViews) {
+    if (!coveredViews.has(view)) {
+      lines.push({
+        category: "view",
+        icon: "eye",
+        message: `影响视图: ${view}`,
+      });
+    }
+  }
+
+  // Risk
+  lines.push({
+    category: "risk",
+    icon: "shield",
+    message: `风险等级: ${RISK_LABELS[diff.riskLevel] ?? diff.riskLevel}`,
+  });
+
+  // Overall summary
+  const fieldCount = diff.addedFields.length;
+  const viewCount = diff.viewModifications.length;
+  const summaryParts: string[] = [];
+  if (fieldCount > 0) {
+    summaryParts.push(`新增 ${fieldCount} 个字段`);
+  }
+  if (viewCount > 0) {
+    summaryParts.push(`修改 ${viewCount} 个视图`);
+  }
+  if (summaryParts.length === 0) {
+    summaryParts.push("无实质性变更");
+  }
+  const overallSummary = `${summaryParts.join("，")}（${RISK_LABELS[diff.riskLevel] ?? diff.riskLevel}）`;
+
+  return {
+    lines,
+    riskLabel: RISK_LABELS[diff.riskLevel] ?? diff.riskLevel,
+    overallSummary,
+  };
+}

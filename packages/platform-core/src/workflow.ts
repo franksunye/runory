@@ -7,6 +7,8 @@ import {
   type WorkspaceRole,
 } from "./context";
 import { roleAllows } from "./tenancy";
+import { getRecord, createRecord, updateRecord } from "./metadata";
+import { writeAuditEvent } from "./audit-service";
 import type {
   WorkflowDefinition,
   WorkflowTransition,
@@ -229,6 +231,24 @@ export async function startWorkflow(
     ]
   );
 
+  // Audit: workflow.start
+  writeAuditEvent({
+    workspaceId,
+    actorType: actor.type as "user" | "api_key" | "system" | "agent",
+    actorId: actor.id,
+    action: "workflow.start",
+    entityType: "workflow_instance",
+    entityId: id,
+    after: {
+      workflowId,
+      objectType,
+      recordId,
+      initialState: instance.currentState,
+    },
+  }).catch((err) => {
+    console.error("[audit] Failed to write workflow.start audit event:", err);
+  });
+
   return instance;
 }
 
@@ -330,6 +350,23 @@ export async function transitionWorkflow(
     );
   }
 
+  // Enforce transition conditions (v0.3.5): if the transition declares conditions,
+  // fetch the bound record and evaluate them. Conditions that reference fields the
+  // record does not have are treated as failing.
+  if (transition.conditions && transition.conditions.length > 0) {
+    const record = await getRecord(workspaceId, instance.objectType, instance.recordId);
+    if (!record) {
+      throw new InvalidInputError(
+        `Transition conditions cannot be evaluated: bound record "${instance.recordId}" of "${instance.objectType}" not found`
+      );
+    }
+    if (!evaluateConditions(record, transition.conditions)) {
+      throw new InvalidInputError(
+        `Transition conditions not met for "${transition.label}"`
+      );
+    }
+  }
+
   // Append to history and update state
   const event: WorkflowTransitionEvent = {
     fromStatus: transition.fromStatus,
@@ -358,6 +395,56 @@ export async function transitionWorkflow(
       ],
     },
   ]);
+
+  // Audit: workflow.transition (or workflow.approve for approval transitions)
+  const auditAction = transition.requiresApproval ? "workflow.approve" : "workflow.transition";
+  writeAuditEvent({
+    workspaceId,
+    actorType: actor.type as "user" | "api_key" | "system" | "agent",
+    actorId: actor.id,
+    action: auditAction,
+    entityType: "workflow_instance",
+    entityId: instanceId,
+    before: {
+      state: instance.currentState,
+      workflowId: instance.workflowId,
+      objectType: instance.objectType,
+      recordId: instance.recordId,
+    },
+    after: {
+      state: transition.toStatus,
+      transitionLabel: transition.label,
+      comment: comment ?? null,
+    },
+  }).catch((err) => {
+    console.error("[audit] Failed to write workflow transition audit event:", err);
+  });
+
+  // Execute system action if declared (v0.3.5).
+  // Failures are recorded as audit events but do not roll back the state change —
+  // the transition itself already succeeded. This matches the spec's "system action
+  // step" semantics: the state move is the source of truth, side effects are best-effort.
+  if (transition.systemAction) {
+    try {
+      await executeSystemAction(workspaceId, instance, transition, actor);
+    } catch (err) {
+      writeAuditEvent({
+        workspaceId,
+        actorType: "system",
+        actorId: "workflow-runtime",
+        action: "workflow.system_action",
+        entityType: "workflow_instance",
+        entityId: instanceId,
+        after: {
+          transitionLabel: transition.label,
+          systemActionType: transition.systemAction.type,
+          error: err instanceof Error ? err.message : String(err),
+        },
+      }).catch(() => {
+        // best-effort audit
+      });
+    }
+  }
 
   return {
     ...instance,
@@ -495,4 +582,143 @@ export async function getPendingApprovals(
   }
 
   return result;
+}
+
+// ── System Action Execution (v0.3.5) ──
+
+/**
+ * Resolve a template string by substituting {{record.fieldKey}} placeholders
+ * with values from the bound record. Unknown placeholders are left as-is.
+ */
+function resolveTemplate(template: string, record: Record<string, unknown>): string {
+  return template.replace(/\{\{record\.([a-zA-Z0-9_]+)\}\}/g, (_match, fieldKey: string) => {
+    const value = record[fieldKey];
+    return value === null || value === undefined ? "" : String(value);
+  });
+}
+
+function resolveFieldsMap(
+  fields: Record<string, unknown>,
+  record: Record<string, unknown>
+): Record<string, unknown> {
+  const resolved: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(fields)) {
+    if (typeof value === "string") {
+      resolved[key] = resolveTemplate(value, record);
+    } else {
+      resolved[key] = value;
+    }
+  }
+  return resolved;
+}
+
+/**
+ * Execute a transition's declared system action against the bound record
+ * (or a related object). Called after the state change has been persisted.
+ */
+async function executeSystemAction(
+  workspaceId: string,
+  instance: WorkflowInstance,
+  transition: WorkflowTransition,
+  actor: WorkflowActor
+): Promise<void> {
+  const action = transition.systemAction;
+  if (!action) return;
+
+  // Fetch the bound record for template resolution
+  const record = await getRecord(workspaceId, instance.objectType, instance.recordId);
+  const recordData = record ?? {};
+
+  switch (action.type) {
+    case "create_task": {
+      const targetObject = action.targetObject ?? "task";
+      const title = action.title ? resolveTemplate(action.title, recordData) : `Workflow task: ${transition.label}`;
+      const description = action.description ? resolveTemplate(action.description, recordData) : null;
+      const taskData: Record<string, unknown> = {
+        title,
+        ...(description ? { description } : {}),
+      };
+      // Link to the source record if the task object supports it
+      if (targetObject === "task") {
+        taskData[`${instance.objectType}_id`] = instance.recordId;
+      }
+      await createRecord(workspaceId, targetObject, taskData);
+
+      writeAuditEvent({
+        workspaceId,
+        actorType: "system",
+        actorId: "workflow-runtime",
+        action: "workflow.system_action",
+        entityType: "workflow_instance",
+        entityId: instance.id,
+        after: {
+          transitionLabel: transition.label,
+          systemActionType: "create_task",
+          targetObject,
+          title,
+          triggeredBy: actor.id,
+        },
+      }).catch(() => {
+        // best-effort audit
+      });
+      break;
+    }
+
+    case "update_record":
+    case "set_field": {
+      const targetObject = action.targetObject ?? instance.objectType;
+      const targetRecordId = action.targetObject ? instance.recordId : instance.recordId;
+      if (action.fields) {
+        const resolved = resolveFieldsMap(action.fields, recordData);
+        await updateRecord(workspaceId, targetObject, targetRecordId, resolved);
+      }
+
+      writeAuditEvent({
+        workspaceId,
+        actorType: "system",
+        actorId: "workflow-runtime",
+        action: "workflow.system_action",
+        entityType: "workflow_instance",
+        entityId: instance.id,
+        after: {
+          transitionLabel: transition.label,
+          systemActionType: action.type,
+          targetObject,
+          targetRecordId,
+          fields: action.fields ?? {},
+          triggeredBy: actor.id,
+        },
+      }).catch(() => {
+        // best-effort audit
+      });
+      break;
+    }
+
+    case "send_notification": {
+      const message = action.message ? resolveTemplate(action.message, recordData) : `Workflow notification: ${transition.label}`;
+      writeAuditEvent({
+        workspaceId,
+        actorType: "system",
+        actorId: "workflow-runtime",
+        action: "workflow.system_action",
+        entityType: "workflow_instance",
+        entityId: instance.id,
+        after: {
+          transitionLabel: transition.label,
+          systemActionType: "send_notification",
+          message,
+          triggeredBy: actor.id,
+        },
+      }).catch(() => {
+        // best-effort audit
+      });
+      // Notification delivery (email/in-app) is a future concern; for now we
+      // record the intent as an audit event so it is visible in the audit surface.
+      break;
+    }
+
+    default:
+      // Unknown action types are silently ignored to preserve forward compatibility
+      break;
+  }
 }

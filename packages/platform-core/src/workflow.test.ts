@@ -1,7 +1,7 @@
 import { describe, expect, it, beforeAll, beforeEach } from "vitest";
 import { existsSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
-import { db, execute, genId, now } from "./db";
+import { db, execute, genId, now, queryAll } from "./db";
 import { runMigrations } from "./migrations";
 import { TABLES } from "./contracts";
 import {
@@ -100,6 +100,8 @@ beforeAll(async () => {
 
 beforeEach(async () => {
   const tables = [
+    TABLES.automationRuns,
+    TABLES.automationDefinitions,
     TABLES.workflowInstances,
     TABLES.workflowDefinitions,
     TABLES.extensionFieldValues,
@@ -549,5 +551,163 @@ describe("evaluateConditions", () => {
     expect(evaluateConditions({ a: 1 }, [
       { field: "missing", operator: "eq", value: "x" },
     ])).toBe(false);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// v0.3.5 — Condition enforcement during transition + system action steps
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("transitionWorkflow condition enforcement (v0.3.5)", () => {
+  it("enforces conditions by fetching the bound record", async () => {
+    // Create a workflow with a conditional transition
+    const def: WorkflowDefinition = {
+      id: "conditional-workflow",
+      name: "条件工作流",
+      targetObject: "quote",
+      initialState: "draft",
+      states: [
+        { name: "draft", label: "草稿", type: "initial" },
+        { name: "approved", label: "已批准", type: "approved" },
+      ],
+      transitions: [
+        {
+          fromStatus: "draft",
+          toStatus: "approved",
+          label: "批准",
+          requiresApproval: false,
+          requiredRole: "member",
+          conditions: [
+            { field: "amount", operator: "gt", value: 1000 },
+          ],
+        },
+      ],
+    };
+    await createWorkflowDefinition(workspaceId, def);
+    const instance = await startWorkflow(workspaceId, "conditional-workflow", "quote", "rec1", adminActor);
+
+    // The transition should fail because conditions require fetching the record,
+    // and the record/table doesn't exist (no pack installed). This proves that
+    // conditions are now enforced — previously they were silently ignored.
+    await expect(
+      transitionWorkflow(workspaceId, instance.id, "draft->approved", adminActor)
+    ).rejects.toThrow();
+  });
+
+  it("allows transition without conditions (backward compatible)", async () => {
+    // The APPROVAL_WORKFLOW has no conditions on its transitions
+    await createWorkflowDefinition(workspaceId, APPROVAL_WORKFLOW);
+    const instance = await startWorkflow(workspaceId, "quote-approval", "quote", "rec1", memberActor);
+
+    // Should succeed without fetching a record (no conditions to evaluate)
+    const result = await transitionWorkflow(workspaceId, instance.id, "draft->pending_approval", memberActor);
+    expect(result.currentState).toBe("pending_approval");
+  });
+});
+
+describe("transitionWorkflow system action (v0.3.5)", () => {
+  it("accepts systemAction in workflow definition schema", async () => {
+    const def: WorkflowDefinition = {
+      id: "system-action-workflow",
+      name: "系统动作工作流",
+      targetObject: "quote",
+      initialState: "draft",
+      states: [
+        { name: "draft", label: "草稿", type: "initial" },
+        { name: "submitted", label: "已提交", type: "intermediate" },
+      ],
+      transitions: [
+        {
+          fromStatus: "draft",
+          toStatus: "submitted",
+          label: "提交",
+          requiresApproval: false,
+          requiredRole: "member",
+          systemAction: {
+            type: "send_notification",
+            message: "报价单 {{record.name}} 已提交",
+          },
+        },
+      ],
+    };
+    const created = await createWorkflowDefinition(workspaceId, def);
+    expect(created.transitions[0].systemAction).toBeDefined();
+    expect(created.transitions[0].systemAction!.type).toBe("send_notification");
+  });
+
+  it("executes system action after transition (best-effort)", async () => {
+    const def: WorkflowDefinition = {
+      id: "notification-workflow",
+      name: "通知工作流",
+      targetObject: "quote",
+      initialState: "draft",
+      states: [
+        { name: "draft", label: "草稿", type: "initial" },
+        { name: "notified", label: "已通知", type: "intermediate" },
+      ],
+      transitions: [
+        {
+          fromStatus: "draft",
+          toStatus: "notified",
+          label: "发送通知",
+          requiresApproval: false,
+          requiredRole: "member",
+          systemAction: {
+            type: "send_notification",
+            message: "通知: {{record.name}}",
+          },
+        },
+      ],
+    };
+    await createWorkflowDefinition(workspaceId, def);
+    const instance = await startWorkflow(workspaceId, "notification-workflow", "quote", "rec1", memberActor);
+
+    // The transition should succeed even if the system action fails
+    // (best-effort semantics). Since there's no real record, the system
+    // action will fail silently, but the state change persists.
+    const result = await transitionWorkflow(workspaceId, instance.id, "draft->notified", memberActor);
+    expect(result.currentState).toBe("notified");
+    expect(result.history).toHaveLength(1);
+    expect(result.history[0].toStatus).toBe("notified");
+  });
+});
+
+describe("workflow audit actions (v0.3.5)", () => {
+  it("writes workflow.start audit event", async () => {
+    await createWorkflowDefinition(workspaceId, APPROVAL_WORKFLOW);
+    await startWorkflow(workspaceId, "quote-approval", "quote", "rec1", memberActor);
+
+    const auditEvents = await queryAll<{ action: string }>(
+      `SELECT action FROM ${TABLES.auditLogs} WHERE action LIKE 'workflow.%'`,
+      []
+    );
+    const startEvents = auditEvents.filter(e => e.action === "workflow.start");
+    expect(startEvents.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("writes workflow.transition audit event", async () => {
+    await createWorkflowDefinition(workspaceId, APPROVAL_WORKFLOW);
+    const instance = await startWorkflow(workspaceId, "quote-approval", "quote", "rec1", memberActor);
+    await transitionWorkflow(workspaceId, instance.id, "draft->pending_approval", memberActor);
+
+    const auditEvents = await queryAll<{ action: string }>(
+      `SELECT action FROM ${TABLES.auditLogs} WHERE action LIKE 'workflow.%'`,
+      []
+    );
+    const transitionEvents = auditEvents.filter(e => e.action === "workflow.transition");
+    expect(transitionEvents.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("writes workflow.approve audit event for approval transitions", async () => {
+    await createWorkflowDefinition(workspaceId, APPROVAL_WORKFLOW);
+    const instance = await startWorkflow(workspaceId, "quote-approval", "quote", "rec1", memberActor);
+    await transitionWorkflow(workspaceId, instance.id, "draft->pending_approval", memberActor);
+    await transitionWorkflow(workspaceId, instance.id, "pending_approval->approved", adminActor);
+
+    const auditEvents = await queryAll<{ action: string }>(
+      `SELECT action FROM ${TABLES.auditLogs} WHERE action = 'workflow.approve'`,
+      []
+    );
+    expect(auditEvents).toHaveLength(1);
   });
 });

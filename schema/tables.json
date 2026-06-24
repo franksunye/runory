@@ -38,5 +38,7 @@
   "workflowDefinitions": "workflow_definitions",
   "workflowInstances": "workflow_instances",
   "workspaceDashboardLayout": "workspace_dashboard_layout",
-  "packInstallations": "pack_installations"
+  "packInstallations": "pack_installations",
+  "automationDefinitions": "automation_definitions",
+  "automationRuns": "automation_runs"
 }

@@ -85,6 +85,8 @@ export const TABLES = {
   workspaceDashboardLayout: `${PREFIXES.runoryRuntime}workspace_dashboard_layout`,
   packInstallations: `${PREFIXES.runoryRuntime}pack_installations`,
   relationDefinitions: `${PREFIXES.runoryRuntime}relation_definitions`,
+  automationDefinitions: `${PREFIXES.runoryRuntime}automation_definitions`,
+  automationRuns: `${PREFIXES.runoryRuntime}automation_runs`,
 
   // Runory Catalog & Release Control Plane.
   catalogItems: `${PREFIXES.runoryCatalog}items`,

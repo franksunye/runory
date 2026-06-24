@@ -64,7 +64,22 @@ export type AuditAction =
   | "dashboard.widget.configure"
   | "dashboard.widget.add"
   | "dashboard.widget.remove"
-  | "dashboard.layout.reset";
+  | "dashboard.layout.reset"
+  // Workflow Runtime (v0.3.5)
+  | "workflow.definition.create"
+  | "workflow.definition.delete"
+  | "workflow.start"
+  | "workflow.transition"
+  | "workflow.approve"
+  | "workflow.system_action"
+  // Automation Runtime (v0.3.5)
+  | "automation.create"
+  | "automation.update"
+  | "automation.delete"
+  | "automation.enable"
+  | "automation.disable"
+  | "automation.run"
+  | "automation.run_fail";
 
 export interface AuditEventInput {
   workspaceId: string;

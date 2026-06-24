@@ -2,7 +2,6 @@ import { NextRequest } from "next/server";
 import {
   getWorkflowInstance,
   transitionWorkflow,
-  writeAuditEvent,
   type WorkflowActor,
 } from "@runory/platform-core";
 import { requireWorkspaceContext } from "@/lib/auth";
@@ -51,7 +50,6 @@ export async function POST(
       type: ctx.principal?.authMethod === "api_key" ? "api_key" : "user",
       role: ctx.workspaceRole ?? "member",
     };
-    const before = await getWorkflowInstance(workspaceId, instanceId);
     const instance = await transitionWorkflow(
       workspaceId,
       instanceId,
@@ -59,19 +57,7 @@ export async function POST(
       actor,
       body.comment
     );
-    writeAuditEvent({
-      workspaceId,
-      actorType: actor.type as "user" | "api_key",
-      actorId: actor.id,
-      action: "record.update",
-      entityType: "workflow_instance",
-      entityId: instance.id,
-      before: before as unknown as Record<string, unknown>,
-      after: instance as unknown as Record<string, unknown>,
-      requestId: ctx.requestId,
-    }).catch((err) => {
-      console.error("[audit] Failed to write audit event:", err);
-    });
+    // transitionWorkflow writes workflow.transition / workflow.approve audit events internally.
     return successResponse(instance, 200, ctx.requestId);
   } catch (e) {
     return handleError(e, requestId);

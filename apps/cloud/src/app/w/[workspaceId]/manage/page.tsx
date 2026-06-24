@@ -5,7 +5,7 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import {
   CreditCard, Download, GitBranch, Key, Package, ScrollText,
-  Settings, SlidersHorizontal, Users,
+  Settings, SlidersHorizontal, Users, Zap,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -21,6 +21,7 @@ const MANAGE_CARDS: ManageCard[] = [
   { title: "模块与业务包", description: "浏览、安装和管理可用模块与 Pack", route: "/modules", icon: Package },
   { title: "定制工作区", description: "配置对象、字段与视图，定制业务模型", route: "/customize", icon: SlidersHorizontal },
   { title: "工作流配置", description: "管理审批流定义与运行中的工作流实例", route: "/workflows", icon: GitBranch },
+  { title: "自动化", description: "配置触发器、条件与动作，实现业务流程自动化", route: "/automations", icon: Zap },
   { title: "成员与权限", description: "管理工作区成员及其角色与访问权限", route: "/members", icon: Users },
   { title: "审计日志", description: "查看工作区内所有变更操作记录", route: "/audit", icon: ScrollText },
   { title: "数据导出", description: "导出工作区数据用于备份或迁移", route: "/export", icon: Download },

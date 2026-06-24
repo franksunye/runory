@@ -376,6 +376,27 @@ export const workflowTransitionSchema = z.object({
   requiresApproval: z.boolean().default(false),
   // Role required to execute this transition
   requiredRole: z.enum(["admin", "member", "viewer"]).default("member"),
+  // System action to execute when this transition fires (v0.3.5).
+  // Optional. When present, the runtime performs the declared action against
+  // the bound record (or a related object) after the state change succeeds.
+  systemAction: z.object({
+    type: z.enum([
+      "create_task",
+      "update_record",
+      "send_notification",
+      "set_field",
+    ]),
+    // Target object key. Defaults to the workflow's targetObject.
+    targetObject: z.string().optional(),
+    // For create_task: title template and optional assignee field reference.
+    title: z.string().optional(),
+    description: z.string().optional(),
+    // For update_record / set_field: field -> value map (values may reference
+    // record fields via "{{fieldKey}}" placeholders).
+    fields: z.record(z.string(), z.unknown()).optional(),
+    // For send_notification: message template.
+    message: z.string().optional(),
+  }).optional(),
 });
 
 export const workflowDefinitionSchema = z.object({
@@ -394,6 +415,68 @@ export const workflowDefinitionSchema = z.object({
 export type WorkflowDefinition = z.infer<typeof workflowDefinitionSchema>;
 export type WorkflowTransition = z.infer<typeof workflowTransitionSchema>;
 export type WorkflowCondition = z.infer<typeof workflowConditionSchema>;
+
+// ── Automation Runtime (v0.3.5) ──
+
+export const automationTriggerSchema = z.object({
+  type: z.enum([
+    "record_created",
+    "record_updated",
+    "record_field_changed",
+    "schedule",
+    "manual",
+  ]),
+  // Target object key for record-based triggers.
+  targetObject: z.string().optional(),
+  // For record_field_changed: the field key to watch.
+  fieldKey: z.string().optional(),
+  // For schedule: cron-like expression (minute hour day month weekday).
+  // Restricted to intervals >= 10 minutes by the runtime.
+  cron: z.string().optional(),
+});
+
+export const automationConditionSchema = z.object({
+  field: z.string(),
+  operator: z.enum(["eq", "neq", "gt", "lt", "gte", "lte", "contains", "in"]),
+  value: z.union([z.string(), z.number(), z.boolean(), z.array(z.string())]),
+});
+
+export const automationActionSchema = z.object({
+  type: z.enum([
+    "create_task",
+    "update_record",
+    "send_notification",
+    "transition_workflow",
+    "set_field",
+  ]),
+  // Target object for create_task / update_record / set_field.
+  targetObject: z.string().optional(),
+  // For create_task: title template (supports {{record.field}} placeholders).
+  title: z.string().optional(),
+  description: z.string().optional(),
+  // For update_record / set_field: field -> value map.
+  fields: z.record(z.string(), z.unknown()).optional(),
+  // For send_notification: message template.
+  message: z.string().optional(),
+  // For transition_workflow: workflow id and target transition id.
+  workflowId: z.string().optional(),
+  transitionId: z.string().optional(),
+});
+
+export const automationDefinitionSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  description: z.string().optional(),
+  trigger: automationTriggerSchema,
+  conditions: z.array(automationConditionSchema).default([]),
+  actions: z.array(automationActionSchema).min(1),
+  enabled: z.boolean().default(true),
+});
+
+export type AutomationTrigger = z.infer<typeof automationTriggerSchema>;
+export type AutomationCondition = z.infer<typeof automationConditionSchema>;
+export type AutomationAction = z.infer<typeof automationActionSchema>;
+export type AutomationDefinition = z.infer<typeof automationDefinitionSchema>;
 
 // ── API Response Types ──
 export interface ToolEnvelope<T> {

@@ -110,7 +110,7 @@ const ROLE_LABELS: Record<string, { label: string; sub: string; initial: string 
 };
 
 const MANAGEMENT_ROUTES = [
-  "/manage", "/modules", "/customize", "/workflows", "/members",
+  "/manage", "/modules", "/customize", "/workflows", "/automations", "/members",
   "/audit", "/export", "/api-keys", "/settings", "/billing",
 ];
 

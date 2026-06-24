@@ -66,7 +66,7 @@ export async function POST(
       workspaceId,
       actorType: actor.type as "user" | "api_key",
       actorId: actor.id,
-      action: "record.create",
+      action: "workflow.start",
       entityType: "workflow_instance",
       entityId: instance.id,
       after: instance as unknown as Record<string, unknown>,

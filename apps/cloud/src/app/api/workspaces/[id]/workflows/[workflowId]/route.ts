@@ -48,7 +48,7 @@ export async function DELETE(
       workspaceId,
       actorType: ctx.principal?.authMethod === "api_key" ? "api_key" : "user",
       actorId: ctx.principal?.userId ?? "unknown",
-      action: "record.delete",
+      action: "workflow.definition.delete",
       entityType: "workflow_definition",
       entityId: workflowId,
       requestId: ctx.requestId,

@@ -1,8 +1,7 @@
 import { NextRequest } from "next/server";
 import {
-  createWorkflowDefinition,
-  getWorkflowDefinitions,
-  writeAuditEvent,
+  getAutomations,
+  createAutomation,
 } from "@runory/platform-core";
 import { requireWorkspaceContext } from "@/lib/auth";
 import {
@@ -22,8 +21,8 @@ export async function GET(
   try {
     const { id } = await params;
     const { ctx, workspaceId } = await requireWorkspaceContext(request, id, "viewer");
-    const definitions = await getWorkflowDefinitions(workspaceId);
-    return successResponse(definitions, 200, ctx.requestId);
+    const automations = await getAutomations(workspaceId);
+    return successResponse(automations, 200, ctx.requestId);
   } catch (e) {
     return handleError(e, requestId);
   }
@@ -39,22 +38,15 @@ export async function POST(
     const { ctx, workspaceId } = await requireWorkspaceContext(request, id, "admin");
     const body = await request.json();
     if (!body || typeof body !== "object" || Array.isArray(body)) {
-      return invalidInput("Workflow definition must be an object", ctx.requestId);
+      return invalidInput("Automation definition must be an object", ctx.requestId);
     }
-    const definition = await createWorkflowDefinition(workspaceId, body as Record<string, unknown> as Parameters<typeof createWorkflowDefinition>[1]);
-    writeAuditEvent({
+    const actorId = ctx.principal?.userId ?? "unknown";
+    const automation = await createAutomation(
       workspaceId,
-      actorType: ctx.principal?.authMethod === "api_key" ? "api_key" : "user",
-      actorId: ctx.principal?.userId ?? "unknown",
-      action: "workflow.definition.create",
-      entityType: "workflow_definition",
-      entityId: definition.id,
-      after: definition as unknown as Record<string, unknown>,
-      requestId: ctx.requestId,
-    }).catch((err) => {
-      console.error("[audit] Failed to write audit event:", err);
-    });
-    return successResponse(definition, 201, ctx.requestId);
+      body as Parameters<typeof createAutomation>[1],
+      actorId
+    );
+    return successResponse(automation, 201, ctx.requestId);
   } catch (e) {
     return handleError(e, requestId);
   }
