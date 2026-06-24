@@ -32,8 +32,9 @@ export async function POST(
         ctx.requestId
       );
     } catch (e) {
-      // Mark status as error so the UI can show diagnostics
-      await updatePackDemoDataStatus(workspaceId, packId, "error").catch(() => {});
+      // Mark status as error and persist error message for diagnostics (v0.3.6)
+      const errorMsg = e instanceof Error ? e.message : String(e);
+      await updatePackDemoDataStatus(workspaceId, packId, "error", errorMsg).catch(() => {});
       throw e;
     }
   } catch (e) {

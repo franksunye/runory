@@ -115,6 +115,20 @@ permissions:
   - deal.update
   - deal.delete
 
+relations:
+  - object: deal
+    targetObject: company
+    targetModule: runory.company
+    type: many_to_one
+    foreignKey: company_id
+    label: 关联公司
+  - object: deal
+    targetObject: contact
+    targetModule: runory.contact
+    type: many_to_one
+    foreignKey: primary_contact_id
+    label: 主要联系人
+
 migrations:
   install: migrations/install.sql
   uninstallPolicy: retain_data

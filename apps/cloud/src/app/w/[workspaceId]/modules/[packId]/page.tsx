@@ -31,6 +31,8 @@ interface PackDetail {
     installedAt?: string;
     demoDataStatus?: "none" | "loaded" | "error";
     demoDataLoadedAt?: string | null;
+    installErrorMessage?: string | null;
+    demoDataErrorMessage?: string | null;
   };
   demoDataAvailable: boolean;
 }
@@ -238,6 +240,32 @@ export default function PackDetailPage() {
           )}
         </div>
       </header>
+
+      {/* Diagnostics (v0.3.6) */}
+      {installation.installed && (installation.installErrorMessage || installation.demoDataErrorMessage) && (
+        <section className="app-card border-l-4 border-l-red-400 p-4">
+          <h2 className="mb-2 flex items-center gap-2 text-sm font-bold text-red-700">
+            <AlertCircle size={14} />
+            诊断信息
+          </h2>
+          {installation.installErrorMessage && (
+            <div className="mb-2">
+              <p className="text-xs font-medium text-slate-700">安装错误:</p>
+              <p className="mt-1 rounded bg-red-50 p-2 font-mono text-xs text-red-800">
+                {installation.installErrorMessage}
+              </p>
+            </div>
+          )}
+          {installation.demoDataErrorMessage && (
+            <div>
+              <p className="text-xs font-medium text-slate-700">示例数据错误:</p>
+              <p className="mt-1 rounded bg-red-50 p-2 font-mono text-xs text-red-800">
+                {installation.demoDataErrorMessage}
+              </p>
+            </div>
+          )}
+        </section>
+      )}
 
       {/* Onboarding Checklist */}
       {pack.onboardingChecklist.length > 0 && installation.installed && (

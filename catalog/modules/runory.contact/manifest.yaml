@@ -104,6 +104,14 @@ permissions:
   - contact.update
   - contact.delete
 
+relations:
+  - object: contact
+    targetObject: company
+    targetModule: runory.company
+    type: many_to_one
+    foreignKey: primary_company_id
+    label: 关联公司
+
 migrations:
   install: migrations/install.sql
   uninstallPolicy: retain_data

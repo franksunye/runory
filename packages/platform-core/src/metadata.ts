@@ -1,6 +1,36 @@
 import { queryAll, queryOne, execute, genId, now, validateIdentifier } from "./db";
 import { TABLES, businessTable } from "./contracts";
 import { provisionWorkspaceTenant, type ActorIdentity } from "./tenancy";
+import { AsyncLocalStorage } from "node:async_hooks";
+
+// ── Automation trigger recursion guard (v0.3.5) ──
+// Prevents infinite recursion when automation actions call createRecord/updateRecord.
+const _automationSuppress = new AsyncLocalStorage<boolean>();
+
+async function fireAutomationTriggers(
+  workspaceId: string,
+  eventType: "record_created" | "record_updated",
+  objectKey: string,
+  record: Record<string, unknown>
+): Promise<void> {
+  // Skip if we're already inside an automation execution chain
+  if (_automationSuppress.getStore()) return;
+  try {
+    const { findAutomationsForRecordEvent, runAutomation } = await import("./automation");
+    const automations = await findAutomationsForRecordEvent(workspaceId, eventType, objectKey);
+    for (const auto of automations) {
+      try {
+        await _automationSuppress.run(true, () =>
+          runAutomation(workspaceId, auto.id, eventType, { record }, { actorId: "record-lifecycle" })
+        );
+      } catch {
+        // Automation failures should not block record operations
+      }
+    }
+  } catch {
+    // Automation module load failures should not block record operations
+  }
+}
 
 // ── Soft-delete column detection (v0.3.6) ──
 // Business tables may or may not have deleted_at/deleted_by columns
@@ -311,14 +341,18 @@ export interface PackInstallationInfo {
   installedAt: string;
   demoDataStatus: "none" | "loaded" | "error";
   demoDataLoadedAt: string | null;
+  installErrorMessage: string | null;
+  demoDataErrorMessage: string | null;
 }
 
 export async function getInstalledPacks(workspaceId: string): Promise<PackInstallationInfo[]> {
   const rows = await queryAll<{
     pack_id: string; pack_version: string; installed_at: string;
     demo_data_status: string; demo_data_loaded_at: string | null;
+    install_error_message: string | null; demo_data_error_message: string | null;
   }>(
-    `SELECT pack_id, pack_version, installed_at, demo_data_status, demo_data_loaded_at
+    `SELECT pack_id, pack_version, installed_at, demo_data_status, demo_data_loaded_at,
+            install_error_message, demo_data_error_message
      FROM ${TABLES.packInstallations}
      WHERE workspace_id = ? ORDER BY installed_at ASC`,
     [workspaceId]
@@ -329,6 +363,8 @@ export async function getInstalledPacks(workspaceId: string): Promise<PackInstal
     installedAt: r.installed_at,
     demoDataStatus: (r.demo_data_status as "none" | "loaded" | "error") ?? "none",
     demoDataLoadedAt: r.demo_data_loaded_at,
+    installErrorMessage: r.install_error_message ?? null,
+    demoDataErrorMessage: r.demo_data_error_message ?? null,
   }));
 }
 
@@ -541,7 +577,12 @@ export async function createRecord(workspaceId: string, objectKey: string, data:
     }
   }
 
-  return { id, workspace_id: workspaceId, ...data, created_at: ts, updated_at: ts };
+  const created = { id, workspace_id: workspaceId, ...data, created_at: ts, updated_at: ts };
+
+  // Fire automation triggers (v0.3.5: wire triggers into record lifecycle)
+  await fireAutomationTriggers(workspaceId, "record_created", objectKey, created);
+
+  return created;
 }
 
 export async function getRecord(
@@ -615,7 +656,14 @@ export async function updateRecord(workspaceId: string, objectKey: string, recor
     }
   }
 
-  return await getRecord(workspaceId, objectKey, recordId);
+  const updated = await getRecord(workspaceId, objectKey, recordId);
+
+  // Fire automation triggers (v0.3.5: wire triggers into record lifecycle)
+  if (updated) {
+    await fireAutomationTriggers(workspaceId, "record_updated", objectKey, updated);
+  }
+
+  return updated;
 }
 
 export async function deleteRecord(

@@ -221,14 +221,49 @@ export async function loadPackDemoData(
 export async function updatePackDemoDataStatus(
   workspaceId: string,
   packId: string,
-  status: "none" | "loaded" | "error"
+  status: "none" | "loaded" | "error",
+  errorMessage?: string
 ): Promise<void> {
   const loadedAt = status === "loaded" ? now() : null;
+  // Clear error message on success, set on error
+  const errorMsg = status === "error" ? (errorMessage ?? "Unknown error") : null;
   await execute(
     `UPDATE ${TABLES.packInstallations}
-     SET demo_data_status = ?, demo_data_loaded_at = COALESCE(?, demo_data_loaded_at)
+     SET demo_data_status = ?, demo_data_loaded_at = COALESCE(?, demo_data_loaded_at),
+         demo_data_error_message = ?
      WHERE workspace_id = ? AND pack_id = ?`,
-    [status, loadedAt, workspaceId, packId]
+    [status, loadedAt, errorMsg, workspaceId, packId]
+  );
+}
+
+/**
+ * Persist an install error message for a pack installation (v0.3.6 diagnostics).
+ */
+export async function updatePackInstallError(
+  workspaceId: string,
+  packId: string,
+  errorMessage: string
+): Promise<void> {
+  await execute(
+    `UPDATE ${TABLES.packInstallations}
+     SET install_error_message = ?
+     WHERE workspace_id = ? AND pack_id = ?`,
+    [errorMessage, workspaceId, packId]
+  );
+}
+
+/**
+ * Clear the install error message on successful install (v0.3.6 diagnostics).
+ */
+export async function clearPackInstallError(
+  workspaceId: string,
+  packId: string
+): Promise<void> {
+  await execute(
+    `UPDATE ${TABLES.packInstallations}
+     SET install_error_message = NULL
+     WHERE workspace_id = ? AND pack_id = ?`,
+    [workspaceId, packId]
   );
 }
 
