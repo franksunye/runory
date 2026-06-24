@@ -19,9 +19,12 @@ import {
 import type { LucideIcon } from "lucide-react";
 import DiffPreview from "./DiffPreview";
 import { notifyWorkspaceDataChanged } from "@/lib/workspace-events";
+import { useI18n } from "@/i18n/locale-provider";
+import type { MessageKey } from "@/i18n/messages";
 
 type FieldType = "text" | "number" | "date" | "select" | "boolean";
 type Step = 1 | 2 | 3 | 4 | 5;
+type TFunc = (key: MessageKey, params?: Record<string, string | number>) => string;
 
 interface ObjectInfo {
   objectKey: string;
@@ -34,20 +37,6 @@ const OBJECT_ICONS: Record<string, LucideIcon> = {
   task: CheckSquare,
 };
 
-const OBJECT_LABELS: Record<string, string> = {
-  customer: "客户",
-  contact: "联系人",
-  task: "任务",
-};
-
-const TYPE_LABELS: Record<string, string> = {
-  text: "文本",
-  number: "数字",
-  date: "日期",
-  select: "下拉选择",
-  boolean: "是/否",
-};
-
 const BUSINESS_PAGE: Record<string, string> = {
   customer: "/customers",
   contact: "/contacts",
@@ -56,13 +45,42 @@ const BUSINESS_PAGE: Record<string, string> = {
 
 const FIELD_KEY_REGEX = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
 
-const STEP_LABELS = ["选择对象", "字段信息", "显示设置", "预览确认", "应用中"];
+function objectLabel(key: string, t: TFunc): string {
+  if (key === "customer") return t("diff.object.customer");
+  if (key === "contact") return t("diff.object.contact");
+  if (key === "task") return t("diff.object.task");
+  return key;
+}
 
-function objectLabel(key: string): string {
-  return OBJECT_LABELS[key] ?? key;
+function typeLabel(key: FieldType, t: TFunc): string {
+  switch (key) {
+    case "text":
+      return t("extension.type.text");
+    case "number":
+      return t("extension.type.number");
+    case "date":
+      return t("extension.type.date");
+    case "select":
+      return t("extension.type.select");
+    case "boolean":
+      return t("extension.type.boolean");
+    default:
+      return key;
+  }
+}
+
+function stepLabels(t: TFunc): string[] {
+  return [
+    t("addField.step.selectObject"),
+    t("addField.step.fieldInfo"),
+    t("addField.step.displaySettings"),
+    t("addField.step.previewConfirm"),
+    t("addField.step.applying"),
+  ];
 }
 
 export default function AddFieldWizard() {
+  const { t } = useI18n();
   const workspaceId = useParams().workspaceId as string;
 
   const [step, setStep] = useState<Step>(1);
@@ -141,31 +159,31 @@ export default function AddFieldWizard() {
   );
 
   const fieldKeyError = useMemo(() => {
-    if (!fieldKey) return "请填写字段标识";
+    if (!fieldKey) return t("addField.fieldKeyRequired");
     if (!FIELD_KEY_REGEX.test(fieldKey)) {
-      return "只能包含字母、数字和下划线，且以字母或下划线开头";
+      return t("addField.fieldKeyPattern");
     }
     return null;
-  }, [fieldKey]);
+  }, [fieldKey, t]);
 
   const labelError = useMemo(() => {
-    if (!label.trim()) return "请填写字段标签";
+    if (!label.trim()) return t("addField.labelRequired");
     return null;
-  }, [label]);
+  }, [label, t]);
 
   const optionsError = useMemo(() => {
     if (type === "select" && options.length < 2) {
-      return "下拉选择至少需要 2 个选项，用逗号分隔";
+      return t("addField.optionsMinTwo");
     }
     return null;
-  }, [type, options]);
+  }, [type, options, t]);
 
   const newSectionError = useMemo(() => {
     if (showInForm && formSection === "__new__" && !newSectionName.trim()) {
-      return "请输入新分区名称";
+      return t("addField.newSectionRequired");
     }
     return null;
-  }, [showInForm, formSection, newSectionName]);
+  }, [showInForm, formSection, newSectionName, t]);
 
   const canProceedStep2 = !labelError && !fieldKeyError && !optionsError;
   const canProceedStep3 = !newSectionError;
@@ -173,14 +191,18 @@ export default function AddFieldWizard() {
   const buildPlan = useCallback((): any => {
     const sectionNote =
       showInForm && formSection === "__new__" && newSectionName.trim()
-        ? `（新分区：${newSectionName.trim()}）`
+        ? t("addField.planNoteNewSection", { name: newSectionName.trim() })
         : showInForm && formSection !== "__default__"
-          ? `（分区：${formSection}）`
+          ? t("addField.planNoteSection", { name: formSection })
           : "";
 
     return {
-      name: `${label.trim()}扩展`,
-      description: `为${objectLabel(targetObject)}对象添加${label.trim()}字段${sectionNote}`,
+      name: t("addField.planName", { label: label.trim() }),
+      description: t("addField.planDescription", {
+        object: objectLabel(targetObject, t),
+        field: label.trim(),
+        note: sectionNote,
+      }),
       targetModules: [`runory.${targetObject}`],
       riskLevel: "low",
       customFields: [
@@ -200,7 +222,7 @@ export default function AddFieldWizard() {
         },
       ],
     };
-  }, [label, targetObject, fieldKey, type, required, options, showInList, showInForm, formSection, newSectionName]);
+  }, [label, targetObject, fieldKey, type, required, options, showInList, showInForm, formSection, newSectionName, t]);
 
   const preparePreview = useCallback(async () => {
     setPreparing(true);
@@ -217,12 +239,12 @@ export default function AddFieldWizard() {
       });
       const planJson = await planRes.json();
       if (!planJson.success) {
-        setPrepareError(planJson.error?.message ?? "校验失败");
+        setPrepareError(planJson.error?.message ?? t("addField.validationFailedShort"));
         return;
       }
       setValidation(planJson.data);
       if (!planJson.data.valid) {
-        setPrepareError(`校验失败：${planJson.data.errors.join("; ")}`);
+        setPrepareError(t("addField.validationFailed", { errors: planJson.data.errors.join("; ") }));
         return;
       }
 
@@ -233,16 +255,16 @@ export default function AddFieldWizard() {
       });
       const previewJson = await previewRes.json();
       if (!previewJson.success) {
-        setPrepareError(previewJson.error?.message ?? "预览失败");
+        setPrepareError(previewJson.error?.message ?? t("addField.previewFailed"));
         return;
       }
       setDiff(previewJson.data);
     } catch (e) {
-      setPrepareError(e instanceof Error ? e.message : "请求失败");
+      setPrepareError(e instanceof Error ? e.message : t("extension.requestFailed"));
     } finally {
       setPreparing(false);
     }
-  }, [buildPlan, workspaceId]);
+  }, [buildPlan, workspaceId, t]);
 
   useEffect(() => {
     if (step === 4 && !diff && !preparing && !prepareError) {
@@ -264,10 +286,10 @@ export default function AddFieldWizard() {
         setAppliedVersion(json.data.version);
         notifyWorkspaceDataChanged();
       } else {
-        setApplyError(json.error?.message ?? "应用失败");
+        setApplyError(json.error?.message ?? t("addField.applyFailed"));
       }
     } catch (e) {
-      setApplyError(e instanceof Error ? e.message : "请求失败");
+      setApplyError(e instanceof Error ? e.message : t("extension.requestFailed"));
     } finally {
       setApplying(false);
     }
@@ -303,22 +325,22 @@ export default function AddFieldWizard() {
   // ── Render ──
 
   if (loadingObjects) {
-    return <p className="text-sm text-slate-400">加载中...</p>;
+    return <p className="text-sm text-slate-400">{t("workspace.loading")}</p>;
   }
 
   if (objects.length === 0) {
     return (
       <div className="app-card flex flex-col items-center p-10 text-center">
         <Package size={32} className="text-slate-300" />
-        <p className="mt-3 text-sm font-medium text-slate-700">暂无可定制对象</p>
+        <p className="mt-3 text-sm font-medium text-slate-700">{t("addField.noObjects")}</p>
         <p className="mt-1 text-xs text-slate-400">
-          请先安装业务包（如 CRM Lite Pack）以创建对象和字段
+          {t("addField.noObjectsHint")}
         </p>
         <Link
           href={`/w/${workspaceId}/modules`}
           className="app-button-primary mt-4"
         >
-          前往模块中心
+          {t("addField.goModules")}
         </Link>
       </div>
     );
@@ -330,8 +352,8 @@ export default function AddFieldWizard() {
       return (
         <div className="app-card flex flex-col items-center p-12 text-center">
           <Loader2 size={40} className="animate-spin text-indigo-600" />
-          <p className="mt-4 text-sm font-medium text-slate-700">正在应用扩展...</p>
-          <p className="mt-1 text-xs text-slate-400">请稍候，正在更新工作区配置</p>
+          <p className="mt-4 text-sm font-medium text-slate-700">{t("addField.applyingTitle")}</p>
+          <p className="mt-1 text-xs text-slate-400">{t("addField.applyingHint")}</p>
         </div>
       );
     }
@@ -340,7 +362,7 @@ export default function AddFieldWizard() {
       return (
         <div className="app-card flex flex-col items-center p-10 text-center">
           <AlertCircle size={40} className="text-red-500" />
-          <p className="mt-4 text-sm font-medium text-slate-700">应用失败</p>
+          <p className="mt-4 text-sm font-medium text-slate-700">{t("addField.applyFailed")}</p>
           <p className="mt-1 max-w-md text-xs text-red-600">{applyError}</p>
           <div className="mt-5 flex gap-2">
             <button
@@ -352,14 +374,14 @@ export default function AddFieldWizard() {
               className="app-button-secondary"
             >
               <ArrowLeft size={16} />
-              返回上一步
+              {t("addField.backToPrevStep")}
             </button>
             <button
               type="button"
               onClick={() => void handleApply()}
               className="app-button-primary"
             >
-              重试
+              {t("workspace.retry")}
             </button>
           </div>
         </div>
@@ -371,10 +393,13 @@ export default function AddFieldWizard() {
       return (
         <div className="app-card flex flex-col items-center p-10 text-center">
           <CheckCircle2 size={40} className="text-green-600" />
-          <p className="mt-4 text-base font-bold text-slate-950">扩展已成功应用</p>
+          <p className="mt-4 text-base font-bold text-slate-950">{t("addField.appliedSuccess")}</p>
           <p className="mt-2 max-w-md text-sm text-slate-600">
-            已为{objectLabel(targetObject)}对象添加字段「{label}」（版本 #{appliedVersion}）。
-            你现在可以前往业务页面查看和使用新字段。
+            {t("addField.appliedSuccessBody", {
+              object: objectLabel(targetObject, t),
+              label,
+              version: appliedVersion,
+            })}
           </p>
           <div className="mt-5 flex flex-wrap justify-center gap-2">
             {businessPath && (
@@ -382,21 +407,21 @@ export default function AddFieldWizard() {
                 href={`/w/${workspaceId}${businessPath}`}
                 className="app-button-primary"
               >
-                查看{objectLabel(targetObject)}列表
+                {t("addField.viewObjectList", { object: objectLabel(targetObject, t) })}
               </Link>
             )}
             <Link
               href={`/w/${workspaceId}/audit`}
               className="app-button-secondary"
             >
-              查看审计日志
+              {t("addField.viewAuditLog")}
             </Link>
             <button
               type="button"
               onClick={handleReset}
               className="app-button-secondary"
             >
-              再添加一个字段
+              {t("addField.addAnother")}
             </button>
           </div>
         </div>
@@ -404,11 +429,13 @@ export default function AddFieldWizard() {
     }
   }
 
+  const steps = stepLabels(t);
+
   return (
     <div className="space-y-6">
       {/* Stepper */}
       <div className="flex items-center gap-1 overflow-x-auto pb-1">
-        {STEP_LABELS.map((label, i) => {
+        {steps.map((stepLabel, i) => {
           const stepNum = (i + 1) as Step;
           const isActive = step === stepNum;
           const isDone = step > stepNum;
@@ -434,9 +461,9 @@ export default function AddFieldWizard() {
                 >
                   {isDone ? "✓" : stepNum}
                 </span>
-                {label}
+                {stepLabel}
               </div>
-              {i < STEP_LABELS.length - 1 && (
+              {i < steps.length - 1 && (
                 <ChevronRight size={14} className="mx-0.5 shrink-0 text-slate-300" />
               )}
             </div>
@@ -447,8 +474,8 @@ export default function AddFieldWizard() {
       {/* Step 1: Choose Object */}
       {step === 1 && (
         <div className="app-card p-6">
-          <h2 className="text-base font-bold text-slate-950">选择对象</h2>
-          <p className="mt-1 text-sm text-slate-500">选择要添加字段的目标对象</p>
+          <h2 className="text-base font-bold text-slate-950">{t("addField.selectObjectTitle")}</h2>
+          <p className="mt-1 text-sm text-slate-500">{t("addField.selectObjectHint")}</p>
           <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {objects.map((obj) => {
               const Icon = OBJECT_ICONS[obj.objectKey] ?? Box;
@@ -489,7 +516,7 @@ export default function AddFieldWizard() {
               disabled={!targetObject}
               className="app-button-primary disabled:opacity-50"
             >
-              下一步
+              {t("addField.next")}
               <ArrowRight size={16} />
             </button>
           </div>
@@ -499,21 +526,21 @@ export default function AddFieldWizard() {
       {/* Step 2: Field Details */}
       {step === 2 && (
         <div className="app-card p-6">
-          <h2 className="text-base font-bold text-slate-950">字段信息</h2>
+          <h2 className="text-base font-bold text-slate-950">{t("addField.fieldInfoTitle")}</h2>
           <p className="mt-1 text-sm text-slate-500">
-            为{objectLabel(targetObject)}对象配置新字段的详细信息
+            {t("addField.fieldInfoHint", { object: objectLabel(targetObject, t) })}
           </p>
 
           <div className="mt-5 space-y-4">
             <div>
               <label className="block text-sm font-medium text-slate-700">
-                字段标签 <span className="text-red-500">*</span>
+                {t("addField.fieldLabel")} <span className="text-red-500">*</span>
               </label>
               <input
                 type="text"
                 value={label}
                 onChange={(e) => setLabel(e.target.value)}
-                placeholder="例如：客户等级"
+                placeholder={t("addField.fieldLabelPlaceholder")}
                 className="app-input mt-1.5"
               />
               {labelError && (
@@ -523,18 +550,18 @@ export default function AddFieldWizard() {
 
             <div>
               <label className="block text-sm font-medium text-slate-700">
-                字段标识 <span className="text-red-500">*</span>
+                {t("addField.fieldKey")} <span className="text-red-500">*</span>
               </label>
               <input
                 type="text"
                 value={fieldKey}
                 onChange={(e) => setFieldKey(e.target.value)}
                 onBlur={() => setFieldKeyTouched(true)}
-                placeholder="例如：customer_tier"
+                placeholder="customer_tier"
                 className="app-input mt-1.5 font-mono"
               />
               <p className="mt-1 text-xs text-slate-400">
-                用于程序化访问，只能包含字母、数字和下划线，且以字母或下划线开头
+                {t("addField.fieldKeyHint")}
               </p>
               {fieldKeyTouched && fieldKeyError && (
                 <p className="mt-1 text-xs text-red-600">{fieldKeyError}</p>
@@ -543,35 +570,35 @@ export default function AddFieldWizard() {
 
             <div>
               <label className="block text-sm font-medium text-slate-700">
-                字段类型 <span className="text-red-500">*</span>
+                {t("addField.fieldType")} <span className="text-red-500">*</span>
               </label>
               <select
                 value={type}
                 onChange={(e) => setType(e.target.value as FieldType)}
                 className="app-input mt-1.5"
               >
-                <option value="text">文本</option>
-                <option value="number">数字</option>
-                <option value="date">日期</option>
-                <option value="select">下拉选择</option>
-                <option value="boolean">是/否</option>
+                <option value="text">{t("extension.type.text")}</option>
+                <option value="number">{t("extension.type.number")}</option>
+                <option value="date">{t("extension.type.date")}</option>
+                <option value="select">{t("extension.type.select")}</option>
+                <option value="boolean">{t("extension.type.boolean")}</option>
               </select>
             </div>
 
             {type === "select" && (
               <div>
                 <label className="block text-sm font-medium text-slate-700">
-                  选项 <span className="text-red-500">*</span>
+                  {t("addField.options")} <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
                   value={optionsText}
                   onChange={(e) => setOptionsText(e.target.value)}
-                  placeholder="例如：普通客户, VIP客户, 战略客户"
+                  placeholder={t("addField.optionsPlaceholder")}
                   className="app-input mt-1.5"
                 />
                 <p className="mt-1 text-xs text-slate-400">
-                  用英文逗号分隔，至少 2 个选项
+                  {t("addField.optionsHint")}
                 </p>
                 {optionsError && (
                   <p className="mt-1 text-xs text-red-600">{optionsError}</p>
@@ -593,8 +620,8 @@ export default function AddFieldWizard() {
 
             <div className="flex items-center justify-between rounded-lg border border-slate-200 px-4 py-3">
               <div>
-                <p className="text-sm font-medium text-slate-700">是否必填</p>
-                <p className="text-xs text-slate-400">用户创建记录时必须填写此字段</p>
+                <p className="text-sm font-medium text-slate-700">{t("addField.required")}</p>
+                <p className="text-xs text-slate-400">{t("addField.requiredHint")}</p>
               </div>
               <button
                 type="button"
@@ -619,7 +646,7 @@ export default function AddFieldWizard() {
               className="app-button-secondary"
             >
               <ArrowLeft size={16} />
-              上一步
+              {t("addField.prev")}
             </button>
             <button
               type="button"
@@ -627,7 +654,7 @@ export default function AddFieldWizard() {
               disabled={!canProceedStep2}
               className="app-button-primary disabled:opacity-50"
             >
-              下一步
+              {t("addField.next")}
               <ArrowRight size={16} />
             </button>
           </div>
@@ -637,16 +664,16 @@ export default function AddFieldWizard() {
       {/* Step 3: Visibility */}
       {step === 3 && (
         <div className="app-card p-6">
-          <h2 className="text-base font-bold text-slate-950">显示设置</h2>
+          <h2 className="text-base font-bold text-slate-950">{t("addField.displaySettingsTitle")}</h2>
           <p className="mt-1 text-sm text-slate-500">
-            配置字段在视图中的显示方式
+            {t("addField.displaySettingsHint")}
           </p>
 
           <div className="mt-5 space-y-4">
             <div className="flex items-center justify-between rounded-lg border border-slate-200 px-4 py-3">
               <div>
-                <p className="text-sm font-medium text-slate-700">显示在列表视图</p>
-                <p className="text-xs text-slate-400">在{objectLabel(targetObject)}列表中作为一列显示</p>
+                <p className="text-sm font-medium text-slate-700">{t("addField.showInList")}</p>
+                <p className="text-xs text-slate-400">{t("addField.showInListHint", { object: objectLabel(targetObject, t) })}</p>
               </div>
               <button
                 type="button"
@@ -665,8 +692,8 @@ export default function AddFieldWizard() {
 
             <div className="flex items-center justify-between rounded-lg border border-slate-200 px-4 py-3">
               <div>
-                <p className="text-sm font-medium text-slate-700">显示在表单视图</p>
-                <p className="text-xs text-slate-400">在{objectLabel(targetObject)}表单中可编辑此字段</p>
+                <p className="text-sm font-medium text-slate-700">{t("addField.showInForm")}</p>
+                <p className="text-xs text-slate-400">{t("addField.showInFormHint", { object: objectLabel(targetObject, t) })}</p>
               </div>
               <button
                 type="button"
@@ -686,20 +713,20 @@ export default function AddFieldWizard() {
             {showInForm && (
               <div className="rounded-lg border border-slate-200 px-4 py-3">
                 <label className="block text-sm font-medium text-slate-700">
-                  所属分区
+                  {t("addField.formSection")}
                 </label>
                 <select
                   value={formSection}
                   onChange={(e) => setFormSection(e.target.value)}
                   className="app-input mt-1.5"
                 >
-                  <option value="__default__">默认分区（第一个分区）</option>
+                  <option value="__default__">{t("addField.defaultSection")}</option>
                   {formSections.map((title) => (
                     <option key={title} value={title}>
                       {title}
                     </option>
                   ))}
-                  <option value="__new__">新建分区…</option>
+                  <option value="__new__">{t("addField.newSection")}</option>
                 </select>
                 {formSection === "__new__" && (
                   <div className="mt-3">
@@ -707,7 +734,7 @@ export default function AddFieldWizard() {
                       type="text"
                       value={newSectionName}
                       onChange={(e) => setNewSectionName(e.target.value)}
-                      placeholder="输入新分区名称"
+                      placeholder={t("addField.newSectionPlaceholder")}
                       className="app-input"
                     />
                     {newSectionError && (
@@ -726,7 +753,7 @@ export default function AddFieldWizard() {
               className="app-button-secondary"
             >
               <ArrowLeft size={16} />
-              上一步
+              {t("addField.prev")}
             </button>
             <button
               type="button"
@@ -734,7 +761,7 @@ export default function AddFieldWizard() {
               disabled={!canProceedStep3}
               className="app-button-primary disabled:opacity-50"
             >
-              下一步
+              {t("addField.next")}
               <ArrowRight size={16} />
             </button>
           </div>
@@ -745,53 +772,53 @@ export default function AddFieldWizard() {
       {step === 4 && (
         <div className="space-y-4">
           <div className="app-card p-6">
-            <h2 className="text-base font-bold text-slate-950">预览确认</h2>
+            <h2 className="text-base font-bold text-slate-950">{t("addField.previewConfirmTitle")}</h2>
             <p className="mt-1 text-sm text-slate-500">
-              请确认以下变更信息，确认后将正式应用到工作区
+              {t("addField.previewConfirmHint")}
             </p>
 
             <div className="mt-5 grid gap-3 sm:grid-cols-2">
               <div className="rounded-lg bg-slate-50 px-4 py-3">
-                <p className="text-xs text-slate-500">目标对象</p>
+                <p className="text-xs text-slate-500">{t("addField.targetObject")}</p>
                 <p className="mt-0.5 text-sm font-semibold text-slate-800">
-                  {objectLabel(targetObject)}
+                  {objectLabel(targetObject, t)}
                 </p>
               </div>
               <div className="rounded-lg bg-slate-50 px-4 py-3">
-                <p className="text-xs text-slate-500">字段标签</p>
+                <p className="text-xs text-slate-500">{t("addField.fieldLabel")}</p>
                 <p className="mt-0.5 text-sm font-semibold text-slate-800">{label}</p>
               </div>
               <div className="rounded-lg bg-slate-50 px-4 py-3">
-                <p className="text-xs text-slate-500">字段标识</p>
+                <p className="text-xs text-slate-500">{t("addField.fieldKey")}</p>
                 <p className="mt-0.5 text-sm font-mono font-semibold text-slate-800">{fieldKey}</p>
               </div>
               <div className="rounded-lg bg-slate-50 px-4 py-3">
-                <p className="text-xs text-slate-500">字段类型</p>
+                <p className="text-xs text-slate-500">{t("addField.fieldType")}</p>
                 <p className="mt-0.5 text-sm font-semibold text-slate-800">
-                  {TYPE_LABELS[type] ?? type}
+                  {typeLabel(type, t)}
                 </p>
               </div>
               <div className="rounded-lg bg-slate-50 px-4 py-3">
-                <p className="text-xs text-slate-500">是否必填</p>
+                <p className="text-xs text-slate-500">{t("addField.required")}</p>
                 <p className="mt-0.5 text-sm font-semibold text-slate-800">
-                  {required ? "是" : "否"}
+                  {required ? t("workspace.yes") : t("workspace.no")}
                 </p>
               </div>
               <div className="rounded-lg bg-slate-50 px-4 py-3">
-                <p className="text-xs text-slate-500">显示位置</p>
+                <p className="text-xs text-slate-500">{t("addField.displayLocation")}</p>
                 <p className="mt-0.5 text-sm font-semibold text-slate-800">
                   {showInList && showInForm
-                    ? "列表 + 表单"
+                    ? t("addField.locationListForm")
                     : showInList
-                      ? "仅列表"
+                      ? t("addField.locationListOnly")
                       : showInForm
-                        ? "仅表单"
-                        : "不显示"}
+                        ? t("addField.locationFormOnly")
+                        : t("addField.locationNone")}
                 </p>
               </div>
               {type === "select" && options.length > 0 && (
                 <div className="rounded-lg bg-slate-50 px-4 py-3 sm:col-span-2">
-                  <p className="text-xs text-slate-500">下拉选项</p>
+                  <p className="text-xs text-slate-500">{t("addField.dropdownOptions")}</p>
                   <div className="mt-1 flex flex-wrap gap-1.5">
                     {options.map((opt, i) => (
                       <span
@@ -810,13 +837,13 @@ export default function AddFieldWizard() {
           {preparing && (
             <div className="app-card flex items-center gap-3 p-5">
               <Loader2 size={20} className="animate-spin text-indigo-600" />
-              <p className="text-sm text-slate-600">正在生成预览...</p>
+              <p className="text-sm text-slate-600">{t("addField.generatingPreview")}</p>
             </div>
           )}
 
           {prepareError && (
             <div className="app-error">
-              <p className="font-medium">预览生成失败</p>
+              <p className="font-medium">{t("addField.previewFailedTitle")}</p>
               <p className="mt-1 text-xs">{prepareError}</p>
               <button
                 type="button"
@@ -826,7 +853,7 @@ export default function AddFieldWizard() {
                 }}
                 className="mt-2 rounded-md bg-red-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-700"
               >
-                重新生成
+                {t("addField.regenerate")}
               </button>
             </div>
           )}
@@ -835,7 +862,7 @@ export default function AddFieldWizard() {
             <>
               <DiffPreview diff={diff} />
               <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-                这是正式变更前的审批点。点击「确认应用」后，工作区配置和审计日志将发生正式变化。
+                {t("addField.approvalPoint")}
               </div>
             </>
           )}
@@ -848,7 +875,7 @@ export default function AddFieldWizard() {
               className="app-button-secondary"
             >
               <ArrowLeft size={16} />
-              上一步
+              {t("addField.prev")}
             </button>
             <button
               type="button"
@@ -859,7 +886,7 @@ export default function AddFieldWizard() {
               disabled={!diff || preparing || applying}
               className="app-button-primary disabled:opacity-50"
             >
-              确认应用
+              {t("addField.confirmApply")}
               <CheckCircle2 size={16} />
             </button>
           </div>
