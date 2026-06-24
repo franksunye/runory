@@ -1,5 +1,7 @@
 "use client";
 
+import { useI18n } from "@/i18n/locale-provider";
+
 interface DiffPreviewProps {
   diff: any;
 }
@@ -11,8 +13,9 @@ const riskColors: Record<string, string> = {
 };
 
 export default function DiffPreview({ diff }: DiffPreviewProps) {
+  const { t } = useI18n();
   if (!diff) {
-    return <p className="text-sm text-slate-500">暂无预览数据</p>;
+    return <p className="text-sm text-slate-500">{t("diff.noPreviewData")}</p>;
   }
 
   const addedFields: any[] = diff.addedFields ?? [];
@@ -22,22 +25,22 @@ export default function DiffPreview({ diff }: DiffPreviewProps) {
   return (
     <div className="space-y-4 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-slate-700">扩展变更预览</h3>
+        <h3 className="text-sm font-semibold text-slate-700">{t("diff.title")}</h3>
         <span
           className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
             riskColors[riskLevel] ?? riskColors.low
           }`}
         >
-          风险等级：{riskLevel}
+          {t("diff.riskLevel", { level: riskLevel })}
         </span>
       </div>
 
       <div>
         <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">
-          新增字段（{addedFields.length}）
+          {t("diff.addedFields", { count: addedFields.length })}
         </h4>
         {addedFields.length === 0 ? (
-          <p className="text-sm text-slate-400">无新增字段</p>
+          <p className="text-sm text-slate-400">{t("diff.noAddedFields")}</p>
         ) : (
           <ul className="space-y-1">
             {addedFields.map((f, i) => (
@@ -54,7 +57,7 @@ export default function DiffPreview({ diff }: DiffPreviewProps) {
                 </span>
                 {f.listColumn && (
                   <span className="rounded bg-purple-100 px-1.5 py-0.5 text-[10px] font-medium text-purple-700">
-                    列表列
+                    {t("diff.listColumn")}
                   </span>
                 )}
                 {f.slot && (
@@ -70,10 +73,10 @@ export default function DiffPreview({ diff }: DiffPreviewProps) {
 
       <div>
         <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">
-          受影响的视图（{affectedViews.length}）
+          {t("diff.affectedViews", { count: affectedViews.length })}
         </h4>
         {affectedViews.length === 0 ? (
-          <p className="text-sm text-slate-400">无受影响视图</p>
+          <p className="text-sm text-slate-400">{t("diff.noAffectedViews")}</p>
         ) : (
           <div className="flex flex-wrap gap-2">
             {affectedViews.map((v) => (

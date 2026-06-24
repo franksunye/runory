@@ -256,6 +256,21 @@ export const en = {
   "workspace.sortOldest": "Created time (oldest)",
   "workspace.addRecord": "Add",
   "workspace.relatedRecords": "Related {target}",
+  // Trust indicators (v0.3.6)
+  "trust.dataExportable": "Data exportable",
+  "trust.rollback": "Changes rollback",
+  "trust.audited": "Operations audited",
+  // Language labels
+  "common.langZh": "中文",
+  // Diff preview (v0.3.6)
+  "diff.noPreviewData": "No preview data",
+  "diff.title": "Extension change preview",
+  "diff.riskLevel": "Risk level: {level}",
+  "diff.addedFields": "Added fields ({count})",
+  "diff.noAddedFields": "No added fields",
+  "diff.listColumn": "List column",
+  "diff.affectedViews": "Affected views ({count})",
+  "diff.noAffectedViews": "No affected views",
 } as const;
 
 export type MessageKey = keyof typeof en;
@@ -290,6 +305,12 @@ export const zh: Messages = {
   "workspace.field.enterPlaceholder": "请输入{label}", "workspace.field.selectPlaceholder": "请选择", "workspace.field.lookupPlaceholder": "请选择{label}", "workspace.field.clear": "清除", "workspace.field.searchToSelect": "搜索以选择...", "workspace.field.noMatchFound": "未找到匹配记录",
   // List/Detail page strings (v0.3.6)
   "workspace.subtitle": "管理所有记录", "workspace.sortNewest": "创建时间（最新）", "workspace.sortOldest": "创建时间（最早）", "workspace.addRecord": "添加", "workspace.relatedRecords": "关联{target}",
+  // Trust indicators (v0.3.6)
+  "trust.dataExportable": "数据可导出", "trust.rollback": "变更可回滚", "trust.audited": "操作有审计",
+  // Language labels
+  "common.langZh": "中文",
+  // Diff preview (v0.3.6)
+  "diff.noPreviewData": "暂无预览数据", "diff.title": "扩展变更预览", "diff.riskLevel": "风险等级：{level}", "diff.addedFields": "新增字段（{count}）", "diff.noAddedFields": "无新增字段", "diff.listColumn": "列表列", "diff.affectedViews": "受影响的视图（{count}）", "diff.noAffectedViews": "无受影响视图",
 };
 
 export const messages = { en, zh } as const;
