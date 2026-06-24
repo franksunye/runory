@@ -284,6 +284,30 @@ export async function getInstallations(workspaceId: string) {
   }));
 }
 
+// ── Pack Installations (v0.3.0) ──
+// Returns pack-level installation records for navigation grouping.
+// Display names and categories are enriched by the API layer via loadPackManifest.
+export interface PackInstallationInfo {
+  packId: string;
+  packVersion: string;
+  installedAt: string;
+}
+
+export async function getInstalledPacks(workspaceId: string): Promise<PackInstallationInfo[]> {
+  const rows = await queryAll<{
+    pack_id: string; pack_version: string; installed_at: string;
+  }>(
+    `SELECT pack_id, pack_version, installed_at FROM ${TABLES.packInstallations}
+     WHERE workspace_id = ? ORDER BY installed_at ASC`,
+    [workspaceId]
+  );
+  return rows.map(r => ({
+    packId: r.pack_id,
+    packVersion: r.pack_version,
+    installedAt: r.installed_at,
+  }));
+}
+
 // ── Records (dynamic CRUD on business tables) ──
 
 export interface GetRecordsOptions {

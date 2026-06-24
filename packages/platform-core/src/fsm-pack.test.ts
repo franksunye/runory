@@ -6,7 +6,7 @@ import { db, execute, genId, now, queryAll } from "./db";
 import { runMigrations } from "./migrations";
 import { TABLES, businessTable } from "./contracts";
 import { installPack, installModule, loadModuleManifest, loadPackManifest } from "./installer";
-import { getRecords, getNavigation, getInstallations, createRecord, updateRecord, getObject } from "./metadata";
+import { getRecords, getNavigation, getInstallations, getInstalledPacks, createRecord, updateRecord, getObject } from "./metadata";
 import { moduleManifestSchema, packManifestSchema } from "@runory/contracts";
 import {
   resolveEffectiveLayout,
@@ -716,5 +716,17 @@ describe("FSM pack installation tracking", () => {
     );
 
     expect(packInstalls).toHaveLength(1);
+  });
+
+  it("getInstalledPacks returns pack-level installation records", async () => {
+    await installPack(workspaceId, "fsm-pack");
+
+    const packs = await getInstalledPacks(workspaceId);
+    expect(packs.length).toBeGreaterThanOrEqual(1);
+
+    const fsmPack = packs.find((p) => p.packId === "fsm-pack");
+    expect(fsmPack).toBeDefined();
+    expect(fsmPack!.packVersion).toBe("1.0.0");
+    expect(fsmPack!.installedAt).toBeTruthy();
   });
 });
