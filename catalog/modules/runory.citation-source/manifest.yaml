@@ -1,0 +1,211 @@
+id: runory.citation-source
+name: Citation Source Management
+version: 1.0.0
+coreCompatibility: ">=0.1.0"
+
+dependencies:
+  - runory.answer-block
+
+objects:
+  - key: citation_source
+    label: Citation Source
+    fields:
+      - key: answer_block_id
+        label: 关联答案块
+        type: text
+        ownership: module_owned
+        required: true
+      - key: title
+        label: 标题
+        type: text
+        ownership: module_owned
+        required: true
+      - key: url
+        label: 来源 URL
+        type: text
+        ownership: module_owned
+      - key: source_type
+        label: 来源类型
+        type: select
+        ownership: module_owned
+        default_value: "web"
+        validation:
+          options: ["web", "document", "internal", "research", "official"]
+      - key: snippet
+        label: 摘要
+        type: text
+        ownership: module_owned
+        description: "Relevant excerpt from the source"
+      - key: credibility_score
+        label: 可信度
+        type: number
+        ownership: module_owned
+        description: "0-100 credibility score"
+      - key: captured_at
+        label: 采集时间
+        type: date
+        ownership: module_owned
+      - key: author
+        label: 作者
+        type: text
+        ownership: module_owned
+      - key: publisher
+        label: 发布者
+        type: text
+        ownership: module_owned
+      - key: owner
+        label: 负责人
+        type: text
+        ownership: module_owned
+      - key: notes
+        label: 备注
+        type: text
+        ownership: module_owned
+
+views:
+  - object: citation_source
+    key: citation_source_list
+    type: list
+    label: 引用来源列表
+    config:
+      columns:
+        - field: title
+          label: 标题
+        - field: answer_block_id
+          label: 关联答案块
+        - field: source_type
+          label: 来源类型
+        - field: credibility_score
+          label: 可信度
+        - field: captured_at
+          label: 采集时间
+      actions:
+        - create
+        - view
+      pageSize: 20
+
+  - object: citation_source
+    key: citation_source_form
+    type: form
+    label: 引用来源表单
+    config:
+      sections:
+        - title: 基本信息
+          fields:
+            - field: answer_block_id
+              required: true
+            - field: title
+              required: true
+        - title: 来源
+          fields:
+            - field: url
+            - field: source_type
+            - field: snippet
+        - title: 元数据
+          fields:
+            - field: credibility_score
+            - field: captured_at
+            - field: author
+            - field: publisher
+            - field: owner
+            - field: notes
+
+permissions:
+  - citation_source.read
+  - citation_source.create
+  - citation_source.update
+  - citation_source.delete
+
+# ── Cross-Pack Relations (v0.2.7) ──
+relations:
+  - object: citation_source
+    targetObject: answer_block
+    targetModule: runory.answer-block
+    type: many_to_one
+    foreignKey: answer_block_id
+    label: 关联答案块
+
+migrations:
+  install: migrations/install.sql
+  uninstallPolicy: retain_data
+
+ui:
+  navigation:
+    - label: 引用来源
+      route: /citation-sources
+      icon: bookmark
+      sortOrder: 56
+
+extensionPoints:
+  entities:
+    - entity: citation_source
+      customFields:
+        enabled: true
+        allowedTypes: [text, number, date, select, boolean]
+        maxFields: 10
+        reservedKeys: [id, answer_block_id, title, url, source_type, snippet, credibility_score, captured_at, author, publisher, owner, notes, created_at, updated_at]
+      customRelations:
+        enabled: false
+  views:
+    - view: citation_source_list
+      slots:
+        - id: citation_source.list.columns
+          type: column_group
+          allowedExtensions: [customField]
+          risk: low
+      allowReorder: true
+      allowFilters: true
+      allowPageSizeChange: true
+    - view: citation_source_form
+      slots:
+        - id: citation_source.form.basic_fields.after
+          type: field_group
+          allowedExtensions: [customField]
+          risk: low
+      allowAddSection: true
+      allowAddAction: true
+
+dashboard:
+  widgets:
+    - key: total_citation_sources_metric
+      type: metric_card
+      label: 引用来源
+      icon: bookmark
+      tone: cyan
+      data:
+        kind: count
+        object: citation_source
+      link: /citation-sources
+
+    - key: citation_source_type_breakdown
+      type: breakdown
+      label: 引用类型分布
+      icon: pie-chart
+      tone: cyan
+      data:
+        kind: group_count
+        object: citation_source
+        groupBy: source_type
+
+    - key: recent_citation_sources_list
+      type: list
+      label: 最近引用来源
+      icon: bookmark
+      tone: cyan
+      data:
+        kind: recent
+        object: citation_source
+        orderBy: "created_at desc"
+        limit: 5
+        columns: [title, source_type, credibility_score]
+      link: /citation-sources
+      configurable:
+        - path: data.limit
+          label: 显示条数
+          type: number
+          min: 1
+          max: 20
+
+upgradePolicy:
+  supportsWorkspaceExtensions: true
+  breakingChangePolicy: manual_review

@@ -1,0 +1,247 @@
+id: runory.entity-profile
+name: Entity Profile Management
+version: 1.0.0
+coreCompatibility: ">=0.1.0"
+
+dependencies:
+  - runory.company
+  - runory.product-service
+  - runory.landing-page
+
+objects:
+  - key: entity_profile
+    label: Entity Profile
+    fields:
+      - key: name
+        label: 名称
+        type: text
+        ownership: module_owned
+        required: true
+      - key: entity_type
+        label: 实体类型
+        type: select
+        ownership: module_owned
+        required: true
+        default_value: "topic"
+        validation:
+          options: ["product_service", "landing_page", "company", "topic"]
+      - key: target_object
+        label: 目标对象
+        type: text
+        ownership: module_owned
+        description: "Object key when entity_type references a business record"
+      - key: target_id
+        label: 目标记录 ID
+        type: text
+        ownership: module_owned
+        description: "Record ID when entity_type references a business record"
+      - key: company_id
+        label: 关联公司
+        type: text
+        ownership: module_owned
+      - key: product_service_id
+        label: 关联产品/服务
+        type: text
+        ownership: module_owned
+      - key: landing_page_id
+        label: 关联落地页
+        type: text
+        ownership: module_owned
+      - key: description
+        label: 描述
+        type: text
+        ownership: module_owned
+      - key: keywords_json
+        label: 关键词
+        type: text
+        ownership: module_owned
+        description: "JSON array of target keywords"
+      - key: status
+        label: 状态
+        type: select
+        ownership: module_owned
+        required: true
+        default_value: "active"
+        validation:
+          options: ["active", "inactive", "archived"]
+      - key: locale
+        label: 语言区域
+        type: text
+        ownership: module_owned
+        default_value: "zh-CN"
+      - key: owner
+        label: 负责人
+        type: text
+        ownership: module_owned
+      - key: notes
+        label: 备注
+        type: text
+        ownership: module_owned
+
+views:
+  - object: entity_profile
+    key: entity_profile_list
+    type: list
+    label: 实体画像列表
+    config:
+      columns:
+        - field: name
+          label: 名称
+        - field: entity_type
+          label: 实体类型
+        - field: status
+          label: 状态
+        - field: locale
+          label: 语言区域
+        - field: owner
+          label: 负责人
+      actions:
+        - create
+        - view
+      pageSize: 20
+
+  - object: entity_profile
+    key: entity_profile_form
+    type: form
+    label: 实体画像表单
+    config:
+      sections:
+        - title: 基本信息
+          fields:
+            - field: name
+              required: true
+            - field: entity_type
+              required: true
+            - field: status
+              required: true
+        - title: 关联
+          fields:
+            - field: target_object
+            - field: target_id
+            - field: company_id
+            - field: product_service_id
+            - field: landing_page_id
+        - title: 内容
+          fields:
+            - field: description
+            - field: keywords_json
+            - field: locale
+        - title: 其他
+          fields:
+            - field: owner
+            - field: notes
+
+permissions:
+  - entity_profile.read
+  - entity_profile.create
+  - entity_profile.update
+  - entity_profile.delete
+
+# ── Cross-Pack Relations (v0.2.7) ──
+# entity_profile references company (shared), product_service (Sales Quote Pack),
+# and landing_page (Marketing Capture Pack).
+relations:
+  - object: entity_profile
+    targetObject: company
+    targetModule: runory.company
+    type: many_to_one
+    foreignKey: company_id
+    label: 关联公司
+  - object: entity_profile
+    targetObject: product_service
+    targetModule: runory.product-service
+    type: many_to_one
+    foreignKey: product_service_id
+    label: 关联产品/服务
+  - object: entity_profile
+    targetObject: landing_page
+    targetModule: runory.landing-page
+    type: many_to_one
+    foreignKey: landing_page_id
+    label: 关联落地页
+
+migrations:
+  install: migrations/install.sql
+  uninstallPolicy: retain_data
+
+ui:
+  navigation:
+    - label: 实体画像
+      route: /entity-profiles
+      icon: globe
+      sortOrder: 50
+
+extensionPoints:
+  entities:
+    - entity: entity_profile
+      customFields:
+        enabled: true
+        allowedTypes: [text, number, date, select, boolean]
+        maxFields: 20
+        reservedKeys: [id, name, entity_type, target_object, target_id, company_id, product_service_id, landing_page_id, description, keywords_json, status, locale, owner, notes, created_at, updated_at]
+      customRelations:
+        enabled: false
+  views:
+    - view: entity_profile_list
+      slots:
+        - id: entity_profile.list.columns
+          type: column_group
+          allowedExtensions: [customField]
+          risk: low
+      allowReorder: true
+      allowFilters: true
+      allowPageSizeChange: true
+    - view: entity_profile_form
+      slots:
+        - id: entity_profile.form.basic_fields.after
+          type: field_group
+          allowedExtensions: [customField]
+          risk: low
+      allowAddSection: true
+      allowAddAction: true
+
+dashboard:
+  widgets:
+    - key: active_entity_profiles_metric
+      type: metric_card
+      label: 活跃实体画像
+      icon: globe
+      tone: cyan
+      data:
+        kind: count
+        object: entity_profile
+        where: "status = 'active'"
+      link: /entity-profiles
+
+    - key: entity_profile_type_breakdown
+      type: breakdown
+      label: 实体类型分布
+      icon: pie-chart
+      tone: cyan
+      data:
+        kind: group_count
+        object: entity_profile
+        groupBy: entity_type
+
+    - key: recent_entity_profiles_list
+      type: list
+      label: 最近实体画像
+      icon: globe
+      tone: cyan
+      data:
+        kind: recent
+        object: entity_profile
+        orderBy: "created_at desc"
+        limit: 5
+        columns: [name, entity_type, status, locale]
+      link: /entity-profiles
+      configurable:
+        - path: data.limit
+          label: 显示条数
+          type: number
+          min: 1
+          max: 20
+
+upgradePolicy:
+  supportsWorkspaceExtensions: true
+  breakingChangePolicy: manual_review

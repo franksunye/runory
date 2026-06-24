@@ -1,0 +1,62 @@
+id: ai-visibility-pack
+name: AI Visibility / GEO Seed Pack
+version: 1.0.0
+coreCompatibility: ">=0.1.0"
+
+# AI Visibility Pack adds GEO/AEO capability on top of Marketing Capture.
+# It composes shared business modules (company) with Marketing Capture modules
+# (landing_page) and Sales Quote modules (product_service) for cross-pack
+# entity references, plus 5 GEO-specific modules.
+modules:
+  - "runory.company:^1.0.0"
+  - "runory.product-service:^1.0.0"
+  - "runory.landing-page:^1.0.0"
+  - "runory.entity-profile:^1.0.0"
+  - "runory.question-map:^1.0.0"
+  - "runory.answer-block:^1.0.0"
+  - "runory.citation-source:^1.0.0"
+  - "runory.ai-visibility-check:^1.0.0"
+
+defaultTemplate: small-business-ai-visibility
+
+# Pack-specific terminology overlay (v0.2.3).
+terminology:
+  - object: company
+    label: 客户
+    navigationLabel: 客户
+    route: /companies
+
+# AI Visibility workbench — focuses on content readiness, visibility, and
+# improvement opportunities.
+dashboard:
+  defaultLayout:
+    - zone: metrics
+      widgets:
+        - { module: runory.entity-profile,        widget: active_entity_profiles_metric,        instance: default }
+        - { module: runory.answer-block,          widget: approved_answer_blocks_metric,        instance: default }
+        - { module: runory.answer-block,          widget: pending_review_answer_blocks_metric,  instance: default }
+        - { module: runory.ai-visibility-check,   widget: visible_checks_metric,                instance: default }
+        - { module: runory.ai-visibility-check,   widget: not_visible_checks_metric,            instance: default }
+
+    - zone: trends
+      widgets:
+        - { module: _platform, widget: business_activity_feed, instance: default }
+
+    - zone: lists
+      widgets:
+        - { module: runory.answer-block,          widget: pending_review_answer_blocks_list,    instance: default }
+        - { module: runory.answer-block,          widget: published_answer_blocks_list,         instance: default }
+        - { module: runory.ai-visibility-check,   widget: not_visible_checks_list,              instance: default }
+        - { module: runory.ai-visibility-check,   widget: recent_visibility_checks_list,        instance: default }
+        - { module: runory.entity-profile,        widget: recent_entity_profiles_list,          instance: default }
+        - { module: runory.question-map,          widget: recent_question_maps_list,            instance: default }
+        - { module: runory.citation-source,       widget: recent_citation_sources_list,         instance: default }
+
+    - zone: activity
+      widgets:
+        - { module: _platform, widget: business_activity_feed, instance: default }
+
+marketplace:
+  category: ai_visibility
+  license: runory_official
+  publisher: runory

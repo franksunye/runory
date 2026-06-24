@@ -1,0 +1,511 @@
+{
+  "records": [
+    {
+      "object": "entity_profile",
+      "alias": "ep-hvac-service",
+      "match": { "field": "name", "value": "HVAC 维护服务画像" },
+      "data": {
+        "name": "HVAC 维护服务画像",
+        "entity_type": "product_service",
+        "target_object": "product_service",
+        "company_id": { "$lookup": { "object": "company", "field": "domain", "value": "acme.example" } },
+        "product_service_id": { "$lookup": { "object": "product_service", "field": "sku", "value": "SVC-INSP-001" } },
+        "landing_page_id": { "$lookup": { "object": "landing_page", "field": "slug", "value": "hvac-maintenance" } },
+        "description": "HVAC 专业维护服务的 AI 可见性画像，覆盖巡检、维修、校准等场景",
+        "keywords_json": "[\"HVAC维护\",\"空调维修\",\"设备巡检\",\"制冷剂补充\",\"HVAC校准\"]",
+        "status": "active",
+        "locale": "zh-CN",
+        "owner": "Alex",
+        "notes": "核心服务画像，优先优化"
+      }
+    },
+    {
+      "object": "entity_profile",
+      "alias": "ep-summer-promo",
+      "match": { "field": "name", "value": "夏季推广落地页画像" },
+      "data": {
+        "name": "夏季推广落地页画像",
+        "entity_type": "landing_page",
+        "target_object": "landing_page",
+        "landing_page_id": { "$lookup": { "object": "landing_page", "field": "slug", "value": "summer-promo" } },
+        "description": "夏季推广落地页的 AI 可见性画像",
+        "keywords_json": "[\"夏季服务优惠\",\"HVAC夏季维护\",\"设备维护折扣\"]",
+        "status": "active",
+        "locale": "zh-CN",
+        "owner": "Sam",
+        "notes": "季节性推广画像"
+      }
+    },
+    {
+      "object": "entity_profile",
+      "alias": "ep-maintenance-bundle",
+      "match": { "field": "name", "value": "年度维保套餐画像" },
+      "data": {
+        "name": "年度维保套餐画像",
+        "entity_type": "product_service",
+        "target_object": "product_service",
+        "product_service_id": { "$lookup": { "object": "product_service", "field": "sku", "value": "BND-MAINT-001" } },
+        "description": "年度维保套餐的 AI 可见性画像",
+        "keywords_json": "[\"年度维保\",\"设备维护套餐\",\"预防性维护\"]",
+        "status": "active",
+        "locale": "zh-CN",
+        "owner": "Alex"
+      }
+    },
+    {
+      "object": "entity_profile",
+      "alias": "ep-company-acme",
+      "match": { "field": "name", "value": "Acme 公司画像" },
+      "data": {
+        "name": "Acme 公司画像",
+        "entity_type": "company",
+        "target_object": "company",
+        "company_id": { "$lookup": { "object": "company", "field": "domain", "value": "acme.example" } },
+        "description": "Acme 公司的品牌可见性画像",
+        "keywords_json": "[\"Acme\",\"Acme运营\",\"Acme服务\"]",
+        "status": "active",
+        "locale": "zh-CN",
+        "owner": "Sam"
+      }
+    },
+    {
+      "object": "entity_profile",
+      "alias": "ep-emergency-repair",
+      "match": { "field": "name", "value": "紧急维修服务画像" },
+      "data": {
+        "name": "紧急维修服务画像",
+        "entity_type": "topic",
+        "description": "紧急维修服务话题画像，覆盖 HVAC、制冷等紧急场景",
+        "keywords_json": "[\"紧急维修\",\"HVAC紧急维修\",\"设备故障\",\"快速响应\"]",
+        "status": "active",
+        "locale": "zh-CN",
+        "owner": "Alex",
+        "notes": "话题型画像，不关联具体记录"
+      }
+    },
+    {
+      "object": "question_map",
+      "alias": "qm-hvac",
+      "match": { "field": "name", "value": "HVAC 维护常见问题" },
+      "data": {
+        "entity_profile_id": "$ep-hvac-service.id",
+        "name": "HVAC 维护常见问题",
+        "status": "approved",
+        "source": "agent_generated",
+        "questions_json": "[\"HVAC系统多久需要巡检一次？\",\"HVAC制冷不足的常见原因是什么？\",\"如何选择HVAC维护服务商？\",\"HVAC滤芯多久更换一次？\",\"HVAC紧急维修的响应时间通常是多久？\"]",
+        "question_count": 5,
+        "locale": "zh-CN",
+        "owner": "Alex",
+        "notes": "Agent 生成并已审核"
+      }
+    },
+    {
+      "object": "question_map",
+      "alias": "qm-summer-promo",
+      "match": { "field": "name", "value": "夏季推广相关问题" },
+      "data": {
+        "entity_profile_id": "$ep-summer-promo.id",
+        "name": "夏季推广相关问题",
+        "status": "ready",
+        "source": "agent_generated",
+        "questions_json": "[\"夏季HVAC维护有什么优惠？\",\"夏季设备巡检包含哪些内容？\",\"夏季推广活动什么时候结束？\"]",
+        "question_count": 3,
+        "locale": "zh-CN",
+        "owner": "Sam"
+      }
+    },
+    {
+      "object": "question_map",
+      "alias": "qm-maintenance",
+      "match": { "field": "name", "value": "年度维保套餐问题" },
+      "data": {
+        "entity_profile_id": "$ep-maintenance-bundle.id",
+        "name": "年度维保套餐问题",
+        "status": "draft",
+        "source": "manual",
+        "questions_json": "[\"年度维保套餐包含什么？\",\"年度维保的价格是多少？\",\"年度维保和单次维修哪个更划算？\"]",
+        "question_count": 3,
+        "locale": "zh-CN",
+        "owner": "Alex"
+      }
+    },
+    {
+      "object": "question_map",
+      "alias": "qm-emergency",
+      "match": { "field": "name", "value": "紧急维修常见问题" },
+      "data": {
+        "entity_profile_id": "$ep-emergency-repair.id",
+        "name": "紧急维修常见问题",
+        "status": "generating",
+        "source": "agent_generated",
+        "questions_json": "[]",
+        "question_count": 0,
+        "locale": "zh-CN",
+        "owner": "Alex",
+        "notes": "正在生成中"
+      }
+    },
+    {
+      "object": "answer_block",
+      "alias": "ab-hvac-inspection-freq",
+      "match": { "field": "question", "value": "HVAC系统多久需要巡检一次？" },
+      "data": {
+        "question_map_id": "$qm-hvac.id",
+        "entity_profile_id": "$ep-hvac-service.id",
+        "question": "HVAC系统多久需要巡检一次？",
+        "answer_text": "商用HVAC系统建议每季度进行一次专业巡检，即每年至少4次。高频使用的系统（如数据中心、医疗机构）建议每月巡检。定期巡检可以提前发现潜在问题，延长设备寿命，降低紧急维修成本。我们的年度维保套餐包含4次标准巡检。",
+        "status": "published",
+        "source_type": "agent_generated",
+        "landing_page_id": { "$lookup": { "object": "landing_page", "field": "slug", "value": "hvac-maintenance" } },
+        "confidence_score": 92,
+        "locale": "zh-CN",
+        "owner": "Alex",
+        "notes": "已发布到 HVAC 维护落地页"
+      }
+    },
+    {
+      "object": "answer_block",
+      "alias": "ab-hvac-cooling-issue",
+      "match": { "field": "question", "value": "HVAC制冷不足的常见原因是什么？" },
+      "data": {
+        "question_map_id": "$qm-hvac.id",
+        "entity_profile_id": "$ep-hvac-service.id",
+        "question": "HVAC制冷不足的常见原因是什么？",
+        "answer_text": "HVAC制冷不足的常见原因包括：1) 制冷剂不足或泄漏；2) 空气滤芯堵塞；3) 蒸发器或冷凝器积灰；4) 压缩机故障；5) 温控器失灵。建议先检查滤芯和制冷剂水平，如问题持续需联系专业工程师诊断。",
+        "status": "approved",
+        "source_type": "agent_generated",
+        "confidence_score": 88,
+        "locale": "zh-CN",
+        "owner": "Alex"
+      }
+    },
+    {
+      "object": "answer_block",
+      "alias": "ab-hvac-filter-change",
+      "match": { "field": "question", "value": "HVAC滤芯多久更换一次？" },
+      "data": {
+        "question_map_id": "$qm-hvac.id",
+        "entity_profile_id": "$ep-hvac-service.id",
+        "question": "HVAC滤芯多久更换一次？",
+        "answer_text": "标准HVAC空气滤芯建议每3个月更换一次。高效HEPA滤芯建议每6个月更换。在灰尘较大或洁净室环境中，更换频率应加倍。我们提供标准滤芯和高效滤芯两种选择。",
+        "status": "published",
+        "source_type": "manual",
+        "landing_page_id": { "$lookup": { "object": "landing_page", "field": "slug", "value": "hvac-maintenance" } },
+        "confidence_score": 95,
+        "locale": "zh-CN",
+        "owner": "Sam"
+      }
+    },
+    {
+      "object": "answer_block",
+      "alias": "ab-hvac-choose-provider",
+      "match": { "field": "question", "value": "如何选择HVAC维护服务商？" },
+      "data": {
+        "question_map_id": "$qm-hvac.id",
+        "entity_profile_id": "$ep-hvac-service.id",
+        "question": "如何选择HVAC维护服务商？",
+        "answer_text": "选择HVAC维护服务商时应考虑：1) 是否有认证工程师；2) 是否提供紧急响应服务；3) 是否有透明的报价体系；4) 是否提供详细的服务报告；5) 是否有年度维保套餐。建议选择有完整服务流程和良好口碑的服务商。",
+        "status": "pending_review",
+        "source_type": "agent_generated",
+        "confidence_score": 75,
+        "locale": "zh-CN",
+        "owner": "Alex",
+        "notes": "待审核，内容偏推广性质"
+      }
+    },
+    {
+      "object": "answer_block",
+      "alias": "ab-hvac-emergency-response",
+      "match": { "field": "question", "value": "HVAC紧急维修的响应时间通常是多久？" },
+      "data": {
+        "question_map_id": "$qm-hvac.id",
+        "entity_profile_id": "$ep-hvac-service.id",
+        "question": "HVAC紧急维修的响应时间通常是多久？",
+        "answer_text": "专业HVAC紧急维修服务的标准响应时间为4小时内上门。我们的紧急上门支持服务承诺4小时内到达现场，并提供优先排期。年度维保客户享受优先紧急响应。",
+        "status": "approved",
+        "source_type": "manual",
+        "confidence_score": 90,
+        "locale": "zh-CN",
+        "owner": "Alex"
+      }
+    },
+    {
+      "object": "answer_block",
+      "alias": "ab-summer-discount",
+      "match": { "field": "question", "value": "夏季HVAC维护有什么优惠？" },
+      "data": {
+        "question_map_id": "$qm-summer-promo.id",
+        "entity_profile_id": "$ep-summer-promo.id",
+        "question": "夏季HVAC维护有什么优惠？",
+        "answer_text": "夏季推广期间，现场巡检服务享8折优惠，年度维保套餐立减1000元，紧急上门支持享优先响应。活动截止日期为8月31日。",
+        "status": "published",
+        "source_type": "manual",
+        "landing_page_id": { "$lookup": { "object": "landing_page", "field": "slug", "value": "summer-promo" } },
+        "confidence_score": 98,
+        "locale": "zh-CN",
+        "owner": "Sam"
+      }
+    },
+    {
+      "object": "answer_block",
+      "alias": "ab-summer-inspection",
+      "match": { "field": "question", "value": "夏季设备巡检包含哪些内容？" },
+      "data": {
+        "question_map_id": "$qm-summer-promo.id",
+        "entity_profile_id": "$ep-summer-promo.id",
+        "question": "夏季设备巡检包含哪些内容？",
+        "answer_text": "夏季设备巡检包含：制冷系统检查、滤芯清洁/更换、制冷剂水平检测、电气系统检查、温控器校准、排水系统清理。每次巡检后提供详细报告。",
+        "status": "draft",
+        "source_type": "agent_generated",
+        "confidence_score": 70,
+        "locale": "zh-CN",
+        "owner": "Sam"
+      }
+    },
+    {
+      "object": "answer_block",
+      "alias": "ab-maintenance-includes",
+      "match": { "field": "question", "value": "年度维保套餐包含什么？" },
+      "data": {
+        "question_map_id": "$qm-maintenance.id",
+        "entity_profile_id": "$ep-maintenance-bundle.id",
+        "question": "年度维保套餐包含什么？",
+        "answer_text": "年度维保套餐包含4次现场巡检、滤芯更换、优先紧急响应、详细服务报告和操作培训。适用于商用HVAC系统。",
+        "status": "pending_review",
+        "source_type": "agent_generated",
+        "confidence_score": 80,
+        "locale": "zh-CN",
+        "owner": "Alex"
+      }
+    },
+    {
+      "object": "answer_block",
+      "alias": "ab-maintenance-price",
+      "match": { "field": "question", "value": "年度维保的价格是多少？" },
+      "data": {
+        "question_map_id": "$qm-maintenance.id",
+        "entity_profile_id": "$ep-maintenance-bundle.id",
+        "question": "年度维保的价格是多少？",
+        "answer_text": "年度维保套餐标准价格为9800元/年，夏季推广期间立减1000元，即8800元/年。包含4次巡检和滤芯更换。",
+        "status": "rejected",
+        "source_type": "manual",
+        "confidence_score": 60,
+        "locale": "zh-CN",
+        "owner": "Sam",
+        "notes": "价格信息可能变动，已拒绝发布"
+      }
+    },
+    {
+      "object": "citation_source",
+      "alias": "cs-ashrae-standard",
+      "match": { "field": "title", "value": "ASHRAE HVAC 维护标准" },
+      "data": {
+        "answer_block_id": "$ab-hvac-inspection-freq.id",
+        "title": "ASHRAE HVAC 维护标准",
+        "url": "https://ashrae.example.org/standards/hvac-maintenance",
+        "source_type": "official",
+        "snippet": "商用HVAC系统应每季度进行专业维护检查，包括制冷剂水平、滤芯状态和电气系统。",
+        "credibility_score": 95,
+        "captured_at": "2026-06-15",
+        "author": "ASHRAE",
+        "publisher": "ASHRAE",
+        "owner": "Alex"
+      }
+    },
+    {
+      "object": "citation_source",
+      "alias": "cs-cooling-guide",
+      "match": { "field": "title", "value": "HVAC 制冷不足诊断指南" },
+      "data": {
+        "answer_block_id": "$ab-hvac-cooling-issue.id",
+        "title": "HVAC 制冷不足诊断指南",
+        "url": "https://hvac-guide.example.com/cooling-issues",
+        "source_type": "web",
+        "snippet": "制冷不足的五大原因：制冷剂泄漏、滤芯堵塞、蒸发器积灰、压缩机故障、温控器失灵。",
+        "credibility_score": 78,
+        "captured_at": "2026-06-16",
+        "author": "John Smith",
+        "publisher": "HVAC Guide",
+        "owner": "Alex"
+      }
+    },
+    {
+      "object": "citation_source",
+      "alias": "cs-filter-spec",
+      "match": { "field": "title", "value": "空气滤芯更换周期技术规范" },
+      "data": {
+        "answer_block_id": "$ab-hvac-filter-change.id",
+        "title": "空气滤芯更换周期技术规范",
+        "url": "https://standards.example.org/filter-replacement",
+        "source_type": "research",
+        "snippet": "标准空气滤芯建议3个月更换，HEPA滤芯建议6个月更换。高灰尘环境应加倍频率。",
+        "credibility_score": 90,
+        "captured_at": "2026-06-17",
+        "author": "室内空气质量研究所",
+        "publisher": "IAQ Research Institute",
+        "owner": "Sam"
+      }
+    },
+    {
+      "object": "citation_source",
+      "alias": "cs-emergency-sla",
+      "match": { "field": "title", "value": "紧急维修服务等级协议参考" },
+      "data": {
+        "answer_block_id": "$ab-hvac-emergency-response.id",
+        "title": "紧急维修服务等级协议参考",
+        "url": "https://sla.example.org/emergency-hvac",
+        "source_type": "document",
+        "snippet": "行业标准紧急HVAC维修响应时间为4小时，优先客户可缩短至2小时。",
+        "credibility_score": 85,
+        "captured_at": "2026-06-18",
+        "author": "服务等级协议委员会",
+        "publisher": "SLA Council",
+        "owner": "Alex"
+      }
+    },
+    {
+      "object": "citation_source",
+      "alias": "cs-internal-pricing",
+      "match": { "field": "title", "value": "内部定价表 2026" },
+      "data": {
+        "answer_block_id": "$ab-maintenance-price.id",
+        "title": "内部定价表 2026",
+        "url": "",
+        "source_type": "internal",
+        "snippet": "年度维保套餐标准价格9800元/年，夏季促销价8800元/年。",
+        "credibility_score": 100,
+        "captured_at": "2026-06-01",
+        "author": "财务部",
+        "publisher": "内部",
+        "owner": "Sam",
+        "notes": "内部文档，不公开"
+      }
+    },
+    {
+      "object": "ai_visibility_check",
+      "alias": "avc-hvac-inspection-chatgpt",
+      "match": { "field": "query", "value": "HVAC系统多久需要巡检一次" },
+      "data": {
+        "entity_profile_id": "$ep-hvac-service.id",
+        "query": "HVAC系统多久需要巡检一次",
+        "engine": "chatgpt",
+        "locale": "zh-CN",
+        "result_status": "visible",
+        "result_summary": "ChatGPT 返回了包含季度巡检建议的回答，部分内容引用了我们的落地页。",
+        "result_snippet": "商用HVAC系统建议每季度进行一次专业巡检...",
+        "improvement_suggestions": "建议在落地页增加更多结构化数据标记，提升被引用的概率。可添加 FAQ Schema。",
+        "checked_at": "2026-06-20",
+        "checked_by": "Alex",
+        "owner": "Alex"
+      }
+    },
+    {
+      "object": "ai_visibility_check",
+      "alias": "avc-hvac-inspection-google",
+      "match": { "field": "query", "value": "HVAC系统巡检频率" },
+      "data": {
+        "entity_profile_id": "$ep-hvac-service.id",
+        "query": "HVAC系统巡检频率",
+        "engine": "google",
+        "locale": "zh-CN",
+        "result_status": "partial",
+        "result_summary": "Google 搜索结果显示我们的落地页在第2页，未出现在 AI 概览中。",
+        "result_snippet": "搜索结果第2页有我们的落地页链接",
+        "improvement_suggestions": "需要提升页面 SEO，增加外链和内容深度。建议优化标题和 meta 描述。",
+        "checked_at": "2026-06-20",
+        "checked_by": "Alex",
+        "owner": "Alex"
+      }
+    },
+    {
+      "object": "ai_visibility_check",
+      "alias": "avc-hvac-cooling-perplexity",
+      "match": { "field": "query", "value": "HVAC制冷不足原因" },
+      "data": {
+        "entity_profile_id": "$ep-hvac-service.id",
+        "query": "HVAC制冷不足原因",
+        "engine": "perplexity",
+        "locale": "zh-CN",
+        "result_status": "visible",
+        "result_summary": "Perplexity 引用了我们的答案块内容，并标注了来源链接。",
+        "result_snippet": "HVAC制冷不足的常见原因包括制冷剂不足、滤芯堵塞等...",
+        "improvement_suggestions": "内容质量良好，建议增加更多引用来源以提升可信度。",
+        "checked_at": "2026-06-21",
+        "checked_by": "Sam",
+        "owner": "Alex"
+      }
+    },
+    {
+      "object": "ai_visibility_check",
+      "alias": "avc-maintenance-bundle-claude",
+      "match": { "field": "query", "value": "年度维保套餐包含什么" },
+      "data": {
+        "entity_profile_id": "$ep-maintenance-bundle.id",
+        "query": "年度维保套餐包含什么",
+        "engine": "claude",
+        "locale": "zh-CN",
+        "result_status": "not_visible",
+        "result_summary": "Claude 未提及我们的维保套餐，返回了通用维保内容。",
+        "result_snippet": "年度维保通常包含定期检查...",
+        "improvement_suggestions": "需要增加更多结构化内容，特别是套餐具体包含项。建议在落地页添加详细的服务清单和价格对比表。",
+        "checked_at": "2026-06-21",
+        "checked_by": "Sam",
+        "owner": "Alex"
+      }
+    },
+    {
+      "object": "ai_visibility_check",
+      "alias": "avc-summer-promo-gemini",
+      "match": { "field": "query", "value": "夏季HVAC维护优惠" },
+      "data": {
+        "entity_profile_id": "$ep-summer-promo.id",
+        "query": "夏季HVAC维护优惠",
+        "engine": "gemini",
+        "locale": "zh-CN",
+        "result_status": "partial",
+        "result_summary": "Gemini 提到了夏季维护优惠的概念，但未引用我们的具体活动。",
+        "result_snippet": "夏季通常有HVAC维护优惠活动...",
+        "improvement_suggestions": "建议增加活动详情的结构化数据，提升被引用概率。可在社交媒体增加活动曝光。",
+        "checked_at": "2026-06-22",
+        "checked_by": "Alex",
+        "owner": "Sam"
+      }
+    },
+    {
+      "object": "ai_visibility_check",
+      "alias": "avc-emergency-bing",
+      "match": { "field": "query", "value": "HVAC紧急维修响应时间" },
+      "data": {
+        "entity_profile_id": "$ep-emergency-repair.id",
+        "query": "HVAC紧急维修响应时间",
+        "engine": "bing",
+        "locale": "zh-CN",
+        "result_status": "not_visible",
+        "result_summary": "Bing 搜索未显示我们的紧急维修服务信息。",
+        "result_snippet": "",
+        "improvement_suggestions": "需要创建专门的紧急维修服务页面，增加本地 SEO 优化。建议在 Google Business Profile 添加服务信息。",
+        "checked_at": "2026-06-22",
+        "checked_by": "Sam",
+        "owner": "Alex"
+      }
+    },
+    {
+      "object": "ai_visibility_check",
+      "alias": "avc-filter-chatgpt",
+      "match": { "field": "query", "value": "HVAC滤芯更换频率" },
+      "data": {
+        "entity_profile_id": "$ep-hvac-service.id",
+        "query": "HVAC滤芯更换频率",
+        "engine": "chatgpt",
+        "locale": "zh-CN",
+        "result_status": "visible",
+        "result_summary": "ChatGPT 准确引用了我们的滤芯更换建议，并标注了来源。",
+        "result_snippet": "标准HVAC空气滤芯建议每3个月更换一次...",
+        "improvement_suggestions": "内容表现优秀，建议将此答案块作为其他内容优化的参考模板。",
+        "checked_at": "2026-06-23",
+        "checked_by": "Alex",
+        "owner": "Alex"
+      }
+    }
+  ]
+}

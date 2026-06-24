@@ -1,0 +1,210 @@
+id: runory.question-map
+name: Question Map Management
+version: 1.0.0
+coreCompatibility: ">=0.1.0"
+
+dependencies:
+  - runory.entity-profile
+
+objects:
+  - key: question_map
+    label: Question Map
+    fields:
+      - key: entity_profile_id
+        label: 关联实体画像
+        type: text
+        ownership: module_owned
+        required: true
+      - key: name
+        label: 名称
+        type: text
+        ownership: module_owned
+        required: true
+      - key: status
+        label: 状态
+        type: select
+        ownership: module_owned
+        required: true
+        default_value: "draft"
+        validation:
+          options: ["draft", "generating", "ready", "approved", "archived"]
+      - key: source
+        label: 来源
+        type: select
+        ownership: module_owned
+        default_value: "manual"
+        validation:
+          options: ["manual", "agent_generated", "imported"]
+      - key: questions_json
+        label: 问题列表
+        type: text
+        ownership: module_owned
+        description: "JSON array of questions"
+      - key: question_count
+        label: 问题数量
+        type: number
+        ownership: module_owned
+        default_value: "0"
+      - key: locale
+        label: 语言区域
+        type: text
+        ownership: module_owned
+        default_value: "zh-CN"
+      - key: owner
+        label: 负责人
+        type: text
+        ownership: module_owned
+      - key: notes
+        label: 备注
+        type: text
+        ownership: module_owned
+
+views:
+  - object: question_map
+    key: question_map_list
+    type: list
+    label: 问题地图列表
+    config:
+      columns:
+        - field: name
+          label: 名称
+        - field: entity_profile_id
+          label: 关联实体画像
+        - field: status
+          label: 状态
+        - field: source
+          label: 来源
+        - field: question_count
+          label: 问题数量
+        - field: locale
+          label: 语言区域
+      actions:
+        - create
+        - view
+      pageSize: 20
+
+  - object: question_map
+    key: question_map_form
+    type: form
+    label: 问题地图表单
+    config:
+      sections:
+        - title: 基本信息
+          fields:
+            - field: entity_profile_id
+              required: true
+            - field: name
+              required: true
+            - field: status
+              required: true
+        - title: 内容
+          fields:
+            - field: source
+            - field: questions_json
+            - field: question_count
+            - field: locale
+        - title: 其他
+          fields:
+            - field: owner
+            - field: notes
+
+permissions:
+  - question_map.read
+  - question_map.create
+  - question_map.update
+  - question_map.delete
+
+# ── Cross-Pack Relations (v0.2.7) ──
+relations:
+  - object: question_map
+    targetObject: entity_profile
+    targetModule: runory.entity-profile
+    type: many_to_one
+    foreignKey: entity_profile_id
+    label: 关联实体画像
+
+migrations:
+  install: migrations/install.sql
+  uninstallPolicy: retain_data
+
+ui:
+  navigation:
+    - label: 问题地图
+      route: /question-maps
+      icon: help-circle
+      sortOrder: 52
+
+extensionPoints:
+  entities:
+    - entity: question_map
+      customFields:
+        enabled: true
+        allowedTypes: [text, number, date, select, boolean]
+        maxFields: 15
+        reservedKeys: [id, entity_profile_id, name, status, source, questions_json, question_count, locale, owner, notes, created_at, updated_at]
+      customRelations:
+        enabled: false
+  views:
+    - view: question_map_list
+      slots:
+        - id: question_map.list.columns
+          type: column_group
+          allowedExtensions: [customField]
+          risk: low
+      allowReorder: true
+      allowFilters: true
+      allowPageSizeChange: true
+    - view: question_map_form
+      slots:
+        - id: question_map.form.basic_fields.after
+          type: field_group
+          allowedExtensions: [customField]
+          risk: low
+      allowAddSection: true
+      allowAddAction: true
+
+dashboard:
+  widgets:
+    - key: ready_question_maps_metric
+      type: metric_card
+      label: 就绪问题地图
+      icon: help-circle
+      tone: cyan
+      data:
+        kind: count
+        object: question_map
+        where: "status in ('ready', 'approved')"
+      link: /question-maps
+
+    - key: question_map_status_breakdown
+      type: breakdown
+      label: 问题地图状态分布
+      icon: pie-chart
+      tone: cyan
+      data:
+        kind: group_count
+        object: question_map
+        groupBy: status
+
+    - key: recent_question_maps_list
+      type: list
+      label: 最近问题地图
+      icon: help-circle
+      tone: cyan
+      data:
+        kind: recent
+        object: question_map
+        orderBy: "created_at desc"
+        limit: 5
+        columns: [name, entity_profile_id, status, question_count]
+      link: /question-maps
+      configurable:
+        - path: data.limit
+          label: 显示条数
+          type: number
+          min: 1
+          max: 20
+
+upgradePolicy:
+  supportsWorkspaceExtensions: true
+  breakingChangePolicy: manual_review

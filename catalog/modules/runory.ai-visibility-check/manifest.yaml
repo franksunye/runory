@@ -1,0 +1,270 @@
+id: runory.ai-visibility-check
+name: AI Visibility Check
+version: 1.0.0
+coreCompatibility: ">=0.1.0"
+
+dependencies:
+  - runory.entity-profile
+
+objects:
+  - key: ai_visibility_check
+    label: AI Visibility Check
+    fields:
+      - key: entity_profile_id
+        label: 关联实体画像
+        type: text
+        ownership: module_owned
+        required: true
+      - key: query
+        label: 查询问题
+        type: text
+        ownership: module_owned
+        required: true
+        description: "The question/query used to check AI visibility"
+      - key: engine
+        label: AI 引擎
+        type: select
+        ownership: module_owned
+        required: true
+        default_value: "chatgpt"
+        validation:
+          options: ["google", "bing", "chatgpt", "perplexity", "claude", "gemini"]
+      - key: locale
+        label: 语言区域
+        type: text
+        ownership: module_owned
+        default_value: "zh-CN"
+      - key: result_status
+        label: 结果状态
+        type: select
+        ownership: module_owned
+        required: true
+        default_value: "not_checked"
+        validation:
+          options: ["visible", "partial", "not_visible", "not_checked"]
+      - key: result_summary
+        label: 结果摘要
+        type: text
+        ownership: module_owned
+        description: "Summary of what the AI engine returned"
+      - key: result_snippet
+        label: 结果片段
+        type: text
+        ownership: module_owned
+        description: "Verbatim snippet from the AI engine response"
+      - key: improvement_suggestions
+        label: 改进建议
+        type: text
+        ownership: module_owned
+        description: "Agent-generated suggestions for improving visibility"
+      - key: checked_at
+        label: 检查时间
+        type: date
+        ownership: module_owned
+      - key: checked_by
+        label: 检查者
+        type: text
+        ownership: module_owned
+      - key: owner
+        label: 负责人
+        type: text
+        ownership: module_owned
+      - key: notes
+        label: 备注
+        type: text
+        ownership: module_owned
+
+views:
+  - object: ai_visibility_check
+    key: ai_visibility_check_list
+    type: list
+    label: 可见性检查列表
+    config:
+      columns:
+        - field: query
+          label: 查询问题
+        - field: engine
+          label: AI 引擎
+        - field: result_status
+          label: 结果状态
+        - field: locale
+          label: 语言区域
+        - field: checked_at
+          label: 检查时间
+      actions:
+        - create
+        - view
+      pageSize: 20
+
+  - object: ai_visibility_check
+    key: ai_visibility_check_form
+    type: form
+    label: 可见性检查表单
+    config:
+      sections:
+        - title: 基本信息
+          fields:
+            - field: entity_profile_id
+              required: true
+            - field: query
+              required: true
+            - field: engine
+              required: true
+            - field: locale
+        - title: 结果
+          fields:
+            - field: result_status
+              required: true
+            - field: result_summary
+            - field: result_snippet
+        - title: 改进
+          fields:
+            - field: improvement_suggestions
+        - title: 元数据
+          fields:
+            - field: checked_at
+            - field: checked_by
+            - field: owner
+            - field: notes
+
+permissions:
+  - ai_visibility_check.read
+  - ai_visibility_check.create
+  - ai_visibility_check.update
+  - ai_visibility_check.delete
+
+# ── Cross-Pack Relations (v0.2.7) ──
+relations:
+  - object: ai_visibility_check
+    targetObject: entity_profile
+    targetModule: runory.entity-profile
+    type: many_to_one
+    foreignKey: entity_profile_id
+    label: 关联实体画像
+
+migrations:
+  install: migrations/install.sql
+  uninstallPolicy: retain_data
+
+ui:
+  navigation:
+    - label: 可见性检查
+      route: /ai-visibility-checks
+      icon: search
+      sortOrder: 58
+
+extensionPoints:
+  entities:
+    - entity: ai_visibility_check
+      customFields:
+        enabled: true
+        allowedTypes: [text, number, date, select, boolean]
+        maxFields: 10
+        reservedKeys: [id, entity_profile_id, query, engine, locale, result_status, result_summary, result_snippet, improvement_suggestions, checked_at, checked_by, owner, notes, created_at, updated_at]
+      customRelations:
+        enabled: false
+  views:
+    - view: ai_visibility_check_list
+      slots:
+        - id: ai_visibility_check.list.columns
+          type: column_group
+          allowedExtensions: [customField]
+          risk: low
+      allowReorder: true
+      allowFilters: true
+      allowPageSizeChange: true
+    - view: ai_visibility_check_form
+      slots:
+        - id: ai_visibility_check.form.basic_fields.after
+          type: field_group
+          allowedExtensions: [customField]
+          risk: low
+      allowAddSection: true
+      allowAddAction: true
+
+dashboard:
+  widgets:
+    - key: visible_checks_metric
+      type: metric_card
+      label: 可见检查
+      icon: search
+      tone: emerald
+      data:
+        kind: count
+        object: ai_visibility_check
+        where: "result_status = 'visible'"
+      link: /ai-visibility-checks
+
+    - key: not_visible_checks_metric
+      type: metric_card
+      label: 不可见检查
+      icon: search
+      tone: red
+      data:
+        kind: count
+        object: ai_visibility_check
+        where: "result_status = 'not_visible'"
+      link: /ai-visibility-checks
+
+    - key: visibility_status_breakdown
+      type: breakdown
+      label: 可见性状态分布
+      icon: pie-chart
+      tone: cyan
+      data:
+        kind: group_count
+        object: ai_visibility_check
+        groupBy: result_status
+
+    - key: visibility_by_engine_breakdown
+      type: breakdown
+      label: 引擎分布
+      icon: pie-chart
+      tone: cyan
+      data:
+        kind: group_count
+        object: ai_visibility_check
+        groupBy: engine
+
+    - key: recent_visibility_checks_list
+      type: list
+      label: 最近可见性检查
+      icon: search
+      tone: cyan
+      data:
+        kind: recent
+        object: ai_visibility_check
+        orderBy: "checked_at desc"
+        limit: 8
+        columns: [query, engine, result_status, locale]
+      link: /ai-visibility-checks
+      configurable:
+        - path: data.limit
+          label: 显示条数
+          type: number
+          min: 1
+          max: 20
+
+    - key: not_visible_checks_list
+      type: list
+      label: 不可见查询
+      icon: alert-circle
+      tone: red
+      data:
+        kind: recent
+        object: ai_visibility_check
+        where: "result_status = 'not_visible'"
+        orderBy: "checked_at desc"
+        limit: 5
+        columns: [query, engine, locale]
+      link: /ai-visibility-checks
+      configurable:
+        - path: data.limit
+          label: 显示条数
+          type: number
+          min: 1
+          max: 20
+
+upgradePolicy:
+  supportsWorkspaceExtensions: true
+  breakingChangePolicy: manual_review

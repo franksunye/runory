@@ -1,0 +1,45 @@
+id: small-business-ai-visibility
+name: Small Business AI Visibility
+version: 1.0.0
+
+terminology:
+  customer: 客户
+  entity_profile: 实体画像
+  question_map: 问题地图
+  answer_block: 答案块
+  citation_source: 引用来源
+  ai_visibility_check: 可见性检查
+
+navigation:
+  - dashboard
+  - entity-profiles
+  - question-maps
+  - answer-blocks
+  - citation-sources
+  - ai-visibility-checks
+  - companies
+
+homepage:
+  layout: ai_visibility_overview
+  widgets:
+    - active_entity_profiles
+    - approved_answer_blocks
+    - visibility_status
+
+roleEntry:
+  owner: /dashboard
+  content: /answer-blocks
+  seo: /ai-visibility-checks
+
+compatiblePacks:
+  - "ai-visibility-pack:^1.0.0"
+
+compatibleModules:
+  - "runory.company:^1.0.0"
+  - "runory.product-service:^1.0.0"
+  - "runory.landing-page:^1.0.0"
+  - "runory.entity-profile:^1.0.0"
+  - "runory.question-map:^1.0.0"
+  - "runory.answer-block:^1.0.0"
+  - "runory.citation-source:^1.0.0"
+  - "runory.ai-visibility-check:^1.0.0"

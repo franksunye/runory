@@ -1,0 +1,268 @@
+id: runory.answer-block
+name: Answer Block Management
+version: 1.0.0
+coreCompatibility: ">=0.1.0"
+
+dependencies:
+  - runory.entity-profile
+  - runory.question-map
+  - runory.landing-page
+
+objects:
+  - key: answer_block
+    label: Answer Block
+    fields:
+      - key: question_map_id
+        label: 关联问题地图
+        type: text
+        ownership: module_owned
+        required: true
+      - key: entity_profile_id
+        label: 关联实体画像
+        type: text
+        ownership: module_owned
+      - key: question
+        label: 问题
+        type: text
+        ownership: module_owned
+        required: true
+      - key: answer_text
+        label: 答案内容
+        type: text
+        ownership: module_owned
+        required: true
+      - key: status
+        label: 状态
+        type: select
+        ownership: module_owned
+        required: true
+        default_value: "draft"
+        validation:
+          options: ["draft", "pending_review", "approved", "published", "rejected"]
+      - key: source_type
+        label: 来源类型
+        type: select
+        ownership: module_owned
+        default_value: "manual"
+        validation:
+          options: ["manual", "agent_generated", "imported"]
+      - key: landing_page_id
+        label: 发布落地页
+        type: text
+        ownership: module_owned
+        description: "Landing page where this answer block is published"
+      - key: confidence_score
+        label: 置信度
+        type: number
+        ownership: module_owned
+        description: "0-100 confidence score"
+      - key: locale
+        label: 语言区域
+        type: text
+        ownership: module_owned
+        default_value: "zh-CN"
+      - key: owner
+        label: 负责人
+        type: text
+        ownership: module_owned
+      - key: notes
+        label: 备注
+        type: text
+        ownership: module_owned
+
+views:
+  - object: answer_block
+    key: answer_block_list
+    type: list
+    label: 答案块列表
+    config:
+      columns:
+        - field: question
+          label: 问题
+        - field: status
+          label: 状态
+        - field: source_type
+          label: 来源类型
+        - field: confidence_score
+          label: 置信度
+        - field: locale
+          label: 语言区域
+      actions:
+        - create
+        - view
+      pageSize: 20
+
+  - object: answer_block
+    key: answer_block_form
+    type: form
+    label: 答案块表单
+    config:
+      sections:
+        - title: 基本信息
+          fields:
+            - field: question_map_id
+              required: true
+            - field: question
+              required: true
+            - field: answer_text
+              required: true
+            - field: status
+              required: true
+        - title: 关联
+          fields:
+            - field: entity_profile_id
+            - field: landing_page_id
+        - title: 元数据
+          fields:
+            - field: source_type
+            - field: confidence_score
+            - field: locale
+            - field: owner
+            - field: notes
+
+permissions:
+  - answer_block.read
+  - answer_block.create
+  - answer_block.update
+  - answer_block.delete
+
+# ── Cross-Pack Relations (v0.2.7) ──
+# answer_block references question_map and entity_profile (same pack),
+# and landing_page (Marketing Capture Pack) for publishing.
+relations:
+  - object: answer_block
+    targetObject: question_map
+    targetModule: runory.question-map
+    type: many_to_one
+    foreignKey: question_map_id
+    label: 关联问题地图
+  - object: answer_block
+    targetObject: entity_profile
+    targetModule: runory.entity-profile
+    type: many_to_one
+    foreignKey: entity_profile_id
+    label: 关联实体画像
+  - object: answer_block
+    targetObject: landing_page
+    targetModule: runory.landing-page
+    type: many_to_one
+    foreignKey: landing_page_id
+    label: 发布落地页
+
+migrations:
+  install: migrations/install.sql
+  uninstallPolicy: retain_data
+
+ui:
+  navigation:
+    - label: 答案块
+      route: /answer-blocks
+      icon: message-square
+      sortOrder: 54
+
+extensionPoints:
+  entities:
+    - entity: answer_block
+      customFields:
+        enabled: true
+        allowedTypes: [text, number, date, select, boolean]
+        maxFields: 15
+        reservedKeys: [id, question_map_id, entity_profile_id, question, answer_text, status, source_type, landing_page_id, confidence_score, locale, owner, notes, created_at, updated_at]
+      customRelations:
+        enabled: false
+  views:
+    - view: answer_block_list
+      slots:
+        - id: answer_block.list.columns
+          type: column_group
+          allowedExtensions: [customField]
+          risk: low
+      allowReorder: true
+      allowFilters: true
+      allowPageSizeChange: true
+    - view: answer_block_form
+      slots:
+        - id: answer_block.form.basic_fields.after
+          type: field_group
+          allowedExtensions: [customField]
+          risk: low
+      allowAddSection: true
+      allowAddAction: true
+
+dashboard:
+  widgets:
+    - key: approved_answer_blocks_metric
+      type: metric_card
+      label: 已批准答案
+      icon: message-square
+      tone: cyan
+      data:
+        kind: count
+        object: answer_block
+        where: "status in ('approved', 'published')"
+      link: /answer-blocks
+
+    - key: pending_review_answer_blocks_metric
+      type: metric_card
+      label: 待审核答案
+      icon: clock
+      tone: amber
+      data:
+        kind: count
+        object: answer_block
+        where: "status = 'pending_review'"
+      link: /answer-blocks
+
+    - key: answer_block_status_breakdown
+      type: breakdown
+      label: 答案状态分布
+      icon: pie-chart
+      tone: cyan
+      data:
+        kind: group_count
+        object: answer_block
+        groupBy: status
+
+    - key: pending_review_answer_blocks_list
+      type: list
+      label: 待审核答案
+      icon: clock
+      tone: amber
+      data:
+        kind: recent
+        object: answer_block
+        where: "status = 'pending_review'"
+        orderBy: "created_at asc"
+        limit: 8
+        columns: [question, source_type, confidence_score]
+      link: /answer-blocks
+      configurable:
+        - path: data.limit
+          label: 显示条数
+          type: number
+          min: 1
+          max: 20
+
+    - key: published_answer_blocks_list
+      type: list
+      label: 已发布答案
+      icon: check-circle
+      tone: emerald
+      data:
+        kind: recent
+        object: answer_block
+        where: "status = 'published'"
+        orderBy: "created_at desc"
+        limit: 5
+        columns: [question, confidence_score, locale]
+      link: /answer-blocks
+      configurable:
+        - path: data.limit
+          label: 显示条数
+          type: number
+          min: 1
+          max: 20
+
+upgradePolicy:
+  supportsWorkspaceExtensions: true
+  breakingChangePolicy: manual_review
