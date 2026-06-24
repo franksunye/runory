@@ -1,0 +1,383 @@
+{
+  "records": [
+    {
+      "object": "knowledge",
+      "alias": "kb-cooling-troubleshoot",
+      "match": { "field": "slug", "value": "hvac-cooling-troubleshoot" },
+      "data": {
+        "title": "HVAC 制冷不足排查指南",
+        "slug": "hvac-cooling-troubleshoot",
+        "content": "HVAC 制冷不足的常见原因包括：1) 制冷剂不足或泄漏；2) 空气滤芯堵塞；3) 蒸发器或冷凝器积灰；4) 压缩机故障；5) 温控器失灵。建议先检查滤芯和制冷剂水平，如问题持续需联系专业工程师诊断。",
+        "category": "troubleshooting",
+        "tags_json": "[\"HVAC\",\"制冷不足\",\"排查\",\"维修\"]",
+        "status": "published",
+        "views": 156,
+        "helpful_count": 42,
+        "not_helpful_count": 3,
+        "author": "Alex Chen",
+        "published_at": "2026-05-10",
+        "owner": "Alex Chen"
+      }
+    },
+    {
+      "object": "knowledge",
+      "alias": "kb-billing-faq",
+      "match": { "field": "slug", "value": "billing-faq" },
+      "data": {
+        "title": "计费常见问题",
+        "slug": "billing-faq",
+        "content": "常见计费问题解答：1) 报价有效期 30 天；2) 支持银行转账和在线支付；3) 年度维保套餐可按年或按季付款；4) 紧急维修费用包含上门费和工时费；5) 保修期内维修免费。",
+        "category": "faq",
+        "tags_json": "[\"计费\",\"报价\",\"支付\",\"保修\"]",
+        "status": "published",
+        "views": 203,
+        "helpful_count": 58,
+        "not_helpful_count": 5,
+        "author": "Sam Lee",
+        "published_at": "2026-04-15",
+        "owner": "Sam Lee"
+      }
+    },
+    {
+      "object": "knowledge",
+      "alias": "kb-emergency-process",
+      "match": { "field": "slug", "value": "emergency-repair-process" },
+      "data": {
+        "title": "紧急维修流程",
+        "slug": "emergency-repair-process",
+        "content": "紧急维修服务流程：1) 拨打 24 小时紧急热线；2) 客服确认故障情况并创建工单；3) 15 分钟内派单给工程师；4) 工程师 4 小时内到达现场；5) 现场诊断并修复；6) 提交服务报告。年度维保客户享受优先紧急响应。",
+        "category": "process",
+        "tags_json": "[\"紧急维修\",\"流程\",\"响应时间\"]",
+        "status": "published",
+        "views": 89,
+        "helpful_count": 31,
+        "not_helpful_count": 1,
+        "author": "Alex Chen",
+        "published_at": "2026-05-20",
+        "owner": "Alex Chen"
+      }
+    },
+    {
+      "object": "knowledge",
+      "alias": "kb-maintenance-pricing",
+      "match": { "field": "slug", "value": "maintenance-pricing" },
+      "data": {
+        "title": "年度维保套餐价格与内容",
+        "slug": "maintenance-pricing",
+        "content": "年度维保套餐标准价格 9800 元/年，夏季推广期间立减 1000 元（8800 元/年）。包含：4 次现场巡检、滤芯更换、优先紧急响应、详细服务报告和操作培训。适用于商用 HVAC 系统。可按年或按季付款。",
+        "category": "billing",
+        "tags_json": "[\"维保\",\"价格\",\"套餐\"]",
+        "status": "published",
+        "views": 178,
+        "helpful_count": 65,
+        "not_helpful_count": 2,
+        "author": "Sam Lee",
+        "published_at": "2026-06-01",
+        "owner": "Sam Lee"
+      }
+    },
+    {
+      "object": "knowledge",
+      "alias": "kb-warranty-policy",
+      "match": { "field": "slug", "value": "warranty-policy" },
+      "data": {
+        "title": "保修政策说明",
+        "slug": "warranty-policy",
+        "content": "保修政策：1) 新安装设备享受 12 个月免费保修；2) 保修范围包含制造缺陷和正常使用下的故障；3) 保修不包含人为损坏、不当操作和外部因素造成的损坏；4) 维修后更换部件享受 90 天保修；5) 保修期内免费上门维修，保修外按标准收费。",
+        "category": "warranty",
+        "tags_json": "[\"保修\",\"政策\",\"维修\"]",
+        "status": "published",
+        "views": 134,
+        "helpful_count": 47,
+        "not_helpful_count": 8,
+        "author": "Sam Lee",
+        "published_at": "2026-03-20",
+        "owner": "Sam Lee"
+      }
+    },
+    {
+      "object": "support_sla",
+      "alias": "sla-urgent",
+      "match": { "field": "name", "value": "紧急 SLA" },
+      "data": {
+        "name": "紧急 SLA",
+        "description": "适用于紧急优先级工单，1 小时内响应，4 小时内解决。7×24 小时服务。",
+        "priority": "urgent",
+        "response_time_hours": 1,
+        "resolution_time_hours": 4,
+        "business_hours_only": false,
+        "status": "active",
+        "owner": "Alex Chen",
+        "notes": "最高优先级 SLA"
+      }
+    },
+    {
+      "object": "support_sla",
+      "alias": "sla-high",
+      "match": { "field": "name", "value": "高优先级 SLA" },
+      "data": {
+        "name": "高优先级 SLA",
+        "description": "适用于高优先级工单，4 小时内响应，8 小时内解决。工作时间服务。",
+        "priority": "high",
+        "response_time_hours": 4,
+        "resolution_time_hours": 8,
+        "business_hours_only": true,
+        "status": "active",
+        "owner": "Sam Lee"
+      }
+    },
+    {
+      "object": "support_sla",
+      "alias": "sla-standard",
+      "match": { "field": "name", "value": "标准 SLA" },
+      "data": {
+        "name": "标准 SLA",
+        "description": "适用于中低优先级工单，24 小时内响应，72 小时内解决。工作时间服务。",
+        "priority": "medium",
+        "response_time_hours": 24,
+        "resolution_time_hours": 72,
+        "business_hours_only": true,
+        "status": "active",
+        "owner": "Sam Lee",
+        "notes": "默认 SLA"
+      }
+    },
+    {
+      "object": "ticket",
+      "alias": "tkt-hvac-not-cooling",
+      "match": { "field": "ticket_number", "value": "TKT-2026-001" },
+      "data": {
+        "ticket_number": "TKT-2026-001",
+        "subject": "HVAC 制冷不足 — Acme 总部",
+        "description": "Acme 总部大楼 HVAC 系统制冷不足，办公室温度持续高于设定温度 5 度以上。需要工程师上门检查。",
+        "status": "open",
+        "priority": "high",
+        "channel": "phone",
+        "category": "technical",
+        "company_id": { "$lookup": { "object": "company", "field": "domain", "value": "acme.example" } },
+        "contact_id": { "$lookup": { "object": "contact", "field": "email", "value": "maya@acme.example" } },
+        "asset_id": { "$lookup": { "object": "asset", "field": "serial_number", "value": "HVAC-ACME-001" } },
+        "work_order_id": { "$lookup": { "object": "work_order", "field": "title", "value": "Acme HVAC emergency repair" } },
+        "assigned_to": "David Park",
+        "owner": "David Park",
+        "notes": "已升级到 FSM 工单，工程师已派单"
+      }
+    },
+    {
+      "object": "ticket",
+      "alias": "tkt-billing-question",
+      "match": { "field": "ticket_number", "value": "TKT-2026-002" },
+      "data": {
+        "ticket_number": "TKT-2026-002",
+        "subject": "年度维保报价咨询",
+        "description": "Nova Retail 询问年度维保套餐的价格和包含内容，已通过知识文章解答。",
+        "status": "resolved",
+        "priority": "low",
+        "channel": "email",
+        "category": "billing",
+        "company_id": { "$lookup": { "object": "company", "field": "domain", "value": "novaretail.example" } },
+        "contact_id": { "$lookup": { "object": "contact", "field": "email", "value": "maya@acme.example" } },
+        "knowledge_id": "$kb-maintenance-pricing.id",
+        "assigned_to": "Sam Lee",
+        "resolved_at": "2026-06-18",
+        "owner": "Sam Lee",
+        "notes": "通过知识文章解决"
+      }
+    },
+    {
+      "object": "ticket",
+      "alias": "tkt-emergency-repair",
+      "match": { "field": "ticket_number", "value": "TKT-2026-003" },
+      "data": {
+        "ticket_number": "TKT-2026-003",
+        "subject": "紧急维修 — Vertex CNC 故障",
+        "description": "Vertex Manufacturing 的 CNC 加工中心突然停机，影响生产线。需要紧急上门维修。",
+        "status": "escalated",
+        "priority": "urgent",
+        "channel": "phone",
+        "category": "technical",
+        "company_id": { "$lookup": { "object": "company", "field": "domain", "value": "vertexmfg.example" } },
+        "contact_id": { "$lookup": { "object": "contact", "field": "email", "value": "maya@acme.example" } },
+        "asset_id": { "$lookup": { "object": "asset", "field": "serial_number", "value": "CNC-VTX-001" } },
+        "work_order_id": { "$lookup": { "object": "work_order", "field": "title", "value": "Vertex CNC calibration and service" } },
+        "sla_id": "$sla-urgent.id",
+        "assigned_to": "David Park",
+        "owner": "Alex Chen",
+        "notes": "已升级到 FSM 工单，SLA 紧急"
+      }
+    },
+    {
+      "object": "ticket",
+      "alias": "tkt-maintenance-schedule",
+      "match": { "field": "ticket_number", "value": "TKT-2026-004" },
+      "data": {
+        "ticket_number": "TKT-2026-004",
+        "subject": "预约季度维保时间",
+        "description": "Harbor Logistics 希望预约下季度的 HVAC 维保时间，等待客户确认日期。",
+        "status": "pending",
+        "priority": "medium",
+        "channel": "web",
+        "category": "inquiry",
+        "company_id": { "$lookup": { "object": "company", "field": "domain", "value": "harborlogistics.example" } },
+        "contact_id": { "$lookup": { "object": "contact", "field": "email", "value": "maya@acme.example" } },
+        "assigned_to": "Sam Lee",
+        "owner": "Sam Lee",
+        "notes": "等待客户确认日期"
+      }
+    },
+    {
+      "object": "ticket",
+      "alias": "tkt-product-inquiry",
+      "match": { "field": "ticket_number", "value": "TKT-2026-005" },
+      "data": {
+        "ticket_number": "TKT-2026-005",
+        "subject": "紧急维修服务咨询",
+        "description": "Pine Health Clinic 询问是否提供 HVAC 紧急维修服务，以及响应时间。",
+        "status": "new",
+        "priority": "low",
+        "channel": "chat",
+        "category": "inquiry",
+        "company_id": { "$lookup": { "object": "company", "field": "domain", "value": "pinehealth.example" } },
+        "contact_id": { "$lookup": { "object": "contact", "field": "email", "value": "maya@acme.example" } },
+        "assigned_to": "",
+        "owner": "Sam Lee",
+        "notes": "新工单，待分配"
+      }
+    },
+    {
+      "object": "ticket",
+      "alias": "tkt-warranty-claim",
+      "match": { "field": "ticket_number", "value": "TKT-2026-006" },
+      "data": {
+        "ticket_number": "TKT-2026-006",
+        "subject": "保修期内维修费用争议",
+        "description": "Quantum Labs 认为维修费用应在保修期内免费，已核实保修状态并关闭。",
+        "status": "closed",
+        "priority": "medium",
+        "channel": "email",
+        "category": "warranty",
+        "company_id": { "$lookup": { "object": "company", "field": "domain", "value": "quantumlabs.example" } },
+        "contact_id": { "$lookup": { "object": "contact", "field": "email", "value": "maya@acme.example" } },
+        "quote_id": { "$lookup": { "object": "quote", "field": "quote_number", "value": "Q-2026-001" } },
+        "knowledge_id": "$kb-warranty-policy.id",
+        "assigned_to": "Sam Lee",
+        "resolved_at": "2026-06-15",
+        "closed_at": "2026-06-16",
+        "owner": "Sam Lee",
+        "notes": "已通过保修政策知识文章解释并关闭"
+      }
+    },
+    {
+      "object": "conversation",
+      "alias": "conv-tkt1-customer-report",
+      "match": { "field": "body", "value": "我们的 HVAC 系统从昨天开始制冷不足，办公室温度已经超过 28 度，请尽快派人检查。" },
+      "data": {
+        "ticket_id": "$tkt-hvac-not-cooling.id",
+        "author_type": "customer",
+        "author_name": "Maya Chen",
+        "body": "我们的 HVAC 系统从昨天开始制冷不足，办公室温度已经超过 28 度，请尽快派人检查。",
+        "message_type": "email",
+        "is_internal": false,
+        "owner": "David Park"
+      }
+    },
+    {
+      "object": "conversation",
+      "alias": "conv-tkt1-agent-response",
+      "match": { "field": "body", "value": "收到您的报修请求。已安排工程师 David Park 今天下午上门检查。预计到达时间 14:00。" },
+      "data": {
+        "ticket_id": "$tkt-hvac-not-cooling.id",
+        "author_type": "agent",
+        "author_name": "Sam Lee",
+        "body": "收到您的报修请求。已安排工程师 David Park 今天下午上门检查。预计到达时间 14:00。",
+        "message_type": "email",
+        "is_internal": false,
+        "owner": "Sam Lee"
+      }
+    },
+    {
+      "object": "conversation",
+      "alias": "conv-tkt1-internal-note",
+      "match": { "field": "body", "value": "已创建 FSM 工单 WO-2026-001，派单给 David Park。初步判断可能是制冷剂不足或滤芯堵塞。" },
+      "data": {
+        "ticket_id": "$tkt-hvac-not-cooling.id",
+        "author_type": "agent",
+        "author_name": "Sam Lee",
+        "body": "已创建 FSM 工单 WO-2026-001，派单给 David Park。初步判断可能是制冷剂不足或滤芯堵塞。",
+        "message_type": "note",
+        "is_internal": true,
+        "owner": "Sam Lee"
+      }
+    },
+    {
+      "object": "conversation",
+      "alias": "conv-tkt2-customer-question",
+      "match": { "field": "body", "value": "请问年度维保套餐的价格是多少？包含哪些服务？" },
+      "data": {
+        "ticket_id": "$tkt-billing-question.id",
+        "author_type": "customer",
+        "author_name": "Maya Chen",
+        "body": "请问年度维保套餐的价格是多少？包含哪些服务？",
+        "message_type": "email",
+        "is_internal": false,
+        "owner": "Sam Lee"
+      }
+    },
+    {
+      "object": "conversation",
+      "alias": "conv-tkt2-resolution",
+      "match": { "field": "body", "value": "已发送年度维保套餐知识文章。标准价格 9800 元/年，包含 4 次巡检、滤芯更换、优先紧急响应等。客户表示满意。" },
+      "data": {
+        "ticket_id": "$tkt-billing-question.id",
+        "author_type": "agent",
+        "author_name": "Sam Lee",
+        "body": "已发送年度维保套餐知识文章。标准价格 9800 元/年，包含 4 次巡检、滤芯更换、优先紧急响应等。客户表示满意。",
+        "message_type": "comment",
+        "is_internal": false,
+        "owner": "Sam Lee"
+      }
+    },
+    {
+      "object": "conversation",
+      "alias": "conv-tkt3-escalation",
+      "match": { "field": "body", "value": "CNC 加工中心停机影响生产线，已升级为紧急工单。SLA 响应时间 1 小时，解决时间 4 小时。工程师已出发。" },
+      "data": {
+        "ticket_id": "$tkt-emergency-repair.id",
+        "author_type": "system",
+        "author_name": "System",
+        "body": "CNC 加工中心停机影响生产线，已升级为紧急工单。SLA 响应时间 1 小时，解决时间 4 小时。工程师已出发。",
+        "message_type": "system",
+        "is_internal": true,
+        "owner": "Alex Chen"
+      }
+    },
+    {
+      "object": "conversation",
+      "alias": "conv-tkt4-pending",
+      "match": { "field": "body", "value": "已联系客户预约下季度维保，客户表示需要内部确认日期后回复。等待客户确认。" },
+      "data": {
+        "ticket_id": "$tkt-maintenance-schedule.id",
+        "author_type": "agent",
+        "author_name": "Sam Lee",
+        "body": "已联系客户预约下季度维保，客户表示需要内部确认日期后回复。等待客户确认。",
+        "message_type": "note",
+        "is_internal": true,
+        "owner": "Sam Lee"
+      }
+    },
+    {
+      "object": "conversation",
+      "alias": "conv-tkt6-closure",
+      "match": { "field": "body", "value": "已核实保修状态，维修费用不在保修范围内。已发送保修政策知识文章给客户，客户接受并关闭工单。" },
+      "data": {
+        "ticket_id": "$tkt-warranty-claim.id",
+        "author_type": "agent",
+        "author_name": "Sam Lee",
+        "body": "已核实保修状态，维修费用不在保修范围内。已发送保修政策知识文章给客户，客户接受并关闭工单。",
+        "message_type": "comment",
+        "is_internal": false,
+        "owner": "Sam Lee"
+      }
+    }
+  ]
+}

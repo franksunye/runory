@@ -1,0 +1,44 @@
+id: small-business-customer-service
+name: Small Business Customer Service
+version: 1.0.0
+
+terminology:
+  customer: 客户
+  ticket: 工单
+  conversation: 对话
+  knowledge: 知识文章
+  support_sla: SLA 策略
+
+navigation:
+  - dashboard
+  - tickets
+  - conversations
+  - knowledge
+  - support-slas
+  - companies
+  - contacts
+  - tasks
+
+homepage:
+  layout: customer_service_overview
+  widgets:
+    - open_tickets
+    - escalated_tickets
+    - ticket_status_breakdown
+
+roleEntry:
+  owner: /dashboard
+  agent: /tickets
+  knowledge: /knowledge
+
+compatiblePacks:
+  - "customer-service-pack:^1.0.0"
+
+compatibleModules:
+  - "runory.company:^1.0.0"
+  - "runory.contact:^1.0.0"
+  - "runory.task:^1.0.0"
+  - "runory.ticket:^1.0.0"
+  - "runory.conversation:^1.0.0"
+  - "runory.knowledge:^1.0.0"
+  - "runory.support-sla:^1.0.0"

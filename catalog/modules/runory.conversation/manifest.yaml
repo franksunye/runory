@@ -1,0 +1,186 @@
+id: runory.conversation
+name: Ticket Conversation
+version: 1.0.0
+coreCompatibility: ">=0.1.0"
+
+dependencies:
+  - runory.ticket
+
+objects:
+  - key: conversation
+    label: Conversation
+    fields:
+      - key: ticket_id
+        label: 关联工单
+        type: text
+        ownership: module_owned
+        required: true
+      - key: author_type
+        label: 作者类型
+        type: select
+        ownership: module_owned
+        required: true
+        default_value: "agent"
+        validation:
+          options: ["customer", "agent", "system"]
+      - key: author_name
+        label: 作者名称
+        type: text
+        ownership: module_owned
+      - key: body
+        label: 内容
+        type: text
+        ownership: module_owned
+        required: true
+      - key: message_type
+        label: 消息类型
+        type: select
+        ownership: module_owned
+        required: true
+        default_value: "comment"
+        validation:
+          options: ["comment", "note", "email", "system"]
+      - key: is_internal
+        label: 内部备注
+        type: boolean
+        ownership: module_owned
+        default_value: "false"
+      - key: attachments_json
+        label: 附件
+        type: text
+        ownership: module_owned
+        description: "JSON array of attachment metadata"
+      - key: owner
+        label: 负责人
+        type: text
+        ownership: module_owned
+      - key: notes
+        label: 备注
+        type: text
+        ownership: module_owned
+
+views:
+  - object: conversation
+    key: conversation_list
+    type: list
+    label: 对话列表
+    config:
+      columns:
+        - field: ticket_id
+          label: 关联工单
+        - field: author_type
+          label: 作者类型
+        - field: author_name
+          label: 作者名称
+        - field: message_type
+          label: 消息类型
+        - field: is_internal
+          label: 内部备注
+      actions:
+        - create
+        - view
+      pageSize: 20
+
+  - object: conversation
+    key: conversation_form
+    type: form
+    label: 对话表单
+    config:
+      sections:
+        - title: 基本信息
+          fields:
+            - field: ticket_id
+              required: true
+            - field: author_type
+              required: true
+            - field: author_name
+            - field: body
+              required: true
+            - field: message_type
+              required: true
+            - field: is_internal
+        - title: 附件与元数据
+          fields:
+            - field: attachments_json
+            - field: owner
+            - field: notes
+
+permissions:
+  - conversation.read
+  - conversation.create
+  - conversation.update
+  - conversation.delete
+
+# ── Cross-Pack Relations (v0.2.8) ──
+relations:
+  - object: conversation
+    targetObject: ticket
+    targetModule: runory.ticket
+    type: many_to_one
+    foreignKey: ticket_id
+    label: 关联工单
+
+migrations:
+  install: migrations/install.sql
+  uninstallPolicy: retain_data
+
+ui:
+  navigation:
+    - label: 对话
+      route: /conversations
+      icon: message-circle
+      sortOrder: 61
+
+extensionPoints:
+  entities:
+    - entity: conversation
+      customFields:
+        enabled: true
+        allowedTypes: [text, number, date, select, boolean]
+        maxFields: 5
+        reservedKeys: [id, ticket_id, author_type, author_name, body, message_type, is_internal, attachments_json, owner, notes, created_at, updated_at]
+      customRelations:
+        enabled: false
+  views:
+    - view: conversation_list
+      slots:
+        - id: conversation.list.columns
+          type: column_group
+          allowedExtensions: [customField]
+          risk: low
+      allowReorder: true
+      allowFilters: true
+      allowPageSizeChange: true
+    - view: conversation_form
+      slots:
+        - id: conversation.form.basic_fields.after
+          type: field_group
+          allowedExtensions: [customField]
+          risk: low
+      allowAddSection: true
+      allowAddAction: true
+
+dashboard:
+  widgets:
+    - key: recent_conversations_list
+      type: list
+      label: 最近对话
+      icon: message-circle
+      tone: cyan
+      data:
+        kind: recent
+        object: conversation
+        orderBy: "created_at desc"
+        limit: 8
+        columns: [ticket_id, author_type, author_name, message_type]
+      link: /conversations
+      configurable:
+        - path: data.limit
+          label: 显示条数
+          type: number
+          min: 1
+          max: 20
+
+upgradePolicy:
+  supportsWorkspaceExtensions: true
+  breakingChangePolicy: manual_review

@@ -1,0 +1,378 @@
+id: runory.ticket
+name: Support Ticket
+version: 1.0.0
+coreCompatibility: ">=0.1.0"
+
+dependencies:
+  - runory.company
+  - runory.contact
+  - runory.task
+
+objects:
+  - key: ticket
+    label: Ticket
+    fields:
+      - key: ticket_number
+        label: 工单编号
+        type: text
+        ownership: module_owned
+        required: true
+      - key: subject
+        label: 主题
+        type: text
+        ownership: module_owned
+        required: true
+      - key: description
+        label: 描述
+        type: text
+        ownership: module_owned
+      - key: status
+        label: 状态
+        type: select
+        ownership: module_owned
+        required: true
+        default_value: "new"
+        validation:
+          options: ["new", "open", "pending", "resolved", "closed", "escalated"]
+      - key: priority
+        label: 优先级
+        type: select
+        ownership: module_owned
+        required: true
+        default_value: "medium"
+        validation:
+          options: ["low", "medium", "high", "urgent"]
+      - key: channel
+        label: 渠道
+        type: select
+        ownership: module_owned
+        required: true
+        default_value: "email"
+        validation:
+          options: ["email", "phone", "web", "chat", "social"]
+      - key: category
+        label: 分类
+        type: text
+        ownership: module_owned
+        description: "Ticket category (e.g., billing, technical, warranty, inquiry)"
+      - key: company_id
+        label: 关联公司
+        type: text
+        ownership: module_owned
+      - key: contact_id
+        label: 关联联系人
+        type: text
+        ownership: module_owned
+      - key: asset_id
+        label: 关联资产
+        type: text
+        ownership: module_owned
+      - key: work_order_id
+        label: 关联工单
+        type: text
+        ownership: module_owned
+        description: "FSM work order created when onsite service is needed"
+      - key: quote_id
+        label: 关联报价
+        type: text
+        ownership: module_owned
+      - key: task_id
+        label: 关联任务
+        type: text
+        ownership: module_owned
+      - key: knowledge_id
+        label: 解决知识文章
+        type: text
+        ownership: module_owned
+        description: "Knowledge article that resolved this ticket"
+      - key: sla_id
+        label: SLA 策略
+        type: text
+        ownership: module_owned
+      - key: assigned_to
+        label: 分配给
+        type: text
+        ownership: module_owned
+      - key: resolved_at
+        label: 解决时间
+        type: date
+        ownership: module_owned
+      - key: closed_at
+        label: 关闭时间
+        type: date
+        ownership: module_owned
+      - key: owner
+        label: 负责人
+        type: text
+        ownership: module_owned
+      - key: notes
+        label: 备注
+        type: text
+        ownership: module_owned
+
+views:
+  - object: ticket
+    key: ticket_list
+    type: list
+    label: 工单列表
+    config:
+      columns:
+        - field: ticket_number
+          label: 工单编号
+        - field: subject
+          label: 主题
+        - field: status
+          label: 状态
+        - field: priority
+          label: 优先级
+        - field: channel
+          label: 渠道
+        - field: assigned_to
+          label: 分配给
+      actions:
+        - create
+        - view
+      pageSize: 20
+
+  - object: ticket
+    key: ticket_form
+    type: form
+    label: 工单表单
+    config:
+      sections:
+        - title: 基本信息
+          fields:
+            - field: ticket_number
+              required: true
+            - field: subject
+              required: true
+            - field: description
+            - field: status
+              required: true
+            - field: priority
+              required: true
+            - field: channel
+              required: true
+            - field: category
+        - title: 关联
+          fields:
+            - field: company_id
+            - field: contact_id
+            - field: asset_id
+            - field: work_order_id
+            - field: quote_id
+            - field: task_id
+            - field: knowledge_id
+            - field: sla_id
+        - title: 分配与时间
+          fields:
+            - field: assigned_to
+            - field: resolved_at
+            - field: closed_at
+            - field: owner
+            - field: notes
+
+permissions:
+  - ticket.read
+  - ticket.create
+  - ticket.update
+  - ticket.delete
+
+# ── Cross-Pack Relations (v0.2.8) ──
+relations:
+  - object: ticket
+    targetObject: company
+    targetModule: runory.company
+    type: many_to_one
+    foreignKey: company_id
+    label: 关联公司
+  - object: ticket
+    targetObject: contact
+    targetModule: runory.contact
+    type: many_to_one
+    foreignKey: contact_id
+    label: 关联联系人
+  - object: ticket
+    targetObject: task
+    targetModule: runory.task
+    type: many_to_one
+    foreignKey: task_id
+    label: 关联任务
+  - object: ticket
+    targetObject: asset
+    targetModule: runory.asset
+    type: many_to_one
+    foreignKey: asset_id
+    label: 关联资产
+  - object: ticket
+    targetObject: work_order
+    targetModule: runory.work-order
+    type: many_to_one
+    foreignKey: work_order_id
+    label: 关联工单
+  - object: ticket
+    targetObject: quote
+    targetModule: runory.quote
+    type: many_to_one
+    foreignKey: quote_id
+    label: 关联报价
+  - object: ticket
+    targetObject: knowledge
+    targetModule: runory.knowledge
+    type: many_to_one
+    foreignKey: knowledge_id
+    label: 解决知识文章
+  - object: ticket
+    targetObject: support_sla
+    targetModule: runory.support-sla
+    type: many_to_one
+    foreignKey: sla_id
+    label: SLA 策略
+
+migrations:
+  install: migrations/install.sql
+  uninstallPolicy: retain_data
+
+ui:
+  navigation:
+    - label: 工单
+      route: /tickets
+      icon: life-buoy
+      sortOrder: 60
+
+extensionPoints:
+  entities:
+    - entity: ticket
+      customFields:
+        enabled: true
+        allowedTypes: [text, number, date, select, boolean]
+        maxFields: 10
+        reservedKeys: [id, ticket_number, subject, description, status, priority, channel, category, company_id, contact_id, asset_id, work_order_id, quote_id, task_id, knowledge_id, sla_id, assigned_to, resolved_at, closed_at, owner, notes, created_at, updated_at]
+      customRelations:
+        enabled: false
+  views:
+    - view: ticket_list
+      slots:
+        - id: ticket.list.columns
+          type: column_group
+          allowedExtensions: [customField]
+          risk: low
+      allowReorder: true
+      allowFilters: true
+      allowPageSizeChange: true
+    - view: ticket_form
+      slots:
+        - id: ticket.form.basic_fields.after
+          type: field_group
+          allowedExtensions: [customField]
+          risk: low
+      allowAddSection: true
+      allowAddAction: true
+
+dashboard:
+  widgets:
+    - key: open_tickets_metric
+      type: metric_card
+      label: 待处理工单
+      icon: life-buoy
+      tone: amber
+      data:
+        kind: count
+        object: ticket
+        where: "status IN ('new', 'open', 'pending')"
+      link: /tickets
+
+    - key: escalated_tickets_metric
+      type: metric_card
+      label: 升级工单
+      icon: alert-triangle
+      tone: red
+      data:
+        kind: count
+        object: ticket
+        where: "status = 'escalated'"
+      link: /tickets
+
+    - key: resolved_tickets_metric
+      type: metric_card
+      label: 已解决工单
+      icon: check-circle
+      tone: emerald
+      data:
+        kind: count
+        object: ticket
+        where: "status = 'resolved'"
+      link: /tickets
+
+    - key: ticket_status_breakdown
+      type: breakdown
+      label: 工单状态分布
+      icon: pie-chart
+      tone: cyan
+      data:
+        kind: group_count
+        object: ticket
+        groupBy: status
+
+    - key: ticket_priority_breakdown
+      type: breakdown
+      label: 工单优先级分布
+      icon: pie-chart
+      tone: red
+      data:
+        kind: group_count
+        object: ticket
+        groupBy: priority
+
+    - key: ticket_channel_breakdown
+      type: breakdown
+      label: 工单渠道分布
+      icon: pie-chart
+      tone: violet
+      data:
+        kind: group_count
+        object: ticket
+        groupBy: channel
+
+    - key: recent_tickets_list
+      type: list
+      label: 最近工单
+      icon: life-buoy
+      tone: cyan
+      data:
+        kind: recent
+        object: ticket
+        orderBy: "created_at desc"
+        limit: 8
+        columns: [ticket_number, subject, status, priority, assigned_to]
+      link: /tickets
+      configurable:
+        - path: data.limit
+          label: 显示条数
+          type: number
+          min: 1
+          max: 20
+
+    - key: escalated_tickets_list
+      type: list
+      label: 升级工单
+      icon: alert-triangle
+      tone: red
+      data:
+        kind: recent
+        object: ticket
+        where: "status = 'escalated'"
+        orderBy: "created_at desc"
+        limit: 5
+        columns: [ticket_number, subject, priority, assigned_to]
+      link: /tickets
+      configurable:
+        - path: data.limit
+          label: 显示条数
+          type: number
+          min: 1
+          max: 20
+
+upgradePolicy:
+  supportsWorkspaceExtensions: true
+  breakingChangePolicy: manual_review

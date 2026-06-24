@@ -1,0 +1,233 @@
+id: runory.knowledge
+name: Knowledge Base
+version: 1.0.0
+coreCompatibility: ">=0.1.0"
+
+dependencies: []
+
+objects:
+  - key: knowledge
+    label: Knowledge Article
+    fields:
+      - key: title
+        label: 标题
+        type: text
+        ownership: module_owned
+        required: true
+      - key: slug
+        label: 路径标识
+        type: text
+        ownership: module_owned
+        required: true
+      - key: content
+        label: 内容
+        type: text
+        ownership: module_owned
+        required: true
+      - key: category
+        label: 分类
+        type: text
+        ownership: module_owned
+        description: "Article category (e.g., troubleshooting, billing, warranty, faq)"
+      - key: tags_json
+        label: 标签
+        type: text
+        ownership: module_owned
+        description: "JSON array of tags"
+      - key: status
+        label: 状态
+        type: select
+        ownership: module_owned
+        required: true
+        default_value: "draft"
+        validation:
+          options: ["draft", "in_review", "published", "archived"]
+      - key: views
+        label: 浏览量
+        type: number
+        ownership: module_owned
+        default_value: "0"
+      - key: helpful_count
+        label: 有用数
+        type: number
+        ownership: module_owned
+        default_value: "0"
+      - key: not_helpful_count
+        label: 无用数
+        type: number
+        ownership: module_owned
+        default_value: "0"
+      - key: author
+        label: 作者
+        type: text
+        ownership: module_owned
+      - key: published_at
+        label: 发布时间
+        type: date
+        ownership: module_owned
+      - key: owner
+        label: 负责人
+        type: text
+        ownership: module_owned
+      - key: notes
+        label: 备注
+        type: text
+        ownership: module_owned
+
+views:
+  - object: knowledge
+    key: knowledge_list
+    type: list
+    label: 知识文章列表
+    config:
+      columns:
+        - field: title
+          label: 标题
+        - field: category
+          label: 分类
+        - field: status
+          label: 状态
+        - field: views
+          label: 浏览量
+        - field: helpful_count
+          label: 有用数
+        - field: author
+          label: 作者
+      actions:
+        - create
+        - view
+      pageSize: 20
+
+  - object: knowledge
+    key: knowledge_form
+    type: form
+    label: 知识文章表单
+    config:
+      sections:
+        - title: 基本信息
+          fields:
+            - field: title
+              required: true
+            - field: slug
+              required: true
+            - field: content
+              required: true
+            - field: category
+            - field: tags_json
+            - field: status
+              required: true
+        - title: 统计
+          fields:
+            - field: views
+            - field: helpful_count
+            - field: not_helpful_count
+        - title: 元数据
+          fields:
+            - field: author
+            - field: published_at
+            - field: owner
+            - field: notes
+
+permissions:
+  - knowledge.read
+  - knowledge.create
+  - knowledge.update
+  - knowledge.delete
+
+migrations:
+  install: migrations/install.sql
+  uninstallPolicy: retain_data
+
+ui:
+  navigation:
+    - label: 知识库
+      route: /knowledge
+      icon: book-open
+      sortOrder: 62
+
+extensionPoints:
+  entities:
+    - entity: knowledge
+      customFields:
+        enabled: true
+        allowedTypes: [text, number, date, select, boolean]
+        maxFields: 10
+        reservedKeys: [id, title, slug, content, category, tags_json, status, views, helpful_count, not_helpful_count, author, published_at, owner, notes, created_at, updated_at]
+      customRelations:
+        enabled: false
+  views:
+    - view: knowledge_list
+      slots:
+        - id: knowledge.list.columns
+          type: column_group
+          allowedExtensions: [customField]
+          risk: low
+      allowReorder: true
+      allowFilters: true
+      allowPageSizeChange: true
+    - view: knowledge_form
+      slots:
+        - id: knowledge.form.basic_fields.after
+          type: field_group
+          allowedExtensions: [customField]
+          risk: low
+      allowAddSection: true
+      allowAddAction: true
+
+dashboard:
+  widgets:
+    - key: published_knowledge_metric
+      type: metric_card
+      label: 已发布文章
+      icon: book-open
+      tone: emerald
+      data:
+        kind: count
+        object: knowledge
+        where: "status = 'published'"
+      link: /knowledge
+
+    - key: draft_knowledge_metric
+      type: metric_card
+      label: 草稿文章
+      icon: edit
+      tone: amber
+      data:
+        kind: count
+        object: knowledge
+        where: "status = 'draft'"
+      link: /knowledge
+
+    - key: knowledge_status_breakdown
+      type: breakdown
+      label: 文章状态分布
+      icon: pie-chart
+      tone: cyan
+      data:
+        kind: group_count
+        object: knowledge
+        groupBy: status
+
+    - key: popular_knowledge_list
+      type: list
+      label: 热门文章
+      icon: trending-up
+      tone: violet
+      data:
+        kind: recent
+        object: knowledge
+        where: "status = 'published'"
+        orderBy: "views desc"
+        limit: 5
+        columns: [title, category, views, helpful_count]
+      link: /knowledge
+      configurable:
+        - path: data.limit
+          label: 显示条数
+          type: number
+          min: 1
+          max: 20
+
+upgradePolicy:
+  supportsWorkspaceExtensions: true
+  breakingChangePolicy: manual_review

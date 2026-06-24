@@ -1,0 +1,204 @@
+id: runory.support-sla
+name: Support SLA
+version: 1.0.0
+coreCompatibility: ">=0.1.0"
+
+dependencies: []
+
+objects:
+  - key: support_sla
+    label: Support SLA
+    fields:
+      - key: name
+        label: 名称
+        type: text
+        ownership: module_owned
+        required: true
+      - key: description
+        label: 描述
+        type: text
+        ownership: module_owned
+      - key: priority
+        label: 适用优先级
+        type: select
+        ownership: module_owned
+        required: true
+        default_value: "medium"
+        validation:
+          options: ["low", "medium", "high", "urgent"]
+      - key: response_time_hours
+        label: 响应时间（小时）
+        type: number
+        ownership: module_owned
+        required: true
+        default_value: "24"
+      - key: resolution_time_hours
+        label: 解决时间（小时）
+        type: number
+        ownership: module_owned
+        required: true
+        default_value: "72"
+      - key: business_hours_only
+        label: 仅工作时间
+        type: boolean
+        ownership: module_owned
+        default_value: "false"
+      - key: status
+        label: 状态
+        type: select
+        ownership: module_owned
+        required: true
+        default_value: "active"
+        validation:
+          options: ["active", "inactive"]
+      - key: owner
+        label: 负责人
+        type: text
+        ownership: module_owned
+      - key: notes
+        label: 备注
+        type: text
+        ownership: module_owned
+
+views:
+  - object: support_sla
+    key: support_sla_list
+    type: list
+    label: SLA 策略列表
+    config:
+      columns:
+        - field: name
+          label: 名称
+        - field: priority
+          label: 适用优先级
+        - field: response_time_hours
+          label: 响应时间（小时）
+        - field: resolution_time_hours
+          label: 解决时间（小时）
+        - field: business_hours_only
+          label: 仅工作时间
+        - field: status
+          label: 状态
+      actions:
+        - create
+        - view
+      pageSize: 20
+
+  - object: support_sla
+    key: support_sla_form
+    type: form
+    label: SLA 策略表单
+    config:
+      sections:
+        - title: 基本信息
+          fields:
+            - field: name
+              required: true
+            - field: description
+            - field: priority
+              required: true
+            - field: status
+              required: true
+        - title: 时间承诺
+          fields:
+            - field: response_time_hours
+              required: true
+            - field: resolution_time_hours
+              required: true
+            - field: business_hours_only
+        - title: 元数据
+          fields:
+            - field: owner
+            - field: notes
+
+permissions:
+  - support_sla.read
+  - support_sla.create
+  - support_sla.update
+  - support_sla.delete
+
+migrations:
+  install: migrations/install.sql
+  uninstallPolicy: retain_data
+
+ui:
+  navigation:
+    - label: SLA 策略
+      route: /support-slas
+      icon: clock
+      sortOrder: 63
+
+extensionPoints:
+  entities:
+    - entity: support_sla
+      customFields:
+        enabled: true
+        allowedTypes: [text, number, date, select, boolean]
+        maxFields: 5
+        reservedKeys: [id, name, description, priority, response_time_hours, resolution_time_hours, business_hours_only, status, owner, notes, created_at, updated_at]
+      customRelations:
+        enabled: false
+  views:
+    - view: support_sla_list
+      slots:
+        - id: support_sla.list.columns
+          type: column_group
+          allowedExtensions: [customField]
+          risk: low
+      allowReorder: true
+      allowFilters: true
+      allowPageSizeChange: true
+    - view: support_sla_form
+      slots:
+        - id: support_sla.form.basic_fields.after
+          type: field_group
+          allowedExtensions: [customField]
+          risk: low
+      allowAddSection: true
+      allowAddAction: true
+
+dashboard:
+  widgets:
+    - key: active_sla_metric
+      type: metric_card
+      label: 活跃 SLA
+      icon: clock
+      tone: emerald
+      data:
+        kind: count
+        object: support_sla
+        where: "status = 'active'"
+      link: /support-slas
+
+    - key: sla_priority_breakdown
+      type: breakdown
+      label: SLA 优先级分布
+      icon: pie-chart
+      tone: red
+      data:
+        kind: group_count
+        object: support_sla
+        groupBy: priority
+
+    - key: recent_sla_list
+      type: list
+      label: SLA 策略
+      icon: clock
+      tone: cyan
+      data:
+        kind: recent
+        object: support_sla
+        orderBy: "created_at desc"
+        limit: 8
+        columns: [name, priority, response_time_hours, resolution_time_hours, status]
+      link: /support-slas
+      configurable:
+        - path: data.limit
+          label: 显示条数
+          type: number
+          min: 1
+          max: 20
+
+upgradePolicy:
+  supportsWorkspaceExtensions: true
+  breakingChangePolicy: manual_review
