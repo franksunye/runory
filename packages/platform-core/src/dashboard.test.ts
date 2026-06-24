@@ -17,6 +17,7 @@ import {
   getAvailableWidgets,
   upsertLayoutOverride,
   resetLayoutOverrides,
+  mergeWidgetConfig,
   PLATFORM_WIDGETS,
 } from "./dashboard";
 import { InvalidInputError } from "./context";
@@ -722,5 +723,152 @@ describe("PLATFORM_WIDGETS", () => {
     // All activity_feed widgets in PLATFORM_WIDGETS must have module "_platform"
     const activityFeeds = PLATFORM_WIDGETS.filter((w) => w.type === "activity_feed");
     expect(activityFeeds.length).toBeGreaterThan(0);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// v0.3.3 — Widget Configuration Override & Multi-Pack Resilience
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("mergeWidgetConfig (v0.3.3)", () => {
+  const baseWidget: WidgetDeclaration = {
+    key: "test_list",
+    type: "list",
+    label: "Test List",
+    icon: "list-checks",
+    tone: "slate",
+    data: {
+      kind: "recent",
+      object: "task",
+      limit: 5,
+      columns: ["title", "status"],
+    },
+    configurable: [
+      { path: "data.limit", label: "显示条数", type: "number", min: 1, max: 20 },
+    ],
+  };
+
+  it("returns widget unchanged when override is null", () => {
+    const merged = mergeWidgetConfig(baseWidget, null);
+    expect(merged.data.limit).toBe(5);
+  });
+
+  it("deep-merges override into widget declaration", () => {
+    const merged = mergeWidgetConfig(baseWidget, { data: { limit: 10 } });
+    expect(merged.data.limit).toBe(10);
+    // Non-overridden fields are preserved
+    expect(merged.data.columns).toEqual(["title", "status"]);
+    expect(merged.data.object).toBe("task");
+  });
+
+  it("preserves sibling keys when overriding nested path", () => {
+    const merged = mergeWidgetConfig(baseWidget, { data: { limit: 15 } });
+    expect(merged.data.kind).toBe("recent");
+    expect(merged.data.object).toBe("task");
+    expect(merged.data.limit).toBe(15);
+  });
+});
+
+describe("configOverride persistence (v0.3.3)", () => {
+  it("persists configOverride via upsertLayoutOverride and returns it in resolveEffectiveLayout", async () => {
+    // Find a configurable widget in the CRM Lite layout
+    const layout = await resolveEffectiveLayout(workspaceId);
+    const configurableItem = layout.find((i) => i.widget.configurable && i.widget.configurable.length > 0);
+    expect(configurableItem).toBeDefined();
+
+    // Override data.limit (or whatever the first configurable path is)
+    const path = configurableItem!.widget.configurable![0].path;
+    const override = path.split(".").reduceRight<Record<string, unknown>>(
+      (acc, key) => ({ [key]: acc }),
+      { overridden: true } as Record<string, unknown>
+    );
+
+    await upsertLayoutOverride(workspaceId, {
+      zone: configurableItem!.zone,
+      widgetModule: configurableItem!.moduleId,
+      widgetKey: configurableItem!.widgetKey,
+      widgetInstance: configurableItem!.instance,
+      configOverride: override,
+    }, "test-user");
+
+    const newLayout = await resolveEffectiveLayout(workspaceId);
+    const updated = newLayout.find(
+      (i) => i.moduleId === configurableItem!.moduleId && i.widgetKey === configurableItem!.widgetKey
+    );
+    expect(updated).toBeDefined();
+    expect(updated!.configOverride).not.toBeNull();
+    // The overridden path should be present in configOverride
+    const parts = path.split(".");
+    let cur: unknown = updated!.configOverride;
+    for (const p of parts) {
+      cur = (cur as Record<string, unknown>)?.[p];
+    }
+    expect(cur).toEqual({ overridden: true });
+  });
+
+  it("clears configOverride when reset is called", async () => {
+    const layout = await resolveEffectiveLayout(workspaceId);
+    const item = layout[0];
+    await upsertLayoutOverride(workspaceId, {
+      zone: item.zone,
+      widgetModule: item.moduleId,
+      widgetKey: item.widgetKey,
+      widgetInstance: item.instance,
+      configOverride: { data: { limit: 99 } },
+    }, "test-user");
+
+    await resetLayoutOverrides(workspaceId);
+
+    const reset = await resolveEffectiveLayout(workspaceId);
+    const resetItem = reset.find(
+      (i) => i.moduleId === item.moduleId && i.widgetKey === item.widgetKey
+    );
+    expect(resetItem!.configOverride).toBeNull();
+  });
+});
+
+describe("multi-pack dashboard resilience (v0.3.3)", () => {
+  it("remains readable after installing CRM Lite + FSM packs (2 packs)", async () => {
+    await installPack(workspaceId, "fsm-pack");
+
+    const layout = await resolveEffectiveLayout(workspaceId);
+    expect(layout.length).toBeGreaterThan(0);
+
+    // Widgets from both packs should be present
+    const moduleIds = new Set(layout.map((i) => i.moduleId));
+    expect(moduleIds.has("runory.company")).toBe(true);   // CRM
+    expect(moduleIds.has("runory.work-order")).toBe(true); // FSM
+
+    // All four zones should have content (or at least be valid)
+    const zones = new Set(layout.map((i) => i.zone));
+    expect(zones.size).toBeGreaterThan(0);
+
+    // Every layout item should have a resolved widget declaration
+    for (const item of layout) {
+      expect(item.widget).toBeDefined();
+      expect(item.widget.key).toBe(item.widgetKey);
+    }
+  });
+
+  it("does not duplicate shared-module widgets when both packs are installed", async () => {
+    await installPack(workspaceId, "fsm-pack");
+
+    const layout = await resolveEffectiveLayout(workspaceId);
+    // Count widgets per module:widget key — should all be unique
+    const keys = layout.map((i) => `${i.moduleId}:${i.widgetKey}`);
+    const uniqueKeys = new Set(keys);
+    expect(keys.length).toBe(uniqueKeys.size);
+  });
+
+  it("available widgets include configurable fields from both packs", async () => {
+    await installPack(workspaceId, "fsm-pack");
+
+    const widgets = await getAvailableWidgets(workspaceId);
+    const configurable = widgets.filter((w) => w.widget.configurable && w.widget.configurable.length > 0);
+    expect(configurable.length).toBeGreaterThan(0);
+
+    // FSM pack declares configurable widgets (e.g. work_orders_needing_dispatch_list)
+    const fsmConfigurable = configurable.filter((w) => w.moduleId === "runory.work-order");
+    expect(fsmConfigurable.length).toBeGreaterThan(0);
   });
 });

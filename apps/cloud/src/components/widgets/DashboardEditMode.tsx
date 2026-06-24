@@ -2,9 +2,11 @@
 
 import { useState, useCallback } from "react";
 import {
-  ArrowDown, ArrowUp, Eye, EyeOff, Plus, Trash2, X, Settings2,
+  ArrowDown, ArrowUp, Eye, EyeOff, Plus, Settings2, Sliders, X,
 } from "lucide-react";
-import type { WidgetDeclaration, DashboardZone } from "@runory/contracts";
+import type {
+  WidgetDeclaration, DashboardZone, WidgetConfigurableField,
+} from "@runory/contracts";
 
 // ── Types ──
 
@@ -37,6 +39,53 @@ interface DashboardEditModeProps {
   onClose: () => void;
 }
 
+// Identity key for a layout item (stable across re-renders)
+function itemKey(item: { moduleId: string; widgetKey: string; instance: string }): string {
+  return `${item.moduleId}:${item.widgetKey}:${item.instance}`;
+}
+
+// Shorten a module id like "runory.work-order" → "work-order" for compact display
+function shortModuleLabel(moduleId: string): string {
+  const idx = moduleId.lastIndexOf(".");
+  return idx >= 0 ? moduleId.slice(idx + 1) : moduleId;
+}
+
+// ── Nested path helpers (for configurable.path like "data.limit") ──
+
+function getNestedValue(obj: Record<string, unknown> | null, path: string): unknown {
+  if (!obj) return undefined;
+  const parts = path.split(".");
+  let cur: unknown = obj;
+  for (const p of parts) {
+    if (cur && typeof cur === "object" && !Array.isArray(cur)) {
+      cur = (cur as Record<string, unknown>)[p];
+    } else {
+      return undefined;
+    }
+  }
+  return cur;
+}
+
+function setNestedValue(
+  obj: Record<string, unknown> | null,
+  path: string,
+  value: unknown
+): Record<string, unknown> {
+  const parts = path.split(".");
+  const root: Record<string, unknown> = obj ? structuredClone(obj) : {};
+  let cur: Record<string, unknown> = root;
+  for (let i = 0; i < parts.length - 1; i++) {
+    const p = parts[i];
+    const next = cur[p];
+    if (!next || typeof next !== "object" || Array.isArray(next)) {
+      cur[p] = {};
+    }
+    cur = cur[p] as Record<string, unknown>;
+  }
+  cur[parts[parts.length - 1]] = value;
+  return root;
+}
+
 // ── Main Component ──
 
 export default function DashboardEditMode({
@@ -51,6 +100,7 @@ export default function DashboardEditMode({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showAddPanel, setShowAddPanel] = useState<DashboardZone | false>(false);
+  const [configuringKey, setConfiguringKey] = useState<string | null>(null);
 
   const saveUpdates = useCallback(async (updates: Array<{
     zone: DashboardZone;
@@ -59,6 +109,7 @@ export default function DashboardEditMode({
     widgetInstance: string;
     position?: number;
     hidden?: boolean;
+    configOverride?: Record<string, unknown> | null;
   }>) => {
     setSaving(true);
     setError(null);
@@ -77,6 +128,17 @@ export default function DashboardEditMode({
       setSaving(false);
     }
   }, [workspaceId, onLayoutChange]);
+
+  const handleConfigureSave = useCallback((item: LayoutItem, override: Record<string, unknown> | null) => {
+    void saveUpdates([{
+      zone: item.zone,
+      widgetModule: item.moduleId,
+      widgetKey: item.widgetKey,
+      widgetInstance: item.instance,
+      configOverride: override,
+    }]);
+    setConfiguringKey(null);
+  }, [saveUpdates]);
 
   const handleHide = (item: LayoutItem) => {
     void saveUpdates([{
@@ -224,59 +286,91 @@ export default function DashboardEditMode({
               <p className="py-4 text-center text-xs text-slate-400">此区域暂无组件</p>
             ) : (
               <div className="space-y-2">
-                {items.map((item, index) => (
-                  <div
-                    key={`${item.moduleId}:${item.widgetKey}:${item.instance}`}
-                    className="flex items-center justify-between rounded-lg border border-slate-200 bg-white px-3 py-2"
-                  >
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium text-slate-700">{item.widget.label}</span>
-                      <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] text-slate-500">
-                        {item.widget.type}
-                      </span>
-                      {item.hidden && (
-                        <span className="rounded bg-red-50 px-1.5 py-0.5 text-[10px] text-red-600">已隐藏</span>
+                {items.map((item, index) => {
+                  const key = itemKey(item);
+                  const configurable = item.widget.configurable ?? [];
+                  const isConfiguring = configuringKey === key;
+                  const hasConfigOverride = item.configOverride !== null && Object.keys(item.configOverride).length > 0;
+                  return (
+                    <div key={key} className="rounded-lg border border-slate-200 bg-white">
+                      <div className="flex items-center justify-between px-3 py-2">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-medium text-slate-700">{item.widget.label}</span>
+                          <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] text-slate-500">
+                            {item.widget.type}
+                          </span>
+                          <span className="rounded bg-slate-50 px-1.5 py-0.5 text-[10px] text-slate-400" title={item.moduleId}>
+                            {shortModuleLabel(item.moduleId)}
+                          </span>
+                          {item.hidden && (
+                            <span className="rounded bg-red-50 px-1.5 py-0.5 text-[10px] text-red-600">已隐藏</span>
+                          )}
+                          {hasConfigOverride && (
+                            <span className="rounded bg-indigo-50 px-1.5 py-0.5 text-[10px] text-indigo-600">已自定义</span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1">
+                          {configurable.length > 0 && (
+                            <button
+                              onClick={() => setConfiguringKey(isConfiguring ? null : key)}
+                              disabled={saving}
+                              className={`rounded p-1 hover:bg-slate-100 disabled:opacity-30 ${
+                                isConfiguring ? "text-indigo-600" : "text-slate-400 hover:text-slate-700"
+                              }`}
+                              title="配置"
+                            >
+                              <Sliders size={14} />
+                            </button>
+                          )}
+                          <button
+                            onClick={() => handleMove(item, "up")}
+                            disabled={index === 0 || saving}
+                            className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 disabled:opacity-30"
+                            title="上移"
+                          >
+                            <ArrowUp size={14} />
+                          </button>
+                          <button
+                            onClick={() => handleMove(item, "down")}
+                            disabled={index === items.length - 1 || saving}
+                            className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 disabled:opacity-30"
+                            title="下移"
+                          >
+                            <ArrowDown size={14} />
+                          </button>
+                          {item.hidden ? (
+                            <button
+                              onClick={() => handleShow(item)}
+                              disabled={saving}
+                              className="rounded p-1 text-emerald-600 hover:bg-emerald-50"
+                              title="显示"
+                            >
+                              <Eye size={14} />
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => handleHide(item)}
+                              disabled={saving}
+                              className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+                              title="隐藏"
+                            >
+                              <EyeOff size={14} />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                      {isConfiguring && configurable.length > 0 && (
+                        <WidgetConfigPanel
+                          item={item}
+                          fields={configurable}
+                          saving={saving}
+                          onCancel={() => setConfiguringKey(null)}
+                          onSave={(override) => handleConfigureSave(item, override)}
+                        />
                       )}
                     </div>
-                    <div className="flex items-center gap-1">
-                      <button
-                        onClick={() => handleMove(item, "up")}
-                        disabled={index === 0 || saving}
-                        className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 disabled:opacity-30"
-                        title="上移"
-                      >
-                        <ArrowUp size={14} />
-                      </button>
-                      <button
-                        onClick={() => handleMove(item, "down")}
-                        disabled={index === items.length - 1 || saving}
-                        className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 disabled:opacity-30"
-                        title="下移"
-                      >
-                        <ArrowDown size={14} />
-                      </button>
-                      {item.hidden ? (
-                        <button
-                          onClick={() => handleShow(item)}
-                          disabled={saving}
-                          className="rounded p-1 text-emerald-600 hover:bg-emerald-50"
-                          title="显示"
-                        >
-                          <Eye size={14} />
-                        </button>
-                      ) : (
-                        <button
-                          onClick={() => handleHide(item)}
-                          disabled={saving}
-                          className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
-                          title="隐藏"
-                        >
-                          <EyeOff size={14} />
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
 
@@ -308,6 +402,222 @@ export default function DashboardEditMode({
           </div>
         );
       })}
+    </div>
+  );
+}
+
+// ── Widget Configuration Panel ──
+// Renders form controls from widget.configurable[] and persists configOverride.
+
+interface WidgetConfigPanelProps {
+  item: LayoutItem;
+  fields: WidgetConfigurableField[];
+  saving: boolean;
+  onCancel: () => void;
+  onSave: (override: Record<string, unknown> | null) => void;
+}
+
+function WidgetConfigPanel({ item, fields, saving, onCancel, onSave }: WidgetConfigPanelProps) {
+  // Seed local state from current configOverride; fall back to widget declaration defaults.
+  const [draft, setDraft] = useState<Record<string, unknown>>(() => {
+    const seed: Record<string, unknown> = item.configOverride ? structuredClone(item.configOverride) : {};
+    // Pre-fill any missing configurable paths with the widget's declared default
+    for (const f of fields) {
+      if (getNestedValue(seed, f.path) === undefined) {
+        const declared = getNestedValue(item.widget as unknown as Record<string, unknown>, f.path);
+        if (declared !== undefined) {
+          // multiselect defaults to array; others copy as-is
+          const initial = f.type === "multiselect" && !Array.isArray(declared)
+            ? (declared ? [String(declared)] : [])
+            : declared;
+          const next = setNestedValue(seed, f.path, initial);
+          Object.assign(seed, next);
+        } else if (f.type === "multiselect") {
+          const next = setNestedValue(seed, f.path, []);
+          Object.assign(seed, next);
+        }
+      }
+    }
+    return seed;
+  });
+
+  const updateField = (path: string, value: unknown) => {
+    setDraft((prev) => setNestedValue(prev, path, value));
+  };
+
+  const handleSave = () => {
+    // Build a minimal override containing only configurable paths
+    const override: Record<string, unknown> = {};
+    for (const f of fields) {
+      const val = getNestedValue(draft, f.path);
+      if (val !== undefined) {
+        Object.assign(override, setNestedValue(override, f.path, val));
+      }
+    }
+    onSave(override);
+  };
+
+  const handleReset = () => {
+    // Clear all configurable paths → null override restores pack defaults
+    onSave(null);
+  };
+
+  return (
+    <div className="border-t border-slate-100 bg-slate-50/50 px-3 py-3">
+      <div className="mb-2 flex items-center justify-between">
+        <p className="text-xs font-medium text-slate-600">组件配置</p>
+        <button
+          onClick={handleReset}
+          disabled={saving}
+          className="text-[10px] text-slate-400 hover:text-slate-600 disabled:opacity-30"
+        >
+          恢复默认
+        </button>
+      </div>
+      <div className="space-y-3">
+        {fields.map((field) => (
+          <ConfigField
+            key={field.path}
+            field={field}
+            value={getNestedValue(draft, field.path)}
+            onChange={(v) => updateField(field.path, v)}
+          />
+        ))}
+      </div>
+      <div className="mt-3 flex items-center justify-end gap-2">
+        <button
+          onClick={onCancel}
+          disabled={saving}
+          className="rounded-lg px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-white disabled:opacity-30"
+        >
+          取消
+        </button>
+        <button
+          onClick={handleSave}
+          disabled={saving}
+          className="rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-700 disabled:opacity-30"
+        >
+          {saving ? "保存中..." : "保存"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ── Single Config Field ──
+
+interface ConfigFieldProps {
+  field: WidgetConfigurableField;
+  value: unknown;
+  onChange: (value: unknown) => void;
+}
+
+function ConfigField({ field, value, onChange }: ConfigFieldProps) {
+  const labelEl = (
+    <label className="block text-xs font-medium text-slate-600">{field.label}</label>
+  );
+
+  if (field.type === "select") {
+    return (
+      <div>
+        {labelEl}
+        <select
+          value={(value as string) ?? ""}
+          onChange={(e) => onChange(e.target.value)}
+          className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm text-slate-900 focus:border-indigo-400 focus:outline-none"
+        >
+          {(field.options ?? []).map((opt) => (
+            <option key={opt} value={opt}>{opt}</option>
+          ))}
+        </select>
+      </div>
+    );
+  }
+
+  if (field.type === "multiselect") {
+    const selected = Array.isArray(value) ? (value as string[]) : [];
+    const toggle = (opt: string) => {
+      if (selected.includes(opt)) {
+        onChange(selected.filter((v) => v !== opt));
+      } else {
+        onChange([...selected, opt]);
+      }
+    };
+    return (
+      <div>
+        {labelEl}
+        <div className="mt-1 flex flex-wrap gap-1.5">
+          {(field.options ?? []).map((opt) => {
+            const active = selected.includes(opt);
+            return (
+              <button
+                key={opt}
+                type="button"
+                onClick={() => toggle(opt)}
+                className={`rounded-full px-2.5 py-1 text-xs font-medium transition ${
+                  active
+                    ? "bg-indigo-600 text-white"
+                    : "bg-white text-slate-600 border border-slate-200 hover:border-indigo-300"
+                }`}
+              >
+                {opt}
+              </button>
+            );
+          })}
+          {selected.length === 0 && (
+            <span className="text-[10px] text-slate-400">未选择</span>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  if (field.type === "number") {
+    return (
+      <div>
+        {labelEl}
+        <input
+          type="number"
+          value={typeof value === "number" ? value : ""}
+          min={field.min}
+          max={field.max}
+          onChange={(e) => {
+            const raw = e.target.value;
+            if (raw === "") {
+              onChange(undefined);
+              return;
+            }
+            const n = Number(raw);
+            if (Number.isNaN(n)) return;
+            if (field.min !== undefined && n < field.min) return;
+            if (field.max !== undefined && n > field.max) return;
+            onChange(n);
+          }}
+          className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm text-slate-900 focus:border-indigo-400 focus:outline-none"
+        />
+        {(field.min !== undefined || field.max !== undefined) && (
+          <p className="mt-0.5 text-[10px] text-slate-400">
+            {field.min !== undefined && field.max !== undefined
+              ? `范围 ${field.min} - ${field.max}`
+              : field.min !== undefined
+                ? `最小 ${field.min}`
+                : `最大 ${field.max}`}
+          </p>
+        )}
+      </div>
+    );
+  }
+
+  // text
+  return (
+    <div>
+      {labelEl}
+      <input
+        type="text"
+        value={(value as string) ?? ""}
+        onChange={(e) => onChange(e.target.value)}
+        className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm text-slate-900 focus:border-indigo-400 focus:outline-none"
+      />
     </div>
   );
 }

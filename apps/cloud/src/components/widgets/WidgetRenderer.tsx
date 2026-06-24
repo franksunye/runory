@@ -86,6 +86,7 @@ export default function WidgetRenderer({
   const [data, setData] = useState<WidgetDataResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [lastUpdated, setLastUpdated] = useState<number | null>(null);
 
   const loadData = useCallback(async () => {
     try {
@@ -98,6 +99,7 @@ export default function WidgetRenderer({
       if (!json.success) throw new Error(json.error?.message ?? "加载失败");
       setData(json.data);
       setError(null);
+      setLastUpdated(Date.now());
     } catch (e) {
       setError(e instanceof Error ? e.message : "加载失败");
     } finally {
@@ -123,8 +125,54 @@ export default function WidgetRenderer({
     <div className="relative">
       {editMode && <EditModeOverlay widget={widget} />}
       <WidgetContent widget={widget} data={data} workspaceId={workspaceId} onRefresh={handleRefresh} />
+      <FreshnessIndicator lastUpdated={lastUpdated} onRefresh={handleRefresh} />
     </div>
   );
+}
+
+// ── Freshness Indicator ──
+// Shows a subtle "updated X ago" badge; turns amber when stale (>5 min).
+
+function FreshnessIndicator({
+  lastUpdated,
+  onRefresh,
+}: {
+  lastUpdated: number | null;
+  onRefresh: () => void;
+}) {
+  const [, force] = useState(0);
+  // Re-render every 60s so relative time stays fresh
+  useEffect(() => {
+    const t = setInterval(() => force((n) => n + 1), 60000);
+    return () => clearInterval(t);
+  }, []);
+
+  if (lastUpdated === null) return null;
+  const ageMs = Date.now() - lastUpdated;
+  const ageMin = Math.floor(ageMs / 60000);
+  const isStale = ageMin >= 5;
+  const label = formatFreshness(ageMin);
+
+  return (
+    <button
+      onClick={onRefresh}
+      title={`数据更新于 ${label}（点击刷新）`}
+      className={`absolute bottom-1.5 right-1.5 flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[9px] font-medium transition opacity-60 hover:opacity-100 ${
+        isStale ? "bg-amber-50 text-amber-600" : "bg-slate-50 text-slate-400"
+      }`}
+    >
+      <span className={`size-1 rounded-full ${isStale ? "bg-amber-500" : "bg-emerald-400"}`} />
+      {label}
+    </button>
+  );
+}
+
+function formatFreshness(ageMin: number): string {
+  if (ageMin < 1) return "刚刚";
+  if (ageMin < 60) return `${ageMin}分钟前`;
+  const hours = Math.floor(ageMin / 60);
+  if (hours < 24) return `${hours}小时前`;
+  return "较久前";
 }
 
 // ── Widget Content (dispatches by type) ──
