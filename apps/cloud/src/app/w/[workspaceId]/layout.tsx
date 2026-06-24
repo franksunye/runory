@@ -5,6 +5,7 @@ import { useParams, usePathname, useRouter } from "next/navigation";
 import NavigationShell from "@/components/NavigationShell";
 import EarlyAccessBanner from "@/components/EarlyAccessBanner";
 import { WORKSPACE_NAVIGATION_CHANGED } from "@/lib/workspace-events";
+import { useI18n } from "@/i18n/locale-provider";
 import type { NavigationItem } from "@runory/platform-core";
 
 interface InstalledPackGroup {
@@ -29,6 +30,7 @@ export default function WorkspaceLayout({
   const workspaceRef = params.workspaceId as string;
   const pathname = usePathname();
   const router = useRouter();
+  const { t } = useI18n();
   const [navigation, setNavigation] = useState<NavigationItem[]>([]);
   const [packs, setPacks] = useState<InstalledPackGroup[]>([]);
   const [modulePackMap, setModulePackMap] = useState<Record<string, string>>({});
@@ -69,7 +71,7 @@ export default function WorkspaceLayout({
         }
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : "加载工作区失败");
+      setError(e instanceof Error ? e.message : t("workspace.loadFailed"));
     } finally {
       setLoading(false);
     }
@@ -87,7 +89,7 @@ export default function WorkspaceLayout({
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
-        <p className="text-sm text-slate-400">加载中...</p>
+        <p className="text-sm text-slate-400">{t("workspace.loading")}</p>
       </div>
     );
   }
@@ -101,7 +103,7 @@ export default function WorkspaceLayout({
             onClick={() => { setLoading(true); void loadWorkspaceShell(); }}
             className="mt-3 rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
           >
-            重试
+            {t("workspace.retry")}
           </button>
         </div>
       </div>

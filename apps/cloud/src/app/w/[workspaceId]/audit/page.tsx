@@ -11,6 +11,7 @@ import {
   ScrollText,
   ExternalLink,
 } from "lucide-react";
+import { useI18n } from "@/i18n/locale-provider";
 
 interface AuditSummaryEntry {
   summary: string;
@@ -79,6 +80,7 @@ function formatTime(ts: string): string {
 export default function AuditPage() {
   const params = useParams();
   const workspaceId = params.workspaceId as string;
+  const { t } = useI18n();
 
   const [events, setEvents] = useState<AuditEventWithSummary[]>([]);
   const [loading, setLoading] = useState(true);
@@ -98,9 +100,9 @@ export default function AuditPage() {
       const res = await fetch(`/api/workspaces/${workspaceId}/audit?${params}`);
       const json = await res.json();
       if (json.success) setEvents(json.data);
-      else setError(json.error?.message ?? "加载失败");
+      else setError(json.error?.message ?? t("workspace.loadFailed"));
     } catch (e) {
-      setError(e instanceof Error ? e.message : "加载失败");
+      setError(e instanceof Error ? e.message : t("workspace.loadFailed"));
     } finally {
       setLoading(false);
     }
@@ -152,7 +154,7 @@ export default function AuditPage() {
   };
 
   if (loading) {
-    return <p className="text-sm text-slate-400">加载中...</p>;
+    return <p className="text-sm text-slate-400">{t("workspace.loading")}</p>;
   }
 
   return (
@@ -171,7 +173,7 @@ export default function AuditPage() {
             onClick={() => { setLoading(true); void loadLogs(); }}
             className="app-button-secondary"
           >
-            <RefreshCw size={16} />刷新
+            <RefreshCw size={16} />{t("workspace.refresh")}
           </button>
           <button
             type="button"

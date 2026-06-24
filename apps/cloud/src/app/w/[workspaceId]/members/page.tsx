@@ -15,6 +15,7 @@ import {
   X,
   KeyRound,
 } from "lucide-react";
+import { useI18n } from "@/i18n/locale-provider";
 
 type OrgRole = "owner" | "admin" | "member";
 
@@ -77,6 +78,7 @@ interface GroupAssignment {
 export default function MembersPage() {
   const params = useParams();
   const workspaceId = params.workspaceId as string;
+  const { t } = useI18n();
 
   const [orgId, setOrgId] = useState<string | null>(null);
   const [currentRole, setCurrentRole] = useState<OrgRole | null>(null);
@@ -143,7 +145,7 @@ export default function MembersPage() {
         setGroupAssignments(assignmentMap);
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : "加载失败");
+      setError(e instanceof Error ? e.message : t("workspace.loadFailed"));
     } finally {
       setLoading(false);
     }
@@ -300,7 +302,7 @@ export default function MembersPage() {
   };
 
   if (loading) {
-    return <p className="text-sm text-slate-400">加载中...</p>;
+    return <p className="text-sm text-slate-400">{t("workspace.loading")}</p>;
   }
 
   if (!canManage) {
@@ -335,7 +337,7 @@ export default function MembersPage() {
           onClick={() => { setLoading(true); void loadData(); }}
           className="app-button-secondary self-start"
         >
-          <RefreshCw size={16} />刷新
+          <RefreshCw size={16} />{t("workspace.refresh")}
         </button>
       </header>
 
@@ -580,7 +582,7 @@ export default function MembersPage() {
                 onClick={() => setConfirmRemove(null)}
                 className="app-button-secondary"
               >
-                取消
+                {t("workspace.cancel")}
               </button>
               <button
                 type="button"

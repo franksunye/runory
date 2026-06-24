@@ -10,6 +10,7 @@ import {
   useWorkspaceChangeEvent,
 } from "@/lib/api-hooks";
 import { notifyWorkspaceDataChanged } from "@/lib/workspace-events";
+import { useI18n } from "@/i18n/locale-provider";
 
 export interface ObjectCreatePageProps {
   objectKey: string;
@@ -25,12 +26,13 @@ export default function ObjectCreatePage({
   viewKey,
   basePath,
   title,
-  subtitle = "填写信息后保存",
+  subtitle,
   backLabel,
 }: ObjectCreatePageProps) {
   const params = useParams();
   const router = useRouter();
   const workspaceId = params.workspaceId as string;
+  const { t } = useI18n();
 
   const { data: objDetail, isLoading: loadingObj } = useFields(workspaceId, objectKey);
   const { data: views = [], isLoading: loadingViews } = useViews(workspaceId, objectKey);
@@ -62,17 +64,17 @@ export default function ObjectCreatePage({
         router.push(basePath);
         router.refresh();
       } else {
-        setError(json.error?.message ?? "创建失败");
+        setError(json.error?.message ?? t("workspace.createFailed"));
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : "创建失败");
+      setError(e instanceof Error ? e.message : t("workspace.createFailed"));
     } finally {
       setSubmitting(false);
     }
   };
 
   if (loading) {
-    return <p className="text-sm text-slate-400">加载中...</p>;
+    return <p className="text-sm text-slate-400">{t("workspace.loading")}</p>;
   }
 
   return (
@@ -83,10 +85,12 @@ export default function ObjectCreatePage({
           onClick={() => router.push(basePath)}
           className="text-xs font-medium text-blue-600 hover:text-blue-800"
         >
-          ← {backLabel ?? `返回${title}列表`}
+          ← {backLabel ?? t("workspace.backToList", { title })}
         </button>
-        <h1 className="mt-1 text-2xl font-bold text-slate-900">新建{title}</h1>
-        {subtitle && <p className="mt-1 text-sm text-slate-500">{subtitle}</p>}
+        <h1 className="mt-1 text-2xl font-bold text-slate-900">{t("workspace.createTitle", { title })}</h1>
+        {(subtitle ?? t("workspace.createSubtitle")) && (
+          <p className="mt-1 text-sm text-slate-500">{subtitle ?? t("workspace.createSubtitle")}</p>
+        )}
       </div>
 
       {error && (
@@ -100,11 +104,11 @@ export default function ObjectCreatePage({
           fields={fields}
           viewConfig={viewConfig}
           onSubmit={handleSubmit}
-          submitLabel={submitting ? "保存中..." : "保存"}
+          submitLabel={submitting ? t("workspace.saving") : t("workspace.save")}
           workspaceId={workspaceId}
         />
       ) : (
-        <p className="text-sm text-slate-500">未找到表单视图配置。</p>
+        <p className="text-sm text-slate-500">{t("workspace.viewNotFound")}</p>
       )}
     </div>
   );

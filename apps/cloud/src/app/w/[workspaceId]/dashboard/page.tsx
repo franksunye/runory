@@ -11,6 +11,7 @@ import { notifyWorkspaceNavigationChanged, notifyWorkspaceDataChanged } from "@/
 import { useWorkspaceChangeEvent } from "@/lib/api-hooks";
 import WidgetRenderer from "@/components/widgets/WidgetRenderer";
 import DashboardEditMode from "@/components/widgets/DashboardEditMode";
+import { useI18n } from "@/i18n/locale-provider";
 
 const DASHBOARD_ZONES: DashboardZone[] = ["metrics", "trends", "lists", "activity"];
 
@@ -41,6 +42,7 @@ interface AvailableWidget {
 
 export default function DashboardPage() {
   const workspaceId = useParams().workspaceId as string;
+  const { t } = useI18n();
   const [installing, setInstalling] = useState(false);
   const [seeding, setSeeding] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -222,7 +224,7 @@ export default function DashboardPage() {
           ) : (
             <>
               <button onClick={() => void loadLayout()} className="app-button-secondary">
-                <RefreshCw size={16} />刷新
+                <RefreshCw size={16} />{t("workspace.refresh")}
               </button>
               <button onClick={() => setEditMode(true)} className="app-button-secondary">
                 <Settings2 size={16} />编辑工作台

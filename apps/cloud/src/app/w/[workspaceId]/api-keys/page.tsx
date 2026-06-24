@@ -14,6 +14,7 @@ import {
   ShieldCheck,
   Trash2,
 } from "lucide-react";
+import { useI18n } from "@/i18n/locale-provider";
 
 interface ApiKey {
   id: string;
@@ -42,6 +43,7 @@ function formatDate(iso: string | null): string {
 export default function ApiKeysPage() {
   const params = useParams();
   const workspaceId = params.workspaceId as string;
+  const { t } = useI18n();
 
   const [keys, setKeys] = useState<ApiKey[]>([]);
   const [loading, setLoading] = useState(true);
@@ -70,9 +72,9 @@ export default function ApiKeysPage() {
       const res = await fetch(`/api/workspaces/${workspaceId}/api-keys`);
       const json = await res.json();
       if (json.success) setKeys(json.data);
-      else setError(json.error?.message ?? "加载失败");
+      else setError(json.error?.message ?? t("workspace.loadFailed"));
     } catch (e) {
-      setError(e instanceof Error ? e.message : "加载失败");
+      setError(e instanceof Error ? e.message : t("workspace.loadFailed"));
     } finally {
       setLoading(false);
     }
@@ -168,7 +170,7 @@ export default function ApiKeysPage() {
   };
 
   if (loading) {
-    return <p className="text-sm text-slate-400">加载中...</p>;
+    return <p className="text-sm text-slate-400">{t("workspace.loading")}</p>;
   }
 
   return (
@@ -184,7 +186,7 @@ export default function ApiKeysPage() {
           onClick={() => { setLoading(true); void loadKeys(); }}
           className="app-button-secondary self-start"
         >
-          <RefreshCw size={16} />刷新
+          <RefreshCw size={16} />{t("workspace.refresh")}
         </button>
       </header>
 
@@ -343,7 +345,7 @@ export default function ApiKeysPage() {
             </p>
             <div className="mt-5 flex justify-end gap-2">
               <button type="button" onClick={() => setConfirmRevoke(null)} className="app-button-secondary">
-                取消
+                {t("workspace.cancel")}
               </button>
               <button
                 type="button"
@@ -375,7 +377,7 @@ export default function ApiKeysPage() {
             </p>
             <div className="mt-5 flex justify-end gap-2">
               <button type="button" onClick={() => setConfirmRotate(null)} className="app-button-secondary">
-                取消
+                {t("workspace.cancel")}
               </button>
               <button
                 type="button"

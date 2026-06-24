@@ -22,6 +22,7 @@ export type AuditAction =
   | "workspace.restore"
   | "workspace.purge"
   | "workspace.export"
+  | "workspace.import"
   | "member.invite"
   | "member.accept"
   | "member.remove"
@@ -515,6 +516,14 @@ export function renderAuditSummary(event: AuditEvent): AuditSummaryEntry {
       return {
         summary: `${actor} 升级了模块`,
         category: "catalog",
+      };
+
+    // Workspace import/export (v0.3.6)
+    case "workspace.import":
+      return {
+        summary: `${actor} 导入了工作区配置`,
+        category: "system",
+        detail: `对象: ${after?.imported ?? "?"}, 统计: ${JSON.stringify(after?.stats ?? {})}`,
       };
 
     default:

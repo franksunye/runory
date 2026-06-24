@@ -14,6 +14,7 @@ import {
   Users,
   Zap,
 } from "lucide-react";
+import { useI18n } from "@/i18n/locale-provider";
 
 interface UsageItem {
   metric: string;
@@ -67,6 +68,7 @@ const METRIC_ORDER = ["records", "workspaces", "members", "api_requests", "agent
 export default function BillingPage() {
   const params = useParams();
   const workspaceId = params.workspaceId as string;
+  const { t } = useI18n();
 
   const [data, setData] = useState<BillingData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -90,7 +92,7 @@ export default function BillingPage() {
       }
       setData(billingJson.data);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "加载失败");
+      setError(e instanceof Error ? e.message : t("workspace.loadFailed"));
     } finally {
       setLoading(false);
     }
@@ -101,7 +103,7 @@ export default function BillingPage() {
   }, [loadBilling]);
 
   if (loading) {
-    return <p className="text-sm text-slate-400">加载中...</p>;
+    return <p className="text-sm text-slate-400">{t("workspace.loading")}</p>;
   }
 
   const sortedUsage = (data?.usage ?? []).slice().sort((a, b) => {
@@ -119,7 +121,7 @@ export default function BillingPage() {
           <p className="mt-1 text-sm text-slate-500">查看当前方案、用量与功能权益</p>
         </div>
         <button onClick={() => { setLoading(true); void loadBilling(); }} className="app-button-secondary self-start">
-          <RefreshCw size={16} />刷新
+          <RefreshCw size={16} />{t("workspace.refresh")}
         </button>
       </header>
 

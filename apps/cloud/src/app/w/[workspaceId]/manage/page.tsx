@@ -8,6 +8,7 @@ import {
   Settings, SlidersHorizontal, Trash2, Users, Zap,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import { useI18n } from "@/i18n/locale-provider";
 
 interface ManageCard {
   title: string;
@@ -33,6 +34,7 @@ const MANAGE_CARDS: ManageCard[] = [
 
 export default function ManagePage() {
   const workspaceId = useParams().workspaceId as string;
+  const { t } = useI18n();
   const [role, setRole] = useState<string | undefined>(undefined);
   const [loading, setLoading] = useState(true);
 
@@ -51,7 +53,7 @@ export default function ManagePage() {
   }, [workspaceId]);
 
   if (loading) {
-    return <p className="text-sm text-slate-400">加载中...</p>;
+    return <p className="text-sm text-slate-400">{t("workspace.loading")}</p>;
   }
 
   const canManageBilling = role === "owner" || role === "admin";

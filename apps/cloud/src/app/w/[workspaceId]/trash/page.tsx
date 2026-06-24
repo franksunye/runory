@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { RefreshCw, RotateCcw, Trash2, Package } from "lucide-react";
+import { useI18n } from "@/i18n/locale-provider";
 
 interface ObjectDef {
   objectKey: string;
@@ -17,6 +18,7 @@ interface DeletedRecord {
 export default function TrashPage() {
   const params = useParams();
   const workspaceId = params.workspaceId as string;
+  const { t } = useI18n();
 
   const [objects, setObjects] = useState<ObjectDef[]>([]);
   const [selectedObject, setSelectedObject] = useState<string | null>(null);
@@ -38,10 +40,10 @@ export default function TrashPage() {
           setSelectedObject(json.data[0].objectKey);
         }
       } else {
-        setError(json.error?.message ?? "加载失败");
+        setError(json.error?.message ?? t("workspace.loadFailed"));
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : "加载失败");
+      setError(e instanceof Error ? e.message : t("workspace.loadFailed"));
     } finally {
       setLoading(false);
     }
@@ -59,11 +61,11 @@ export default function TrashPage() {
         setRecords(json.data);
       } else {
         setRecords([]);
-        setError(json.error?.message ?? "加载失败");
+        setError(json.error?.message ?? t("workspace.loadFailed"));
       }
     } catch (e) {
       setRecords([]);
-      setError(e instanceof Error ? e.message : "加载失败");
+      setError(e instanceof Error ? e.message : t("workspace.loadFailed"));
     } finally {
       setLoadingRecords(false);
     }
@@ -131,7 +133,7 @@ export default function TrashPage() {
   };
 
   if (loading) {
-    return <p className="text-sm text-slate-400">加载中...</p>;
+    return <p className="text-sm text-slate-400">{t("workspace.loading")}</p>;
   }
 
   const currentObject = objects.find((o) => o.objectKey === selectedObject);
@@ -151,7 +153,7 @@ export default function TrashPage() {
           onClick={() => { if (selectedObject) loadRecords(selectedObject); }}
           className="app-button-secondary"
         >
-          <RefreshCw size={16} />刷新
+          <RefreshCw size={16} />{t("workspace.refresh")}
         </button>
       </header>
 
@@ -190,7 +192,7 @@ export default function TrashPage() {
           {/* Records table */}
           <div className="app-card overflow-hidden">
             {loadingRecords ? (
-              <div className="p-8 text-center text-sm text-slate-400">加载中...</div>
+              <div className="p-8 text-center text-sm text-slate-400">{t("workspace.loading")}</div>
             ) : records.length === 0 ? (
               <div className="p-8 text-center">
                 <Trash2 size={32} className="mx-auto text-slate-300" />

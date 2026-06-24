@@ -16,6 +16,7 @@ import {
   type WorkspaceRecord,
 } from "@/lib/api-hooks";
 import { notifyWorkspaceDataChanged } from "@/lib/workspace-events";
+import { useI18n } from "@/i18n/locale-provider";
 
 export interface ParentLinkConfig {
   /** Field on this record that holds the parent record's id */
@@ -68,6 +69,7 @@ function ParentLinkPanel({
   record: WorkspaceRecord;
   config: ParentLinkConfig;
 }) {
+  const { t } = useI18n();
   const parentId = record[config.foreignKey] as string | undefined;
   const { data: parentRecord } = useSWR<WorkspaceRecord>(
     parentId ? `/api/workspaces/${workspaceId}/objects/${config.parentObjectKey}/records/${parentId}` : null
@@ -86,7 +88,7 @@ function ParentLinkPanel({
             {String(parentRecord[config.titleField] ?? parentId)}
           </Link>
         ) : (
-          <span className="text-slate-400">加载中...</span>
+          <span className="text-slate-400">{t("workspace.loading")}</span>
         )}
       </div>
     </div>
@@ -102,6 +104,7 @@ function RelatedRecordsPanel({
   recordId: string;
   config: RelatedRecordsConfig;
 }) {
+  const { t } = useI18n();
   const { data: allRecords = [] } = useRecords(workspaceId, config.objectKey, {
     search: recordId,
   });
@@ -123,7 +126,7 @@ function RelatedRecordsPanel({
               href={`${routeBase}/${r.id}`}
               className="text-sm font-medium text-blue-600 hover:text-blue-800"
             >
-              {String(r[config.titleField] ?? "未命名")}
+              {String(r[config.titleField] ?? t("workspace.recordNotFound"))}
             </Link>
             {config.secondaryFields?.map((sf) =>
               r[sf] ? (
@@ -153,6 +156,7 @@ export default function ObjectDetailPage({
   const router = useRouter();
   const workspaceId = params.workspaceId as string;
   const recordId = params.id as string;
+  const { t } = useI18n();
 
   const { data: objDetail, isLoading: loadingObj } = useFields(workspaceId, objectKey);
   const { data: views = [], isLoading: loadingViews } = useViews(workspaceId, objectKey);
@@ -222,17 +226,17 @@ export default function ObjectDetailPage({
         notifyWorkspaceDataChanged();
         setEditing(false);
       } else {
-        setError(json.error?.message ?? "更新失败");
+        setError(json.error?.message ?? t("workspace.updateFailed"));
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : "更新失败");
+      setError(e instanceof Error ? e.message : t("workspace.updateFailed"));
     } finally {
       setSubmitting(false);
     }
   };
 
   const handleDelete = async () => {
-    if (!confirm(`确定要删除此${label}吗？此操作不可撤销。`)) return;
+    if (!confirm(t("workspace.deleteConfirm", { label }))) return;
     setDeleting(true);
     setError(null);
     try {
@@ -246,17 +250,17 @@ export default function ObjectDetailPage({
         router.push(basePath);
         router.refresh();
       } else {
-        setError(json.error?.message ?? "删除失败");
+        setError(json.error?.message ?? t("workspace.deleteFailed"));
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : "删除失败");
+      setError(e instanceof Error ? e.message : t("workspace.deleteFailed"));
     } finally {
       setDeleting(false);
     }
   };
 
   if (loading) {
-    return <p className="text-sm text-slate-400">加载中...</p>;
+    return <p className="text-sm text-slate-400">{t("workspace.loading")}</p>;
   }
 
   if (!record) {
@@ -264,14 +268,14 @@ export default function ObjectDetailPage({
       <div className="space-y-4">
         {(error || recordError) && (
           <div className="rounded-md bg-red-50 px-4 py-3 text-sm text-red-700">
-            {error ?? (recordError instanceof Error ? recordError.message : "记录不存在")}
+            {error ?? (recordError instanceof Error ? recordError.message : t("workspace.recordNotFound"))}
           </div>
         )}
         <Link
           href={basePath}
           className="text-sm font-medium text-blue-600 hover:text-blue-800"
         >
-          ← {backLabel ?? `返回${title}列表`}
+          ← {backLabel ?? t("workspace.backToList", { title })}
         </Link>
       </div>
     );
@@ -285,10 +289,10 @@ export default function ObjectDetailPage({
             href={basePath}
             className="text-xs font-medium text-blue-600 hover:text-blue-800"
           >
-            ← {backLabel ?? `返回${title}列表`}
+            ← {backLabel ?? t("workspace.backToList", { title })}
           </Link>
           <h1 className="mt-1 text-2xl font-bold text-slate-900">
-            {title}详情
+            {t("workspace.detailTitle", { title })}
           </h1>
         </div>
         {!editing && (
@@ -298,7 +302,7 @@ export default function ObjectDetailPage({
               onClick={() => setEditing(true)}
               className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
             >
-              编辑
+              {t("workspace.edit")}
             </button>
             <button
               type="button"
@@ -306,7 +310,7 @@ export default function ObjectDetailPage({
               disabled={deleting}
               className="rounded-md border border-red-300 bg-white px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-50 disabled:opacity-50"
             >
-              {deleting ? "删除中..." : "删除"}
+              {deleting ? t("workspace.deleting") : t("workspace.delete")}
             </button>
           </div>
         )}
@@ -324,7 +328,7 @@ export default function ObjectDetailPage({
           viewConfig={viewConfig}
           initialValues={record}
           onSubmit={handleUpdate}
-          submitLabel={submitting ? "保存中..." : "保存"}
+          submitLabel={submitting ? t("workspace.saving") : t("workspace.save")}
           workspaceId={workspaceId}
         />
       ) : (
@@ -340,15 +344,15 @@ export default function ObjectDetailPage({
                     {field.label}
                     {isExtension && (
                       <span className="rounded bg-purple-100 px-1 text-[10px] font-medium text-purple-700">
-                        扩展
+                        {t("workspace.extension")}
                       </span>
                     )}
                   </dt>
                   <dd className="mt-1 text-sm text-slate-900">
                     {field.type === "boolean"
                       ? value
-                        ? "是"
-                        : "否"
+                        ? t("workspace.yes")
+                        : t("workspace.no")
                       : value === null || value === undefined || value === ""
                         ? "—"
                         : String(value)}
@@ -387,9 +391,9 @@ export default function ObjectDetailPage({
           )}
 
           <div className="mt-4 border-t border-slate-100 pt-4 text-xs text-slate-400">
-            <p>记录 ID：{String(record.id ?? "")}</p>
-            <p>创建时间：{String(record.created_at ?? "")}</p>
-            <p>更新时间：{String(record.updated_at ?? "")}</p>
+            <p>{t("workspace.recordId", { id: String(record.id ?? "") })}</p>
+            <p>{t("workspace.createdAt", { time: String(record.created_at ?? "") })}</p>
+            <p>{t("workspace.updatedAt", { time: String(record.updated_at ?? "") })}</p>
           </div>
         </div>
       )}

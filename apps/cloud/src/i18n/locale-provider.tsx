@@ -8,7 +8,7 @@ import { messages, type MessageKey } from "./messages";
 interface LocaleContextValue {
   locale: Locale;
   setLocale: (locale: Locale) => void;
-  t: (key: MessageKey) => string;
+  t: (key: MessageKey, params?: Record<string, string | number>) => string;
 }
 
 const LocaleContext = createContext<LocaleContextValue | null>(null);
@@ -25,8 +25,14 @@ export function LocaleProvider({ initialLocale, children }: { initialLocale: Loc
       document.documentElement.lang = nextLocale === "zh" ? "zh-CN" : "en";
       router.refresh();
     },
-    t(key) {
-      return messages[locale][key];
+    t(key, params) {
+      let str = messages[locale][key] ?? key;
+      if (params) {
+        for (const [k, v] of Object.entries(params)) {
+          str = str.replace(new RegExp(`\\{${k}\\}`, "g"), String(v));
+        }
+      }
+      return str;
     },
   }), [locale, router]);
 

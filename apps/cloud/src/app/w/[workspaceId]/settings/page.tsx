@@ -13,6 +13,7 @@ import {
   SlidersHorizontal,
   Trash2,
 } from "lucide-react";
+import { useI18n } from "@/i18n/locale-provider";
 
 type OrgRole = "owner" | "admin" | "member";
 
@@ -39,6 +40,7 @@ function formatDate(iso: string): string {
 export default function SettingsPage() {
   const params = useParams();
   const workspaceId = params.workspaceId as string;
+  const { t } = useI18n();
 
   const [workspace, setWorkspace] = useState<WorkspaceInfo | null>(null);
   const [loading, setLoading] = useState(true);
@@ -66,10 +68,10 @@ export default function SettingsPage() {
         setWorkspace(json.data);
         setNameValue(json.data.name);
       } else {
-        setError(json.error?.message ?? "加载失败");
+        setError(json.error?.message ?? t("workspace.loadFailed"));
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : "加载失败");
+      setError(e instanceof Error ? e.message : t("workspace.loadFailed"));
     } finally {
       setLoading(false);
     }
@@ -135,7 +137,7 @@ export default function SettingsPage() {
   };
 
   if (loading) {
-    return <p className="text-sm text-slate-400">加载中...</p>;
+    return <p className="text-sm text-slate-400">{t("workspace.loading")}</p>;
   }
 
   return (
@@ -151,7 +153,7 @@ export default function SettingsPage() {
           onClick={() => { setLoading(true); void loadData(); }}
           className="app-button-secondary self-start"
         >
-          <RefreshCw size={16} />刷新
+          <RefreshCw size={16} />{t("workspace.refresh")}
         </button>
       </header>
 
@@ -207,14 +209,14 @@ export default function SettingsPage() {
                     className="inline-flex items-center gap-1 rounded-lg bg-indigo-600 px-3 py-2 text-xs font-semibold text-white hover:bg-indigo-700 disabled:opacity-50"
                   >
                     <Save size={14} />
-                    {savingName ? "保存中..." : "保存"}
+                    {savingName ? t("workspace.saving") : t("workspace.save")}
                   </button>
                   <button
                     type="button"
                     onClick={handleCancelEditName}
                     className="inline-flex items-center gap-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50"
                   >
-                    取消
+                    {t("workspace.cancel")}
                   </button>
                 </div>
               ) : (
@@ -226,7 +228,7 @@ export default function SettingsPage() {
                       onClick={() => { setEditingName(true); setNameValue(workspace?.name ?? ""); }}
                       className="inline-flex items-center gap-1 rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50"
                     >
-                      <Pencil size={13} />编辑
+                      <Pencil size={13} />{t("workspace.edit")}
                     </button>
                   )}
                 </div>
@@ -326,7 +328,7 @@ export default function SettingsPage() {
                 onClick={() => { setConfirmDelete(false); setDeleteConfirmText(""); }}
                 className="app-button-secondary"
               >
-                取消
+                {t("workspace.cancel")}
               </button>
               <button
                 type="button"
@@ -335,7 +337,7 @@ export default function SettingsPage() {
                 className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-red-600 px-4 text-sm font-semibold text-white transition hover:bg-red-700 disabled:opacity-60"
               >
                 <Check size={16} />
-                {deleting ? "删除中..." : "确认删除"}
+                {deleting ? t("workspace.deleting") : "确认删除"}
               </button>
             </div>
           </div>

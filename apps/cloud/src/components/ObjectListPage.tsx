@@ -12,6 +12,7 @@ import {
   useRecords,
   useWorkspaceChangeEvent,
 } from "@/lib/api-hooks";
+import { useI18n } from "@/i18n/locale-provider";
 
 export interface SortOption {
   value: string;
@@ -49,6 +50,7 @@ export default function ObjectListPage({
   const params = useParams();
   const router = useRouter();
   const workspaceId = params.workspaceId as string;
+  const { t } = useI18n();
 
   const { data: installations = [], isLoading: loadingInst } = useInstallations(workspaceId);
   const { data: objDetail, isLoading: loadingObj } = useFields(workspaceId, objectKey);
@@ -110,7 +112,7 @@ export default function ObjectListPage({
   };
 
   if (loading) {
-    return <p className="text-sm text-slate-400">加载中...</p>;
+    return <p className="text-sm text-slate-400">{t("workspace.loading")}</p>;
   }
 
   const totalCount = records.length;
@@ -138,15 +140,15 @@ export default function ObjectListPage({
 
       {!hasPack ? (
         <div className="rounded-lg border border-blue-200 bg-blue-50 p-8 text-center">
-          <p className="text-base font-semibold text-blue-800">尚未安装业务模块</p>
+          <p className="text-base font-semibold text-blue-800">{t("workspace.noPack")}</p>
           <p className="mt-1 text-sm text-blue-700">
-            {packName ? `安装 ${packName} 后即可开始使用。` : "安装相关业务模块后即可开始使用。"}
+            {packName ? t("workspace.noPackHint", { packName }) : t("workspace.noPackHint", { packName: "" })}
           </p>
           <Link
             href={`/w/${workspaceId}/dashboard`}
             className="mt-4 inline-block rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
           >
-            前往工作台
+            {t("workspace.goDashboard")}
           </Link>
         </div>
       ) : viewConfig ? (
@@ -155,10 +157,12 @@ export default function ObjectListPage({
             <div className="rounded-lg border border-purple-200 bg-purple-50 px-4 py-3 text-sm text-purple-900">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div>
-                  <p className="font-semibold">新的工作区字段已可用</p>
+                  <p className="font-semibold">{t("workspace.extensionNotice")}</p>
                   <p className="mt-1 text-purple-800">
-                    {extensionFields.map((f) => f.label).join(", ")}
-                    {" "}已加入 {title} 列表和表单。此提示仅在字段变更后出现一次。
+                    {t("workspace.extensionNoticeBody", {
+                      fields: extensionFields.map((f) => f.label).join(", "),
+                      title,
+                    })}
                   </p>
                 </div>
                 <button
@@ -166,7 +170,7 @@ export default function ObjectListPage({
                   onClick={dismissExtensionNotice}
                   className="min-w-fit rounded-md border border-purple-300 bg-white px-3 py-1.5 text-xs font-semibold text-purple-800 hover:bg-purple-100"
                 >
-                  知道了
+                  {t("workspace.dismiss")}
                 </button>
               </div>
             </div>
@@ -193,29 +197,29 @@ export default function ObjectListPage({
             </select>
           </div>
 
-          <p className="text-xs text-slate-500">共 {totalCount} 条记录</p>
+          <p className="text-xs text-slate-500">{t("workspace.recordCount", { count: totalCount })}</p>
 
           {totalCount === 0 ? (
             isSearching ? (
               <div className="rounded-lg border border-slate-200 bg-white p-8 text-center">
-                <p className="text-sm text-slate-500">没有找到匹配的记录</p>
+                <p className="text-sm text-slate-500">{t("workspace.noResults")}</p>
                 <button
                   type="button"
                   onClick={() => setSearchInput("")}
                   className="mt-3 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
                 >
-                  清除搜索
+                  {t("workspace.clearSearch")}
                 </button>
               </div>
             ) : (
               <div className="rounded-lg border border-slate-200 bg-white p-8 text-center">
-                <p className="text-sm text-slate-500">还没有{title}记录</p>
+                <p className="text-sm text-slate-500">{t("workspace.noRecords", { title })}</p>
                 <button
                   type="button"
                   onClick={() => router.push(`${basePath}/new`)}
                   className="mt-3 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
                 >
-                  添加第一个{title}
+                  {t("workspace.addFirst", { title })}
                 </button>
               </div>
             )
@@ -236,7 +240,7 @@ export default function ObjectListPage({
                     onClick={() => setVisibleCount((c) => c + pageSize)}
                     className="rounded-md border border-slate-300 bg-white px-6 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
                   >
-                    加载更多
+                    {t("workspace.loadMore")}
                   </button>
                 </div>
               )}
@@ -244,7 +248,7 @@ export default function ObjectListPage({
           )}
         </div>
       ) : (
-        <p className="text-sm text-slate-500">未找到列表视图配置。</p>
+        <p className="text-sm text-slate-500">{t("workspace.viewNotFound")}</p>
       )}
     </div>
   );

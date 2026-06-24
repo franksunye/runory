@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { RefreshCw } from "lucide-react";
 import type { AuditLog } from "@runory/platform-core";
+import { useI18n } from "@/i18n/locale-provider";
 
 type EventCategory = "create" | "update" | "delete" | "extension" | "system";
 
@@ -70,6 +71,7 @@ function summarizeEntity(log: AuditLog): string {
 
 export default function ActivityPage() {
   const workspaceId = useParams().workspaceId as string;
+  const { t } = useI18n();
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -83,10 +85,10 @@ export default function ActivityPage() {
       if (json.success) {
         setLogs(json.data);
       } else {
-        setError(json.error?.message ?? "加载失败");
+        setError(json.error?.message ?? t("workspace.loadFailed"));
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : "加载失败");
+      setError(e instanceof Error ? e.message : t("workspace.loadFailed"));
     } finally {
       setLoading(false);
     }
@@ -97,7 +99,7 @@ export default function ActivityPage() {
   }, [load]);
 
   if (loading) {
-    return <p className="text-sm text-slate-400">加载中...</p>;
+    return <p className="text-sm text-slate-400">{t("workspace.loading")}</p>;
   }
 
   const visible = logs.slice(0, visibleCount);
@@ -112,7 +114,7 @@ export default function ActivityPage() {
           <p className="mt-2 text-sm text-slate-500">工作区内最近的业务变更与操作动态（共 {logs.length} 条）</p>
         </div>
         <button onClick={() => { setLoading(true); setVisibleCount(PAGE_SIZE); void load(); }} className="app-button-secondary self-start">
-          <RefreshCw size={16} />刷新
+          <RefreshCw size={16} />{t("workspace.refresh")}
         </button>
       </header>
 

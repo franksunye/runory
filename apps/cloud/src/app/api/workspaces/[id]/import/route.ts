@@ -64,7 +64,7 @@ export async function POST(
       workspaceId,
       actorType: ctx.principal?.authMethod === "api_key" ? "api_key" : "user",
       actorId: ctx.principal?.userId ?? "unknown",
-      action: "admin.import",
+      action: "workspace.import",
       entityType: "workspace",
       entityId: workspaceId,
       before: null,
