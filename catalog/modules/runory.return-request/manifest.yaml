@@ -1,0 +1,298 @@
+id: runory.return-request
+name: Return Request
+version: 1.0.0
+coreCompatibility: ">=0.1.0"
+
+dependencies:
+  - runory.company
+  - runory.contact
+
+objects:
+  - key: return_request
+    label: Return Request
+    fields:
+      - key: return_number
+        label: 退货编号
+        type: text
+        ownership: module_owned
+        required: true
+      - key: reason
+        label: 退货原因
+        type: text
+        ownership: module_owned
+        required: true
+      - key: status
+        label: 状态
+        type: select
+        ownership: module_owned
+        required: true
+        default_value: "requested"
+        validation:
+          options: ["requested", "approved", "rejected", "in_transit", "received", "refunded", "closed"]
+      - key: priority
+        label: 优先级
+        type: select
+        ownership: module_owned
+        required: true
+        default_value: "medium"
+        validation:
+          options: ["low", "medium", "high", "urgent"]
+      - key: return_type
+        label: 退货类型
+        type: select
+        ownership: module_owned
+        required: true
+        default_value: "defective"
+        validation:
+          options: ["defective", "wrong_item", "not_needed", "warranty_claim", "upgrade"]
+      - key: quantity
+        label: 数量
+        type: number
+        ownership: module_owned
+        default_value: "1"
+      - key: requested_at
+        label: 申请时间
+        type: date
+        ownership: module_owned
+      - key: received_at
+        label: 收货时间
+        type: date
+        ownership: module_owned
+      - key: refunded_at
+        label: 退款时间
+        type: date
+        ownership: module_owned
+      - key: company_id
+        label: 关联公司
+        type: text
+        ownership: module_owned
+      - key: contact_id
+        label: 关联联系人
+        type: text
+        ownership: module_owned
+      - key: asset_id
+        label: 关联资产
+        type: text
+        ownership: module_owned
+      - key: ticket_id
+        label: 关联工单
+        type: text
+        ownership: module_owned
+      - key: work_order_id
+        label: 关联工单（FSM）
+        type: text
+        ownership: module_owned
+      - key: refund_amount
+        label: 退款金额
+        type: number
+        ownership: module_owned
+      - key: assigned_to
+        label: 分配给
+        type: text
+        ownership: module_owned
+      - key: owner
+        label: 负责人
+        type: text
+        ownership: module_owned
+      - key: notes
+        label: 备注
+        type: text
+        ownership: module_owned
+
+views:
+  - object: return_request
+    key: return_request_list
+    type: list
+    label: 退货列表
+    config:
+      columns:
+        - field: return_number
+          label: 退货编号
+        - field: reason
+          label: 退货原因
+        - field: status
+          label: 状态
+        - field: priority
+          label: 优先级
+        - field: return_type
+          label: 退货类型
+        - field: assigned_to
+          label: 分配给
+      actions:
+        - create
+        - view
+      pageSize: 20
+
+  - object: return_request
+    key: return_request_form
+    type: form
+    label: 退货表单
+    config:
+      sections:
+        - title: 基本信息
+          fields:
+            - field: return_number
+              required: true
+            - field: reason
+              required: true
+            - field: status
+              required: true
+            - field: priority
+              required: true
+            - field: return_type
+              required: true
+            - field: quantity
+        - title: 时间与金额
+          fields:
+            - field: requested_at
+            - field: received_at
+            - field: refunded_at
+            - field: refund_amount
+        - title: 关联
+          fields:
+            - field: company_id
+            - field: contact_id
+            - field: asset_id
+            - field: ticket_id
+            - field: work_order_id
+        - title: 元数据
+          fields:
+            - field: assigned_to
+            - field: owner
+            - field: notes
+
+permissions:
+  - return_request.read
+  - return_request.create
+  - return_request.update
+  - return_request.delete
+
+# ── Cross-Pack Relations (v0.2.9) ──
+relations:
+  - object: return_request
+    targetObject: company
+    targetModule: runory.company
+    type: many_to_one
+    foreignKey: company_id
+    label: 关联公司
+  - object: return_request
+    targetObject: contact
+    targetModule: runory.contact
+    type: many_to_one
+    foreignKey: contact_id
+    label: 关联联系人
+  - object: return_request
+    targetObject: asset
+    targetModule: runory.asset
+    type: many_to_one
+    foreignKey: asset_id
+    label: 关联资产
+  - object: return_request
+    targetObject: ticket
+    targetModule: runory.ticket
+    type: many_to_one
+    foreignKey: ticket_id
+    label: 关联工单
+  - object: return_request
+    targetObject: work_order
+    targetModule: runory.work-order
+    type: many_to_one
+    foreignKey: work_order_id
+    label: 关联工单（FSM）
+
+migrations:
+  install: migrations/install.sql
+  uninstallPolicy: retain_data
+
+ui:
+  navigation:
+    - label: 退货
+      route: /return-requests
+      icon: corner-up-left
+      sortOrder: 72
+
+extensionPoints:
+  entities:
+    - entity: return_request
+      customFields:
+        enabled: true
+        allowedTypes: [text, number, date, select, boolean]
+        maxFields: 10
+        reservedKeys: [id, return_number, reason, status, priority, return_type, quantity, requested_at, received_at, refunded_at, company_id, contact_id, asset_id, ticket_id, work_order_id, refund_amount, assigned_to, owner, notes, created_at, updated_at]
+      customRelations:
+        enabled: false
+  views:
+    - view: return_request_list
+      slots:
+        - id: return_request.list.columns
+          type: column_group
+          allowedExtensions: [customField]
+          risk: low
+      allowReorder: true
+      allowFilters: true
+      allowPageSizeChange: true
+    - view: return_request_form
+      slots:
+        - id: return_request.form.basic_fields.after
+          type: field_group
+          allowedExtensions: [customField]
+          risk: low
+      allowAddSection: true
+      allowAddAction: true
+
+dashboard:
+  widgets:
+    - key: open_returns_metric
+      type: metric_card
+      label: 待处理退货
+      icon: corner-up-left
+      tone: amber
+      data:
+        kind: count
+        object: return_request
+        where: "status IN ('requested', 'approved', 'in_transit')"
+      link: /return-requests
+
+    - key: completed_returns_metric
+      type: metric_card
+      label: 已完成退货
+      icon: check-circle
+      tone: emerald
+      data:
+        kind: count
+        object: return_request
+        where: "status IN ('received', 'refunded', 'closed')"
+      link: /return-requests
+
+    - key: return_status_breakdown
+      type: breakdown
+      label: 退货状态分布
+      icon: pie-chart
+      tone: cyan
+      data:
+        kind: group_count
+        object: return_request
+        groupBy: status
+
+    - key: recent_returns_list
+      type: list
+      label: 最近退货
+      icon: corner-up-left
+      tone: cyan
+      data:
+        kind: recent
+        object: return_request
+        orderBy: "created_at desc"
+        limit: 8
+        columns: [return_number, reason, status, priority, assigned_to]
+      link: /return-requests
+      configurable:
+        - path: data.limit
+          label: 显示条数
+          type: number
+          min: 1
+          max: 20
+
+upgradePolicy:
+  supportsWorkspaceExtensions: true
+  breakingChangePolicy: manual_review

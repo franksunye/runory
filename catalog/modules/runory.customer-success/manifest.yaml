@@ -1,0 +1,326 @@
+id: runory.customer-success
+name: Customer Success
+version: 1.0.0
+coreCompatibility: ">=0.1.0"
+
+dependencies:
+  - runory.company
+  - runory.contact
+
+objects:
+  - key: customer_success
+    label: Customer Success
+    fields:
+      - key: followup_number
+        label: 跟进编号
+        type: text
+        ownership: module_owned
+        required: true
+      - key: subject
+        label: 主题
+        type: text
+        ownership: module_owned
+        required: true
+      - key: status
+        label: 状态
+        type: select
+        ownership: module_owned
+        required: true
+        default_value: "scheduled"
+        validation:
+          options: ["scheduled", "in_progress", "completed", "cancelled", "overdue"]
+      - key: followup_type
+        label: 跟进类型
+        type: select
+        ownership: module_owned
+        required: true
+        default_value: "check_in"
+        validation:
+          options: ["check_in", "onboarding", "renewal", "upsell", "satisfaction", "escalation"]
+      - key: priority
+        label: 优先级
+        type: select
+        ownership: module_owned
+        required: true
+        default_value: "medium"
+        validation:
+          options: ["low", "medium", "high", "urgent"]
+      - key: scheduled_at
+        label: 计划时间
+        type: date
+        ownership: module_owned
+      - key: completed_at
+        label: 完成时间
+        type: date
+        ownership: module_owned
+      - key: company_id
+        label: 关联公司
+        type: text
+        ownership: module_owned
+      - key: contact_id
+        label: 关联联系人
+        type: text
+        ownership: module_owned
+      - key: deal_id
+        label: 关联商机
+        type: text
+        ownership: module_owned
+      - key: task_id
+        label: 关联任务
+        type: text
+        ownership: module_owned
+      - key: outcome
+        label: 跟进结果
+        type: text
+        ownership: module_owned
+        description: "Summary of the follow-up outcome"
+      - key: satisfaction_score
+        label: 满意度评分
+        type: number
+        ownership: module_owned
+        description: "1-10 scale satisfaction score"
+      - key: assigned_to
+        label: 分配给
+        type: text
+        ownership: module_owned
+      - key: owner
+        label: 负责人
+        type: text
+        ownership: module_owned
+      - key: notes
+        label: 备注
+        type: text
+        ownership: module_owned
+
+views:
+  - object: customer_success
+    key: customer_success_list
+    type: list
+    label: 客户成功列表
+    config:
+      columns:
+        - field: followup_number
+          label: 跟进编号
+        - field: subject
+          label: 主题
+        - field: status
+          label: 状态
+        - field: followup_type
+          label: 跟进类型
+        - field: priority
+          label: 优先级
+        - field: scheduled_at
+          label: 计划时间
+        - field: assigned_to
+          label: 分配给
+      actions:
+        - create
+        - view
+      pageSize: 20
+
+  - object: customer_success
+    key: customer_success_form
+    type: form
+    label: 客户成功表单
+    config:
+      sections:
+        - title: 基本信息
+          fields:
+            - field: followup_number
+              required: true
+            - field: subject
+              required: true
+            - field: status
+              required: true
+            - field: followup_type
+              required: true
+            - field: priority
+              required: true
+        - title: 时间
+          fields:
+            - field: scheduled_at
+            - field: completed_at
+        - title: 关联
+          fields:
+            - field: company_id
+            - field: contact_id
+            - field: deal_id
+            - field: task_id
+        - title: 结果与元数据
+          fields:
+            - field: outcome
+            - field: satisfaction_score
+            - field: assigned_to
+            - field: owner
+            - field: notes
+
+permissions:
+  - customer_success.read
+  - customer_success.create
+  - customer_success.update
+  - customer_success.delete
+
+# ── Cross-Pack Relations (v0.2.9) ──
+relations:
+  - object: customer_success
+    targetObject: company
+    targetModule: runory.company
+    type: many_to_one
+    foreignKey: company_id
+    label: 关联公司
+  - object: customer_success
+    targetObject: contact
+    targetModule: runory.contact
+    type: many_to_one
+    foreignKey: contact_id
+    label: 关联联系人
+  - object: customer_success
+    targetObject: deal
+    targetModule: runory.deal
+    type: many_to_one
+    foreignKey: deal_id
+    label: 关联商机
+  - object: customer_success
+    targetObject: task
+    targetModule: runory.task
+    type: many_to_one
+    foreignKey: task_id
+    label: 关联任务
+
+migrations:
+  install: migrations/install.sql
+  uninstallPolicy: retain_data
+
+ui:
+  navigation:
+    - label: 客户成功
+      route: /customer-success
+      icon: heart
+      sortOrder: 75
+
+extensionPoints:
+  entities:
+    - entity: customer_success
+      customFields:
+        enabled: true
+        allowedTypes: [text, number, date, select, boolean]
+        maxFields: 10
+        reservedKeys: [id, followup_number, subject, status, followup_type, priority, scheduled_at, completed_at, company_id, contact_id, deal_id, task_id, outcome, satisfaction_score, assigned_to, owner, notes, created_at, updated_at]
+      customRelations:
+        enabled: false
+  views:
+    - view: customer_success_list
+      slots:
+        - id: customer_success.list.columns
+          type: column_group
+          allowedExtensions: [customField]
+          risk: low
+      allowReorder: true
+      allowFilters: true
+      allowPageSizeChange: true
+    - view: customer_success_form
+      slots:
+        - id: customer_success.form.basic_fields.after
+          type: field_group
+          allowedExtensions: [customField]
+          risk: low
+      allowAddSection: true
+      allowAddAction: true
+
+dashboard:
+  widgets:
+    - key: open_followups_metric
+      type: metric_card
+      label: 待处理跟进
+      icon: heart
+      tone: amber
+      data:
+        kind: count
+        object: customer_success
+        where: "status IN ('scheduled', 'in_progress')"
+      link: /customer-success
+
+    - key: overdue_followups_metric
+      type: metric_card
+      label: 逾期跟进
+      icon: alert-triangle
+      tone: red
+      data:
+        kind: count
+        object: customer_success
+        where: "status = 'overdue'"
+      link: /customer-success
+
+    - key: completed_followups_metric
+      type: metric_card
+      label: 已完成跟进
+      icon: check-circle
+      tone: emerald
+      data:
+        kind: count
+        object: customer_success
+        where: "status = 'completed'"
+      link: /customer-success
+
+    - key: followup_status_breakdown
+      type: breakdown
+      label: 跟进状态分布
+      icon: pie-chart
+      tone: cyan
+      data:
+        kind: group_count
+        object: customer_success
+        groupBy: status
+
+    - key: followup_type_breakdown
+      type: breakdown
+      label: 跟进类型分布
+      icon: pie-chart
+      tone: violet
+      data:
+        kind: group_count
+        object: customer_success
+        groupBy: followup_type
+
+    - key: recent_followups_list
+      type: list
+      label: 最近跟进
+      icon: heart
+      tone: cyan
+      data:
+        kind: recent
+        object: customer_success
+        orderBy: "created_at desc"
+        limit: 8
+        columns: [followup_number, subject, status, followup_type, assigned_to]
+      link: /customer-success
+      configurable:
+        - path: data.limit
+          label: 显示条数
+          type: number
+          min: 1
+          max: 20
+
+    - key: overdue_followups_list
+      type: list
+      label: 逾期跟进
+      icon: alert-triangle
+      tone: red
+      data:
+        kind: recent
+        object: customer_success
+        where: "status = 'overdue'"
+        orderBy: "scheduled_at asc"
+        limit: 5
+        columns: [followup_number, subject, scheduled_at, assigned_to]
+      link: /customer-success
+      configurable:
+        - path: data.limit
+          label: 显示条数
+          type: number
+          min: 1
+          max: 20
+
+upgradePolicy:
+  supportsWorkspaceExtensions: true
+  breakingChangePolicy: manual_review

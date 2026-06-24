@@ -1,0 +1,51 @@
+id: small-business-after-sales
+name: Small Business After-sales
+version: 1.0.0
+
+terminology:
+  customer: 客户
+  warranty: 保修
+  entitlement: 权益
+  return_request: 退货
+  repair_request: 维修
+  maintenance_plan: 维保计划
+  customer_success: 客户成功
+
+navigation:
+  - dashboard
+  - warranties
+  - entitlements
+  - repair-requests
+  - return-requests
+  - maintenance-plans
+  - customer-success
+  - companies
+  - contacts
+  - tasks
+
+homepage:
+  layout: after_sales_overview
+  widgets:
+    - active_warranties
+    - open_repairs
+    - upcoming_visits
+    - overdue_followups
+
+roleEntry:
+  owner: /dashboard
+  agent: /repair-requests
+  success: /customer-success
+
+compatiblePacks:
+  - "after-sales-pack:^1.0.0"
+
+compatibleModules:
+  - "runory.company:^1.0.0"
+  - "runory.contact:^1.0.0"
+  - "runory.task:^1.0.0"
+  - "runory.warranty:^1.0.0"
+  - "runory.entitlement:^1.0.0"
+  - "runory.return-request:^1.0.0"
+  - "runory.repair-request:^1.0.0"
+  - "runory.maintenance-plan:^1.0.0"
+  - "runory.customer-success:^1.0.0"

@@ -1,0 +1,73 @@
+id: after-sales-pack
+name: After-sales Service Pack
+version: 1.0.0
+coreCompatibility: ">=0.1.0"
+
+# After-sales Service Pack adds post-sale obligations: warranty,
+# entitlement, return/repair requests, maintenance plans, and customer
+# success follow-ups. It composes shared business modules (company,
+# contact, task) with 6 after-sales-specific modules. Cross-pack
+# relations to FSM (asset, work_order), Sales Quote (quote,
+# product_service), and Customer Service (ticket) work when those packs
+# are also installed, and gracefully resolve to null otherwise.
+modules:
+  - "runory.company:^1.0.0"
+  - "runory.contact:^1.0.0"
+  - "runory.task:^1.0.0"
+  - "runory.warranty:^1.0.0"
+  - "runory.entitlement:^1.0.0"
+  - "runory.return-request:^1.0.0"
+  - "runory.repair-request:^1.0.0"
+  - "runory.maintenance-plan:^1.0.0"
+  - "runory.customer-success:^1.0.0"
+
+defaultTemplate: small-business-after-sales
+
+# Pack-specific terminology overlay (v0.2.3).
+terminology:
+  - object: company
+    label: 客户
+    navigationLabel: 客户
+    route: /companies
+
+# After-sales workbench — focuses on warranty coverage, repair status,
+# maintenance schedules, and customer success follow-ups.
+dashboard:
+  defaultLayout:
+    - zone: metrics
+      widgets:
+        - { module: runory.warranty,           widget: active_warranties_metric,        instance: default }
+        - { module: runory.warranty,           widget: expired_warranties_metric,       instance: default }
+        - { module: runory.repair-request,     widget: open_repairs_metric,             instance: default }
+        - { module: runory.maintenance-plan,   widget: active_plans_metric,             instance: default }
+        - { module: runory.customer-success,   widget: open_followups_metric,           instance: default }
+        - { module: runory.customer-success,   widget: overdue_followups_metric,        instance: default }
+
+    - zone: trends
+      widgets:
+        - { module: _platform, widget: business_activity_feed, instance: default }
+
+    - zone: lists
+      widgets:
+        - { module: runory.warranty,           widget: expiring_warranties_list,        instance: default }
+        - { module: runory.warranty,           widget: recent_warranties_list,          instance: default }
+        - { module: runory.repair-request,     widget: recent_repairs_list,             instance: default }
+        - { module: runory.maintenance-plan,   widget: upcoming_visits_list,            instance: default }
+        - { module: runory.maintenance-plan,   widget: recent_plans_list,               instance: default }
+        - { module: runory.customer-success,   widget: overdue_followups_list,          instance: default }
+        - { module: runory.customer-success,   widget: recent_followups_list,           instance: default }
+        - { module: runory.return-request,     widget: recent_returns_list,             instance: default }
+        - { module: runory.entitlement,        widget: recent_entitlements_list,        instance: default }
+        - { module: runory.warranty,           widget: warranty_status_breakdown,       instance: default }
+        - { module: runory.repair-request,     widget: repair_status_breakdown,         instance: default }
+        - { module: runory.maintenance-plan,   widget: plan_status_breakdown,           instance: default }
+        - { module: runory.customer-success,   widget: followup_status_breakdown,       instance: default }
+
+    - zone: activity
+      widgets:
+        - { module: _platform, widget: business_activity_feed, instance: default }
+
+marketplace:
+  category: after_sales
+  license: runory_official
+  publisher: runory

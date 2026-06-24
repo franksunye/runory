@@ -1,0 +1,283 @@
+id: runory.entitlement
+name: Entitlement
+version: 1.0.0
+coreCompatibility: ">=0.1.0"
+
+dependencies:
+  - runory.company
+  - runory.contact
+
+objects:
+  - key: entitlement
+    label: Entitlement
+    fields:
+      - key: entitlement_number
+        label: 权益编号
+        type: text
+        ownership: module_owned
+        required: true
+      - key: name
+        label: 名称
+        type: text
+        ownership: module_owned
+        required: true
+      - key: status
+        label: 状态
+        type: select
+        ownership: module_owned
+        required: true
+        default_value: "active"
+        validation:
+          options: ["active", "suspended", "expired", "consumed"]
+      - key: entitlement_type
+        label: 权益类型
+        type: select
+        ownership: module_owned
+        required: true
+        default_value: "support_hours"
+        validation:
+          options: ["support_hours", "visits", "discount", "service_credits", "priority_response"]
+      - key: total_value
+        label: 总量
+        type: number
+        ownership: module_owned
+        required: true
+        default_value: "0"
+      - key: consumed_value
+        label: 已用量
+        type: number
+        ownership: module_owned
+        default_value: "0"
+      - key: remaining_value
+        label: 剩余量
+        type: number
+        ownership: module_owned
+        description: "Auto-calculated: total - consumed"
+      - key: unit
+        label: 单位
+        type: text
+        ownership: module_owned
+        default_value: "hours"
+      - key: start_date
+        label: 开始日期
+        type: date
+        ownership: module_owned
+      - key: end_date
+        label: 结束日期
+        type: date
+        ownership: module_owned
+      - key: company_id
+        label: 关联公司
+        type: text
+        ownership: module_owned
+      - key: contact_id
+        label: 关联联系人
+        type: text
+        ownership: module_owned
+      - key: product_service_id
+        label: 关联产品/服务
+        type: text
+        ownership: module_owned
+      - key: asset_id
+        label: 关联资产
+        type: text
+        ownership: module_owned
+      - key: owner
+        label: 负责人
+        type: text
+        ownership: module_owned
+      - key: notes
+        label: 备注
+        type: text
+        ownership: module_owned
+
+views:
+  - object: entitlement
+    key: entitlement_list
+    type: list
+    label: 权益列表
+    config:
+      columns:
+        - field: entitlement_number
+          label: 权益编号
+        - field: name
+          label: 名称
+        - field: status
+          label: 状态
+        - field: entitlement_type
+          label: 权益类型
+        - field: total_value
+          label: 总量
+        - field: consumed_value
+          label: 已用量
+        - field: remaining_value
+          label: 剩余量
+      actions:
+        - create
+        - view
+      pageSize: 20
+
+  - object: entitlement
+    key: entitlement_form
+    type: form
+    label: 权益表单
+    config:
+      sections:
+        - title: 基本信息
+          fields:
+            - field: entitlement_number
+              required: true
+            - field: name
+              required: true
+            - field: status
+              required: true
+            - field: entitlement_type
+              required: true
+            - field: total_value
+              required: true
+            - field: consumed_value
+            - field: remaining_value
+            - field: unit
+        - title: 有效期
+          fields:
+            - field: start_date
+            - field: end_date
+        - title: 关联
+          fields:
+            - field: company_id
+            - field: contact_id
+            - field: product_service_id
+            - field: asset_id
+        - title: 元数据
+          fields:
+            - field: owner
+            - field: notes
+
+permissions:
+  - entitlement.read
+  - entitlement.create
+  - entitlement.update
+  - entitlement.delete
+
+# ── Cross-Pack Relations (v0.2.9) ──
+relations:
+  - object: entitlement
+    targetObject: company
+    targetModule: runory.company
+    type: many_to_one
+    foreignKey: company_id
+    label: 关联公司
+  - object: entitlement
+    targetObject: contact
+    targetModule: runory.contact
+    type: many_to_one
+    foreignKey: contact_id
+    label: 关联联系人
+  - object: entitlement
+    targetObject: product_service
+    targetModule: runory.product-service
+    type: many_to_one
+    foreignKey: product_service_id
+    label: 关联产品/服务
+  - object: entitlement
+    targetObject: asset
+    targetModule: runory.asset
+    type: many_to_one
+    foreignKey: asset_id
+    label: 关联资产
+
+migrations:
+  install: migrations/install.sql
+  uninstallPolicy: retain_data
+
+ui:
+  navigation:
+    - label: 权益
+      route: /entitlements
+      icon: gift
+      sortOrder: 71
+
+extensionPoints:
+  entities:
+    - entity: entitlement
+      customFields:
+        enabled: true
+        allowedTypes: [text, number, date, select, boolean]
+        maxFields: 10
+        reservedKeys: [id, entitlement_number, name, status, entitlement_type, total_value, consumed_value, remaining_value, unit, start_date, end_date, company_id, contact_id, product_service_id, asset_id, owner, notes, created_at, updated_at]
+      customRelations:
+        enabled: false
+  views:
+    - view: entitlement_list
+      slots:
+        - id: entitlement.list.columns
+          type: column_group
+          allowedExtensions: [customField]
+          risk: low
+      allowReorder: true
+      allowFilters: true
+      allowPageSizeChange: true
+    - view: entitlement_form
+      slots:
+        - id: entitlement.form.basic_fields.after
+          type: field_group
+          allowedExtensions: [customField]
+          risk: low
+      allowAddSection: true
+      allowAddAction: true
+
+dashboard:
+  widgets:
+    - key: active_entitlements_metric
+      type: metric_card
+      label: 活跃权益
+      icon: gift
+      tone: emerald
+      data:
+        kind: count
+        object: entitlement
+        where: "status = 'active'"
+      link: /entitlements
+
+    - key: entitlement_status_breakdown
+      type: breakdown
+      label: 权益状态分布
+      icon: pie-chart
+      tone: cyan
+      data:
+        kind: group_count
+        object: entitlement
+        groupBy: status
+
+    - key: entitlement_type_breakdown
+      type: breakdown
+      label: 权益类型分布
+      icon: pie-chart
+      tone: violet
+      data:
+        kind: group_count
+        object: entitlement
+        groupBy: entitlement_type
+
+    - key: recent_entitlements_list
+      type: list
+      label: 最近权益
+      icon: gift
+      tone: cyan
+      data:
+        kind: recent
+        object: entitlement
+        orderBy: "created_at desc"
+        limit: 8
+        columns: [entitlement_number, name, status, entitlement_type, remaining_value]
+      link: /entitlements
+      configurable:
+        - path: data.limit
+          label: 显示条数
+          type: number
+          min: 1
+          max: 20
+
+upgradePolicy:
+  supportsWorkspaceExtensions: true
+  breakingChangePolicy: manual_review
