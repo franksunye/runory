@@ -17,8 +17,10 @@ import {
   getRecords,
   updateRecord,
   deleteRecord,
+  restoreRecord,
   getFields,
   getObjects,
+  _clearSoftDeleteColumnCache,
 } from "./metadata";
 
 const dataDir = join(process.cwd(), "data");
@@ -34,6 +36,7 @@ let userId: string;
 beforeAll(async () => {
   globalThis.__platformSchemaReady = undefined;
   globalThis.__platformMigrationsRun = undefined;
+  _clearSoftDeleteColumnCache();
 
   await db.execute({ sql: "PRAGMA foreign_keys = OFF" });
   const tables = await db.execute({
@@ -54,7 +57,9 @@ beforeAll(async () => {
       name TEXT,
       email TEXT,
       created_at TEXT NOT NULL,
-      updated_at TEXT NOT NULL
+      updated_at TEXT NOT NULL,
+      deleted_at TEXT,
+      deleted_by TEXT
     )`
   );
 });
@@ -237,5 +242,103 @@ describe("metadata CRUD", () => {
     // WS2 should not see WS1's record
     const record2 = await getRecord(workspaceId2, "test_item", created1.id);
     expect(record2).toBeUndefined();
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// v0.3.6 — Soft delete and restore
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("soft delete and restore (v0.3.6)", () => {
+  it("deleteRecord soft-deletes by default (record still exists with deleted_at)", async () => {
+    const created = await createRecord(workspaceId, "test_item", { name: "SoftDelete" });
+    const deleted = await deleteRecord(workspaceId, "test_item", created.id);
+    expect(deleted).toBe(true);
+
+    // Normal getRecord should not find it
+    const record = await getRecord(workspaceId, "test_item", created.id);
+    expect(record).toBeUndefined();
+
+    // But getRecord with includeDeleted should find it
+    const deletedRecord = await getRecord(workspaceId, "test_item", created.id, { includeDeleted: true });
+    expect(deletedRecord).toBeDefined();
+    expect(deletedRecord!.deleted_at).not.toBeNull();
+  });
+
+  it("getRecords excludes soft-deleted records by default", async () => {
+    await createRecord(workspaceId, "test_item", { name: "Active" });
+    const toDelete = await createRecord(workspaceId, "test_item", { name: "ToDelete" });
+    await deleteRecord(workspaceId, "test_item", toDelete.id);
+
+    const records = await getRecords(workspaceId, "test_item");
+    expect(records.length).toBe(1);
+    expect(records[0].name).toBe("Active");
+  });
+
+  it("getRecords with includeDeleted returns all records", async () => {
+    await createRecord(workspaceId, "test_item", { name: "Active" });
+    const toDelete = await createRecord(workspaceId, "test_item", { name: "ToDelete" });
+    await deleteRecord(workspaceId, "test_item", toDelete.id);
+
+    const records = await getRecords(workspaceId, "test_item", { includeDeleted: true });
+    expect(records.length).toBe(2);
+  });
+
+  it("getRecords with onlyDeleted returns only deleted records", async () => {
+    await createRecord(workspaceId, "test_item", { name: "Active" });
+    const toDelete = await createRecord(workspaceId, "test_item", { name: "ToDelete" });
+    await deleteRecord(workspaceId, "test_item", toDelete.id);
+
+    const records = await getRecords(workspaceId, "test_item", { onlyDeleted: true });
+    expect(records.length).toBe(1);
+    expect(records[0].name).toBe("ToDelete");
+  });
+
+  it("restoreRecord restores a soft-deleted record", async () => {
+    const created = await createRecord(workspaceId, "test_item", { name: "ToRestore" });
+    await deleteRecord(workspaceId, "test_item", created.id);
+
+    // Should not be found
+    expect(await getRecord(workspaceId, "test_item", created.id)).toBeUndefined();
+
+    // Restore
+    const restored = await restoreRecord(workspaceId, "test_item", created.id);
+    expect(restored).toBe(true);
+
+    // Should be found again
+    const record = await getRecord(workspaceId, "test_item", created.id);
+    expect(record).toBeDefined();
+    expect(record!.name).toBe("ToRestore");
+    expect(record!.deleted_at).toBeNull();
+  });
+
+  it("restoreRecord returns false for non-deleted record", async () => {
+    const created = await createRecord(workspaceId, "test_item", { name: "Active" });
+    const restored = await restoreRecord(workspaceId, "test_item", created.id);
+    expect(restored).toBe(false);
+  });
+
+  it("restoreRecord returns false for non-existent record", async () => {
+    const restored = await restoreRecord(workspaceId, "test_item", "nonexistent");
+    expect(restored).toBe(false);
+  });
+
+  it("deleteRecord with hard=true permanently removes the record", async () => {
+    const created = await createRecord(workspaceId, "test_item", { name: "HardDelete" });
+    const deleted = await deleteRecord(workspaceId, "test_item", created.id, { hard: true });
+    expect(deleted).toBe(true);
+
+    // Should not be found even with includeDeleted
+    const record = await getRecord(workspaceId, "test_item", created.id, { includeDeleted: true });
+    expect(record).toBeUndefined();
+  });
+
+  it("deleteRecord records who deleted the record", async () => {
+    const created = await createRecord(workspaceId, "test_item", { name: "WithDeleter" });
+    await deleteRecord(workspaceId, "test_item", created.id, { deletedBy: "usr_test123" });
+
+    const deletedRecord = await getRecord(workspaceId, "test_item", created.id, { includeDeleted: true });
+    expect(deletedRecord).toBeDefined();
+    expect(deletedRecord!.deleted_by).toBe("usr_test123");
   });
 });

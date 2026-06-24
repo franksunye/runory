@@ -28,6 +28,8 @@ export async function GET(
       sortOrder: sortOrderParam === "asc" || sortOrderParam === "desc" ? sortOrderParam : undefined,
       limit: parsePositiveInt(url.searchParams.get("limit")),
       offset: parsePositiveInt(url.searchParams.get("offset")),
+      includeDeleted: url.searchParams.get("includeDeleted") === "true",
+      onlyDeleted: url.searchParams.get("onlyDeleted") === "true",
     };
 
     const records = await getRecords(workspaceId, objectKey, options);

@@ -1,7 +1,7 @@
 import { readFileSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { parse as parseYaml } from "yaml";
-import { queryOne, execute, genId, now, db, validateIdentifier } from "./db";
+import { queryOne, queryAll, execute, genId, now, db, validateIdentifier } from "./db";
 import { TABLES, MODULES_DIR, PACKS_DIR, TEMPLATES_DIR, businessTable } from "./contracts";
 import { getDeploymentMode, renderSqlWithPrefix, getBusinessTablePrefix, getTablePrefix } from "./platform-config";
 import { createRecord, getRecords } from "./metadata";
@@ -91,6 +91,23 @@ export interface InstallResult {
 
 export interface InstallPackOptions {
   includeDemoData?: boolean;
+}
+
+/**
+ * Ensure a business table has deleted_at and deleted_by columns (v0.3.6).
+ * Called after pack migration SQL creates the table. Silently skips if
+ * the table doesn't exist or the columns already exist.
+ */
+async function ensureSoftDeleteColumns(tableName: string): Promise<void> {
+  const rows = await queryAll<{ name: string }>(`PRAGMA table_info(${tableName})`);
+  if (rows.length === 0) return; // Table doesn't exist
+  const columns = new Set(rows.map(r => r.name));
+  if (!columns.has("deleted_at")) {
+    await execute(`ALTER TABLE ${tableName} ADD COLUMN deleted_at TEXT`);
+  }
+  if (!columns.has("deleted_by")) {
+    await execute(`ALTER TABLE ${tableName} ADD COLUMN deleted_by TEXT`);
+  }
 }
 
 function resolveDemoValue(value: unknown, aliases: Map<string, Record<string, unknown>>): unknown {
@@ -328,6 +345,11 @@ export async function installModule(
     const migrationSql = loadModuleMigration(moduleId, manifest.migrations.install);
     await db.executeMultiple(migrationSql);
     ddlExecuted = true;
+
+    // Ensure soft-delete columns exist on all business tables created by this module (v0.3.6)
+    for (const obj of manifest.objects) {
+      await ensureSoftDeleteColumns(businessTable(obj.key));
+    }
   }
 
   // Register installation

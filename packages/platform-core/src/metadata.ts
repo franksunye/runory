@@ -2,6 +2,24 @@ import { queryAll, queryOne, execute, genId, now, validateIdentifier } from "./d
 import { TABLES, businessTable } from "./contracts";
 import { provisionWorkspaceTenant, type ActorIdentity } from "./tenancy";
 
+// ── Soft-delete column detection (v0.3.6) ──
+// Business tables may or may not have deleted_at/deleted_by columns
+// depending on when they were created (migration 0019 adds them to core
+// tables, and the installer adds them to pack-created tables). We
+// introspect the schema on each access — no caching, because tests
+// may drop and recreate tables between test cases.
+
+async function checkSoftDeleteColumns(tableName: string): Promise<{ deletedAt: boolean; deletedBy: boolean }> {
+  const rows = await queryAll<{ name: string }>(`PRAGMA table_info(${tableName})`);
+  const columns = new Set(rows.map(r => r.name));
+  return { deletedAt: columns.has("deleted_at"), deletedBy: columns.has("deleted_by") };
+}
+
+/** Clear the soft-delete column cache (kept for test compatibility). */
+export function _clearSoftDeleteColumnCache(): void {
+  // No-op — schema is introspected on each call (v0.3.6).
+}
+
 // ── Types ──
 export interface ObjectDefinition {
   id: string;
@@ -394,6 +412,10 @@ export interface GetRecordsOptions {
   sortOrder?: "asc" | "desc";
   limit?: number;
   offset?: number;
+  /** Include soft-deleted records in results (v0.3.6). Default: false. */
+  includeDeleted?: boolean;
+  /** Only return soft-deleted records (v0.3.6). Default: false. */
+  onlyDeleted?: boolean;
 }
 
 const SEARCHABLE_FIELD_TYPES = new Set(["text", "email", "phone"]);
@@ -403,15 +425,31 @@ export async function getRecords(
   objectKey: string,
   options: GetRecordsOptions = {}
 ): Promise<Record<string, unknown>[]> {
+  const tableName = businessTable(objectKey);
   // Get module-owned fields from business table
   const fields = await getFields(workspaceId, objectKey);
   const moduleFields = fields.filter(f => f.ownership === "module_owned");
   const columnNames = ["id", ...moduleFields.map(f => validateIdentifier(f.fieldKey)), "created_at", "updated_at"];
+
+  // Check soft-delete column availability (v0.3.6)
+  const softDelete = await checkSoftDeleteColumns(tableName);
+  // Include soft-delete columns in SELECT when available (for trash UI)
+  if (softDelete.deletedAt) columnNames.push("deleted_at");
+  if (softDelete.deletedBy) columnNames.push("deleted_by");
   const columns = columnNames.join(", ");
 
   // Build WHERE clause (workspace filter + optional search across text fields)
+  // By default, exclude soft-deleted records unless includeDeleted is true
   const whereClauses: string[] = ["workspace_id = ?"];
   const whereArgs: unknown[] = [workspaceId];
+
+  if (softDelete.deletedAt) {
+    if (options.onlyDeleted) {
+      whereClauses.push("deleted_at IS NOT NULL");
+    } else if (!options.includeDeleted) {
+      whereClauses.push("deleted_at IS NULL");
+    }
+  }
 
   if (options.search) {
     const searchableFields = moduleFields.filter(f => SEARCHABLE_FIELD_TYPES.has(f.type));
@@ -453,7 +491,7 @@ export async function getRecords(
   }
 
   const rows = await queryAll<Record<string, unknown>>(
-    `SELECT ${columns} FROM ${businessTable(objectKey)} WHERE ${whereClauses.join(" AND ")} ORDER BY ${orderBy}${limitSql}`,
+    `SELECT ${columns} FROM ${tableName} WHERE ${whereClauses.join(" AND ")} ORDER BY ${orderBy}${limitSql}`,
     [...whereArgs, ...limitArgs]
   );
 
@@ -506,15 +544,30 @@ export async function createRecord(workspaceId: string, objectKey: string, data:
   return { id, workspace_id: workspaceId, ...data, created_at: ts, updated_at: ts };
 }
 
-export async function getRecord(workspaceId: string, objectKey: string, recordId: string): Promise<Record<string, unknown> | undefined> {
+export async function getRecord(
+  workspaceId: string,
+  objectKey: string,
+  recordId: string,
+  options?: { includeDeleted?: boolean }
+): Promise<Record<string, unknown> | undefined> {
+  const tableName = businessTable(objectKey);
   const fields = await getFields(workspaceId, objectKey);
   const moduleFields = fields.filter(f => f.ownership === "module_owned");
   const columnNames = ["id", ...moduleFields.map(f => validateIdentifier(f.fieldKey)), "created_at", "updated_at"];
+  const softDelete = await checkSoftDeleteColumns(tableName);
+  if (softDelete.deletedAt) columnNames.push("deleted_at");
+  if (softDelete.deletedBy) columnNames.push("deleted_by");
   const columns = columnNames.join(", ");
 
+  const whereClauses = ["workspace_id = ?", "id = ?"];
+  const whereArgs: unknown[] = [workspaceId, recordId];
+  if (!options?.includeDeleted && softDelete.deletedAt) {
+    whereClauses.push("deleted_at IS NULL");
+  }
+
   const row = await queryOne<Record<string, unknown>>(
-    `SELECT ${columns} FROM ${businessTable(objectKey)} WHERE workspace_id = ? AND id = ?`,
-    [workspaceId, recordId]
+    `SELECT ${columns} FROM ${tableName} WHERE ${whereClauses.join(" AND ")}`,
+    whereArgs
   );
   if (!row) return undefined;
 
@@ -565,22 +618,84 @@ export async function updateRecord(workspaceId: string, objectKey: string, recor
   return await getRecord(workspaceId, objectKey, recordId);
 }
 
-export async function deleteRecord(workspaceId: string, objectKey: string, recordId: string): Promise<boolean> {
+export async function deleteRecord(
+  workspaceId: string,
+  objectKey: string,
+  recordId: string,
+  options?: { hard?: boolean; deletedBy?: string }
+): Promise<boolean> {
+  const tableName = businessTable(objectKey);
   // Check record exists and belongs to workspace
-  const existing = await getRecord(workspaceId, objectKey, recordId);
+  const existing = await getRecord(workspaceId, objectKey, recordId, { includeDeleted: true });
   if (!existing) return false;
 
-  // Delete extension field values
-  await execute(
-    `DELETE FROM ${TABLES.extensionFieldValues} WHERE workspace_id = ? AND object_key = ? AND record_id = ?`,
-    [workspaceId, objectKey, recordId]
-  );
+  if (options?.hard) {
+    // Hard delete: remove extension field values and the record itself
+    await execute(
+      `DELETE FROM ${TABLES.extensionFieldValues} WHERE workspace_id = ? AND object_key = ? AND record_id = ?`,
+      [workspaceId, objectKey, recordId]
+    );
+    await execute(
+      `DELETE FROM ${tableName} WHERE workspace_id = ? AND id = ?`,
+      [workspaceId, recordId]
+    );
+  } else {
+    // Soft delete: mark as deleted with timestamp (v0.3.6)
+    // Falls back to hard delete if the table doesn't have deleted_at column.
+    const softDelete = await checkSoftDeleteColumns(tableName);
+    if (softDelete.deletedAt) {
+      const ts = now();
+      const setClauses = ["deleted_at = ?", "updated_at = ?"];
+      const setArgs: unknown[] = [ts, ts];
+      if (softDelete.deletedBy) {
+        setClauses.unshift("deleted_by = ?");
+        setArgs.unshift(options?.deletedBy ?? null);
+      }
+      await execute(
+        `UPDATE ${tableName} SET ${setClauses.join(", ")} WHERE workspace_id = ? AND id = ?`,
+        [...setArgs, workspaceId, recordId]
+      );
+    } else {
+      // No soft-delete columns — fall back to hard delete
+      await execute(
+        `DELETE FROM ${TABLES.extensionFieldValues} WHERE workspace_id = ? AND object_key = ? AND record_id = ?`,
+        [workspaceId, objectKey, recordId]
+      );
+      await execute(
+        `DELETE FROM ${tableName} WHERE workspace_id = ? AND id = ?`,
+        [workspaceId, recordId]
+      );
+    }
+  }
 
-  // Delete from business table
-  await execute(
-    `DELETE FROM ${businessTable(objectKey)} WHERE workspace_id = ? AND id = ?`,
-    [workspaceId, recordId]
-  );
+  return true;
+}
 
+/**
+ * Restore a soft-deleted record (v0.3.6).
+ * Returns true if the record was restored, false if not found or not deleted.
+ */
+export async function restoreRecord(
+  workspaceId: string,
+  objectKey: string,
+  recordId: string
+): Promise<boolean> {
+  const tableName = businessTable(objectKey);
+  const softDelete = await checkSoftDeleteColumns(tableName);
+  if (!softDelete.deletedAt) return false; // No soft-delete support
+
+  // Check record exists and is soft-deleted
+  const existing = await getRecord(workspaceId, objectKey, recordId, { includeDeleted: true });
+  if (!existing) return false;
+  if (!existing.deleted_at) return false; // Not deleted
+
+  const ts = now();
+  const setClauses = softDelete.deletedBy
+    ? "deleted_at = NULL, deleted_by = NULL, updated_at = ?"
+    : "deleted_at = NULL, updated_at = ?";
+  await execute(
+    `UPDATE ${tableName} SET ${setClauses} WHERE workspace_id = ? AND id = ?`,
+    [ts, workspaceId, recordId]
+  );
   return true;
 }

@@ -18,6 +18,12 @@ export interface MigrationFile {
   sql: string;          // raw SQL with {{PLATFORM_TABLE_PREFIX}} (or legacy {{RUNORY_TABLE_PREFIX}}) placeholders
   checksum: string;     // SHA-256 hex of the raw SQL
   transactional: boolean;
+  /**
+   * When true, individual statements that fail with "no such table" are
+   * silently skipped. This is used for migrations that ALTER optional
+   * business tables (created dynamically by pack installations).
+   */
+  tolerant: boolean;
 }
 
 export interface AppliedMigration {
@@ -87,7 +93,8 @@ export function loadMigrationFiles(): MigrationFile[] {
     const sql = readFileSync(join(dir, filename), "utf-8");
     const checksum = createHash("sha256").update(sql, "utf-8").digest("hex");
     const transactional = /^-- Transaction:\s*required\s*$/im.test(sql);
-    return { version, name, filename, sql, checksum, transactional };
+    const tolerant = /^-- Tolerant:\s*true\s*$/im.test(sql);
+    return { version, name, filename, sql, checksum, transactional, tolerant };
   });
 }
 
@@ -198,8 +205,17 @@ async function runMigration(file: MigrationFile, prefix: string, migrationsTable
   }
 
   // Older migrations execute statement-by-statement for libSQL compatibility.
+  // Tolerant migrations skip "no such table" errors (used for ALTER on
+  // optional business tables that are created dynamically by pack installs).
   for (const stmt of statements) {
-    await db.execute(stmt);
+    try {
+      await db.execute(stmt);
+    } catch (err) {
+      if (file.tolerant && isNoSuchTableError(err)) {
+        continue;
+      }
+      throw err;
+    }
   }
 
   // Record the migration
@@ -207,6 +223,11 @@ async function runMigration(file: MigrationFile, prefix: string, migrationsTable
     `INSERT INTO ${migrationsTable} (version, name, checksum, applied_at) VALUES (?, ?, ?, ?)`,
     [file.version, file.name, file.checksum, now()]
   );
+}
+
+function isNoSuchTableError(err: unknown): boolean {
+  const msg = err instanceof Error ? err.message : String(err);
+  return /no such table/i.test(msg);
 }
 
 // ── Main Migration Runner ──

@@ -5,7 +5,7 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import {
   CreditCard, Download, GitBranch, Key, Package, ScrollText,
-  Settings, SlidersHorizontal, Users, Zap,
+  Settings, SlidersHorizontal, Trash2, Users, Zap,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -24,6 +24,7 @@ const MANAGE_CARDS: ManageCard[] = [
   { title: "自动化", description: "配置触发器、条件与动作，实现业务流程自动化", route: "/automations", icon: Zap },
   { title: "成员与权限", description: "管理工作区成员及其角色与访问权限", route: "/members", icon: Users },
   { title: "审计日志", description: "查看工作区内所有变更操作记录", route: "/audit", icon: ScrollText },
+  { title: "回收站", description: "查看和恢复已删除的记录", route: "/trash", icon: Trash2 },
   { title: "数据导出", description: "导出工作区数据用于备份或迁移", route: "/export", icon: Download },
   { title: "API Keys", description: "管理用于程序化访问的 API 密钥", route: "/api-keys", icon: Key },
   { title: "工作区设置", description: "管理模块、扩展版本与工作区数据", route: "/settings", icon: Settings },
