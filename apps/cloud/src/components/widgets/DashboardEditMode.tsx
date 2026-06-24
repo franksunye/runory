@@ -7,6 +7,8 @@ import {
 import type {
   WidgetDeclaration, DashboardZone, WidgetConfigurableField,
 } from "@runory/contracts";
+import { useI18n } from "@/i18n/locale-provider";
+import type { MessageKey } from "@/i18n/messages";
 
 // ── Types ──
 
@@ -88,6 +90,13 @@ function setNestedValue(
 
 // ── Main Component ──
 
+const ZONE_LABEL_KEY: Record<DashboardZone, MessageKey> = {
+  metrics: "dashboard.zone.metrics",
+  trends: "dashboard.zone.trends",
+  lists: "dashboard.zone.lists",
+  activity: "dashboard.zone.activity",
+};
+
 export default function DashboardEditMode({
   workspaceId,
   layout,
@@ -97,6 +106,7 @@ export default function DashboardEditMode({
   onReset,
   onClose,
 }: DashboardEditModeProps) {
+  const { t } = useI18n();
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showAddPanel, setShowAddPanel] = useState<DashboardZone | false>(false);
@@ -120,14 +130,14 @@ export default function DashboardEditMode({
         body: JSON.stringify({ updates }),
       });
       const json = await res.json();
-      if (!json.success) throw new Error(json.error?.message ?? "保存失败");
+      if (!json.success) throw new Error(json.error?.message ?? t("dashboard.saveFailed"));
       onLayoutChange(json.data.layout);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "保存失败");
+      setError(e instanceof Error ? e.message : t("dashboard.saveFailed"));
     } finally {
       setSaving(false);
     }
-  }, [workspaceId, onLayoutChange]);
+  }, [workspaceId, onLayoutChange, t]);
 
   const handleConfigureSave = useCallback((item: LayoutItem, override: Record<string, unknown> | null) => {
     void saveUpdates([{
@@ -212,11 +222,11 @@ export default function DashboardEditMode({
         headers: { "X-Requested-With": "XMLHttpRequest" },
       });
       const json = await res.json();
-      if (!json.success) throw new Error(json.error?.message ?? "重置失败");
+      if (!json.success) throw new Error(json.error?.message ?? t("dashboard.resetFailed"));
       onLayoutChange(json.data.layout);
       onReset();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "重置失败");
+      setError(e instanceof Error ? e.message : t("dashboard.resetFailed"));
     } finally {
       setSaving(false);
     }
@@ -232,21 +242,14 @@ export default function DashboardEditMode({
   const onLayoutKeys = new Set(layout.map((i) => `${i.moduleId}:${i.widgetKey}`));
   const addableWidgets = availableWidgets.filter((w) => !onLayoutKeys.has(`${w.moduleId}:${w.widgetKey}`));
 
-  const zoneLabels: Record<DashboardZone, string> = {
-    metrics: "指标卡",
-    trends: "趋势图",
-    lists: "列表",
-    activity: "动态",
-  };
-
   return (
     <div className="space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-3">
         <div className="flex items-center gap-2">
           <Settings2 size={18} className="text-indigo-600" />
-          <span className="text-sm font-medium text-indigo-900">编辑模式</span>
-          {saving && <span className="text-xs text-indigo-500">保存中...</span>}
+          <span className="text-sm font-medium text-indigo-900">{t("dashboard.editMode")}</span>
+          {saving && <span className="text-xs text-indigo-500">{t("workspace.saving")}</span>}
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -254,13 +257,13 @@ export default function DashboardEditMode({
             disabled={saving}
             className="rounded-lg px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-white"
           >
-            重置默认
+            {t("dashboard.resetDefault")}
           </button>
           <button
             onClick={onClose}
             className="flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-700"
           >
-            <X size={14} />完成
+            <X size={14} />{t("dashboard.done")}
           </button>
         </div>
       </div>
@@ -273,17 +276,17 @@ export default function DashboardEditMode({
         return (
           <div key={zone} className="app-card p-4">
             <div className="mb-3 flex items-center justify-between">
-              <h3 className="text-sm font-bold text-slate-900">{zoneLabels[zone]}</h3>
+              <h3 className="text-sm font-bold text-slate-900">{t(ZONE_LABEL_KEY[zone])}</h3>
               <button
                 onClick={() => setShowAddPanel(showAddPanel === zone ? false : zone)}
                 className="flex items-center gap-1 text-xs font-medium text-indigo-600 hover:text-indigo-700"
               >
-                <Plus size={12} />添加组件
+                <Plus size={12} />{t("dashboard.addWidget")}
               </button>
             </div>
 
             {items.length === 0 ? (
-              <p className="py-4 text-center text-xs text-slate-400">此区域暂无组件</p>
+              <p className="py-4 text-center text-xs text-slate-400">{t("dashboard.emptyZone")}</p>
             ) : (
               <div className="space-y-2">
                 {items.map((item, index) => {
@@ -303,10 +306,10 @@ export default function DashboardEditMode({
                             {shortModuleLabel(item.moduleId)}
                           </span>
                           {item.hidden && (
-                            <span className="rounded bg-red-50 px-1.5 py-0.5 text-[10px] text-red-600">已隐藏</span>
+                            <span className="rounded bg-red-50 px-1.5 py-0.5 text-[10px] text-red-600">{t("dashboard.hidden")}</span>
                           )}
                           {hasConfigOverride && (
-                            <span className="rounded bg-indigo-50 px-1.5 py-0.5 text-[10px] text-indigo-600">已自定义</span>
+                            <span className="rounded bg-indigo-50 px-1.5 py-0.5 text-[10px] text-indigo-600">{t("dashboard.customized")}</span>
                           )}
                         </div>
                         <div className="flex items-center gap-1">
@@ -317,7 +320,7 @@ export default function DashboardEditMode({
                               className={`rounded p-1 hover:bg-slate-100 disabled:opacity-30 ${
                                 isConfiguring ? "text-indigo-600" : "text-slate-400 hover:text-slate-700"
                               }`}
-                              title="配置"
+                              title={t("dashboard.configure")}
                             >
                               <Sliders size={14} />
                             </button>
@@ -326,7 +329,7 @@ export default function DashboardEditMode({
                             onClick={() => handleMove(item, "up")}
                             disabled={index === 0 || saving}
                             className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 disabled:opacity-30"
-                            title="上移"
+                            title={t("dashboard.moveUp")}
                           >
                             <ArrowUp size={14} />
                           </button>
@@ -334,7 +337,7 @@ export default function DashboardEditMode({
                             onClick={() => handleMove(item, "down")}
                             disabled={index === items.length - 1 || saving}
                             className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 disabled:opacity-30"
-                            title="下移"
+                            title={t("dashboard.moveDown")}
                           >
                             <ArrowDown size={14} />
                           </button>
@@ -343,7 +346,7 @@ export default function DashboardEditMode({
                               onClick={() => handleShow(item)}
                               disabled={saving}
                               className="rounded p-1 text-emerald-600 hover:bg-emerald-50"
-                              title="显示"
+                              title={t("dashboard.show")}
                             >
                               <Eye size={14} />
                             </button>
@@ -352,7 +355,7 @@ export default function DashboardEditMode({
                               onClick={() => handleHide(item)}
                               disabled={saving}
                               className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
-                              title="隐藏"
+                              title={t("dashboard.hide")}
                             >
                               <EyeOff size={14} />
                             </button>
@@ -377,9 +380,9 @@ export default function DashboardEditMode({
             {/* Add Panel */}
             {showAddPanel === zone && (
               <div className="mt-3 rounded-lg border border-dashed border-indigo-200 bg-indigo-50/50 p-3">
-                <p className="mb-2 text-xs font-medium text-slate-600">可添加的组件：</p>
+                <p className="mb-2 text-xs font-medium text-slate-600">{t("dashboard.availableWidgets")}</p>
                 {addableWidgets.length === 0 ? (
-                  <p className="text-xs text-slate-400">所有可用组件已在此工作台</p>
+                  <p className="text-xs text-slate-400">{t("dashboard.allWidgetsAdded")}</p>
                 ) : (
                   <div className="space-y-1">
                     {addableWidgets.map((widget) => (
@@ -391,7 +394,7 @@ export default function DashboardEditMode({
                       >
                         <span className="font-medium text-slate-700">{widget.label}</span>
                         <span className="flex items-center gap-1 text-xs text-indigo-600">
-                          <Plus size={12} />添加
+                          <Plus size={12} />{t("dashboard.add")}
                         </span>
                       </button>
                     ))}
@@ -418,6 +421,7 @@ interface WidgetConfigPanelProps {
 }
 
 function WidgetConfigPanel({ item, fields, saving, onCancel, onSave }: WidgetConfigPanelProps) {
+  const { t } = useI18n();
   // Seed local state from current configOverride; fall back to widget declaration defaults.
   const [draft, setDraft] = useState<Record<string, unknown>>(() => {
     const seed: Record<string, unknown> = item.configOverride ? structuredClone(item.configOverride) : {};
@@ -465,13 +469,13 @@ function WidgetConfigPanel({ item, fields, saving, onCancel, onSave }: WidgetCon
   return (
     <div className="border-t border-slate-100 bg-slate-50/50 px-3 py-3">
       <div className="mb-2 flex items-center justify-between">
-        <p className="text-xs font-medium text-slate-600">组件配置</p>
+        <p className="text-xs font-medium text-slate-600">{t("dashboard.widgetConfig")}</p>
         <button
           onClick={handleReset}
           disabled={saving}
           className="text-[10px] text-slate-400 hover:text-slate-600 disabled:opacity-30"
         >
-          恢复默认
+          {t("dashboard.restoreDefault")}
         </button>
       </div>
       <div className="space-y-3">
@@ -490,14 +494,14 @@ function WidgetConfigPanel({ item, fields, saving, onCancel, onSave }: WidgetCon
           disabled={saving}
           className="rounded-lg px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-white disabled:opacity-30"
         >
-          取消
+          {t("workspace.cancel")}
         </button>
         <button
           onClick={handleSave}
           disabled={saving}
           className="rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-700 disabled:opacity-30"
         >
-          {saving ? "保存中..." : "保存"}
+          {saving ? t("workspace.saving") : t("workspace.save")}
         </button>
       </div>
     </div>
@@ -513,6 +517,7 @@ interface ConfigFieldProps {
 }
 
 function ConfigField({ field, value, onChange }: ConfigFieldProps) {
+  const { t } = useI18n();
   const labelEl = (
     <label className="block text-xs font-medium text-slate-600">{field.label}</label>
   );
@@ -565,7 +570,7 @@ function ConfigField({ field, value, onChange }: ConfigFieldProps) {
             );
           })}
           {selected.length === 0 && (
-            <span className="text-[10px] text-slate-400">未选择</span>
+            <span className="text-[10px] text-slate-400">{t("dashboard.notSelected")}</span>
           )}
         </div>
       </div>
@@ -598,10 +603,10 @@ function ConfigField({ field, value, onChange }: ConfigFieldProps) {
         {(field.min !== undefined || field.max !== undefined) && (
           <p className="mt-0.5 text-[10px] text-slate-400">
             {field.min !== undefined && field.max !== undefined
-              ? `范围 ${field.min} - ${field.max}`
+              ? t("dashboard.rangeMinMax", { min: field.min, max: field.max })
               : field.min !== undefined
-                ? `最小 ${field.min}`
-                : `最大 ${field.max}`}
+                ? t("dashboard.rangeMin", { min: field.min })
+                : t("dashboard.rangeMax", { max: field.max! })}
           </p>
         )}
       </div>

@@ -7,6 +7,9 @@ import {
   PieChart, RefreshCw, TrendingUp, Users,
 } from "lucide-react";
 import type { WidgetDeclaration } from "@runory/contracts";
+import { useI18n } from "@/i18n/locale-provider";
+import type { MessageKey } from "@/i18n/messages";
+import { formatRelativeTime } from "../SchemaTable";
 
 // ── Types ──
 
@@ -71,6 +74,31 @@ function getTone(name: string): string {
   return TONE_MAP[name] ?? TONE_MAP.slate;
 }
 
+// ── Label key maps ──
+
+const BREAKDOWN_LABEL_KEY: Record<string, MessageKey> = {
+  todo: "workspace.table.statusTodo",
+  in_progress: "workspace.table.statusInProgress",
+  done: "workspace.table.statusDone",
+  cancelled: "workspace.table.statusCancelled",
+  low: "workspace.table.priorityLow",
+  medium: "workspace.table.priorityMedium",
+  high: "workspace.table.priorityHigh",
+  urgent: "workspace.table.priorityUrgent",
+};
+
+const ACTION_LABEL_KEY: Record<string, MessageKey> = {
+  "record.create": "widget.action.recordCreate",
+  "record.update": "widget.action.recordUpdate",
+  "record.delete": "widget.action.recordDelete",
+  "extension.apply": "widget.action.extensionApply",
+  "extension.rollback": "widget.action.extensionRollback",
+  "api_key.create": "widget.action.apiKeyCreate",
+  "api_key.revoke": "widget.action.apiKeyRevoke",
+};
+
+type TFunc = (key: MessageKey, params?: Record<string, string | number>) => string;
+
 // ── Main WidgetRenderer ──
 
 export default function WidgetRenderer({
@@ -83,6 +111,7 @@ export default function WidgetRenderer({
   editMode = false,
   onRefresh,
 }: WidgetRendererProps) {
+  const { t } = useI18n();
   const [data, setData] = useState<WidgetDataResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -96,16 +125,16 @@ export default function WidgetRenderer({
         { cache: "no-store" }
       );
       const json = await res.json();
-      if (!json.success) throw new Error(json.error?.message ?? "加载失败");
+      if (!json.success) throw new Error(json.error?.message ?? t("workspace.loadFailed"));
       setData(json.data);
       setError(null);
       setLastUpdated(Date.now());
     } catch (e) {
-      setError(e instanceof Error ? e.message : "加载失败");
+      setError(e instanceof Error ? e.message : t("workspace.loadFailed"));
     } finally {
       setLoading(false);
     }
-  }, [workspaceId, moduleId, widgetKey, instance, zone]);
+  }, [workspaceId, moduleId, widgetKey, instance, zone, t]);
 
   useEffect(() => {
     void loadData();
@@ -133,6 +162,14 @@ export default function WidgetRenderer({
 // ── Freshness Indicator ──
 // Shows a subtle "updated X ago" badge; turns amber when stale (>5 min).
 
+function formatFreshness(ageMin: number, t: TFunc): string {
+  if (ageMin < 1) return t("workspace.table.justNow");
+  if (ageMin < 60) return t("workspace.table.minutesAgo", { min: ageMin });
+  const hours = Math.floor(ageMin / 60);
+  if (hours < 24) return t("workspace.table.hoursAgo", { hr: hours });
+  return t("widget.freshnessLongAgo");
+}
+
 function FreshnessIndicator({
   lastUpdated,
   onRefresh,
@@ -140,23 +177,24 @@ function FreshnessIndicator({
   lastUpdated: number | null;
   onRefresh: () => void;
 }) {
+  const { t } = useI18n();
   const [, force] = useState(0);
   // Re-render every 60s so relative time stays fresh
   useEffect(() => {
-    const t = setInterval(() => force((n) => n + 1), 60000);
-    return () => clearInterval(t);
+    const timer = setInterval(() => force((n) => n + 1), 60000);
+    return () => clearInterval(timer);
   }, []);
 
   if (lastUpdated === null) return null;
   const ageMs = Date.now() - lastUpdated;
   const ageMin = Math.floor(ageMs / 60000);
   const isStale = ageMin >= 5;
-  const label = formatFreshness(ageMin);
+  const label = formatFreshness(ageMin, t);
 
   return (
     <button
       onClick={onRefresh}
-      title={`数据更新于 ${label}（点击刷新）`}
+      title={t("widget.freshnessUpdated", { label })}
       className={`absolute bottom-1.5 right-1.5 flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[9px] font-medium transition opacity-60 hover:opacity-100 ${
         isStale ? "bg-amber-50 text-amber-600" : "bg-slate-50 text-slate-400"
       }`}
@@ -165,14 +203,6 @@ function FreshnessIndicator({
       {label}
     </button>
   );
-}
-
-function formatFreshness(ageMin: number): string {
-  if (ageMin < 1) return "刚刚";
-  if (ageMin < 60) return `${ageMin}分钟前`;
-  const hours = Math.floor(ageMin / 60);
-  if (hours < 24) return `${hours}小时前`;
-  return "较久前";
 }
 
 // ── Widget Content (dispatches by type) ──
@@ -242,12 +272,13 @@ function MetricCardWidget({
 // ── Trend Chart Widget ──
 
 function TrendChartWidget({ widget, data }: { widget: WidgetDeclaration; data: WidgetDataResponse }) {
+  const { t } = useI18n();
   const series = data.data.series ?? [];
   if (series.length === 0) {
     return (
       <div className="app-card p-5">
         <h3 className="font-bold text-slate-900">{widget.label}</h3>
-        <p className="mt-4 text-sm text-slate-400">暂无数据</p>
+        <p className="mt-4 text-sm text-slate-400">{t("workspace.table.noData")}</p>
       </div>
     );
   }
@@ -298,6 +329,7 @@ function TrendChartWidget({ widget, data }: { widget: WidgetDeclaration; data: W
 // ── Breakdown Widget ──
 
 function BreakdownWidget({ widget, data }: { widget: WidgetDeclaration; data: WidgetDataResponse }) {
+  const { t } = useI18n();
   const groups = data.data.groups ?? [];
   const total = groups.reduce((sum, g) => sum + g.count, 0);
 
@@ -305,22 +337,12 @@ function BreakdownWidget({ widget, data }: { widget: WidgetDeclaration; data: Wi
     return (
       <div className="app-card p-5">
         <h3 className="font-bold text-slate-900">{widget.label}</h3>
-        <p className="mt-4 text-sm text-slate-400">暂无数据</p>
+        <p className="mt-4 text-sm text-slate-400">{t("workspace.table.noData")}</p>
       </div>
     );
   }
 
   const colors = ["#6366f1", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899"];
-  const labelMap: Record<string, string> = {
-    todo: "待办",
-    in_progress: "进行中",
-    done: "已完成",
-    cancelled: "已取消",
-    low: "低",
-    medium: "中",
-    high: "高",
-    urgent: "紧急",
-  };
 
   return (
     <div className="app-card p-5 sm:p-6">
@@ -332,7 +354,8 @@ function BreakdownWidget({ widget, data }: { widget: WidgetDeclaration; data: Wi
         {groups.map((g, i) => {
           const pct = total > 0 ? (g.count / total) * 100 : 0;
           const color = colors[i % colors.length];
-          const label = labelMap[g.key] ?? g.key;
+          const key = BREAKDOWN_LABEL_KEY[g.key];
+          const label = key ? t(key) : g.key;
           return (
             <div key={g.key}>
               <div className="mb-1 flex items-center justify-between text-sm">
@@ -355,6 +378,14 @@ function BreakdownWidget({ widget, data }: { widget: WidgetDeclaration; data: Wi
 
 // ── List Widget ──
 
+function formatCellValue(value: unknown, t: TFunc): string {
+  if (value === null || value === undefined) return "—";
+  if (typeof value === "string") return value;
+  if (typeof value === "number") return String(value);
+  if (typeof value === "boolean") return value ? t("workspace.yes") : t("workspace.no");
+  return String(value);
+}
+
 function ListWidget({
   widget,
   data,
@@ -364,6 +395,7 @@ function ListWidget({
   data: WidgetDataResponse;
   workspaceId: string;
 }) {
+  const { t } = useI18n();
   const records = data.data.records ?? [];
   const columns = widget.data.columns ?? [];
 
@@ -371,7 +403,7 @@ function ListWidget({
     return (
       <div className="app-card p-5">
         <h3 className="font-bold text-slate-900">{widget.label}</h3>
-        <p className="mt-4 text-sm text-slate-400">暂无数据</p>
+        <p className="mt-4 text-sm text-slate-400">{t("workspace.table.noData")}</p>
       </div>
     );
   }
@@ -400,7 +432,7 @@ function ListWidget({
               <tr key={(record.id as string) ?? i} className="border-b border-slate-50 last:border-0">
                 {columns.map((col) => (
                   <td key={col} className="px-4 py-2.5 text-slate-700">
-                    {formatCellValue(record[col])}
+                    {formatCellValue(record[col], t)}
                   </td>
                 ))}
               </tr>
@@ -411,7 +443,7 @@ function ListWidget({
       {widget.link && (
         <div className="border-t border-slate-100 px-5 py-3">
           <Link href={`/w/${workspaceId}${widget.link}`} className="text-xs font-medium text-indigo-600 hover:text-indigo-700">
-            查看全部 →
+            {t("widget.viewAll")} →
           </Link>
         </div>
       )}
@@ -419,24 +451,33 @@ function ListWidget({
   );
 }
 
-function formatCellValue(value: unknown): string {
-  if (value === null || value === undefined) return "—";
-  if (typeof value === "string") return value;
-  if (typeof value === "number") return String(value);
-  if (typeof value === "boolean") return value ? "是" : "否";
-  return String(value);
-}
-
 // ── Activity Feed Widget ──
 
+function translateAction(action: string, t: TFunc): { label: string; color: string } {
+  const colorMap: Record<string, string> = {
+    "record.create": "text-emerald-600",
+    "record.update": "text-blue-600",
+    "record.delete": "text-red-600",
+    "extension.apply": "text-violet-600",
+    "extension.rollback": "text-orange-600",
+    "api_key.create": "text-slate-600",
+    "api_key.revoke": "text-slate-600",
+  };
+  const key = ACTION_LABEL_KEY[action];
+  return key
+    ? { label: t(key), color: colorMap[action] ?? "text-slate-600" }
+    : { label: action, color: "text-slate-600" };
+}
+
 function ActivityFeedWidget({ widget, data }: { widget: WidgetDeclaration; data: WidgetDataResponse }) {
+  const { t } = useI18n();
   const events = data.data.events ?? [];
 
   if (events.length === 0) {
     return (
       <div className="app-card p-5">
         <h3 className="font-bold text-slate-900">{widget.label}</h3>
-        <p className="mt-4 text-sm text-slate-400">暂无活动</p>
+        <p className="mt-4 text-sm text-slate-400">{t("widget.noActivity")}</p>
       </div>
     );
   }
@@ -451,7 +492,7 @@ function ActivityFeedWidget({ widget, data }: { widget: WidgetDeclaration; data:
       </div>
       <div className="divide-y divide-slate-50">
         {events.map((event) => {
-          const { label, color } = translateAction(event.action);
+          const { label, color } = translateAction(event.action, t);
           const entityName = getEntityName(event);
           return (
             <div key={event.id} className="flex items-start gap-3 px-5 py-3">
@@ -463,7 +504,7 @@ function ActivityFeedWidget({ widget, data }: { widget: WidgetDeclaration; data:
                   <span className="text-slate-600">{entityName}</span>
                 </p>
                 <p className="mt-0.5 text-xs text-slate-400">
-                  {formatRelativeTime(event.createdAt)}
+                  {formatRelativeTime(event.createdAt, t)}
                 </p>
               </div>
             </div>
@@ -472,19 +513,6 @@ function ActivityFeedWidget({ widget, data }: { widget: WidgetDeclaration; data:
       </div>
     </div>
   );
-}
-
-function translateAction(action: string): { label: string; color: string } {
-  const map: Record<string, { label: string; color: string }> = {
-    "record.create": { label: "新增了记录", color: "text-emerald-600" },
-    "record.update": { label: "更新了记录", color: "text-blue-600" },
-    "record.delete": { label: "删除了记录", color: "text-red-600" },
-    "extension.apply": { label: "应用了扩展", color: "text-violet-600" },
-    "extension.rollback": { label: "回滚了扩展", color: "text-orange-600" },
-    "api_key.create": { label: "创建了 API 密钥", color: "text-slate-600" },
-    "api_key.revoke": { label: "撤销了 API 密钥", color: "text-slate-600" },
-  };
-  return map[action] ?? { label: action, color: "text-slate-600" };
 }
 
 function getEntityName(event: {
@@ -500,22 +528,10 @@ function getEntityName(event: {
   }
 }
 
-function formatRelativeTime(dateStr: string): string {
-  const now = Date.now();
-  const diff = now - new Date(dateStr).getTime();
-  const minutes = Math.floor(diff / 60000);
-  if (minutes < 1) return "刚刚";
-  if (minutes < 60) return `${minutes}分钟前`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}小时前`;
-  const days = Math.floor(hours / 24);
-  if (days < 7) return `${days}天前`;
-  return new Date(dateStr).toLocaleDateString("zh-CN", { month: "short", day: "numeric" });
-}
-
 // ── Skeleton ──
 
 function WidgetSkeleton({ widget }: { widget: WidgetDeclaration }) {
+  const { t } = useI18n();
   return (
     <div className="app-card p-5">
       <div className="flex items-center gap-3">
@@ -526,7 +542,7 @@ function WidgetSkeleton({ widget }: { widget: WidgetDeclaration }) {
       </div>
       <div className="mt-4 h-8 w-16 animate-pulse rounded bg-slate-200" />
       <div className="mt-2 h-3 w-24 animate-pulse rounded bg-slate-100" />
-      <p className="sr-only">{widget.label} 加载中</p>
+      <p className="sr-only">{t("widget.loading", { label: widget.label })}</p>
     </div>
   );
 }
@@ -542,6 +558,7 @@ function WidgetError({
   error: string;
   onRetry: () => void;
 }) {
+  const { t } = useI18n();
   return (
     <div className="app-card p-5">
       <div className="flex items-center gap-3">
@@ -557,7 +574,7 @@ function WidgetError({
         onClick={onRetry}
         className="mt-3 flex items-center gap-1.5 text-xs font-medium text-slate-600 hover:text-slate-900"
       >
-        <RefreshCw size={12} />重试
+        <RefreshCw size={12} />{t("workspace.retry")}
       </button>
     </div>
   );

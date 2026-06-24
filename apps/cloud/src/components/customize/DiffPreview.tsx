@@ -1,5 +1,8 @@
 "use client";
 
+import { useI18n } from "@/i18n/locale-provider";
+import type { MessageKey } from "@/i18n/messages";
+
 interface AddedField {
   object: string;
   fieldKey: string;
@@ -29,20 +32,26 @@ interface DiffPreviewProps {
   diff: DiffData | null;
 }
 
-const OBJECT_LABELS: Record<string, string> = {
-  customer: "客户",
-  contact: "联系人",
-  task: "任务",
+const OBJECT_LABEL_KEY: Record<string, MessageKey> = {
+  customer: "diff.object.customer",
+  contact: "diff.object.contact",
+  task: "diff.object.task",
 };
 
-const TYPE_LABELS: Record<string, string> = {
-  text: "文本",
-  email: "邮箱",
-  phone: "电话",
-  number: "数字",
-  date: "日期",
-  select: "下拉选择",
-  boolean: "是/否",
+const TYPE_LABEL_KEY: Record<string, MessageKey> = {
+  text: "extension.type.text",
+  email: "extension.type.email",
+  phone: "extension.type.phone",
+  number: "extension.type.number",
+  date: "extension.type.date",
+  select: "extension.type.select",
+  boolean: "extension.type.boolean",
+};
+
+const RISK_LABEL_KEY: Record<string, MessageKey> = {
+  low: "extension.risk.low",
+  medium: "extension.risk.medium",
+  high: "extension.risk.high",
 };
 
 const riskColors: Record<string, string> = {
@@ -51,34 +60,34 @@ const riskColors: Record<string, string> = {
   high: "bg-red-100 text-red-700",
 };
 
-const riskLabels: Record<string, string> = {
-  low: "低风险",
-  medium: "中风险",
-  high: "高风险",
-};
+type TFunc = (key: MessageKey, params?: Record<string, string | number>) => string;
 
-function objectLabel(key: string): string {
-  return OBJECT_LABELS[key] ?? key;
+function objectLabel(key: string, t: TFunc): string {
+  const msgKey = OBJECT_LABEL_KEY[key];
+  return msgKey ? t(msgKey) : key;
 }
 
-function typeLabel(key: string): string {
-  return TYPE_LABELS[key] ?? key;
+function typeLabel(key: string, t: TFunc): string {
+  const msgKey = TYPE_LABEL_KEY[key];
+  return msgKey ? t(msgKey) : key;
 }
 
-function viewLabel(viewKey: string): string {
+function viewLabel(viewKey: string, t: TFunc): string {
   const parts = viewKey.split("_");
   if (parts.length >= 2) {
-    const obj = objectLabel(parts[0]);
+    const obj = objectLabel(parts[0], t);
     const viewType = parts[1];
-    if (viewType === "list") return `${obj}列表`;
-    if (viewType === "form") return `${obj}表单`;
+    if (viewType === "list") return t("diff.listView", { object: obj });
+    if (viewType === "form") return t("diff.formView", { object: obj });
   }
   return viewKey;
 }
 
 export default function DiffPreview({ diff }: DiffPreviewProps) {
+  const { t } = useI18n();
+
   if (!diff) {
-    return <p className="text-sm text-slate-500">暂无预览数据</p>;
+    return <p className="text-sm text-slate-500">{t("diff.noPreviewData")}</p>;
   }
 
   const addedFields: AddedField[] = diff.addedFields ?? [];
@@ -99,22 +108,22 @@ export default function DiffPreview({ diff }: DiffPreviewProps) {
   return (
     <div className="space-y-5 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-slate-700">变更预览</h3>
+        <h3 className="text-sm font-semibold text-slate-700">{t("diff.changePreview")}</h3>
         <span
           className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
             riskColors[riskLevel] ?? riskColors.low
           }`}
         >
-          {riskLabels[riskLevel] ?? riskLevel}
+          {RISK_LABEL_KEY[riskLevel] ? t(RISK_LABEL_KEY[riskLevel]) : riskLevel}
         </span>
       </div>
 
       <div>
         <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">
-          新增字段（{addedFields.length}）
+          {t("diff.addedFields", { count: addedFields.length })}
         </h4>
         {addedFields.length === 0 ? (
-          <p className="text-sm text-slate-400">无新增字段</p>
+          <p className="text-sm text-slate-400">{t("diff.noAddedFields")}</p>
         ) : (
           <ul className="space-y-2">
             {addedFields.map((f, i) => {
@@ -126,13 +135,13 @@ export default function DiffPreview({ diff }: DiffPreviewProps) {
                   className="rounded-md bg-slate-50 px-3 py-2.5 text-sm"
                 >
                   <p className="text-slate-800">
-                    将在<span className="font-semibold">{objectLabel(f.object)}</span>对象添加字段「<span className="font-semibold">{f.label}</span>」
+                    {t("diff.fieldWillBeAdded", { object: objectLabel(f.object, t), label: f.label })}
                   </p>
                   <p className="mt-1 text-xs text-slate-500">
-                    类型：{typeLabel(f.type)}
-                    {required && <span className="ml-2 text-red-600">· 必填</span>}
+                    {t("diff.fieldType", { type: typeLabel(f.type, t) })}
+                    {required && <span className="ml-2 text-red-600">· {t("diff.required")}</span>}
                     {options.length > 0 && (
-                      <span className="ml-2">· 选项：{options.join("、")}</span>
+                      <span className="ml-2">· {t("diff.options", { options: options.join("、") })}</span>
                     )}
                   </p>
                 </li>
@@ -144,15 +153,15 @@ export default function DiffPreview({ diff }: DiffPreviewProps) {
 
       <div>
         <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">
-          影响视图（{affectedViews.length}）
+          {t("diff.affectedViewsShort", { count: affectedViews.length })}
         </h4>
         {affectedViews.length === 0 ? (
-          <p className="text-sm text-slate-400">无受影响视图</p>
+          <p className="text-sm text-slate-400">{t("diff.noAffectedViews")}</p>
         ) : (
           <ul className="space-y-1">
             {affectedViews.map((v) => (
               <li key={v} className="text-sm text-slate-600">
-                将出现在<span className="font-medium text-slate-800">{viewLabel(v)}</span>
+                {t("diff.willAppearIn", { view: viewLabel(v, t) })}
               </li>
             ))}
           </ul>

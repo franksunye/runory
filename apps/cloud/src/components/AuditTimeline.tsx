@@ -1,26 +1,30 @@
 "use client";
 
+import { useI18n } from "@/i18n/locale-provider";
+import type { MessageKey } from "@/i18n/messages";
+import { formatRelativeTime } from "./SchemaTable";
+
 interface AuditTimelineProps {
   logs: any[];
 }
 
-const actionLabels: Record<string, string> = {
-  "record.create": "创建了记录",
-  "record.update": "更新了记录",
-  "record.delete": "删除了记录",
-  "extension.apply": "应用了扩展",
-  "extension.rollback": "回滚了扩展",
-  "pack.install": "安装了 Pack",
-  "module.install": "安装了模块",
-  "module.upgrade": "升级了模块",
-  "api_key.create": "创建了 API 密钥",
-  "api_key.revoke": "撤销了 API 密钥",
-  "api_key.rotate": "轮换了 API 密钥",
-  "member.invite": "邀请了成员",
-  "member.remove": "移除了成员",
-  "workspace.create": "创建了工作区",
-  "workspace.delete": "删除了工作区",
-  "workspace.export": "导出了工作区",
+const ACTION_LABEL_KEY: Record<string, MessageKey> = {
+  "record.create": "audit.action.recordCreate",
+  "record.update": "audit.action.recordUpdate",
+  "record.delete": "audit.action.recordDelete",
+  "extension.apply": "audit.action.extensionApply",
+  "extension.rollback": "audit.action.extensionRollback",
+  "pack.install": "audit.action.packInstall",
+  "module.install": "audit.action.moduleInstall",
+  "module.upgrade": "audit.action.moduleUpgrade",
+  "api_key.create": "audit.action.apiKeyCreate",
+  "api_key.revoke": "audit.action.apiKeyRevoke",
+  "api_key.rotate": "audit.action.apiKeyRotate",
+  "member.invite": "audit.action.memberInvite",
+  "member.remove": "audit.action.memberRemove",
+  "workspace.create": "audit.action.workspaceCreate",
+  "workspace.delete": "audit.action.workspaceDelete",
+  "workspace.export": "audit.action.workspaceExport",
 };
 
 type ActionTone = "create" | "update" | "delete" | "extension" | "system";
@@ -41,56 +45,38 @@ function categorize(action: string): ActionTone {
   return "system";
 }
 
-function formatRelativeTime(ts: string): string {
-  try {
-    const then = new Date(ts).getTime();
-    const diff = Date.now() - then;
-    if (diff < 0) return new Date(ts).toLocaleString("zh-CN");
-    const seconds = Math.floor(diff / 1000);
-    if (seconds < 60) return "刚刚";
-    const minutes = Math.floor(seconds / 60);
-    if (minutes < 60) return `${minutes}分钟前`;
-    const hours = Math.floor(minutes / 60);
-    if (hours < 24) return `${hours}小时前`;
-    if (hours < 48) return "昨天";
-    const days = Math.floor(hours / 24);
-    if (days < 7) return `${days}天前`;
-    return new Date(ts).toLocaleDateString("zh-CN");
-  } catch {
-    return ts;
-  }
+function actorLabel(log: any, t: (key: MessageKey, params?: Record<string, string | number>) => string): string {
+  if (log.actorType === "agent") return t("audit.actor.agent");
+  if (log.actorType === "system") return t("audit.actor.system");
+  if (log.actorType === "user") return t("audit.actor.user");
+  return log.actorType ?? t("audit.actor.unknown");
 }
 
-function actorLabel(log: any): string {
-  if (log.actorType === "agent") return "Agent";
-  if (log.actorType === "system") return "系统";
-  if (log.actorType === "user") return "用户";
-  return log.actorType ?? "未知";
-}
-
-function summarizeChange(log: any): string {
+function summarizeChange(log: any, t: (key: MessageKey, params?: Record<string, string | number>) => string): string {
   const after = log.after;
   if (after && typeof after === "object") {
     if (after.version !== undefined) {
-      const pieces = [`版本 #${after.version}`];
-      if (after.riskLevel) pieces.push(`风险：${after.riskLevel}`);
+      const pieces = [t("audit.summary.version", { version: after.version })];
+      if (after.riskLevel) pieces.push(t("audit.summary.risk", { level: after.riskLevel }));
       if (after.changeSummary) pieces.push(String(after.changeSummary));
       return pieces.join(" · ");
     }
     if (Array.isArray(after.modulesInstalled)) {
-      return `模块：${(after.modulesInstalled as string[]).join(", ")}`;
+      return t("audit.summary.modules", { modules: (after.modulesInstalled as string[]).join(", ") });
     }
-    if (after.name !== undefined) return `名称：${String(after.name)}`;
-    if (after.status !== undefined) return `状态：${String(after.status)}`;
+    if (after.name !== undefined) return t("audit.summary.name", { name: String(after.name) });
+    if (after.status !== undefined) return t("audit.summary.status", { status: String(after.status) });
   }
   return "—";
 }
 
 export default function AuditTimeline({ logs }: AuditTimelineProps) {
+  const { t } = useI18n();
+
   if (logs.length === 0) {
     return (
       <div className="rounded-lg border border-slate-200 bg-white p-8 text-center">
-        <p className="text-sm text-slate-500">暂无审计日志</p>
+        <p className="text-sm text-slate-500">{t("audit.empty")}</p>
       </div>
     );
   }
@@ -98,7 +84,8 @@ export default function AuditTimeline({ logs }: AuditTimelineProps) {
   return (
     <ol className="relative space-y-4 border-l border-slate-200 pl-6">
       {logs.map((log) => {
-        const label = actionLabels[log.action] ?? log.action;
+        const labelKey = ACTION_LABEL_KEY[log.action];
+        const label = labelKey ? t(labelKey) : log.action;
         const tone = categorize(log.action);
         const style = toneStyles[tone];
         return (
@@ -112,21 +99,21 @@ export default function AuditTimeline({ logs }: AuditTimelineProps) {
                   {label}
                 </span>
                 <time className="text-xs text-slate-400" title={new Date(log.createdAt).toLocaleString("zh-CN")}>
-                  {formatRelativeTime(log.createdAt)}
+                  {formatRelativeTime(log.createdAt, t)}
                 </time>
               </div>
               <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-500">
                 <span className={`app-badge ${style.badge}`}>
-                  {actorLabel(log)}
+                  {actorLabel(log, t)}
                 </span>
-                <span>实体：{log.entityType}</span>
+                <span>{t("audit.entity", { entity: log.entityType })}</span>
                 <span className="text-slate-300">·</span>
                 <span className="font-mono text-[11px] text-slate-400">
                   {log.entityId}
                 </span>
               </div>
               <p className="mt-2 text-sm text-slate-600">
-                {summarizeChange(log)}
+                {summarizeChange(log, t)}
               </p>
             </div>
           </li>

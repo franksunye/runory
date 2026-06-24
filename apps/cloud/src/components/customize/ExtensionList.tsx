@@ -10,6 +10,8 @@ import {
   RotateCcw,
 } from "lucide-react";
 import { notifyWorkspaceDataChanged } from "@/lib/workspace-events";
+import { useI18n } from "@/i18n/locale-provider";
+import type { MessageKey } from "@/i18n/messages";
 
 interface ExtensionSummary {
   id: string;
@@ -46,20 +48,20 @@ const riskColors: Record<string, string> = {
   high: "bg-red-100 text-red-700",
 };
 
-const riskLabels: Record<string, string> = {
-  low: "低风险",
-  medium: "中风险",
-  high: "高风险",
+const RISK_LABEL_KEY: Record<string, MessageKey> = {
+  low: "extension.risk.low",
+  medium: "extension.risk.medium",
+  high: "extension.risk.high",
 };
 
-const TYPE_LABELS: Record<string, string> = {
-  text: "文本",
-  email: "邮箱",
-  phone: "电话",
-  number: "数字",
-  date: "日期",
-  select: "下拉选择",
-  boolean: "是/否",
+const TYPE_LABEL_KEY: Record<string, MessageKey> = {
+  text: "extension.type.text",
+  email: "extension.type.email",
+  phone: "extension.type.phone",
+  number: "extension.type.number",
+  date: "extension.type.date",
+  select: "extension.type.select",
+  boolean: "extension.type.boolean",
 };
 
 function formatDate(iso: string): string {
@@ -74,6 +76,7 @@ function formatDate(iso: string): string {
 }
 
 export default function ExtensionList() {
+  const { t } = useI18n();
   const workspaceId = useParams().workspaceId as string;
   const [extensions, setExtensions] = useState<ExtensionSummary[]>([]);
   const [versions, setVersions] = useState<Record<string, ExtensionVersion[]>>({});
@@ -103,11 +106,11 @@ export default function ExtensionList() {
         setVersions(versionsMap);
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : "加载失败");
+      setError(e instanceof Error ? e.message : t("workspace.loadFailed"));
     } finally {
       setLoading(false);
     }
-  }, [workspaceId]);
+  }, [workspaceId, t]);
 
   useEffect(() => {
     void loadData();
@@ -127,15 +130,15 @@ export default function ExtensionList() {
       if (json.success) {
         setMessage({
           type: "success",
-          text: `已回滚「${rollbackTarget.name}」至版本 #${json.data.version}`,
+          text: t("extension.rolledBack", { name: rollbackTarget.name, version: json.data.version }),
         });
         notifyWorkspaceDataChanged();
         await loadData();
       } else {
-        setMessage({ type: "error", text: json.error?.message ?? "回滚失败" });
+        setMessage({ type: "error", text: json.error?.message ?? t("extension.rollbackFailed") });
       }
     } catch (e) {
-      setMessage({ type: "error", text: e instanceof Error ? e.message : "请求失败" });
+      setMessage({ type: "error", text: e instanceof Error ? e.message : t("extension.requestFailed") });
     } finally {
       setRollingBack(false);
       setRollbackTarget(null);
@@ -143,14 +146,14 @@ export default function ExtensionList() {
   };
 
   if (loading) {
-    return <p className="text-sm text-slate-400">加载中...</p>;
+    return <p className="text-sm text-slate-400">{t("workspace.loading")}</p>;
   }
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <p className="text-sm text-slate-500">
-          共 {extensions.length} 个已安装扩展
+          {t("extension.count", { count: extensions.length })}
         </p>
         <button
           type="button"
@@ -161,7 +164,7 @@ export default function ExtensionList() {
           className="app-button-secondary"
         >
           <RefreshCw size={16} />
-          刷新
+          {t("workspace.refresh")}
         </button>
       </div>
 
@@ -182,9 +185,9 @@ export default function ExtensionList() {
       {extensions.length === 0 ? (
         <div className="app-card flex flex-col items-center p-10 text-center">
           <AlertCircle size={32} className="text-slate-300" />
-          <p className="mt-3 text-sm text-slate-500">暂无已安装扩展</p>
+          <p className="mt-3 text-sm text-slate-500">{t("extension.empty")}</p>
           <p className="mt-1 text-xs text-slate-400">
-            通过「添加字段」流程创建的扩展会显示在这里
+            {t("extension.emptyHint")}
           </p>
         </div>
       ) : (
@@ -204,14 +207,14 @@ export default function ExtensionList() {
                       <span
                         className={`app-badge ${riskColors[riskLevel] ?? riskColors.low}`}
                       >
-                        {riskLabels[riskLevel] ?? riskLevel}
+                        {RISK_LABEL_KEY[riskLevel] ? t(RISK_LABEL_KEY[riskLevel]) : riskLevel}
                       </span>
                       <span className="app-badge bg-slate-100 text-slate-600">
                         v{ext.currentVersion}
                       </span>
                     </div>
                     <p className="mt-1 text-xs text-slate-500">
-                      创建于 {formatDate(ext.createdAt)} · 状态：{ext.status}
+                      {t("extension.createdAt", { date: formatDate(ext.createdAt) })} · {t("extension.status", { status: ext.status })}
                     </p>
                   </div>
                   <div className="flex shrink-0 items-center gap-2">
@@ -221,7 +224,7 @@ export default function ExtensionList() {
                       className="app-button-secondary !min-h-0 !px-3 !py-1.5 text-xs"
                     >
                       {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-                      查看详情
+                      {t("extension.viewDetails")}
                     </button>
                     <button
                       type="button"
@@ -230,7 +233,7 @@ export default function ExtensionList() {
                       className="inline-flex items-center gap-1.5 rounded-lg border border-red-300 bg-white px-3 py-1.5 text-xs font-semibold text-red-600 transition hover:bg-red-50 disabled:opacity-50"
                     >
                       <RotateCcw size={14} />
-                      回滚
+                      {t("extension.rollback")}
                     </button>
                   </div>
                 </div>
@@ -241,7 +244,7 @@ export default function ExtensionList() {
                     currentVer.manifest.customFields.length > 0 ? (
                       <div>
                         <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
-                          包含字段（{currentVer.manifest.customFields.length}）
+                          {t("extension.fieldsCount", { count: currentVer.manifest.customFields.length })}
                         </p>
                         <ul className="mt-2 space-y-1.5">
                           {currentVer.manifest.customFields.map((cf, i) => (
@@ -254,11 +257,11 @@ export default function ExtensionList() {
                                 {cf.targetObject}.{cf.fieldKey}
                               </span>
                               <span className="rounded bg-blue-100 px-1.5 py-0.5 text-[10px] font-medium text-blue-700">
-                                {TYPE_LABELS[cf.type] ?? cf.type}
+                                {TYPE_LABEL_KEY[cf.type] ? t(TYPE_LABEL_KEY[cf.type]) : cf.type}
                               </span>
                               {cf.required && (
                                 <span className="rounded bg-red-100 px-1.5 py-0.5 text-[10px] font-medium text-red-700">
-                                  必填
+                                  {t("extension.required")}
                                 </span>
                               )}
                             </li>
@@ -266,13 +269,13 @@ export default function ExtensionList() {
                         </ul>
                       </div>
                     ) : (
-                      <p className="text-sm text-slate-400">无字段信息</p>
+                      <p className="text-sm text-slate-400">{t("extension.noFields")}</p>
                     )}
 
                     {extVersions.length > 0 && (
                       <div>
                         <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
-                          版本历史
+                          {t("extension.versionHistory")}
                         </p>
                         <ul className="mt-2 divide-y divide-slate-50">
                           {extVersions.map((v) => (
@@ -286,7 +289,7 @@ export default function ExtensionList() {
                                 {v.changeSummary ?? "—"}
                                 {v.rollbackOfVersion != null && (
                                   <span className="ml-1 rounded bg-yellow-100 px-1.5 py-0.5 text-[10px] font-medium text-yellow-700">
-                                    回滚自 v{v.rollbackOfVersion}
+                                    {t("extension.rolledBackFrom", { version: v.rollbackOfVersion })}
                                   </span>
                                 )}
                               </span>
@@ -313,10 +316,9 @@ export default function ExtensionList() {
             className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl"
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 className="text-lg font-bold text-slate-950">确认回滚</h3>
+            <h3 className="text-lg font-bold text-slate-950">{t("extension.confirmRollback")}</h3>
             <p className="mt-2 text-sm text-slate-600">
-              确定要回滚扩展「{rollbackTarget.name}」的当前版本（v{rollbackTarget.currentVersion}）吗？
-              回滚后，该版本添加的字段和数据将从视图中移除。
+              {t("extension.confirmRollbackBody", { name: rollbackTarget.name, version: rollbackTarget.currentVersion })}
             </p>
             <div className="mt-5 flex justify-end gap-2">
               <button
@@ -325,7 +327,7 @@ export default function ExtensionList() {
                 disabled={rollingBack}
                 className="app-button-secondary"
               >
-                取消
+                {t("workspace.cancel")}
               </button>
               <button
                 type="button"
@@ -334,7 +336,7 @@ export default function ExtensionList() {
                 className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-red-600 px-4 text-sm font-semibold text-white transition hover:bg-red-700 disabled:opacity-60"
               >
                 <RotateCcw size={16} />
-                {rollingBack ? "回滚中..." : "确认回滚"}
+                {rollingBack ? t("extension.rollingBack") : t("extension.confirmRollback")}
               </button>
             </div>
           </div>
