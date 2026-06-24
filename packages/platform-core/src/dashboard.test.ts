@@ -187,12 +187,19 @@ describe("whereToSql", () => {
     expect(args).toEqual(["%test%"]);
   });
 
-  it("resolves today constant to ISO date", () => {
+  it("resolves today constant to date-only comparison", () => {
     const clauses = parseWhereExpression("due_date < today");
     const { sql, args } = whereToSql(clauses);
-    expect(sql).toBe("due_date < ?");
+    expect(sql).toBe("DATE(due_date) < ?");
     expect(typeof args[0]).toBe("string");
-    expect((args[0] as string).length).toBeGreaterThan(10);
+    expect(args[0]).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  });
+
+  it("uses DATE comparison for equality against today", () => {
+    const clauses = parseWhereExpression("scheduled_start = today");
+    const { sql, args } = whereToSql(clauses);
+    expect(sql).toBe("DATE(scheduled_start) = ?");
+    expect(args[0]).toMatch(/^\d{4}-\d{2}-\d{2}$/);
   });
 
   it("rejects invalid field identifier", () => {

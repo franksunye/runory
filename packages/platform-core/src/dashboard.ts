@@ -187,14 +187,26 @@ function stripQuotes(raw: string): string {
   return v;
 }
 
+function todayDateString(): string {
+  const d = new Date();
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 /**
- * Resolve "today" / "now" platform constants to ISO strings.
+ * Resolve "today" / "now" platform constants.
+ *
+ * `today` intentionally resolves to a date-only string. Dashboard widget
+ * filters commonly compare module fields declared as `date`, and many demo
+ * records store those values as `YYYY-MM-DD`. Keeping the bind value date-only
+ * avoids lexicographic misclassification against ISO timestamps.
  */
 function resolveValue(value: string | number | string[]): string | number | string[] {
   if (typeof value === "string") {
     if (value === "today") {
-      const d = new Date();
-      return new Date(d.getFullYear(), d.getMonth(), d.getDate()).toISOString();
+      return todayDateString();
     }
     if (value === "now") {
       return new Date().toISOString();
@@ -215,19 +227,21 @@ export function whereToSql(clauses: WhereClause[]): { sql: string; args: unknown
 
   for (const clause of clauses) {
     const field = validateIdentifier(clause.field);
+    const isTodayComparison = clause.value === "today";
     const val = resolveValue(clause.value);
+    const sqlField = isTodayComparison ? `DATE(${field})` : field;
 
     switch (clause.operator) {
       case "=":
       case "!=":
-        parts.push(`${field} ${clause.operator} ?`);
+        parts.push(`${sqlField} ${clause.operator} ?`);
         args.push(val);
         break;
       case "<":
       case "<=":
       case ">":
       case ">=":
-        parts.push(`${field} ${clause.operator} ?`);
+        parts.push(`${sqlField} ${clause.operator} ?`);
         args.push(val);
         break;
       case "like":
