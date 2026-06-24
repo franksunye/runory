@@ -3,6 +3,18 @@ name: After-sales Service Pack
 version: 1.0.1
 coreCompatibility: ">=0.1.0"
 
+description: "售后服务 — 维修请求、退货和保修管理"
+onboardingChecklist:
+  - id: create-repair-request
+    label: "创建维修请求"
+    route: "/repair-requests/new"
+  - id: create-return-request
+    label: "创建退货请求"
+    route: "/return-requests/new"
+  - id: view-warranties
+    label: "查看保修记录"
+    route: "/warranties"
+
 # After-sales Service Pack adds post-sale obligations: warranty,
 # entitlement, return/repair requests, maintenance plans, and customer
 # success follow-ups. It composes shared business modules (company,

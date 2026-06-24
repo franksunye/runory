@@ -3,6 +3,22 @@ name: Field Service Management Pack
 version: 1.0.0
 coreCompatibility: ">=0.1.0"
 
+description: "现场服务管理 — 工单、技师、服务地点和资产"
+recommended: true
+onboardingChecklist:
+  - id: create-work-order
+    label: "创建第一个工单"
+    route: "/work-orders/new"
+  - id: create-technician
+    label: "添加技师"
+    route: "/technicians/new"
+  - id: create-service-site
+    label: "添加服务地点"
+    route: "/service-sites/new"
+  - id: load-demo
+    label: "加载示例数据体验"
+    route: "/modules"
+
 # FSM Pack composes shared business modules (company, contact, task) with
 # FSM-specific modules. Shared modules are reused, not duplicated.
 modules:

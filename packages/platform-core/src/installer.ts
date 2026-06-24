@@ -44,11 +44,18 @@ interface PackDemoData {
   records: DemoRecord[];
 }
 
-function loadPackDemoData(packId: string): PackDemoData | null {
+function readPackDemoDataFile(packId: string): PackDemoData | null {
   const demoPath = resolve(PACKS_DIR, packId, "demo-data.json");
   if (!existsSync(demoPath)) return null;
   const raw = JSON.parse(readFileSync(demoPath, "utf-8")) as PackDemoData;
   return { records: Array.isArray(raw.records) ? raw.records : [] };
+}
+
+/**
+ * Check if a pack has demo data available (v0.3.4).
+ */
+export function hasPackDemoData(packId: string): boolean {
+  return readPackDemoDataFile(packId) !== null;
 }
 
 export function loadTemplateManifest(templateId: string): TemplateManifest {
@@ -138,7 +145,7 @@ async function resolveDemoLookup(
 }
 
 async function seedPackDemoData(workspaceId: string, packId: string): Promise<number> {
-  const demo = loadPackDemoData(packId);
+  const demo = readPackDemoDataFile(packId);
   if (!demo) return 0;
 
   let created = 0;
@@ -174,6 +181,38 @@ async function seedPackDemoData(workspaceId: string, packId: string): Promise<nu
   }
 
   return created;
+}
+
+/**
+ * Load demo data for a pack as a separate action (v0.3.4).
+ * This is decoupled from installPack so users can choose when to load demo data.
+ * Updates the pack's demo_data_status to 'loaded' on success.
+ * Idempotent: re-running won't create duplicates (uses match-field dedup).
+ */
+export async function loadPackDemoData(
+  workspaceId: string,
+  packId: string
+): Promise<{ recordsCreated: number }> {
+  const created = await seedPackDemoData(workspaceId, packId);
+  await updatePackDemoDataStatus(workspaceId, packId, "loaded");
+  return { recordsCreated: created };
+}
+
+/**
+ * Update the demo data status for a pack installation (v0.3.4).
+ */
+export async function updatePackDemoDataStatus(
+  workspaceId: string,
+  packId: string,
+  status: "none" | "loaded" | "error"
+): Promise<void> {
+  const loadedAt = status === "loaded" ? now() : null;
+  await execute(
+    `UPDATE ${TABLES.packInstallations}
+     SET demo_data_status = ?, demo_data_loaded_at = COALESCE(?, demo_data_loaded_at)
+     WHERE workspace_id = ? AND pack_id = ?`,
+    [status, loadedAt, workspaceId, packId]
+  );
 }
 
 // ── Topological Sort (Kahn's algorithm) ──
@@ -435,6 +474,11 @@ export async function installPack(
   const demoRecordsCreated = options.includeDemoData
     ? await seedPackDemoData(workspaceId, packId)
     : 0;
+
+  // v0.3.4 — Track demo data status
+  if (options.includeDemoData && demoRecordsCreated >= 0) {
+    await updatePackDemoDataStatus(workspaceId, packId, "loaded");
+  }
 
   return {
     packId,

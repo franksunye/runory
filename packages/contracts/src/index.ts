@@ -251,6 +251,16 @@ export const packTerminologySchema = z.array(packTerminologyEntrySchema);
 
 export type PackTerminologyEntry = z.infer<typeof packTerminologyEntrySchema>;
 
+// ── Onboarding Checklist (v0.3.4) ──
+// Per-pack guided steps shown after installation.
+export const onboardingChecklistItemSchema = z.object({
+  id: z.string(),
+  label: z.string(),                          // e.g. "Create your first company"
+  route: z.string().optional(),               // deep link, e.g. "/companies/new"
+  description: z.string().optional(),
+});
+export type OnboardingChecklistItem = z.infer<typeof onboardingChecklistItemSchema>;
+
 export const packManifestSchema = z.object({
   id: z.string(),
   name: z.string(),
@@ -268,6 +278,10 @@ export const packManifestSchema = z.object({
     license: z.string(),
     publisher: z.string(),
   }).optional(),
+  // v0.3.4 — Pack onboarding metadata
+  description: z.string().optional(),
+  recommended: z.boolean().optional(),
+  onboardingChecklist: z.array(onboardingChecklistItemSchema).optional(),
 });
 
 export type PackManifest = z.infer<typeof packManifestSchema>;

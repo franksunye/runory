@@ -5,8 +5,8 @@ import { join } from "node:path";
 import { db, execute, genId, now } from "./db";
 import { runMigrations } from "./migrations";
 import { TABLES } from "./contracts";
-import { installPack } from "./installer";
-import { getRecords } from "./metadata";
+import { installPack, loadPackDemoData, hasPackDemoData, updatePackDemoDataStatus } from "./installer";
+import { getRecords, getInstalledPacks } from "./metadata";
 
 const dataDir = join(process.cwd(), "data");
 if (!existsSync(dataDir)) mkdirSync(dataDir, { recursive: true });
@@ -116,5 +116,67 @@ describe("installPack demo data", () => {
     expect(await getRecords(workspaceId, "contact")).toHaveLength(8);
     expect(await getRecords(workspaceId, "deal")).toHaveLength(6);
     expect(await getRecords(workspaceId, "task")).toHaveLength(6);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// v0.3.4 — Separate demo data loading & status tracking
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("demo data status tracking (v0.3.4)", () => {
+  it("installPack without demo data sets status to 'none'", async () => {
+    await installPack(workspaceId, "crm-lite-pack");
+    const packs = await getInstalledPacks(workspaceId);
+    const crm = packs.find((p) => p.packId === "crm-lite-pack");
+    expect(crm).toBeDefined();
+    expect(crm!.demoDataStatus).toBe("none");
+    expect(crm!.demoDataLoadedAt).toBeNull();
+  });
+
+  it("installPack with demo data sets status to 'loaded'", async () => {
+    await installPack(workspaceId, "crm-lite-pack", { includeDemoData: true });
+    const packs = await getInstalledPacks(workspaceId);
+    const crm = packs.find((p) => p.packId === "crm-lite-pack");
+    expect(crm).toBeDefined();
+    expect(crm!.demoDataStatus).toBe("loaded");
+    expect(crm!.demoDataLoadedAt).not.toBeNull();
+  });
+
+  it("loadPackDemoData loads demo data separately after install", async () => {
+    // Install without demo data
+    await installPack(workspaceId, "crm-lite-pack");
+    let packs = await getInstalledPacks(workspaceId);
+    expect(packs.find((p) => p.packId === "crm-lite-pack")!.demoDataStatus).toBe("none");
+    expect(await getRecords(workspaceId, "company")).toHaveLength(0);
+
+    // Load demo data separately
+    const result = await loadPackDemoData(workspaceId, "crm-lite-pack");
+    expect(result.recordsCreated).toBe(26);
+
+    packs = await getInstalledPacks(workspaceId);
+    expect(packs.find((p) => p.packId === "crm-lite-pack")!.demoDataStatus).toBe("loaded");
+    expect(await getRecords(workspaceId, "company")).toHaveLength(6);
+  });
+
+  it("loadPackDemoData is idempotent", async () => {
+    await installPack(workspaceId, "crm-lite-pack");
+    await loadPackDemoData(workspaceId, "crm-lite-pack");
+    const second = await loadPackDemoData(workspaceId, "crm-lite-pack");
+    expect(second.recordsCreated).toBe(0);
+    expect(await getRecords(workspaceId, "company")).toHaveLength(6);
+  });
+
+  it("hasPackDemoData correctly detects demo data availability", async () => {
+    expect(hasPackDemoData("crm-lite-pack")).toBe(true);
+    expect(hasPackDemoData("fsm-pack")).toBe(true);
+    expect(hasPackDemoData("nonexistent-pack")).toBe(false);
+  });
+
+  it("updatePackDemoDataStatus updates the status directly", async () => {
+    await installPack(workspaceId, "crm-lite-pack");
+    await updatePackDemoDataStatus(workspaceId, "crm-lite-pack", "error");
+
+    const packs = await getInstalledPacks(workspaceId);
+    expect(packs.find((p) => p.packId === "crm-lite-pack")!.demoDataStatus).toBe("error");
   });
 });

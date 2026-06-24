@@ -3,6 +3,18 @@ name: Customer Service Pack
 version: 1.0.1
 coreCompatibility: ">=0.1.0"
 
+description: "客户服务 — 工单、SLA 和知识库管理"
+onboardingChecklist:
+  - id: create-ticket
+    label: "创建客服工单"
+    route: "/tickets/new"
+  - id: setup-sla
+    label: "配置 SLA 策略"
+    route: "/support-slas/new"
+  - id: create-knowledge
+    label: "添加知识库文章"
+    route: "/knowledge/new"
+
 # Customer Service Pack adds support communication and issue resolution.
 # It composes shared business modules (company, contact, task) with 4
 # customer-service-specific modules. Cross-pack relations to FSM (asset,

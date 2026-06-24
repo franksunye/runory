@@ -3,6 +3,22 @@ name: CRM Lite Pack
 version: 2.0.0
 coreCompatibility: ">=0.1.0"
 
+description: "轻量级客户关系管理 — 管理公司、联系人、商机和任务"
+recommended: true
+onboardingChecklist:
+  - id: create-company
+    label: "创建第一个公司"
+    route: "/companies/new"
+  - id: create-contact
+    label: "添加联系人"
+    route: "/contacts/new"
+  - id: create-deal
+    label: "创建商机"
+    route: "/deals/new"
+  - id: load-demo
+    label: "加载示例数据体验"
+    route: "/modules"
+
 modules:
   - "runory.company:^1.0.0"
   - "runory.contact:^2.0.0"

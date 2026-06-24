@@ -3,6 +3,18 @@ name: Marketing Capture Pack
 version: 1.0.0
 coreCompatibility: ">=0.1.0"
 
+description: "营销获客 — 着陆页、表单和提交记录管理"
+onboardingChecklist:
+  - id: create-landing-page
+    label: "创建着陆页"
+    route: "/landing-pages/new"
+  - id: create-form
+    label: "创建表单"
+    route: "/forms/new"
+  - id: view-submissions
+    label: "查看提交记录"
+    route: "/submissions"
+
 # Marketing Capture Pack composes shared business modules (company, contact,
 # deal) with marketing-specific modules for public demand capture.
 modules:

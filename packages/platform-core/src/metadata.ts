@@ -291,13 +291,17 @@ export interface PackInstallationInfo {
   packId: string;
   packVersion: string;
   installedAt: string;
+  demoDataStatus: "none" | "loaded" | "error";
+  demoDataLoadedAt: string | null;
 }
 
 export async function getInstalledPacks(workspaceId: string): Promise<PackInstallationInfo[]> {
   const rows = await queryAll<{
     pack_id: string; pack_version: string; installed_at: string;
+    demo_data_status: string; demo_data_loaded_at: string | null;
   }>(
-    `SELECT pack_id, pack_version, installed_at FROM ${TABLES.packInstallations}
+    `SELECT pack_id, pack_version, installed_at, demo_data_status, demo_data_loaded_at
+     FROM ${TABLES.packInstallations}
      WHERE workspace_id = ? ORDER BY installed_at ASC`,
     [workspaceId]
   );
@@ -305,6 +309,8 @@ export async function getInstalledPacks(workspaceId: string): Promise<PackInstal
     packId: r.pack_id,
     packVersion: r.pack_version,
     installedAt: r.installed_at,
+    demoDataStatus: (r.demo_data_status as "none" | "loaded" | "error") ?? "none",
+    demoDataLoadedAt: r.demo_data_loaded_at,
   }));
 }
 

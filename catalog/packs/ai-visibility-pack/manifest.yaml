@@ -3,6 +3,18 @@ name: AI Visibility / GEO Seed Pack
 version: 1.0.0
 coreCompatibility: ">=0.1.0"
 
+description: "AI 可见性 — 实体档案、引用来源和答案块管理"
+onboardingChecklist:
+  - id: create-entity-profile
+    label: "创建实体档案"
+    route: "/entity-profiles/new"
+  - id: add-citation-source
+    label: "添加引用来源"
+    route: "/citation-sources/new"
+  - id: review-answer-blocks
+    label: "审核答案块"
+    route: "/answer-blocks"
+
 # AI Visibility Pack adds GEO/AEO capability on top of Marketing Capture.
 # It composes shared business modules (company) with Marketing Capture modules
 # (landing_page) and Sales Quote modules (product_service) for cross-pack
