@@ -16,6 +16,7 @@ interface SchemaFormProps {
   initialValues?: RecordData;
   onSubmit: (data: RecordData) => void;
   submitLabel?: string;
+  workspaceId?: string;
 }
 
 interface FormSection {
@@ -29,6 +30,7 @@ export default function SchemaForm({
   initialValues = {},
   onSubmit,
   submitLabel = "保存",
+  workspaceId,
 }: SchemaFormProps) {
   const fieldMap = new Map(fields.map((f) => [f.fieldKey, f]));
   const sections: FormSection[] = viewConfig?.sections ?? [];
@@ -117,6 +119,7 @@ export default function SchemaForm({
                     field={fieldDef}
                     value={values[sf.field]}
                     onChange={(v) => handleChange(sf.field, v)}
+                    workspaceId={workspaceId}
                   />
                   {errors[sf.field] && (
                     <p className="mt-1 text-xs text-red-500">

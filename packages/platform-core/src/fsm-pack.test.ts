@@ -6,7 +6,7 @@ import { db, execute, genId, now, queryAll } from "./db";
 import { runMigrations } from "./migrations";
 import { TABLES, businessTable } from "./contracts";
 import { installPack, installModule, loadModuleManifest, loadPackManifest } from "./installer";
-import { getRecords, getNavigation, getInstallations, getInstalledPacks, createRecord, updateRecord, getObject } from "./metadata";
+import { getRecords, getNavigation, getInstallations, getInstalledPacks, getRelations, getBacklinks, createRecord, updateRecord, getObject } from "./metadata";
 import { moduleManifestSchema, packManifestSchema } from "@runory/contracts";
 import {
   resolveEffectiveLayout,
@@ -728,5 +728,31 @@ describe("FSM pack installation tracking", () => {
     expect(fsmPack).toBeDefined();
     expect(fsmPack!.packVersion).toBe("1.0.0");
     expect(fsmPack!.installedAt).toBeTruthy();
+  });
+
+  it("getRelations returns persisted relation definitions (v0.3.2)", async () => {
+    await installPack(workspaceId, "fsm-pack");
+
+    // work_order has relations to service_site and asset
+    const relations = await getRelations(workspaceId, "work_order");
+    expect(relations.length).toBeGreaterThanOrEqual(1);
+
+    const siteRel = relations.find((r) => r.targetObjectKey === "service_site");
+    expect(siteRel).toBeDefined();
+    expect(siteRel!.foreignKey).toBe("service_site_id");
+    expect(siteRel!.relationType).toBe("many_to_one");
+  });
+
+  it("getBacklinks returns incoming relations (v0.3.2)", async () => {
+    await installPack(workspaceId, "fsm-pack");
+
+    // service_site should have backlinks from work_order (service_site_id) and asset (site_id)
+    const backlinks = await getBacklinks(workspaceId, "service_site");
+    expect(backlinks.length).toBeGreaterThanOrEqual(1);
+
+    const woBacklink = backlinks.find((b) => b.objectKey === "work_order");
+    expect(woBacklink).toBeDefined();
+    expect(woBacklink!.foreignKey).toBe("service_site_id");
+    expect(woBacklink!.targetObjectKey).toBe("service_site");
   });
 });

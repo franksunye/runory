@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import useSWR from "swr";
@@ -11,6 +11,7 @@ import {
   useViews,
   useRecord,
   useRecords,
+  useRelations,
   useWorkspaceChangeEvent,
   type WorkspaceRecord,
 } from "@/lib/api-hooks";
@@ -145,8 +146,8 @@ export default function ObjectDetailPage({
   title,
   singularLabel,
   backLabel,
-  parentLinks = [],
-  related = [],
+  parentLinks: manualParentLinks = [],
+  related: manualRelated = [],
 }: ObjectDetailPageProps) {
   const params = useParams();
   const router = useRouter();
@@ -156,6 +157,7 @@ export default function ObjectDetailPage({
   const { data: objDetail, isLoading: loadingObj } = useFields(workspaceId, objectKey);
   const { data: views = [], isLoading: loadingViews } = useViews(workspaceId, objectKey);
   const { data: record, error: recordError, isLoading: loadingRecord, mutate: mutateRecord } = useRecord(workspaceId, objectKey, recordId);
+  const { data: relationsData } = useRelations(workspaceId, objectKey);
 
   useWorkspaceChangeEvent(workspaceId);
 
@@ -168,6 +170,39 @@ export default function ObjectDetailPage({
   const fields: FieldDefinition[] = objDetail?.fields ?? [];
   const viewConfig = views.find((v) => v.viewKey === viewKey)?.config ?? null;
   const label = singularLabel ?? title;
+
+  // Derive parentLinks and related from relation metadata (v0.3.2).
+  // Manual props take precedence; metadata fills in the rest.
+  const metadataRelations = relationsData?.relations ?? [];
+  const metadataBacklinks = relationsData?.backlinks ?? [];
+
+  const parentLinks = useMemo(() => {
+    const manualKeys = new Set(manualParentLinks.map((p) => p.foreignKey));
+    const derived: ParentLinkConfig[] = metadataRelations
+      .filter((r) => r.relationType === "many_to_one" && !manualKeys.has(r.foreignKey))
+      .map((r) => ({
+        foreignKey: r.foreignKey,
+        parentObjectKey: r.targetObjectKey,
+        label: r.label ?? `关联${r.targetObjectKey}`,
+        titleField: "name",
+        routeBase: `/w/{workspaceId}/${r.targetObjectKey.replace(/_/g, "-")}s`,
+      }));
+    return [...manualParentLinks, ...derived];
+  }, [manualParentLinks, metadataRelations]);
+
+  const related = useMemo(() => {
+    const manualKeys = new Set(manualRelated.map((r) => r.objectKey));
+    const derived: RelatedRecordsConfig[] = metadataBacklinks
+      .filter((r) => !manualKeys.has(r.objectKey))
+      .map((r) => ({
+        objectKey: r.objectKey,
+        foreignKey: r.foreignKey,
+        label: r.label ?? `关联${r.objectKey}`,
+        titleField: "name",
+        routeBase: `/w/{workspaceId}/${r.objectKey.replace(/_/g, "-")}s`,
+      }));
+    return [...manualRelated, ...derived];
+  }, [manualRelated, metadataBacklinks]);
 
   const handleUpdate = async (data: Record<string, any>) => {
     setSubmitting(true);
@@ -290,6 +325,7 @@ export default function ObjectDetailPage({
           initialValues={record}
           onSubmit={handleUpdate}
           submitLabel={submitting ? "保存中..." : "保存"}
+          workspaceId={workspaceId}
         />
       ) : (
         <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">

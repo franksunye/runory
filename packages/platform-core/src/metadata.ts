@@ -308,6 +308,78 @@ export async function getInstalledPacks(workspaceId: string): Promise<PackInstal
   }));
 }
 
+// ── Relation Definitions (v0.3.2) ──
+// Relations are persisted at module install time from manifest.relations.
+// getRelations returns outgoing relations (this object → target).
+// getBacklinks returns incoming relations (other objects → this object).
+
+export interface RelationDefinition {
+  id: string;
+  objectKey: string;
+  targetObjectKey: string;
+  targetModuleId: string;
+  relationType: string;
+  foreignKey: string;
+  label: string | null;
+  moduleId: string;
+}
+
+export async function getRelations(
+  workspaceId: string,
+  objectKey: string
+): Promise<RelationDefinition[]> {
+  const rows = await queryAll<{
+    id: string; object_key: string; target_object_key: string;
+    target_module_id: string; relation_type: string; foreign_key: string;
+    label: string | null; module_id: string;
+  }>(
+    `SELECT id, object_key, target_object_key, target_module_id, relation_type,
+            foreign_key, label, module_id
+     FROM ${TABLES.relationDefinitions}
+     WHERE workspace_id = ? AND object_key = ?
+     ORDER BY foreign_key ASC`,
+    [workspaceId, objectKey]
+  );
+  return rows.map(r => ({
+    id: r.id,
+    objectKey: r.object_key,
+    targetObjectKey: r.target_object_key,
+    targetModuleId: r.target_module_id,
+    relationType: r.relation_type,
+    foreignKey: r.foreign_key,
+    label: r.label,
+    moduleId: r.module_id,
+  }));
+}
+
+export async function getBacklinks(
+  workspaceId: string,
+  objectKey: string
+): Promise<RelationDefinition[]> {
+  const rows = await queryAll<{
+    id: string; object_key: string; target_object_key: string;
+    target_module_id: string; relation_type: string; foreign_key: string;
+    label: string | null; module_id: string;
+  }>(
+    `SELECT id, object_key, target_object_key, target_module_id, relation_type,
+            foreign_key, label, module_id
+     FROM ${TABLES.relationDefinitions}
+     WHERE workspace_id = ? AND target_object_key = ?
+     ORDER BY object_key ASC, foreign_key ASC`,
+    [workspaceId, objectKey]
+  );
+  return rows.map(r => ({
+    id: r.id,
+    objectKey: r.object_key,
+    targetObjectKey: r.target_object_key,
+    targetModuleId: r.target_module_id,
+    relationType: r.relation_type,
+    foreignKey: r.foreign_key,
+    label: r.label,
+    moduleId: r.module_id,
+  }));
+}
+
 // ── Records (dynamic CRUD on business tables) ──
 
 export interface GetRecordsOptions {

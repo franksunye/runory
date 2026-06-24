@@ -348,6 +348,29 @@ export async function installModule(
     }
   }
 
+  // Insert relation definitions (v0.3.2)
+  if (manifest.relations) {
+    for (const rel of manifest.relations) {
+      await execute(
+        `INSERT OR IGNORE INTO ${TABLES.relationDefinitions}
+         (id, workspace_id, object_key, target_object_key, target_module_id, relation_type, foreign_key, label, module_id, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          genId("rel"),
+          workspaceId,
+          rel.object,
+          rel.targetObject,
+          rel.targetModule,
+          rel.type,
+          rel.foreignKey,
+          rel.label ?? null,
+          moduleId,
+          now(),
+        ]
+      );
+    }
+  }
+
   return { moduleId, objectsCreated, viewsCreated, navigationItemsCreated, ddlExecuted, skipped: false };
 }
 

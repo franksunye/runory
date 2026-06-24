@@ -8,6 +8,7 @@ import type {
   FieldDefinition,
   NavigationItem,
   ObjectDefinition,
+  RelationDefinition,
   ViewDefinition,
 } from "@runory/platform-core";
 import {
@@ -109,6 +110,18 @@ export function useFields(workspaceId: string, objectKey: string) {
 export function useViews(workspaceId: string, objectKey: string) {
   const { data, error, isLoading, mutate } = useSWR<ViewDefinition[]>(
     workspaceKey(workspaceId, `objects/${objectKey}/views`)
+  );
+  return { data, error, isLoading, mutate };
+}
+
+export interface RelationsResponse {
+  relations: RelationDefinition[];
+  backlinks: RelationDefinition[];
+}
+
+export function useRelations(workspaceId: string, objectKey: string) {
+  const { data, error, isLoading, mutate } = useSWR<RelationsResponse>(
+    workspaceKey(workspaceId, `objects/${objectKey}/relations`)
   );
   return { data, error, isLoading, mutate };
 }

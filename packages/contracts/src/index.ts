@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 // ── Field Types ──
-export const fieldTypes = ["text", "email", "phone", "number", "date", "select", "boolean"] as const;
+export const fieldTypes = ["text", "email", "phone", "number", "date", "select", "boolean", "lookup"] as const;
 export type FieldType = (typeof fieldTypes)[number];
 
 // ── Module Manifest ──

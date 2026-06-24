@@ -101,6 +101,7 @@ export default function ObjectCreatePage({
           viewConfig={viewConfig}
           onSubmit={handleSubmit}
           submitLabel={submitting ? "保存中..." : "保存"}
+          workspaceId={workspaceId}
         />
       ) : (
         <p className="text-sm text-slate-500">未找到表单视图配置。</p>
