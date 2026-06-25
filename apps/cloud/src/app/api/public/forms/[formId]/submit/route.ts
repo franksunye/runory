@@ -101,7 +101,7 @@ export async function POST(
           success: false,
           error: {
             code: "RATE_LIMITED",
-            message: "提交过于频繁，请稍后再试。",
+            message: "Too many submissions. Please try again later.",
           },
         },
         {
@@ -117,18 +117,18 @@ export async function POST(
     // Parse body with size limit
     const contentLength = request.headers.get("content-length");
     if (contentLength && parseInt(contentLength, 10) > MAX_PAYLOAD_SIZE) {
-      return invalidInput("提交数据过大");
+      return invalidInput("Submission payload too large");
     }
 
     let body: Record<string, unknown>;
     try {
       body = await request.json();
     } catch {
-      return invalidInput("无效的请求数据");
+      return invalidInput("Invalid request data");
     }
 
     if (!body || typeof body !== "object" || Array.isArray(body)) {
-      return invalidInput("提交数据必须是对象");
+      return invalidInput("Submission data must be an object");
     }
 
     // Spam check (honeypot)
@@ -136,7 +136,7 @@ export async function POST(
       // Silently accept but mark as spam (don't tell the bot it was rejected)
       return NextResponse.json({
         success: true,
-        data: { message: "感谢您的提交。" },
+        data: { message: "Thank you for your submission." },
       });
     }
 
@@ -148,7 +148,7 @@ export async function POST(
           success: false,
           error: {
             code: "FORM_NOT_FOUND",
-            message: "表单不存在或未发布。",
+            message: "Form not found or not published.",
           },
         },
         { status: 404 }
@@ -163,7 +163,7 @@ export async function POST(
           success: false,
           error: {
             code: "VALIDATION_ERROR",
-            message: `缺少必填字段: ${missing.join(", ")}`,
+            message: `Missing required fields: ${missing.join(", ")}`,
           },
         },
         { status: 422 }
@@ -219,7 +219,7 @@ export async function POST(
       success: true,
       data: {
         id: submissionId,
-        message: form.success_message ?? "感谢您的提交，我们会尽快与您联系。",
+        message: form.success_message ?? "Thank you for your submission. We will get back to you soon.",
       },
     });
   } catch (e) {

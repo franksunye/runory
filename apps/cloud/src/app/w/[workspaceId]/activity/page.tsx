@@ -5,38 +5,39 @@ import { useParams } from "next/navigation";
 import { RefreshCw } from "lucide-react";
 import type { AuditLog } from "@runory/platform-core";
 import { useI18n } from "@/i18n/locale-provider";
+import type { MessageKey } from "@/i18n/messages";
 
 type EventCategory = "create" | "update" | "delete" | "extension" | "system";
 
-const CATEGORY_STYLES: Record<EventCategory, { dot: string; ring: string; badge: string; label: string }> = {
-  create: { dot: "bg-emerald-500", ring: "border-emerald-300", badge: "bg-emerald-50 text-emerald-700", label: "创建" },
-  update: { dot: "bg-blue-500", ring: "border-blue-300", badge: "bg-blue-50 text-blue-700", label: "更新" },
-  delete: { dot: "bg-red-500", ring: "border-red-300", badge: "bg-red-50 text-red-700", label: "删除" },
-  extension: { dot: "bg-purple-500", ring: "border-purple-300", badge: "bg-purple-50 text-purple-700", label: "扩展" },
-  system: { dot: "bg-slate-400", ring: "border-slate-300", badge: "bg-slate-100 text-slate-600", label: "系统" },
+const CATEGORY_STYLES: Record<EventCategory, { dot: string; ring: string; badge: string; labelKey: MessageKey }> = {
+  create: { dot: "bg-emerald-500", ring: "border-emerald-300", badge: "bg-emerald-50 text-emerald-700", labelKey: "activity.categoryCreate" },
+  update: { dot: "bg-blue-500", ring: "border-blue-300", badge: "bg-blue-50 text-blue-700", labelKey: "activity.categoryUpdate" },
+  delete: { dot: "bg-red-500", ring: "border-red-300", badge: "bg-red-50 text-red-700", labelKey: "activity.categoryDelete" },
+  extension: { dot: "bg-purple-500", ring: "border-purple-300", badge: "bg-purple-50 text-purple-700", labelKey: "activity.categoryExtension" },
+  system: { dot: "bg-slate-400", ring: "border-slate-300", badge: "bg-slate-100 text-slate-600", labelKey: "activity.categorySystem" },
 };
 
-const BUSINESS_LABELS: Record<string, string> = {
-  "extension.apply": "应用了一项工作区扩展",
-  "extension.rollback": "回滚了工作区扩展",
-  "pack.install": "安装了业务 Pack",
-  "record.create": "创建了新记录",
-  "record.update": "更新了记录",
-  "record.delete": "删除了记录",
+const BUSINESS_LABELS: Record<string, MessageKey> = {
+  "extension.apply": "activity.action.extensionApply",
+  "extension.rollback": "activity.action.extensionRollback",
+  "pack.install": "activity.action.packInstall",
+  "record.create": "activity.action.recordCreate",
+  "record.update": "activity.action.recordUpdate",
+  "record.delete": "activity.action.recordDelete",
 };
 
-const ENTITY_LABELS: Record<string, string> = {
-  record: "记录",
-  extension: "扩展",
-  pack: "业务包",
-  module: "模块",
-  workflow: "工作流",
+const ENTITY_LABELS: Record<string, MessageKey> = {
+  record: "activity.entity.record",
+  extension: "activity.entity.extension",
+  pack: "activity.entity.pack",
+  module: "activity.entity.module",
+  workflow: "activity.entity.workflow",
 };
 
-const ACTOR_LABELS: Record<string, string> = {
-  user: "成员",
-  agent: "Agent",
-  system: "系统",
+const ACTOR_LABELS: Record<string, MessageKey> = {
+  user: "activity.actor.user",
+  agent: "activity.actor.agent",
+  system: "activity.actor.system",
 };
 
 const PAGE_SIZE = 20;
@@ -57,16 +58,20 @@ function formatTime(ts: string): string {
   }
 }
 
-function summarizeEntity(log: AuditLog): string {
-  const entityLabel = ENTITY_LABELS[log.entityType] ?? log.entityType;
+function summarizeEntity(
+  log: AuditLog,
+  t: (key: MessageKey, params?: Record<string, string | number>) => string
+): string {
+  const entityKey = ENTITY_LABELS[log.entityType];
+  const entityLabel = entityKey ? t(entityKey) : log.entityType;
   const after = log.after;
   if (after && typeof after === "object") {
     const name = (after as Record<string, unknown>).name;
-    if (typeof name === "string" && name) return `${entityLabel}：${name}`;
+    if (typeof name === "string" && name) return t("activity.entityWithName", { label: entityLabel, name });
     const version = (after as Record<string, unknown>).version;
-    if (version !== undefined) return `${entityLabel} · 版本 #${version}`;
+    if (version !== undefined) return t("activity.entityWithVersion", { label: entityLabel, version: String(version) });
   }
-  return `${entityLabel} · ${log.entityId.slice(0, 8)}`;
+  return t("activity.entityWithId", { label: entityLabel, id: log.entityId.slice(0, 8) });
 }
 
 export default function ActivityPage() {
@@ -110,8 +115,8 @@ export default function ActivityPage() {
       <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="app-eyebrow">Activity</p>
-          <h1 className="mt-2 text-3xl font-bold tracking-[-.025em] text-slate-950">活动</h1>
-          <p className="mt-2 text-sm text-slate-500">工作区内最近的业务变更与操作动态（共 {logs.length} 条）</p>
+          <h1 className="mt-2 text-3xl font-bold tracking-[-.025em] text-slate-950">{t("activity.title")}</h1>
+          <p className="mt-2 text-sm text-slate-500">{t("activity.subtitle", { count: logs.length })}</p>
         </div>
         <button onClick={() => { setLoading(true); setVisibleCount(PAGE_SIZE); void load(); }} className="app-button-secondary self-start">
           <RefreshCw size={16} />{t("workspace.refresh")}
@@ -122,7 +127,7 @@ export default function ActivityPage() {
 
       {logs.length === 0 ? (
         <div className="app-card flex flex-col items-center p-10 text-center">
-          <p className="text-sm text-slate-500">暂无活动记录</p>
+          <p className="text-sm text-slate-500">{t("activity.empty")}</p>
         </div>
       ) : (
         <>
@@ -130,8 +135,10 @@ export default function ActivityPage() {
             {visible.map((log) => {
               const category = categorize(log.action);
               const style = CATEGORY_STYLES[category];
-              const description = BUSINESS_LABELS[log.action] ?? log.action;
-              const actorLabel = ACTOR_LABELS[log.actorType] ?? log.actorType;
+              const descriptionKey = BUSINESS_LABELS[log.action];
+              const description = descriptionKey ? t(descriptionKey) : log.action;
+              const actorKey = ACTOR_LABELS[log.actorType];
+              const actorLabel = actorKey ? t(actorKey) : log.actorType;
               return (
                 <li key={log.id} className="relative">
                   <span className={`absolute -left-[27px] flex h-4 w-4 items-center justify-center rounded-full border-2 ${style.ring} bg-white`}>
@@ -140,7 +147,7 @@ export default function ActivityPage() {
                   <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-2">
-                        <span className={`app-badge ${style.badge}`}>{style.label}</span>
+                        <span className={`app-badge ${style.badge}`}>{t(style.labelKey)}</span>
                         <span className="text-sm font-semibold text-slate-800">{description}</span>
                       </div>
                       <time className="shrink-0 text-xs text-slate-400">{formatTime(log.createdAt)}</time>
@@ -149,7 +156,7 @@ export default function ActivityPage() {
                       <span className="rounded bg-slate-100 px-1.5 py-0.5">{actorLabel}</span>
                       <span className="font-mono text-[11px] text-slate-400">{log.actorId}</span>
                       <span className="text-slate-300">·</span>
-                      <span>{summarizeEntity(log)}</span>
+                      <span>{summarizeEntity(log, t)}</span>
                     </div>
                   </div>
                 </li>
@@ -164,7 +171,7 @@ export default function ActivityPage() {
                 onClick={() => setVisibleCount((c) => c + PAGE_SIZE)}
                 className="app-button-secondary"
               >
-                加载更多（剩余 {logs.length - visibleCount} 条）
+                {t("activity.loadMore", { remaining: logs.length - visibleCount })}
               </button>
             </div>
           )}

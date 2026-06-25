@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import SchemaForm from "@/components/SchemaForm";
 import type { FieldDefinition } from "@runory/platform-core";
+import { useI18n } from "@/i18n/locale-provider";
 
 const OBJECT_KEY = "landing_page";
 const VIEW_KEY = "landing_page_form";
@@ -11,6 +12,7 @@ const VIEW_KEY = "landing_page_form";
 export default function NewLandingPagePage() {
   const params = useParams();
   const router = useRouter();
+  const { t } = useI18n();
   const workspaceId = params.workspaceId as string;
 
   const [fields, setFields] = useState<FieldDefinition[]>([]);
@@ -36,12 +38,12 @@ export default function NewLandingPagePage() {
           setViewConfig(view?.config ?? null);
         }
       } catch (e) {
-        setError(e instanceof Error ? e.message : "加载失败");
+        setError(e instanceof Error ? e.message : t("workspace.loadFailed"));
       } finally {
         setLoading(false);
       }
     })();
-  }, [workspaceId]);
+  }, [workspaceId, t]);
 
   const handleSubmit = async (data: Record<string, any>) => {
     setSubmitting(true);
@@ -60,25 +62,25 @@ export default function NewLandingPagePage() {
         router.push(`/w/${workspaceId}/landing-pages`);
         router.refresh();
       } else {
-        setError(json.error?.message ?? "创建失败");
+        setError(json.error?.message ?? t("workspace.createFailed"));
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : "创建失败");
+      setError(e instanceof Error ? e.message : t("workspace.createFailed"));
     } finally {
       setSubmitting(false);
     }
   };
 
   if (loading) {
-    return <p className="text-sm text-slate-400">加载中...</p>;
+    return <p className="text-sm text-slate-400">{t("workspace.loading")}</p>;
   }
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-slate-900">新建落地页</h1>
+        <h1 className="text-2xl font-bold text-slate-900">{t("landingPages.new.title")}</h1>
         <p className="mt-1 text-sm text-slate-500">
-          填写落地页信息后保存
+          {t("landingPages.new.subtitle")}
         </p>
       </div>
 
@@ -93,10 +95,10 @@ export default function NewLandingPagePage() {
           fields={fields}
           viewConfig={viewConfig}
           onSubmit={handleSubmit}
-          submitLabel={submitting ? "保存中..." : "保存"}
+          submitLabel={submitting ? t("workspace.saving") : t("workspace.save")}
         />
       ) : (
-        <p className="text-sm text-slate-500">未找到表单视图配置。</p>
+        <p className="text-sm text-slate-500">{t("landingPages.new.formNotFound")}</p>
       )}
     </div>
   );

@@ -13,6 +13,8 @@ import type {
 import type {
   AutomationDefinitionInfo, AutomationRun, DryRunResult,
 } from "@runory/platform-core";
+import { useI18n } from "@/i18n/locale-provider";
+import type { MessageKey } from "@/i18n/messages";
 
 interface Toast { type: "success" | "error"; message: string }
 
@@ -20,23 +22,23 @@ type TriggerType = AutomationTrigger["type"];
 type ActionType = AutomationAction["type"];
 type Operator = AutomationCondition["operator"];
 
-const TRIGGER_LABELS: Record<TriggerType, string> = {
-  record_created: "记录创建", record_updated: "记录更新", record_field_changed: "字段变更",
-  schedule: "定时", manual: "手动",
+const TRIGGER_LABEL_KEYS: Record<TriggerType, MessageKey> = {
+  record_created: "automations.trigger.record_created", record_updated: "automations.trigger.record_updated", record_field_changed: "automations.trigger.record_field_changed",
+  schedule: "automations.trigger.schedule", manual: "automations.trigger.manual",
 };
-const ACTION_LABELS: Record<ActionType, string> = {
-  create_task: "创建任务", update_record: "更新记录", send_notification: "发送通知",
-  transition_workflow: "流转工作流", set_field: "设置字段",
+const ACTION_LABEL_KEYS: Record<ActionType, MessageKey> = {
+  create_task: "automations.action.create_task", update_record: "automations.action.update_record", send_notification: "automations.action.send_notification",
+  transition_workflow: "automations.action.transition_workflow", set_field: "automations.action.set_field",
 };
-const OPERATOR_LABELS: Record<Operator, string> = {
-  eq: "等于", neq: "不等于", gt: "大于", lt: "小于", gte: "大于等于", lte: "小于等于",
-  contains: "包含", in: "属于",
+const OPERATOR_LABEL_KEYS: Record<Operator, MessageKey> = {
+  eq: "automations.operator.eq", neq: "automations.operator.neq", gt: "automations.operator.gt", lt: "automations.operator.lt", gte: "automations.operator.gte", lte: "automations.operator.lte",
+  contains: "automations.operator.contains", in: "automations.operator.in",
 };
 const TRIGGER_TYPES: TriggerType[] = ["record_created", "record_updated", "record_field_changed", "schedule", "manual"];
 const ACTION_TYPES: ActionType[] = ["create_task", "update_record", "send_notification", "transition_workflow", "set_field"];
 const OPERATORS: Operator[] = ["eq", "neq", "gt", "lt", "gte", "lte", "contains", "in"];
-const RUN_STATUS_LABELS: Record<string, string> = {
-  success: "成功", failed: "失败", skipped: "跳过", dry_run: "试运行",
+const RUN_STATUS_LABEL_KEYS: Record<string, MessageKey> = {
+  success: "automations.runStatus.success", failed: "automations.runStatus.failed", skipped: "automations.runStatus.skipped", dry_run: "automations.runStatus.dry_run",
 };
 
 function runStatusBadgeClass(status: string): string {
@@ -55,6 +57,7 @@ function formatTime(iso: string | null): string {
 
 export default function AutomationsPage() {
   const workspaceId = useParams().workspaceId as string;
+  const { t } = useI18n();
   const [automations, setAutomations] = useState<AutomationDefinitionInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -75,10 +78,10 @@ export default function AutomationsPage() {
       setError(null);
       const res = await fetch(`/api/workspaces/${workspaceId}/automations`, { cache: "no-store" });
       const json = await res.json();
-      if (!json.success) throw new Error(json.error?.message ?? "加载失败");
+      if (!json.success) throw new Error(json.error?.message ?? t("workspace.loadFailed"));
       setAutomations(json.data);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "加载失败");
+      setError(e instanceof Error ? e.message : t("workspace.loadFailed"));
     } finally {
       setLoading(false);
     }
@@ -95,21 +98,21 @@ export default function AutomationsPage() {
           body: JSON.stringify({ updates: def }),
         });
         const json = await res.json();
-        if (!json.success) throw new Error(json.error?.message ?? "更新失败");
-        showToast("success", `自动化「${def.name}」已更新`);
+        if (!json.success) throw new Error(json.error?.message ?? t("workspace.updateFailed"));
+        showToast("success", t("automations.updated", { name: def.name }));
       } else {
         const res = await fetch(`/api/workspaces/${workspaceId}/automations`, {
           method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(def),
         });
         const json = await res.json();
-        if (!json.success) throw new Error(json.error?.message ?? "创建失败");
-        showToast("success", `自动化「${def.name}」已创建`);
+        if (!json.success) throw new Error(json.error?.message ?? t("workspace.createFailed"));
+        showToast("success", t("automations.created", { name: def.name }));
       }
       setShowEditor(false);
       setEditing(null);
       await load();
     } catch (e) {
-      showToast("error", e instanceof Error ? e.message : "保存失败");
+      showToast("error", e instanceof Error ? e.message : t("automations.saveFailed"));
     } finally {
       setSubmitting(false);
     }
@@ -122,40 +125,40 @@ export default function AutomationsPage() {
         body: JSON.stringify({ enabled }),
       });
       const json = await res.json();
-      if (!json.success) throw new Error(json.error?.message ?? "切换失败");
+      if (!json.success) throw new Error(json.error?.message ?? t("automations.toggleFailed"));
       setAutomations(list => list.map(a => a.automationId === auto.automationId ? { ...a, enabled } : a));
-      showToast("success", enabled ? "已启用" : "已禁用");
+      showToast("success", enabled ? t("automations.enabled") : t("automations.disabled"));
     } catch (e) {
-      showToast("error", e instanceof Error ? e.message : "切换失败");
+      showToast("error", e instanceof Error ? e.message : t("automations.toggleFailed"));
     }
   };
 
   const handleDelete = async (auto: AutomationDefinitionInfo) => {
-    if (!confirm(`确认删除自动化「${auto.name}」？`)) return;
+    if (!confirm(t("automations.deleteConfirm", { name: auto.name }))) return;
     try {
       const res = await fetch(`/api/workspaces/${workspaceId}/automations/${auto.automationId}`, { method: "DELETE" });
       const json = await res.json();
-      if (!json.success) throw new Error(json.error?.message ?? "删除失败");
-      showToast("success", `自动化「${auto.name}」已删除`);
+      if (!json.success) throw new Error(json.error?.message ?? t("workspace.deleteFailed"));
+      showToast("success", t("automations.deleted", { name: auto.name }));
       await load();
     } catch (e) {
-      showToast("error", e instanceof Error ? e.message : "删除失败");
+      showToast("error", e instanceof Error ? e.message : t("workspace.deleteFailed"));
     }
   };
 
-  if (loading) return <p className="text-sm text-slate-400">加载中...</p>;
+  if (loading) return <p className="text-sm text-slate-400">{t("workspace.loading")}</p>;
 
   return (
     <div className="space-y-6">
       <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="app-eyebrow">Automation runtime</p>
-          <h1 className="mt-2 text-3xl font-bold tracking-[-.025em] text-slate-950">自动化</h1>
-          <p className="mt-2 text-sm text-slate-500">配置触发器、条件与动作，实现工作流自动化。</p>
+          <h1 className="mt-2 text-3xl font-bold tracking-[-.025em] text-slate-950">{t("automations.title")}</h1>
+          <p className="mt-2 text-sm text-slate-500">{t("automations.subtitle")}</p>
         </div>
         <div className="flex items-center gap-2 self-start">
-          <button onClick={() => void load()} className="app-button-secondary"><RefreshCw size={16} />刷新</button>
-          <button onClick={() => { setEditing(null); setShowEditor(true); }} className="app-button-primary"><Plus size={16} />创建自动化</button>
+          <button onClick={() => void load()} className="app-button-secondary"><RefreshCw size={16} />{t("workspace.refresh")}</button>
+          <button onClick={() => { setEditing(null); setShowEditor(true); }} className="app-button-primary"><Plus size={16} />{t("automations.createAutomation")}</button>
         </div>
       </header>
 
@@ -176,13 +179,13 @@ export default function AutomationsPage() {
 
       <section className="app-card p-5 sm:p-6">
         <div className="mb-4">
-          <h3 className="font-bold text-slate-900">自动化列表</h3>
-          <p className="mt-1 text-xs text-slate-500">共 {automations.length} 个自动化</p>
+          <h3 className="font-bold text-slate-900">{t("automations.list")}</h3>
+          <p className="mt-1 text-xs text-slate-500">{t("automations.listMeta", { count: automations.length })}</p>
         </div>
         {automations.length === 0 ? (
           <div className="flex flex-col items-center py-10 text-center">
             <Zap size={32} className="text-slate-300" />
-            <p className="mt-3 text-sm text-slate-500">暂无自动化，点击右上角「创建自动化」。</p>
+            <p className="mt-3 text-sm text-slate-500">{t("automations.empty")}</p>
           </div>
         ) : (
           <ul className="divide-y divide-slate-100">
@@ -229,6 +232,7 @@ interface AutomationCardProps {
 }
 
 function AutomationCard({ auto, workspaceId, expanded, onToggleExpand, onToggle, onEdit, onDelete, showToast }: AutomationCardProps) {
+  const { t } = useI18n();
   const def = auto.definition;
   const [dryResult, setDryResult] = useState<DryRunResult | null>(null);
   const [runs, setRuns] = useState<AutomationRun[]>([]);
@@ -239,13 +243,13 @@ function AutomationCard({ auto, workspaceId, expanded, onToggleExpand, onToggle,
     try {
       const res = await fetch(`/api/workspaces/${workspaceId}/automations/${auto.automationId}/run?limit=10`, { cache: "no-store" });
       const json = await res.json();
-      if (!json.success) throw new Error(json.error?.message ?? "加载历史失败");
+      if (!json.success) throw new Error(json.error?.message ?? t("automations.loadHistoryFailed"));
       setRuns(json.data);
       setLoadedRuns(true);
     } catch (e) {
-      showToast("error", e instanceof Error ? e.message : "加载历史失败");
+      showToast("error", e instanceof Error ? e.message : t("automations.loadHistoryFailed"));
     }
-  }, [workspaceId, auto.automationId, showToast]);
+  }, [workspaceId, auto.automationId, showToast, t]);
 
   useEffect(() => {
     if (expanded && !loadedRuns) void loadRuns();
@@ -259,12 +263,12 @@ function AutomationCard({ auto, workspaceId, expanded, onToggleExpand, onToggle,
         body: JSON.stringify({ dryRun: true, triggerPayload: {} }),
       });
       const json = await res.json();
-      if (!json.success) throw new Error(json.error?.message ?? "试运行失败");
+      if (!json.success) throw new Error(json.error?.message ?? t("automations.dryRunFailed"));
       setDryResult(json.data);
-      showToast("success", "试运行完成");
+      showToast("success", t("automations.dryRunCompleted"));
       await loadRuns();
     } catch (e) {
-      showToast("error", e instanceof Error ? e.message : "试运行失败");
+      showToast("error", e instanceof Error ? e.message : t("automations.dryRunFailed"));
     } finally {
       setBusy(false);
     }
@@ -278,11 +282,11 @@ function AutomationCard({ auto, workspaceId, expanded, onToggleExpand, onToggle,
         body: JSON.stringify({ dryRun: false, triggerType: "manual" }),
       });
       const json = await res.json();
-      if (!json.success) throw new Error(json.error?.message ?? "运行失败");
-      showToast("success", "已触发运行");
+      if (!json.success) throw new Error(json.error?.message ?? t("automations.runFailed"));
+      showToast("success", t("automations.runTriggered"));
       await loadRuns();
     } catch (e) {
-      showToast("error", e instanceof Error ? e.message : "运行失败");
+      showToast("error", e instanceof Error ? e.message : t("automations.runFailed"));
     } finally {
       setBusy(false);
     }
@@ -295,23 +299,23 @@ function AutomationCard({ auto, workspaceId, expanded, onToggleExpand, onToggle,
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-semibold text-slate-800">{def.name}</p>
           <p className="truncate text-xs text-slate-500">
-            {def.description ? `${def.description} · ` : ""}触发: {TRIGGER_LABELS[def.trigger.type]}
+            {def.description ? `${def.description} · ` : ""}{t("automations.triggerPrefix", { label: t(TRIGGER_LABEL_KEYS[def.trigger.type]) })}
             {def.trigger.targetObject ? ` · ${def.trigger.targetObject}` : ""}
             {def.trigger.fieldKey ? `.${def.trigger.fieldKey}` : ""}
             {def.trigger.cron ? ` · ${def.trigger.cron}` : ""}
-            {" · "}动作 {def.actions.length}
+            {" · "}{t("automations.actionsCount", { count: def.actions.length })}
           </p>
         </div>
         {auto.lastRunStatus && (
-          <span className={`app-badge ${runStatusBadgeClass(auto.lastRunStatus)}`}>{RUN_STATUS_LABELS[auto.lastRunStatus] ?? auto.lastRunStatus}</span>
+          <span className={`app-badge ${runStatusBadgeClass(auto.lastRunStatus)}`}>{RUN_STATUS_LABEL_KEYS[auto.lastRunStatus] ? t(RUN_STATUS_LABEL_KEYS[auto.lastRunStatus]) : auto.lastRunStatus}</span>
         )}
         <span className="app-badge bg-slate-100 text-slate-600">{formatTime(auto.lastRunAt)}</span>
-        <button onClick={() => onToggle(!auto.enabled)} className="text-slate-500 hover:text-indigo-600" title={auto.enabled ? "已启用" : "已禁用"}>
+        <button onClick={() => onToggle(!auto.enabled)} className="text-slate-500 hover:text-indigo-600" title={auto.enabled ? t("automations.enabled") : t("automations.disabled")}>
           {auto.enabled ? <ToggleRight size={22} className="text-emerald-600" /> : <ToggleLeft size={22} />}
         </button>
-        <button onClick={onEdit} className="app-button-secondary"><Pencil size={14} />编辑</button>
-        <button onClick={onDelete} className="text-slate-400 hover:text-red-600" title="删除"><Trash2 size={16} /></button>
-        <button onClick={onToggleExpand} className="text-slate-400 hover:text-slate-600" title={expanded ? "收起" : "展开"}>
+        <button onClick={onEdit} className="app-button-secondary"><Pencil size={14} />{t("workspace.edit")}</button>
+        <button onClick={onDelete} className="text-slate-400 hover:text-red-600" title={t("workspace.delete")}><Trash2 size={16} /></button>
+        <button onClick={onToggleExpand} className="text-slate-400 hover:text-slate-600" title={expanded ? t("automations.collapse") : t("automations.expand")}>
           {expanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
         </button>
       </div>
@@ -320,20 +324,20 @@ function AutomationCard({ auto, workspaceId, expanded, onToggleExpand, onToggle,
         <div className="mt-3 space-y-4 pl-12">
           <div className="flex flex-wrap gap-2">
             <button onClick={handleDryRun} className="app-button-secondary" disabled={busy}>
-              {busy ? <Loader2 size={14} className="animate-spin" /> : <Eye size={14} />}试运行
+              {busy ? <Loader2 size={14} className="animate-spin" /> : <Eye size={14} />}{t("automations.dryRun")}
             </button>
             <button onClick={handleRunNow} className="app-button-primary" disabled={busy}>
-              {busy ? <Loader2 size={14} className="animate-spin" /> : <Play size={14} />}立即运行
+              {busy ? <Loader2 size={14} className="animate-spin" /> : <Play size={14} />}{t("automations.runNow")}
             </button>
           </div>
 
           {dryResult && (
             <div className="rounded-lg border border-slate-100 bg-slate-50/50 p-3">
-              <p className="text-xs font-bold text-slate-700">试运行结果</p>
+              <p className="text-xs font-bold text-slate-700">{t("automations.dryRunResult")}</p>
               <p className="mt-1 text-xs text-slate-600">
-                是否触发:{" "}
+                {t("automations.wouldFire")}{" "}
                 <span className={dryResult.wouldFire ? "font-semibold text-emerald-700" : "font-semibold text-amber-700"}>
-                  {dryResult.wouldFire ? "是" : "否"}
+                  {dryResult.wouldFire ? t("workspace.yes") : t("workspace.no")}
                 </span>
                 {dryResult.reason ? ` · ${dryResult.reason}` : ""}
               </p>
@@ -341,7 +345,7 @@ function AutomationCard({ auto, workspaceId, expanded, onToggleExpand, onToggle,
                 <ul className="mt-2 space-y-1">
                   {dryResult.actionsPreview.map((a, i) => (
                     <li key={i} className="text-xs text-slate-600">
-                      <span className="app-badge bg-slate-100 text-slate-600 mr-1">{ACTION_LABELS[a.actionType as ActionType] ?? a.actionType}</span>
+                      <span className="app-badge bg-slate-100 text-slate-600 mr-1">{ACTION_LABEL_KEYS[a.actionType as ActionType] ? t(ACTION_LABEL_KEYS[a.actionType as ActionType]) : a.actionType}</span>
                       {a.description}
                     </li>
                   ))}
@@ -351,17 +355,17 @@ function AutomationCard({ auto, workspaceId, expanded, onToggleExpand, onToggle,
           )}
 
           <div>
-            <p className="mb-2 text-xs font-bold text-slate-700">最近运行</p>
+            <p className="mb-2 text-xs font-bold text-slate-700">{t("automations.recentRuns")}</p>
             {runs.length === 0 ? (
-              <p className="text-xs text-slate-400">暂无运行记录</p>
+              <p className="text-xs text-slate-400">{t("automations.noRuns")}</p>
             ) : (
               <ul className="space-y-1.5">
                 {runs.map(run => (
                   <li key={run.id} className="flex flex-wrap items-center gap-2 text-xs text-slate-600">
-                    <span className={`app-badge ${runStatusBadgeClass(run.status)}`}>{RUN_STATUS_LABELS[run.status] ?? run.status}</span>
+                    <span className={`app-badge ${runStatusBadgeClass(run.status)}`}>{RUN_STATUS_LABEL_KEYS[run.status] ? t(RUN_STATUS_LABEL_KEYS[run.status]) : run.status}</span>
                     <span>{formatTime(run.startedAt)}</span>
                     <span className="text-slate-400">· {run.triggerType}</span>
-                    {run.actionsTaken.length > 0 && <span className="text-slate-400">· {run.actionsTaken.length} 动作</span>}
+                    {run.actionsTaken.length > 0 && <span className="text-slate-400">{t("automations.runActionsCount", { count: run.actionsTaken.length })}</span>}
                     {run.errorMessage && <span className="text-red-600">· {run.errorMessage}</span>}
                   </li>
                 ))}
@@ -384,6 +388,7 @@ interface AutomationEditorModalProps {
 }
 
 function AutomationEditorModal({ submitting, existing, onClose, onSubmit }: AutomationEditorModalProps) {
+  const { t } = useI18n();
   const def = existing?.definition;
   const [id, setId] = useState(def?.id ?? "");
   const [name, setName] = useState(def?.name ?? "");
@@ -395,7 +400,7 @@ function AutomationEditorModal({ submitting, existing, onClose, onSubmit }: Auto
   const [cron, setCron] = useState(def?.trigger.cron ?? "");
   const [conditions, setConditions] = useState<AutomationCondition[]>(def?.conditions ?? []);
   const [actions, setActions] = useState<AutomationAction[]>(
-    def?.actions ?? [{ type: "create_task", title: "新任务" }]
+    def?.actions ?? [{ type: "create_task", title: t("automations.defaultTaskTitle") }]
   );
 
   const addCondition = () => setConditions(c => [...c, { field: "", operator: "eq", value: "" }]);
@@ -434,42 +439,42 @@ function AutomationEditorModal({ submitting, existing, onClose, onSubmit }: Auto
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-900/40 p-4 sm:p-8">
       <div className="w-full max-w-2xl rounded-2xl bg-white shadow-xl">
         <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
-          <h2 className="text-lg font-bold text-slate-900">{existing ? "编辑自动化" : "创建自动化"}</h2>
+          <h2 className="text-lg font-bold text-slate-900">{existing ? t("automations.editTitle") : t("automations.createTitle")}</h2>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600"><X size={20} /></button>
         </div>
         <div className="max-h-[70vh] space-y-5 overflow-y-auto px-6 py-5">
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="自动化 ID">
-              <input className="app-input" value={id} onChange={e => setId(e.target.value)} placeholder="如 lead-notify" disabled={!!existing} />
+            <Field label={t("automations.field.automationId")}>
+              <input className="app-input" value={id} onChange={e => setId(e.target.value)} placeholder={t("automations.placeholderAutomationId")} disabled={!!existing} />
             </Field>
-            <Field label="名称">
-              <input className="app-input" value={name} onChange={e => setName(e.target.value)} placeholder="如 线索通知" />
+            <Field label={t("automations.field.name")}>
+              <input className="app-input" value={name} onChange={e => setName(e.target.value)} placeholder={t("automations.placeholderName")} />
             </Field>
           </div>
-          <Field label="描述">
-            <input className="app-input" value={description} onChange={e => setDescription(e.target.value)} placeholder="可选" />
+          <Field label={t("automations.field.description")}>
+            <input className="app-input" value={description} onChange={e => setDescription(e.target.value)} placeholder={t("automations.placeholderDescription")} />
           </Field>
 
           {/* Trigger */}
           <div className="rounded-lg border border-slate-100 p-3">
-            <p className="mb-2 text-sm font-bold text-slate-900">触发器</p>
+            <p className="mb-2 text-sm font-bold text-slate-900">{t("automations.triggerSection")}</p>
             <div className="grid gap-3 sm:grid-cols-2">
-              <Field label="触发类型">
+              <Field label={t("automations.field.triggerType")}>
                 <select className="app-input" value={triggerType} onChange={e => setTriggerType(e.target.value as TriggerType)}>
-                  {TRIGGER_TYPES.map(t => <option key={t} value={t}>{TRIGGER_LABELS[t]}</option>)}
+                  {TRIGGER_TYPES.map(trig => <option key={trig} value={trig}>{t(TRIGGER_LABEL_KEYS[trig])}</option>)}
                 </select>
               </Field>
-              <Field label="目标对象">
-                <input className="app-input" value={targetObject} onChange={e => setTargetObject(e.target.value)} placeholder="如 lead" />
+              <Field label={t("automations.field.targetObject")}>
+                <input className="app-input" value={targetObject} onChange={e => setTargetObject(e.target.value)} placeholder={t("automations.placeholderTargetObject")} />
               </Field>
               {triggerType === "record_field_changed" && (
-                <Field label="字段 Key">
-                  <input className="app-input" value={fieldKey} onChange={e => setFieldKey(e.target.value)} placeholder="如 status" />
+                <Field label={t("automations.field.fieldKey")}>
+                  <input className="app-input" value={fieldKey} onChange={e => setFieldKey(e.target.value)} placeholder={t("automations.placeholderFieldKey")} />
                 </Field>
               )}
               {triggerType === "schedule" && (
-                <Field label="Cron 表达式">
-                  <input className="app-input" value={cron} onChange={e => setCron(e.target.value)} placeholder="如 */30 * * * *" />
+                <Field label={t("automations.field.cron")}>
+                  <input className="app-input" value={cron} onChange={e => setCron(e.target.value)} placeholder={t("automations.placeholderCron")} />
                 </Field>
               )}
             </div>
@@ -478,18 +483,18 @@ function AutomationEditorModal({ submitting, existing, onClose, onSubmit }: Auto
           {/* Conditions */}
           <div>
             <div className="mb-2 flex items-center justify-between">
-              <p className="text-sm font-bold text-slate-900">条件</p>
-              <button onClick={addCondition} className="app-button-secondary min-h-8"><Plus size={14} />添加条件</button>
+              <p className="text-sm font-bold text-slate-900">{t("automations.conditions")}</p>
+              <button onClick={addCondition} className="app-button-secondary min-h-8"><Plus size={14} />{t("automations.addCondition")}</button>
             </div>
             <div className="space-y-2">
-              {conditions.length === 0 && <p className="text-xs text-slate-400">无条件（始终触发）</p>}
+              {conditions.length === 0 && <p className="text-xs text-slate-400">{t("automations.noConditions")}</p>}
               {conditions.map((c, i) => (
                 <div key={i} className="flex items-center gap-2">
-                  <input className="app-input h-9 flex-1" value={c.field} onChange={e => updateCondition(i, { field: e.target.value })} placeholder="字段" />
+                  <input className="app-input h-9 flex-1" value={c.field} onChange={e => updateCondition(i, { field: e.target.value })} placeholder={t("automations.placeholderField")} />
                   <select className="app-input h-9 w-28" value={c.operator} onChange={e => updateCondition(i, { operator: e.target.value as Operator })}>
-                    {OPERATORS.map(o => <option key={o} value={o}>{OPERATOR_LABELS[o]}</option>)}
+                    {OPERATORS.map(o => <option key={o} value={o}>{t(OPERATOR_LABEL_KEYS[o])}</option>)}
                   </select>
-                  <input className="app-input h-9 flex-1" value={Array.isArray(c.value) ? c.value.join(",") : String(c.value)} onChange={e => updateCondition(i, { value: e.target.value })} placeholder="值（in 操作符用逗号分隔）" />
+                  <input className="app-input h-9 flex-1" value={Array.isArray(c.value) ? c.value.join(",") : String(c.value)} onChange={e => updateCondition(i, { value: e.target.value })} placeholder={t("automations.placeholderValue")} />
                   <button onClick={() => removeCondition(i)} className="text-slate-400 hover:text-red-600"><Trash2 size={16} /></button>
                 </div>
               ))}
@@ -499,44 +504,44 @@ function AutomationEditorModal({ submitting, existing, onClose, onSubmit }: Auto
           {/* Actions */}
           <div>
             <div className="mb-2 flex items-center justify-between">
-              <p className="text-sm font-bold text-slate-900">动作</p>
-              <button onClick={addAction} className="app-button-secondary min-h-8"><Plus size={14} />添加动作</button>
+              <p className="text-sm font-bold text-slate-900">{t("automations.actions")}</p>
+              <button onClick={addAction} className="app-button-secondary min-h-8"><Plus size={14} />{t("automations.addAction")}</button>
             </div>
             <div className="space-y-2">
               {actions.map((a, i) => (
                 <div key={i} className="space-y-2 rounded-lg border border-slate-100 p-2">
                   <div className="flex items-center gap-2">
                     <select className="app-input h-9 w-40" value={a.type} onChange={e => updateAction(i, { type: e.target.value as ActionType })}>
-                      {ACTION_TYPES.map(t => <option key={t} value={t}>{ACTION_LABELS[t]}</option>)}
+                      {ACTION_TYPES.map(act => <option key={act} value={act}>{t(ACTION_LABEL_KEYS[act])}</option>)}
                     </select>
                     <button onClick={() => removeAction(i)} className="ml-auto text-slate-400 hover:text-red-600"><Trash2 size={16} /></button>
                   </div>
                   {(a.type === "create_task" || a.type === "update_record" || a.type === "set_field") && (
-                    <Field label="目标对象">
-                      <input className="app-input h-9" value={a.targetObject ?? ""} onChange={e => updateAction(i, { targetObject: e.target.value })} placeholder="如 task" />
+                    <Field label={t("automations.field.targetObject")}>
+                      <input className="app-input h-9" value={a.targetObject ?? ""} onChange={e => updateAction(i, { targetObject: e.target.value })} placeholder={t("automations.placeholderActionTargetObject")} />
                     </Field>
                   )}
                   {a.type === "create_task" && (
-                    <Field label="任务标题（支持 {{record.field}}）">
-                      <input className="app-input h-9" value={a.title ?? ""} onChange={e => updateAction(i, { title: e.target.value })} placeholder="如 处理 {{record.name}}" />
+                    <Field label={t("automations.field.taskTitle")}>
+                      <input className="app-input h-9" value={a.title ?? ""} onChange={e => updateAction(i, { title: e.target.value })} placeholder={t("automations.placeholderTaskTitle")} />
                     </Field>
                   )}
                   {a.type === "send_notification" && (
-                    <Field label="通知内容（支持 {{record.field}}）">
-                      <input className="app-input h-9" value={a.message ?? ""} onChange={e => updateAction(i, { message: e.target.value })} placeholder="如 新线索: {{record.name}}" />
+                    <Field label={t("automations.field.notificationContent")}>
+                      <input className="app-input h-9" value={a.message ?? ""} onChange={e => updateAction(i, { message: e.target.value })} placeholder={t("automations.placeholderNotification")} />
                     </Field>
                   )}
                   {(a.type === "update_record" || a.type === "set_field") && (
-                    <Field label="字段（每行 key=value）">
+                    <Field label={t("automations.field.fields")}>
                       <textarea className="app-input h-20" value={fieldsToText(a.fields)} onChange={e => updateAction(i, { fields: textToFields(e.target.value) })} placeholder={"status=active\npriority=high"} />
                     </Field>
                   )}
                   {a.type === "transition_workflow" && (
                     <div className="grid gap-2 sm:grid-cols-2">
-                      <Field label="工作流 ID">
+                      <Field label={t("automations.field.workflowId")}>
                         <input className="app-input h-9" value={a.workflowId ?? ""} onChange={e => updateAction(i, { workflowId: e.target.value })} />
                       </Field>
-                      <Field label="流转 ID">
+                      <Field label={t("automations.field.transitionId")}>
                         <input className="app-input h-9" value={a.transitionId ?? ""} onChange={e => updateAction(i, { transitionId: e.target.value })} />
                       </Field>
                     </div>
@@ -547,13 +552,13 @@ function AutomationEditorModal({ submitting, existing, onClose, onSubmit }: Auto
           </div>
 
           <label className="flex items-center gap-2 text-sm text-slate-700">
-            <input type="checkbox" checked={enabled} onChange={e => setEnabled(e.target.checked)} />启用
+            <input type="checkbox" checked={enabled} onChange={e => setEnabled(e.target.checked)} />{t("automations.enable")}
           </label>
         </div>
         <div className="flex justify-end gap-2 border-t border-slate-100 px-6 py-4">
-          <button onClick={onClose} className="app-button-secondary" disabled={submitting}>取消</button>
+          <button onClick={onClose} className="app-button-secondary" disabled={submitting}>{t("workspace.cancel")}</button>
           <button onClick={handleSubmit} className="app-button-primary" disabled={submitting || !canSubmit}>
-            {submitting ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}{existing ? "保存" : "创建"}
+            {submitting ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}{existing ? t("workspace.save") : t("workspace.create")}
           </button>
         </div>
       </div>

@@ -16,6 +16,7 @@ import {
   KeyRound,
 } from "lucide-react";
 import { useI18n } from "@/i18n/locale-provider";
+import type { MessageKey } from "@/i18n/messages";
 
 type OrgRole = "owner" | "admin" | "member";
 
@@ -37,10 +38,10 @@ interface Invitation {
   invitedBy: string;
 }
 
-const ROLE_LABELS: Record<OrgRole, string> = {
-  owner: "所有者",
-  admin: "管理员",
-  member: "成员",
+const ROLE_LABEL_KEYS: Record<OrgRole, MessageKey> = {
+  owner: "members.role.owner",
+  admin: "members.role.admin",
+  member: "members.role.member",
 };
 
 const ROLE_BADGE_CLASS: Record<OrgRole, string> = {
@@ -115,7 +116,7 @@ export default function MembersPage() {
       const wsRes = await fetch(`/api/workspaces/${workspaceId}`);
       const wsJson = await wsRes.json();
       if (!wsJson.success || !wsJson.data.organizationId) {
-        throw new Error(wsJson.error?.message ?? "无法获取组织信息");
+        throw new Error(wsJson.error?.message ?? t("members.orgInfoFailed"));
       }
       const organizationId = wsJson.data.organizationId as string;
       setOrgId(organizationId);
@@ -169,15 +170,15 @@ export default function MembersPage() {
       });
       const json = await res.json();
       if (json.success) {
-        setMessage(`已向 ${inviteEmail} 发送邀请`);
+        setMessage(t("members.inviteSent", { email: inviteEmail }));
         setInviteEmail("");
         setInviteRole("member");
         await loadData();
       } else {
-        setError(json.error?.message ?? "邀请失败");
+        setError(json.error?.message ?? t("members.inviteFailed"));
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : "邀请失败");
+      setError(e instanceof Error ? e.message : t("members.inviteFailed"));
     } finally {
       setInviting(false);
     }
@@ -194,13 +195,13 @@ export default function MembersPage() {
       );
       const json = await res.json();
       if (json.success) {
-        setMessage("已撤销邀请");
+        setMessage(t("members.inviteRevoked"));
         await loadData();
       } else {
-        setError(json.error?.message ?? "撤销失败");
+        setError(json.error?.message ?? t("members.revokeFailed"));
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : "撤销失败");
+      setError(e instanceof Error ? e.message : t("members.revokeFailed"));
     } finally {
       setRevokingId(null);
     }
@@ -217,14 +218,14 @@ export default function MembersPage() {
       );
       const json = await res.json();
       if (json.success) {
-        setMessage("已移除成员");
+        setMessage(t("members.memberRemoved"));
         setConfirmRemove(null);
         await loadData();
       } else {
-        setError(json.error?.message ?? "移除失败");
+        setError(json.error?.message ?? t("members.removeFailed"));
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : "移除失败");
+      setError(e instanceof Error ? e.message : t("members.removeFailed"));
     } finally {
       setRemovingUserId(null);
     }
@@ -245,13 +246,13 @@ export default function MembersPage() {
       );
       const json = await res.json();
       if (json.success) {
-        setMessage("已更新成员角色");
+        setMessage(t("members.roleUpdated"));
         await loadData();
       } else {
-        setError(json.error?.message ?? "更新角色失败");
+        setError(json.error?.message ?? t("members.updateRoleFailed"));
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : "更新角色失败");
+      setError(e instanceof Error ? e.message : t("members.updateRoleFailed"));
     } finally {
       setChangingRoleUserId(null);
     }
@@ -271,10 +272,10 @@ export default function MembersPage() {
       if (json.success) {
         await loadData();
       } else {
-        setError(json.error?.message ?? "分配权限组失败");
+        setError(json.error?.message ?? t("members.assignGroupFailed"));
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : "分配权限组失败");
+      setError(e instanceof Error ? e.message : t("members.assignGroupFailed"));
     } finally {
       setAssigningGroupId(null);
     }
@@ -292,10 +293,10 @@ export default function MembersPage() {
       if (json.success) {
         await loadData();
       } else {
-        setError(json.error?.message ?? "移除权限组失败");
+        setError(json.error?.message ?? t("members.removeGroupFailed"));
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : "移除权限组失败");
+      setError(e instanceof Error ? e.message : t("members.removeGroupFailed"));
     } finally {
       setAssigningGroupId(null);
     }
@@ -310,12 +311,12 @@ export default function MembersPage() {
       <div className="space-y-6">
         <header>
           <p className="app-eyebrow">Members</p>
-          <h1 className="mt-2 text-2xl font-bold tracking-tight text-slate-950">成员与权限</h1>
+          <h1 className="mt-2 text-2xl font-bold tracking-tight text-slate-950">{t("members.title")}</h1>
         </header>
         <div className="app-card p-8 text-center">
           <ShieldCheck size={32} className="mx-auto text-slate-300" />
           <p className="mt-3 text-sm text-slate-500">
-            您没有权限查看此页面。请联系工作区管理员。
+            {t("members.noPermission")}
           </p>
         </div>
       </div>
@@ -327,9 +328,9 @@ export default function MembersPage() {
       <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="app-eyebrow">Members</p>
-          <h1 className="mt-2 text-2xl font-bold tracking-tight text-slate-950">成员与权限</h1>
+          <h1 className="mt-2 text-2xl font-bold tracking-tight text-slate-950">{t("members.title")}</h1>
           <p className="mt-1 text-sm text-slate-500">
-            管理工作区成员及其角色与访问权限
+            {t("members.subtitle")}
           </p>
         </div>
         <button
@@ -352,11 +353,11 @@ export default function MembersPage() {
       <section className="app-card p-5 sm:p-6">
         <div className="mb-4 flex items-center gap-2">
           <UserPlus size={18} className="text-indigo-600" />
-          <h2 className="text-sm font-bold text-slate-900">邀请新成员</h2>
+          <h2 className="text-sm font-bold text-slate-900">{t("members.inviteNew")}</h2>
         </div>
         <form onSubmit={handleInvite} className="flex flex-col gap-3 sm:flex-row sm:items-end">
           <div className="flex-1">
-            <label className="mb-1 block text-xs font-semibold text-slate-600">邮箱地址</label>
+            <label className="mb-1 block text-xs font-semibold text-slate-600">{t("members.emailLabel")}</label>
             <input
               type="email"
               required
@@ -367,14 +368,14 @@ export default function MembersPage() {
             />
           </div>
           <div>
-            <label className="mb-1 block text-xs font-semibold text-slate-600">角色</label>
+            <label className="mb-1 block text-xs font-semibold text-slate-600">{t("members.roleLabel")}</label>
             <select
               value={inviteRole}
               onChange={(e) => setInviteRole(e.target.value as "member" | "admin")}
               className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
             >
-              <option value="member">成员</option>
-              <option value="admin">管理员</option>
+              <option value="member">{t("members.role.member")}</option>
+              <option value="admin">{t("members.role.admin")}</option>
             </select>
           </div>
           <button
@@ -382,7 +383,7 @@ export default function MembersPage() {
             disabled={inviting}
             className="app-button-primary"
           >
-            {inviting ? "发送中..." : "发送邀请"}
+            {inviting ? t("members.sending") : t("members.sendInvite")}
           </button>
         </form>
       </section>
@@ -392,12 +393,12 @@ export default function MembersPage() {
         <div className="mb-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Clock size={18} className="text-amber-500" />
-            <h2 className="text-sm font-bold text-slate-900">待处理邀请</h2>
+            <h2 className="text-sm font-bold text-slate-900">{t("members.pendingInvites")}</h2>
             <span className="app-badge bg-amber-50 text-amber-700">{invitations.length}</span>
           </div>
         </div>
         {invitations.length === 0 ? (
-          <p className="py-4 text-center text-sm text-slate-400">暂无待处理邀请</p>
+          <p className="py-4 text-center text-sm text-slate-400">{t("members.noPending")}</p>
         ) : (
           <ul className="divide-y divide-slate-100">
             {invitations.map((inv) => (
@@ -409,7 +410,7 @@ export default function MembersPage() {
                   <div>
                     <p className="text-sm font-semibold text-slate-800">{inv.email}</p>
                     <p className="text-xs text-slate-500">
-                      角色：{ROLE_LABELS[inv.role]} · 状态：{inv.status} · 过期：{formatDate(inv.expiresAt)}
+                      {t("members.invitationMeta", { role: t(ROLE_LABEL_KEYS[inv.role]), status: inv.status, expires: formatDate(inv.expiresAt) })}
                     </p>
                   </div>
                 </div>
@@ -422,7 +423,7 @@ export default function MembersPage() {
                       className="inline-flex items-center gap-1 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-50"
                     >
                       <X size={14} />
-                      {revokingId === inv.id ? "撤销中..." : "撤销邀请"}
+                      {revokingId === inv.id ? t("members.revoking") : t("members.revokeInvite")}
                     </button>
                   )}
                 </div>
@@ -436,11 +437,11 @@ export default function MembersPage() {
       <section className="app-card p-5 sm:p-6">
         <div className="mb-4 flex items-center gap-2">
           <Users size={18} className="text-indigo-600" />
-          <h2 className="text-sm font-bold text-slate-900">成员列表</h2>
+          <h2 className="text-sm font-bold text-slate-900">{t("members.memberList")}</h2>
           <span className="app-badge bg-slate-100 text-slate-600">{members.length}</span>
         </div>
         {members.length === 0 ? (
-          <p className="py-4 text-center text-sm text-slate-400">暂无成员</p>
+          <p className="py-4 text-center text-sm text-slate-400">{t("members.noMembers")}</p>
         ) : (
           <ul className="divide-y divide-slate-100">
             {members.map((m) => {
@@ -456,13 +457,13 @@ export default function MembersPage() {
                         {m.displayName}
                         {m.email && <span className="ml-2 text-xs font-normal text-slate-400">{m.email}</span>}
                       </p>
-                      <p className="text-xs text-slate-500">加入于 {formatDate(m.joinedAt)}</p>
+                      <p className="text-xs text-slate-500">{t("members.joinedAt", { time: formatDate(m.joinedAt) })}</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
                     {isOwner ? (
                       <span className={`app-badge ${ROLE_BADGE_CLASS[m.role]}`}>
-                        <ShieldCheck size={14} />{ROLE_LABELS[m.role]}
+                        <ShieldCheck size={14} />{t(ROLE_LABEL_KEYS[m.role])}
                       </span>
                     ) : (
                       <select
@@ -471,8 +472,8 @@ export default function MembersPage() {
                         disabled={changingRoleUserId === m.userId}
                         className="rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 disabled:opacity-50"
                       >
-                        <option value="member">成员</option>
-                        <option value="admin">管理员</option>
+                        <option value="member">{t("members.role.member")}</option>
+                        <option value="admin">{t("members.role.admin")}</option>
                       </select>
                     )}
                     {!isOwner && (
@@ -483,7 +484,7 @@ export default function MembersPage() {
                         className="inline-flex items-center gap-1 rounded-md border border-red-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50 disabled:opacity-50"
                       >
                         <UserMinus size={14} />
-                        {removingUserId === m.userId ? "移除中..." : "移除"}
+                        {removingUserId === m.userId ? t("members.removing") : t("members.remove")}
                       </button>
                     )}
                   </div>
@@ -499,11 +500,11 @@ export default function MembersPage() {
         <section className="app-card p-5 sm:p-6">
           <div className="mb-4 flex items-center gap-2">
             <KeyRound size={18} className="text-indigo-600" />
-            <h2 className="text-sm font-bold text-slate-900">Pack 权限组</h2>
+            <h2 className="text-sm font-bold text-slate-900">{t("members.permGroups")}</h2>
             <span className="app-badge bg-slate-100 text-slate-600">{permGroups.length}</span>
           </div>
           <p className="mb-4 text-xs text-slate-500">
-            Pack 安装时声明的权限组，可将成员分配到对应组以获得特定 pack 的操作权限。
+            {t("members.permGroupsHint")}
           </p>
           <div className="space-y-4">
             {permGroups.map((group) => {
@@ -526,10 +527,10 @@ export default function MembersPage() {
                         )}
                       </div>
                     </div>
-                    <span className="app-badge bg-indigo-50 text-indigo-700">{assignments.length} 人</span>
+                    <span className="app-badge bg-indigo-50 text-indigo-700">{t("members.assigneesCount", { count: assignments.length })}</span>
                   </div>
                   <div className="mt-3 border-t border-slate-100 pt-3">
-                    <p className="mb-2 text-xs font-semibold text-slate-600">分配成员：</p>
+                    <p className="mb-2 text-xs font-semibold text-slate-600">{t("members.assignMembers")}</p>
                     <div className="flex flex-wrap gap-1.5">
                       {members.map((m) => {
                         const isAssigned = assignedUserIds.has(m.userId);
@@ -570,11 +571,10 @@ export default function MembersPage() {
               <span className="grid size-10 place-items-center rounded-full bg-red-50 text-red-600">
                 <Trash2 size={20} />
               </span>
-              <h3 className="text-base font-bold text-slate-900">移除成员</h3>
+              <h3 className="text-base font-bold text-slate-900">{t("members.removeMember")}</h3>
             </div>
             <p className="mt-3 text-sm text-slate-600">
-              确定要从组织中移除 <span className="font-semibold text-slate-800">{confirmRemove.displayName}</span> 吗？
-              该成员将失去对所有工作区的访问权限。此操作不可撤销。
+              {t("members.removeConfirmPrefix")}<span className="font-semibold text-slate-800">{confirmRemove.displayName}</span>{t("members.removeConfirmSuffix")}
             </p>
             <div className="mt-5 flex justify-end gap-2">
               <button
@@ -591,7 +591,7 @@ export default function MembersPage() {
                 className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-red-600 px-4 text-sm font-semibold text-white transition hover:bg-red-700 disabled:opacity-60"
               >
                 <CheckCircle2 size={16} />
-                {removingUserId === confirmRemove.userId ? "移除中..." : "确认移除"}
+                {removingUserId === confirmRemove.userId ? t("members.removing") : t("members.confirmRemove")}
               </button>
             </div>
           </div>

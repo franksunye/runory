@@ -111,11 +111,11 @@ export default function DashboardPage() {
         body: JSON.stringify({ includeDemoData: false }),
       });
       const json = await response.json();
-      if (!json.success) throw new Error(json.error?.message ?? "安装失败");
+      if (!json.success) throw new Error(json.error?.message ?? t("dashboard.installFailed"));
       notifyWorkspaceNavigationChanged(); notifyWorkspaceDataChanged();
       await loadLayout();
       await checkHasData();
-    } catch (cause) { setError(cause instanceof Error ? cause.message : "安装失败"); }
+    } catch (cause) { setError(cause instanceof Error ? cause.message : t("dashboard.installFailed")); }
     finally { setInstalling(false); }
   };
 
@@ -131,10 +131,10 @@ export default function DashboardPage() {
         body: JSON.stringify({ includeDemoData: true }),
       });
       const json = await response.json();
-      if (!json.success) throw new Error(json.error?.message ?? "加载示例数据失败");
+      if (!json.success) throw new Error(json.error?.message ?? t("dashboard.loadDemoFailed"));
       notifyWorkspaceDataChanged();
       await checkHasData();
-    } catch (cause) { setError(cause instanceof Error ? cause.message : "加载示例数据失败"); }
+    } catch (cause) { setError(cause instanceof Error ? cause.message : t("dashboard.loadDemoFailed")); }
     finally { setSeeding(false); }
   };
 
@@ -146,8 +146,8 @@ export default function DashboardPage() {
       <div className="space-y-6">
         <header>
           <p className="app-eyebrow">Workbench</p>
-          <h1 className="mt-2 text-3xl font-bold tracking-[-.025em] text-slate-950">工作台</h1>
-          <p className="mt-2 text-sm text-slate-500">今天需要关注什么？</p>
+          <h1 className="mt-2 text-3xl font-bold tracking-[-.025em] text-slate-950">{t("dashboard.title")}</h1>
+          <p className="mt-2 text-sm text-slate-500">{t("dashboard.subtitle")}</p>
         </header>
         {error && <div role="alert" className="app-error">{error}</div>}
         <div className="app-card overflow-hidden bg-[linear-gradient(110deg,#fff_0%,#fff_58%,#f0f2ff_100%)] p-8 sm:p-12">
@@ -155,12 +155,12 @@ export default function DashboardPage() {
             <div className="mx-auto mb-5 grid size-16 place-items-center rounded-2xl bg-indigo-100">
               <PackagePlus size={32} className="text-indigo-600" />
             </div>
-            <h2 className="text-2xl font-bold tracking-tight text-slate-950">从安装 CRM Lite 开始</h2>
+            <h2 className="text-2xl font-bold tracking-tight text-slate-950">{t("dashboard.emptyStartTitle")}</h2>
             <p className="mt-3 text-sm leading-6 text-slate-600">
-              CRM Lite 提供公司、联系人、商机和任务管理。安装后即可加载示例数据，立即体验完整的业务工作台。
+              {t("dashboard.emptyStartBody")}
             </p>
             <button onClick={handleInstallPack} disabled={installing} className="app-button-primary mt-6">
-              <PackagePlus size={18} />{installing ? "正在安装..." : "安装 CRM Lite Pack"}
+              <PackagePlus size={18} />{installing ? t("dashboard.installing") : t("dashboard.installCrmLite")}
             </button>
           </div>
         </div>
@@ -174,8 +174,8 @@ export default function DashboardPage() {
       <div className="space-y-6">
         <header>
           <p className="app-eyebrow">Workbench</p>
-          <h1 className="mt-2 text-3xl font-bold tracking-[-.025em] text-slate-950">工作台</h1>
-          <p className="mt-2 text-sm text-slate-500">今天需要关注什么？</p>
+          <h1 className="mt-2 text-3xl font-bold tracking-[-.025em] text-slate-950">{t("dashboard.title")}</h1>
+          <p className="mt-2 text-sm text-slate-500">{t("dashboard.subtitle")}</p>
         </header>
         {error && <div role="alert" className="app-error">{error}</div>}
         <div className="app-card p-8 sm:p-12">
@@ -183,16 +183,16 @@ export default function DashboardPage() {
             <div className="mx-auto mb-5 grid size-16 place-items-center rounded-2xl bg-emerald-100">
               <Database size={32} className="text-emerald-600" />
             </div>
-            <h2 className="text-2xl font-bold tracking-tight text-slate-950">业务工作台已就绪</h2>
+            <h2 className="text-2xl font-bold tracking-tight text-slate-950">{t("dashboard.readyTitle")}</h2>
             <p className="mt-3 text-sm leading-6 text-slate-600">
-              CRM Lite 已安装。加载示例数据可以立即看到公司、联系人、商机和任务的完整业务视图，帮助你快速了解 Runory 的能力。
+              {t("dashboard.readyBody")}
             </p>
             <div className="mt-6 flex items-center justify-center gap-3">
               <button onClick={handleSeedDemo} disabled={seeding} className="app-button-primary">
-                <Database size={18} />{seeding ? "正在加载..." : "加载示例数据"}
+                <Database size={18} />{seeding ? t("dashboard.loadingDemo") : t("dashboard.loadDemoData")}
               </button>
               <Link href={`/w/${workspaceId}/companies/new`} className="app-button-secondary">
-                <Plus size={18} />手动创建
+                <Plus size={18} />{t("dashboard.createManually")}
               </Link>
             </div>
           </div>
@@ -213,13 +213,13 @@ export default function DashboardPage() {
       <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="app-eyebrow">Workbench</p>
-          <h1 className="mt-2 text-3xl font-bold tracking-[-.025em] text-slate-950">工作台</h1>
-          <p className="mt-2 text-sm text-slate-500">今天需要关注什么？</p>
+          <h1 className="mt-2 text-3xl font-bold tracking-[-.025em] text-slate-950">{t("dashboard.title")}</h1>
+          <p className="mt-2 text-sm text-slate-500">{t("dashboard.subtitle")}</p>
         </div>
         <div className="flex items-center gap-2">
           {editMode ? (
             <button onClick={() => setEditMode(false)} className="app-button-primary">
-              <X size={16} />退出编辑
+              <X size={16} />{t("dashboard.exitEdit")}
             </button>
           ) : (
             <>
@@ -227,7 +227,7 @@ export default function DashboardPage() {
                 <RefreshCw size={16} />{t("workspace.refresh")}
               </button>
               <button onClick={() => setEditMode(true)} className="app-button-secondary">
-                <Settings2 size={16} />编辑工作台
+                <Settings2 size={16} />{t("dashboard.editDashboard")}
               </button>
             </>
           )}
@@ -248,7 +248,7 @@ export default function DashboardPage() {
         />
       ) : layout.length === 0 ? (
         <div className="app-card p-12 text-center">
-          <p className="text-sm text-slate-500">工作台暂无组件。请安装包含 dashboard 组件的模块。</p>
+          <p className="text-sm text-slate-500">{t("dashboard.noWidgets")}</p>
         </div>
       ) : (
         <>

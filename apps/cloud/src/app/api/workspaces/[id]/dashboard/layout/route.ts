@@ -87,17 +87,17 @@ export async function PATCH(
       let label: string;
       if (u.hidden === true) {
         action = "dashboard.widget.hide";
-        label = `隐藏了工作台组件 ${u.widgetKey}`;
+        label = `Hid dashboard widget ${u.widgetKey}`;
       } else if (u.hidden === false) {
         // Check if this is an "add" (new widget) or "show" (unhide)
         action = "dashboard.widget.show";
-        label = `显示了工作台组件 ${u.widgetKey}`;
+        label = `Showed dashboard widget ${u.widgetKey}`;
       } else if (u.position !== undefined) {
         action = "dashboard.widget.reorder";
-        label = `调整了工作台组件 ${u.widgetKey} 的位置`;
+        label = `Reordered dashboard widget ${u.widgetKey}`;
       } else {
         action = "dashboard.widget.configure";
-        label = `配置了工作台组件 ${u.widgetKey}`;
+        label = `Configured dashboard widget ${u.widgetKey}`;
       }
       writeAuditEvent({
         workspaceId,
@@ -142,7 +142,7 @@ export async function DELETE(
       action: "dashboard.layout.reset",
       entityType: "dashboard_layout",
       entityId: workspaceId,
-      after: { label: "重置了工作台布局为默认配置" },
+      after: { label: "Reset dashboard layout to default configuration" },
       requestId: ctx.requestId,
     }).catch((err) => {
       console.error("[audit] Failed to write dashboard layout reset audit event:", err);

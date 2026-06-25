@@ -94,20 +94,20 @@ export default function TrashPage() {
       );
       const json = await res.json();
       if (json.success) {
-        setMessage("记录已恢复");
+        setMessage(t("trash.recordRestored"));
         setRecords((prev) => prev.filter((r) => r.id !== recordId));
       } else {
-        setError(json.error?.message ?? "恢复失败");
+        setError(json.error?.message ?? t("trash.restoreFailed"));
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : "恢复失败");
+      setError(e instanceof Error ? e.message : t("trash.restoreFailed"));
     } finally {
       setRestoring(null);
     }
   };
 
   const handleHardDelete = async (objectKey: string, recordId: string) => {
-    if (!confirm("永久删除后无法恢复，确定继续吗？")) return;
+    if (!confirm(t("trash.hardDeleteConfirm"))) return;
     setRestoring(recordId);
     setError(null);
     try {
@@ -120,13 +120,13 @@ export default function TrashPage() {
       );
       const json = await res.json();
       if (json.success) {
-        setMessage("记录已永久删除");
+        setMessage(t("trash.recordPurged"));
         setRecords((prev) => prev.filter((r) => r.id !== recordId));
       } else {
-        setError(json.error?.message ?? "删除失败");
+        setError(json.error?.message ?? t("workspace.deleteFailed"));
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : "删除失败");
+      setError(e instanceof Error ? e.message : t("workspace.deleteFailed"));
     } finally {
       setRestoring(null);
     }
@@ -143,9 +143,9 @@ export default function TrashPage() {
       <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="app-eyebrow">Trash</p>
-          <h1 className="mt-2 text-2xl font-bold tracking-tight text-slate-950">回收站</h1>
+          <h1 className="mt-2 text-2xl font-bold tracking-tight text-slate-950">{t("trash.title")}</h1>
           <p className="mt-1 text-sm text-slate-500">
-            查看和恢复已删除的记录。软删除的记录可在此恢复，也可永久删除。
+            {t("trash.subtitle")}
           </p>
         </div>
         <button
@@ -167,7 +167,7 @@ export default function TrashPage() {
       {objects.length === 0 ? (
         <div className="app-card p-8 text-center">
           <Package size={32} className="mx-auto text-slate-300" />
-          <p className="mt-3 text-sm text-slate-500">工作区暂无业务对象</p>
+          <p className="mt-3 text-sm text-slate-500">{t("trash.noObjects")}</p>
         </div>
       ) : (
         <div className="grid gap-6 lg:grid-cols-[200px_1fr]">
@@ -197,7 +197,7 @@ export default function TrashPage() {
               <div className="p-8 text-center">
                 <Trash2 size={32} className="mx-auto text-slate-300" />
                 <p className="mt-3 text-sm text-slate-500">
-                  {currentObject ? `${currentObject.label} 没有已删除的记录` : "请选择一个对象"}
+                  {currentObject ? t("trash.noDeletedRecords", { label: currentObject.label }) : t("trash.selectObject")}
                 </p>
               </div>
             ) : (
@@ -205,11 +205,11 @@ export default function TrashPage() {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-slate-200 bg-slate-50 text-left text-xs font-semibold text-slate-500">
-                      <th className="px-4 py-3">记录 ID</th>
-                      <th className="px-4 py-3">名称 / 标识</th>
-                      <th className="px-4 py-3">删除时间</th>
-                      <th className="px-4 py-3">删除者</th>
-                      <th className="px-4 py-3 text-right">操作</th>
+                      <th className="px-4 py-3">{t("trash.colRecordId")}</th>
+                      <th className="px-4 py-3">{t("trash.colName")}</th>
+                      <th className="px-4 py-3">{t("trash.colDeletedAt")}</th>
+                      <th className="px-4 py-3">{t("trash.colDeletedBy")}</th>
+                      <th className="px-4 py-3 text-right">{t("workspace.table.actions")}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
@@ -238,7 +238,7 @@ export default function TrashPage() {
                               className="inline-flex items-center gap-1 rounded-md border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100 disabled:opacity-50"
                             >
                               <RotateCcw size={12} />
-                              恢复
+                              {t("trash.restore")}
                             </button>
                             <button
                               type="button"
@@ -247,7 +247,7 @@ export default function TrashPage() {
                               className="inline-flex items-center gap-1 rounded-md border border-red-200 bg-red-50 px-2.5 py-1 text-xs font-semibold text-red-700 transition hover:bg-red-100 disabled:opacity-50"
                             >
                               <Trash2 size={12} />
-                              永久删除
+                              {t("trash.hardDelete")}
                             </button>
                           </div>
                         </td>

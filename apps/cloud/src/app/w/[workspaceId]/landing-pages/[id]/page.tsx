@@ -12,6 +12,7 @@ import {
   useWorkspaceChangeEvent,
 } from "@/lib/api-hooks";
 import { notifyWorkspaceDataChanged } from "@/lib/workspace-events";
+import { useI18n } from "@/i18n/locale-provider";
 
 const OBJECT_KEY = "landing_page";
 const VIEW_KEY = "landing_page_form";
@@ -19,6 +20,7 @@ const VIEW_KEY = "landing_page_form";
 export default function LandingPageDetailPage() {
   const params = useParams();
   const router = useRouter();
+  const { t } = useI18n();
   const workspaceId = params.workspaceId as string;
   const recordId = params.id as string;
 
@@ -58,17 +60,17 @@ export default function LandingPageDetailPage() {
         await mutateRecord(json.data.record);
         notifyWorkspaceDataChanged();
       } else {
-        setError(json.error?.message ?? "发布失败");
+        setError(json.error?.message ?? t("landingPages.detail.publishFailed"));
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : "发布失败");
+      setError(e instanceof Error ? e.message : t("landingPages.detail.publishFailed"));
     } finally {
       setPublishing(false);
     }
   };
 
   const handleUnpublish = async () => {
-    if (!confirm("确定要下线此落地页吗？下线后公共页面将无法访问。")) return;
+    if (!confirm(t("landingPages.detail.unpublishConfirm"))) return;
     setPublishing(true);
     setError(null);
     try {
@@ -85,10 +87,10 @@ export default function LandingPageDetailPage() {
         await mutateRecord(json.data.record);
         notifyWorkspaceDataChanged();
       } else {
-        setError(json.error?.message ?? "下线失败");
+        setError(json.error?.message ?? t("landingPages.detail.unpublishFailed"));
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : "下线失败");
+      setError(e instanceof Error ? e.message : t("landingPages.detail.unpublishFailed"));
     } finally {
       setPublishing(false);
     }
@@ -112,17 +114,17 @@ export default function LandingPageDetailPage() {
         notifyWorkspaceDataChanged();
         setEditing(false);
       } else {
-        setError(json.error?.message ?? "更新失败");
+        setError(json.error?.message ?? t("workspace.updateFailed"));
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : "更新失败");
+      setError(e instanceof Error ? e.message : t("workspace.updateFailed"));
     } finally {
       setSubmitting(false);
     }
   };
 
   const handleDelete = async () => {
-    if (!confirm("确定要删除此落地页吗？此操作不可撤销。")) return;
+    if (!confirm(t("workspace.deleteConfirm", { label: t("landingPages.title") }))) return;
     setDeleting(true);
     setError(null);
     try {
@@ -136,17 +138,17 @@ export default function LandingPageDetailPage() {
         router.push(`/w/${workspaceId}/landing-pages`);
         router.refresh();
       } else {
-        setError(json.error?.message ?? "删除失败");
+        setError(json.error?.message ?? t("workspace.deleteFailed"));
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : "删除失败");
+      setError(e instanceof Error ? e.message : t("workspace.deleteFailed"));
     } finally {
       setDeleting(false);
     }
   };
 
   if (loading) {
-    return <p className="text-sm text-slate-400">加载中...</p>;
+    return <p className="text-sm text-slate-400">{t("workspace.loading")}</p>;
   }
 
   if (!record) {
@@ -154,14 +156,14 @@ export default function LandingPageDetailPage() {
       <div className="space-y-4">
         {(error || recordError) && (
           <div className="rounded-md bg-red-50 px-4 py-3 text-sm text-red-700">
-            {error ?? (recordError instanceof Error ? recordError.message : "记录不存在")}
+            {error ?? (recordError instanceof Error ? recordError.message : t("workspace.recordNotFound"))}
           </div>
         )}
         <Link
           href={`/w/${workspaceId}/landing-pages`}
           className="text-sm font-medium text-blue-600 hover:text-blue-800"
         >
-          ← 返回落地页列表
+          {t("landingPages.detail.backToList")}
         </Link>
       </div>
     );
@@ -175,10 +177,10 @@ export default function LandingPageDetailPage() {
             href={`/w/${workspaceId}/landing-pages`}
             className="text-xs font-medium text-blue-600 hover:text-blue-800"
           >
-            ← 返回落地页列表
+            {t("landingPages.detail.backToList")}
           </Link>
           <h1 className="mt-1 text-2xl font-bold text-slate-900">
-            落地页详情
+            {t("workspace.detailTitle", { title: t("landingPages.title") })}
           </h1>
         </div>
         {!editing && (
@@ -190,7 +192,7 @@ export default function LandingPageDetailPage() {
                 disabled={publishing}
                 className="rounded-md border border-emerald-300 bg-emerald-50 px-4 py-2 text-sm font-medium text-emerald-700 hover:bg-emerald-100 disabled:opacity-50"
               >
-                {publishing ? "处理中..." : "发布"}
+                {publishing ? t("landingPages.detail.processing") : t("landingPages.detail.publish")}
               </button>
             )}
             {isPublished && (
@@ -200,7 +202,7 @@ export default function LandingPageDetailPage() {
                 disabled={publishing}
                 className="rounded-md border border-amber-300 bg-amber-50 px-4 py-2 text-sm font-medium text-amber-700 hover:bg-amber-100 disabled:opacity-50"
               >
-                {publishing ? "处理中..." : "下线"}
+                {publishing ? t("landingPages.detail.processing") : t("landingPages.detail.unpublish")}
               </button>
             )}
             <button
@@ -208,7 +210,7 @@ export default function LandingPageDetailPage() {
               onClick={() => setEditing(true)}
               className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
             >
-              编辑
+              {t("workspace.edit")}
             </button>
             <button
               type="button"
@@ -216,7 +218,7 @@ export default function LandingPageDetailPage() {
               disabled={deleting}
               className="rounded-md border border-red-300 bg-white px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-50 disabled:opacity-50"
             >
-              {deleting ? "删除中..." : "删除"}
+              {deleting ? t("workspace.deleting") : t("workspace.delete")}
             </button>
           </div>
         )}
@@ -234,7 +236,7 @@ export default function LandingPageDetailPage() {
           viewConfig={viewConfig}
           initialValues={record}
           onSubmit={handleUpdate}
-          submitLabel={submitting ? "保存中..." : "保存"}
+          submitLabel={submitting ? t("workspace.saving") : t("workspace.save")}
         />
       ) : (
         <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
@@ -249,15 +251,15 @@ export default function LandingPageDetailPage() {
                     {field.label}
                     {isExtension && (
                       <span className="rounded bg-purple-100 px-1 text-[10px] font-medium text-purple-700">
-                        扩展
+                        {t("workspace.extension")}
                       </span>
                     )}
                   </dt>
                   <dd className="mt-1 text-sm text-slate-900">
                     {field.type === "boolean"
                       ? value
-                        ? "是"
-                        : "否"
+                        ? t("workspace.yes")
+                        : t("workspace.no")
                       : value === null || value === undefined || value === ""
                         ? "—"
                         : String(value)}
@@ -268,9 +270,9 @@ export default function LandingPageDetailPage() {
           </dl>
 
           <div className="mt-4 border-t border-slate-100 pt-4 text-xs text-slate-400">
-            <p>记录 ID：{record.id}</p>
-            <p>创建时间：{record.created_at}</p>
-            <p>更新时间：{record.updated_at}</p>
+            <p>{t("workspace.recordId", { id: String(record.id ?? "") })}</p>
+            <p>{t("workspace.createdAt", { time: String(record.created_at ?? "") })}</p>
+            <p>{t("workspace.updatedAt", { time: String(record.updated_at ?? "") })}</p>
           </div>
         </div>
       )}

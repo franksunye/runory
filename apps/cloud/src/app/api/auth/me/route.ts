@@ -41,10 +41,10 @@ export async function PATCH(request: NextRequest) {
     const displayName = typeof body.displayName === "string" ? body.displayName.trim() : "";
 
     if (!displayName) {
-      return handleError(new Error("显示名称不能为空"), requestId);
+      return handleError(new Error("Display name is required"), requestId);
     }
     if (displayName.length > 64) {
-      return handleError(new Error("显示名称过长"), requestId);
+      return handleError(new Error("Display name is too long"), requestId);
     }
 
     await execute(

@@ -12,6 +12,7 @@ import {
   ExternalLink,
 } from "lucide-react";
 import { useI18n } from "@/i18n/locale-provider";
+import type { MessageKey } from "@/i18n/messages";
 
 interface AuditSummaryEntry {
   summary: string;
@@ -40,15 +41,15 @@ interface AuditEventWithSummary {
 type FilterCategory = "all" | "workflow" | "automation" | "record" | "dashboard" | "admin" | "catalog" | "system";
 type DateRange = "24h" | "7d" | "30d" | "all";
 
-const CATEGORY_LABELS: Record<FilterCategory, string> = {
-  all: "全部操作",
-  workflow: "工作流",
-  automation: "自动化",
-  record: "记录变更",
-  dashboard: "仪表盘",
-  admin: "管理操作",
-  catalog: "模块与 Pack",
-  system: "系统",
+const CATEGORY_LABELS: Record<FilterCategory, MessageKey> = {
+  all: "auditPage.categoryAll",
+  workflow: "auditPage.categoryWorkflow",
+  automation: "auditPage.categoryAutomation",
+  record: "auditPage.categoryRecord",
+  dashboard: "auditPage.categoryDashboard",
+  admin: "auditPage.categoryAdmin",
+  catalog: "auditPage.categoryCatalog",
+  system: "auditPage.categorySystem",
 };
 
 const CATEGORY_COLORS: Record<FilterCategory, string> = {
@@ -62,11 +63,11 @@ const CATEGORY_COLORS: Record<FilterCategory, string> = {
   system: "bg-slate-100 text-slate-500",
 };
 
-const DATE_RANGE_LABELS: Record<DateRange, string> = {
-  "24h": "最近 24 小时",
-  "7d": "最近 7 天",
-  "30d": "最近 30 天",
-  all: "全部时间",
+const DATE_RANGE_LABELS: Record<DateRange, MessageKey> = {
+  "24h": "auditPage.range24h",
+  "7d": "auditPage.range7d",
+  "30d": "auditPage.range30d",
+  all: "auditPage.rangeAll",
 };
 
 function formatTime(ts: string): string {
@@ -142,12 +143,12 @@ export default function AuditPage() {
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
-        setMessage("审计日志已导出");
+        setMessage(t("auditPage.exported"));
       } else {
-        setError(json.error?.message ?? "导出失败");
+        setError(json.error?.message ?? t("auditPage.exportFailed"));
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : "导出失败");
+      setError(e instanceof Error ? e.message : t("auditPage.exportFailed"));
     } finally {
       setExporting(false);
     }
@@ -162,9 +163,9 @@ export default function AuditPage() {
       <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="app-eyebrow">Audit</p>
-          <h1 className="mt-2 text-2xl font-bold tracking-tight text-slate-950">审计日志</h1>
+          <h1 className="mt-2 text-2xl font-bold tracking-tight text-slate-950">{t("auditPage.title")}</h1>
           <p className="mt-1 text-sm text-slate-500">
-            工作区内所有变更操作记录（共 {events.length} 条，筛选后 {filteredEvents.length} 条）
+            {t("auditPage.subtitle", { total: events.length, filtered: filteredEvents.length })}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -182,7 +183,7 @@ export default function AuditPage() {
             className="app-button-primary"
           >
             <Download size={16} />
-            {exporting ? "导出中..." : "导出审计日志"}
+            {exporting ? t("auditPage.exporting") : t("auditPage.exportButton")}
           </button>
         </div>
       </header>
@@ -198,30 +199,30 @@ export default function AuditPage() {
       <section className="app-card p-4 sm:p-5">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
           <div className="flex items-center gap-2 text-xs font-semibold text-slate-500">
-            <Filter size={14} />筛选
+            <Filter size={14} />{t("auditPage.filter")}
           </div>
           <div className="grid flex-1 gap-3 sm:grid-cols-2">
             <div>
-              <label className="mb-1 block text-[11px] font-semibold text-slate-500">操作类型</label>
+              <label className="mb-1 block text-[11px] font-semibold text-slate-500">{t("auditPage.categoryLabel")}</label>
               <select
                 value={category}
                 onChange={(e) => setCategory(e.target.value as FilterCategory)}
                 className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
               >
                 {(Object.keys(CATEGORY_LABELS) as FilterCategory[]).map((c) => (
-                  <option key={c} value={c}>{CATEGORY_LABELS[c]}</option>
+                  <option key={c} value={c}>{t(CATEGORY_LABELS[c])}</option>
                 ))}
               </select>
             </div>
             <div>
-              <label className="mb-1 block text-[11px] font-semibold text-slate-500">时间范围</label>
+              <label className="mb-1 block text-[11px] font-semibold text-slate-500">{t("auditPage.dateRangeLabel")}</label>
               <select
                 value={dateRange}
                 onChange={(e) => setDateRange(e.target.value as DateRange)}
                 className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
               >
                 {(Object.keys(DATE_RANGE_LABELS) as DateRange[]).map((d) => (
-                  <option key={d} value={d}>{DATE_RANGE_LABELS[d]}</option>
+                  <option key={d} value={d}>{t(DATE_RANGE_LABELS[d])}</option>
                 ))}
               </select>
             </div>
@@ -234,7 +235,7 @@ export default function AuditPage() {
         <div className="app-card p-8 text-center">
           <ScrollText size={32} className="mx-auto text-slate-300" />
           <p className="mt-3 text-sm text-slate-500">
-            {events.length === 0 ? "暂无审计日志" : "没有符合筛选条件的日志"}
+            {events.length === 0 ? t("audit.empty") : t("auditPage.noFiltered")}
           </p>
         </div>
       ) : (
@@ -256,14 +257,14 @@ export default function AuditPage() {
                           {event.summary.summary}
                         </span>
                         <span className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${CATEGORY_COLORS[cat] ?? CATEGORY_COLORS.system}`}>
-                          {CATEGORY_LABELS[cat] ?? cat}
+                          {CATEGORY_LABELS[cat] ? t(CATEGORY_LABELS[cat]) : cat}
                         </span>
                       </div>
                       {event.summary.detail && (
                         <p className="mt-1 text-xs text-slate-500">{event.summary.detail}</p>
                       )}
                       <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-400">
-                        <span>操作者：<span className="font-mono">{event.actorId}</span></span>
+                        <span>{t("auditPage.actorLabel")}<span className="font-mono">{event.actorId}</span></span>
                         <span className="text-slate-300">·</span>
                         <span>{event.actorType}</span>
                         {event.summary.linkRoute && (
@@ -273,7 +274,7 @@ export default function AuditPage() {
                               href={`/w/${workspaceId}${event.summary.linkRoute}`}
                               className="inline-flex items-center gap-0.5 text-indigo-600 hover:text-indigo-700"
                             >
-                              {event.summary.linkLabel ?? "查看"}
+                              {event.summary.linkLabel ?? t("auditPage.view")}
                               <ExternalLink size={10} />
                             </a>
                           </>
@@ -290,13 +291,13 @@ export default function AuditPage() {
                         className="inline-flex items-center gap-1 text-xs font-semibold text-indigo-600 hover:text-indigo-700"
                       >
                         {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-                        {isExpanded ? "收起原始数据" : "查看原始数据"}
+                        {isExpanded ? t("auditPage.collapseRaw") : t("auditPage.viewRaw")}
                       </button>
                       {isExpanded && (
                         <div className="mt-2 grid gap-2 sm:grid-cols-2">
                           {event.before && (
                             <div className="rounded-md border border-slate-100 bg-slate-50 p-2.5">
-                              <p className="mb-1 text-[10px] font-bold uppercase tracking-wide text-slate-400">变更前</p>
+                              <p className="mb-1 text-[10px] font-bold uppercase tracking-wide text-slate-400">{t("auditPage.before")}</p>
                               <pre className="overflow-x-auto text-[11px] text-slate-600">
                                 {JSON.stringify(event.before, null, 2)}
                               </pre>
@@ -304,7 +305,7 @@ export default function AuditPage() {
                           )}
                           {event.after && (
                             <div className="rounded-md border border-slate-100 bg-slate-50 p-2.5">
-                              <p className="mb-1 text-[10px] font-bold uppercase tracking-wide text-slate-400">变更后</p>
+                              <p className="mb-1 text-[10px] font-bold uppercase tracking-wide text-slate-400">{t("auditPage.after")}</p>
                               <pre className="overflow-x-auto text-[11px] text-slate-600">
                                 {JSON.stringify(event.after, null, 2)}
                               </pre>

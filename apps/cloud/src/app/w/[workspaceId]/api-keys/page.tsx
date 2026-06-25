@@ -100,13 +100,13 @@ export default function ApiKeysPage() {
       if (json.success) {
         setRevealedKey(json.data);
         setNewKeyName("");
-        setMessage("API 密钥已创建，请立即保存下方显示的完整密钥");
+        setMessage(t("apiKeys.created"));
         await loadKeys();
       } else {
-        setError(json.error?.message ?? "创建失败");
+        setError(json.error?.message ?? t("apiKeys.createFailed"));
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : "创建失败");
+      setError(e instanceof Error ? e.message : t("apiKeys.createFailed"));
     } finally {
       setCreating(false);
     }
@@ -122,14 +122,14 @@ export default function ApiKeysPage() {
       });
       const json = await res.json();
       if (json.success) {
-        setMessage("已吊销 API 密钥");
+        setMessage(t("apiKeys.revoked"));
         setConfirmRevoke(null);
         await loadKeys();
       } else {
-        setError(json.error?.message ?? "吊销失败");
+        setError(json.error?.message ?? t("apiKeys.revokeFailed"));
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : "吊销失败");
+      setError(e instanceof Error ? e.message : t("apiKeys.revokeFailed"));
     } finally {
       setRevokingId(null);
     }
@@ -146,14 +146,14 @@ export default function ApiKeysPage() {
       const json = await res.json();
       if (json.success) {
         setRevealedKey(json.data);
-        setMessage("API 密钥已轮换，请立即保存下方显示的新密钥");
+        setMessage(t("apiKeys.rotated"));
         setConfirmRotate(null);
         await loadKeys();
       } else {
-        setError(json.error?.message ?? "轮换失败");
+        setError(json.error?.message ?? t("apiKeys.rotateFailed"));
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : "轮换失败");
+      setError(e instanceof Error ? e.message : t("apiKeys.rotateFailed"));
     } finally {
       setRotatingId(null);
     }
@@ -178,8 +178,8 @@ export default function ApiKeysPage() {
       <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="app-eyebrow">API Keys</p>
-          <h1 className="mt-2 text-2xl font-bold tracking-tight text-slate-950">API 密钥</h1>
-          <p className="mt-1 text-sm text-slate-500">管理用于程序化访问工作区的 API 密钥</p>
+          <h1 className="mt-2 text-2xl font-bold tracking-tight text-slate-950">{t("apiKeys.title")}</h1>
+          <p className="mt-1 text-sm text-slate-500">{t("apiKeys.subtitle")}</p>
         </div>
         <button
           type="button"
@@ -205,9 +205,9 @@ export default function ApiKeysPage() {
               <AlertTriangle size={20} />
             </span>
             <div className="flex-1">
-              <h2 className="text-sm font-bold text-amber-900">请妥善保存，此密钥不会再次显示</h2>
+              <h2 className="text-sm font-bold text-amber-900">{t("apiKeys.saveWarning")}</h2>
               <p className="mt-1 text-xs text-amber-700">
-                密钥名称：{revealedKey.name} · 前缀：{revealedKey.keyPrefix}
+                {t("apiKeys.revealedMeta", { name: revealedKey.name, prefix: revealedKey.keyPrefix })}
               </p>
               <div className="mt-3 flex items-center gap-2">
                 <code className="block flex-1 overflow-x-auto rounded-lg border border-amber-200 bg-white px-3 py-2.5 font-mono text-xs text-slate-800">
@@ -219,7 +219,7 @@ export default function ApiKeysPage() {
                   className="inline-flex items-center gap-1 rounded-lg border border-amber-300 bg-white px-3 py-2.5 text-xs font-semibold text-amber-700 hover:bg-amber-50"
                 >
                   {copied ? <Check size={14} /> : <Copy size={14} />}
-                  {copied ? "已复制" : "复制"}
+                  {copied ? t("apiKeys.copied") : t("apiKeys.copy")}
                 </button>
               </div>
               <div className="mt-3 flex justify-end">
@@ -228,7 +228,7 @@ export default function ApiKeysPage() {
                   onClick={() => { setRevealedKey(null); setMessage(null); }}
                   className="inline-flex items-center gap-1 rounded-lg bg-amber-600 px-4 py-2 text-xs font-semibold text-white hover:bg-amber-700"
                 >
-                  <Check size={14} />我已保存
+                  <Check size={14} />{t("apiKeys.saved")}
                 </button>
               </div>
             </div>
@@ -240,28 +240,28 @@ export default function ApiKeysPage() {
       <section className="app-card p-5 sm:p-6">
         <div className="mb-4 flex items-center gap-2">
           <Plus size={18} className="text-indigo-600" />
-          <h2 className="text-sm font-bold text-slate-900">创建新密钥</h2>
+          <h2 className="text-sm font-bold text-slate-900">{t("apiKeys.createNew")}</h2>
         </div>
         <form onSubmit={handleCreate} className="flex flex-col gap-3 sm:flex-row sm:items-end">
           <div className="flex-1">
-            <label className="mb-1 block text-xs font-semibold text-slate-600">密钥名称</label>
+            <label className="mb-1 block text-xs font-semibold text-slate-600">{t("apiKeys.nameLabel")}</label>
             <input
               type="text"
               required
               maxLength={100}
               value={newKeyName}
               onChange={(e) => setNewKeyName(e.target.value)}
-              placeholder="例如：生产环境集成"
+              placeholder={t("apiKeys.namePlaceholder")}
               className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
             />
           </div>
           <button type="submit" disabled={creating} className="app-button-primary">
             <KeyRound size={16} />
-            {creating ? "创建中..." : "创建密钥"}
+            {creating ? t("apiKeys.creating") : t("apiKeys.createKey")}
           </button>
         </form>
         <p className="mt-3 text-[11px] text-slate-400">
-          新密钥默认授予 <code className="rounded bg-slate-100 px-1 py-0.5 font-mono">workspace:read</code> 权限。完整密钥仅在创建时显示一次。
+          {t("apiKeys.scopeHintPrefix")}<code className="rounded bg-slate-100 px-1 py-0.5 font-mono">workspace:read</code>{t("apiKeys.scopeHintSuffix")}
         </p>
       </section>
 
@@ -269,13 +269,13 @@ export default function ApiKeysPage() {
       <section className="app-card p-5 sm:p-6">
         <div className="mb-4 flex items-center gap-2">
           <Key size={18} className="text-indigo-600" />
-          <h2 className="text-sm font-bold text-slate-900">活跃密钥</h2>
+          <h2 className="text-sm font-bold text-slate-900">{t("apiKeys.activeKeys")}</h2>
           <span className="app-badge bg-slate-100 text-slate-600">{keys.length}</span>
         </div>
         {keys.length === 0 ? (
           <div className="py-8 text-center">
             <KeyRound size={32} className="mx-auto text-slate-300" />
-            <p className="mt-3 text-sm text-slate-400">暂无 API 密钥，点击上方按钮创建第一个</p>
+            <p className="mt-3 text-sm text-slate-400">{t("apiKeys.empty")}</p>
           </div>
         ) : (
           <ul className="divide-y divide-slate-100">
@@ -291,8 +291,8 @@ export default function ApiKeysPage() {
                       <span className="ml-2 font-mono text-xs font-normal text-slate-400">{k.keyPrefix}…</span>
                     </p>
                     <p className="text-xs text-slate-500">
-                      创建于 {formatDate(k.createdAt)} · 最后使用 {formatDate(k.lastUsedAt)}
-                      {k.expiresAt && ` · 过期于 ${formatDate(k.expiresAt)}`}
+                      {t("apiKeys.keyMeta", { created: formatDate(k.createdAt), lastUsed: formatDate(k.lastUsedAt) })}
+                      {k.expiresAt && t("apiKeys.expiresMeta", { expires: formatDate(k.expiresAt) })}
                     </p>
                     <div className="mt-1 flex flex-wrap gap-1">
                       {k.scopes.map((s) => (
@@ -311,7 +311,7 @@ export default function ApiKeysPage() {
                     className="inline-flex items-center gap-1 rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-50"
                   >
                     <RotateCcw size={14} />
-                    {rotatingId === k.id ? "轮换中..." : "轮换"}
+                    {rotatingId === k.id ? t("apiKeys.rotating") : t("apiKeys.rotate")}
                   </button>
                   <button
                     type="button"
@@ -320,7 +320,7 @@ export default function ApiKeysPage() {
                     className="inline-flex items-center gap-1 rounded-md border border-red-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50 disabled:opacity-50"
                   >
                     <Trash2 size={14} />
-                    {revokingId === k.id ? "吊销中..." : "吊销"}
+                    {revokingId === k.id ? t("apiKeys.revoking") : t("apiKeys.revoke")}
                   </button>
                 </div>
               </li>
@@ -337,11 +337,10 @@ export default function ApiKeysPage() {
               <span className="grid size-10 place-items-center rounded-full bg-red-50 text-red-600">
                 <Trash2 size={20} />
               </span>
-              <h3 className="text-base font-bold text-slate-900">吊销 API 密钥</h3>
+              <h3 className="text-base font-bold text-slate-900">{t("apiKeys.revokeTitle")}</h3>
             </div>
             <p className="mt-3 text-sm text-slate-600">
-              确定要吊销密钥 <span className="font-semibold text-slate-800">{confirmRevoke.name}</span> 吗？
-              吊销后，使用此密钥的所有请求将立即失败。此操作不可撤销。
+              {t("apiKeys.revokeConfirmPrefix")}<span className="font-semibold text-slate-800">{confirmRevoke.name}</span>{t("apiKeys.revokeConfirmSuffix")}
             </p>
             <div className="mt-5 flex justify-end gap-2">
               <button type="button" onClick={() => setConfirmRevoke(null)} className="app-button-secondary">
@@ -354,7 +353,7 @@ export default function ApiKeysPage() {
                 className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-red-600 px-4 text-sm font-semibold text-white transition hover:bg-red-700 disabled:opacity-60"
               >
                 <Check size={16} />
-                {revokingId === confirmRevoke.id ? "吊销中..." : "确认吊销"}
+                {revokingId === confirmRevoke.id ? t("apiKeys.revoking") : t("apiKeys.confirmRevoke")}
               </button>
             </div>
           </div>
@@ -369,11 +368,10 @@ export default function ApiKeysPage() {
               <span className="grid size-10 place-items-center rounded-full bg-amber-50 text-amber-600">
                 <RotateCcw size={20} />
               </span>
-              <h3 className="text-base font-bold text-slate-900">轮换 API 密钥</h3>
+              <h3 className="text-base font-bold text-slate-900">{t("apiKeys.rotateTitle")}</h3>
             </div>
             <p className="mt-3 text-sm text-slate-600">
-              确定要轮换密钥 <span className="font-semibold text-slate-800">{confirmRotate.name}</span> 吗？
-              旧密钥将立即失效，并生成新密钥。新密钥仅显示一次，请准备好保存。
+              {t("apiKeys.rotateConfirmPrefix")}<span className="font-semibold text-slate-800">{confirmRotate.name}</span>{t("apiKeys.rotateConfirmSuffix")}
             </p>
             <div className="mt-5 flex justify-end gap-2">
               <button type="button" onClick={() => setConfirmRotate(null)} className="app-button-secondary">
@@ -386,7 +384,7 @@ export default function ApiKeysPage() {
                 className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-amber-600 px-4 text-sm font-semibold text-white transition hover:bg-amber-700 disabled:opacity-60"
               >
                 <ShieldCheck size={16} />
-                {rotatingId === confirmRotate.id ? "轮换中..." : "确认轮换"}
+                {rotatingId === confirmRotate.id ? t("apiKeys.rotating") : t("apiKeys.confirmRotate")}
               </button>
             </div>
           </div>

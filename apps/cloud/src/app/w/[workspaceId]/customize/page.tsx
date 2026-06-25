@@ -6,11 +6,13 @@ import Link from "next/link";
 import { ArrowLeft, ListChecks, Plus, SlidersHorizontal } from "lucide-react";
 import AddFieldWizard from "@/components/customize/AddFieldWizard";
 import ExtensionList from "@/components/customize/ExtensionList";
+import { useI18n } from "@/i18n/locale-provider";
 
 type Tab = "add" | "installed";
 
 export default function CustomizePage() {
   const workspaceId = useParams().workspaceId as string;
+  const { t } = useI18n();
   const [tab, setTab] = useState<Tab>("add");
 
   return (
@@ -18,11 +20,10 @@ export default function CustomizePage() {
       <header>
         <p className="app-eyebrow">Customize</p>
         <h1 className="mt-2 text-3xl font-bold tracking-[-.025em] text-slate-950">
-          定制工作区
+          {t("customize.title")}
         </h1>
         <p className="mt-2 text-sm text-slate-500">
-          通过引导式流程添加自定义字段，无需编辑 JSON。所有变更遵循
-          计划 → 预览 → 应用 → 审计 → 回滚 的安全治理流程。
+          {t("customize.subtitle")}
         </p>
       </header>
 
@@ -31,7 +32,7 @@ export default function CustomizePage() {
         className="inline-flex items-center gap-1 text-sm font-medium text-indigo-600 hover:text-indigo-800"
       >
         <ArrowLeft size={14} />
-        返回管理
+        {t("customize.backToManage")}
       </Link>
 
       {/* Tabs */}
@@ -46,7 +47,7 @@ export default function CustomizePage() {
           }`}
         >
           <Plus size={16} />
-          添加字段
+          {t("customize.addField")}
         </button>
         <button
           type="button"
@@ -58,7 +59,7 @@ export default function CustomizePage() {
           }`}
         >
           <ListChecks size={16} />
-          已安装扩展
+          {t("customize.installedExtensions")}
         </button>
       </div>
 

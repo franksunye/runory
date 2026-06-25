@@ -24,7 +24,7 @@ export interface ParentLinkConfig {
   foreignKey: string;
   /** Object key of the parent (e.g. "company") */
   parentObjectKey: string;
-  /** Section label, e.g. "关联公司" */
+  /** Section label, e.g. "Related companies" */
   label: string;
   /** Field on the parent record to display as link text */
   titleField?: string;
@@ -37,7 +37,7 @@ export interface RelatedRecordsConfig {
   objectKey: string;
   /** Field on the related record that points back to this record's id */
   foreignKey: string;
-  /** Section heading, e.g. "关联联系人" */
+  /** Section heading, e.g. "Related contacts" */
   label: string;
   /** Field to display as the link text */
   titleField?: string;
@@ -69,7 +69,7 @@ export interface ObjectDetailPageProps {
   viewKey: string;
   basePath: string;
   title: string;
-  /** Singular noun shown in delete confirm, e.g. "公司" */
+  /** Singular noun shown in delete confirm, e.g. "company" */
   singularLabel?: string;
   backLabel?: string;
   /** Optional parent-record links (e.g. contact → company) */

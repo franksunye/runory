@@ -15,6 +15,7 @@ import {
   Zap,
 } from "lucide-react";
 import { useI18n } from "@/i18n/locale-provider";
+import type { MessageKey } from "@/i18n/messages";
 
 interface UsageItem {
   metric: string;
@@ -37,21 +38,21 @@ interface BillingData {
   billingHistory: unknown[];
 }
 
-const FEATURE_LABELS: Record<string, { label: string; icon: typeof Package }> = {
-  crm_lite: { label: "CRM Lite 模块", icon: Package },
-  extensions: { label: "扩展与定制", icon: Zap },
-  api_access: { label: "API 访问", icon: KeyRound },
-  audit_log: { label: "审计日志", icon: ScrollText },
+const FEATURE_LABELS: Record<string, { labelKey?: MessageKey; icon: typeof Package }> = {
+  crm_lite: { labelKey: "billing.feature.crmLite", icon: Package },
+  extensions: { labelKey: "billing.feature.extensions", icon: Zap },
+  api_access: { labelKey: "billing.feature.apiAccess", icon: KeyRound },
+  audit_log: { labelKey: "billing.feature.auditLog", icon: ScrollText },
 };
 
-const METRIC_LABELS: Record<string, { label: string; icon: typeof Users; format: (v: number) => string }> = {
-  records: { label: "记录数", icon: HardDrive, format: (v) => v.toLocaleString() },
-  workspaces: { label: "工作区", icon: Package, format: (v) => v.toLocaleString() },
-  members: { label: "成员数", icon: Users, format: (v) => v.toLocaleString() },
-  api_requests: { label: "API 调用", icon: KeyRound, format: (v) => v.toLocaleString() },
-  agent_operations: { label: "Agent 操作", icon: Zap, format: (v) => v.toLocaleString() },
+const METRIC_LABELS: Record<string, { labelKey?: MessageKey; icon: typeof Users; format: (v: number) => string }> = {
+  records: { labelKey: "billing.metric.records", icon: HardDrive, format: (v) => v.toLocaleString() },
+  workspaces: { labelKey: "billing.metric.workspaces", icon: Package, format: (v) => v.toLocaleString() },
+  members: { labelKey: "billing.metric.members", icon: Users, format: (v) => v.toLocaleString() },
+  api_requests: { labelKey: "billing.metric.apiRequests", icon: KeyRound, format: (v) => v.toLocaleString() },
+  agent_operations: { labelKey: "billing.metric.agentOperations", icon: Zap, format: (v) => v.toLocaleString() },
   storage_bytes: {
-    label: "存储空间",
+    labelKey: "billing.metric.storageBytes",
     icon: HardDrive,
     format: (v) => {
       if (v <= 0) return "0 B";
@@ -81,14 +82,14 @@ export default function BillingPage() {
       const wsRes = await fetch(`/api/workspaces/${workspaceId}`);
       const wsJson = await wsRes.json();
       if (!wsJson.success || !wsJson.data.organizationId) {
-        throw new Error(wsJson.error?.message ?? "无法获取组织信息");
+        throw new Error(wsJson.error?.message ?? t("billing.orgInfoFailed"));
       }
       const orgId = wsJson.data.organizationId as string;
 
       const billingRes = await fetch(`/api/organizations/${orgId}/billing`);
       const billingJson = await billingRes.json();
       if (!billingJson.success) {
-        throw new Error(billingJson.error?.message ?? "加载账单信息失败");
+        throw new Error(billingJson.error?.message ?? t("billing.loadFailed"));
       }
       setData(billingJson.data);
     } catch (e) {
@@ -117,8 +118,8 @@ export default function BillingPage() {
       <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="app-eyebrow">Billing</p>
-          <h1 className="mt-2 text-2xl font-bold tracking-tight text-slate-950">账单</h1>
-          <p className="mt-1 text-sm text-slate-500">查看当前方案、用量与功能权益</p>
+          <h1 className="mt-2 text-2xl font-bold tracking-tight text-slate-950">{t("billing.title")}</h1>
+          <p className="mt-1 text-sm text-slate-500">{t("billing.subtitle")}</p>
         </div>
         <button onClick={() => { setLoading(true); void loadBilling(); }} className="app-button-secondary self-start">
           <RefreshCw size={16} />{t("workspace.refresh")}
@@ -132,29 +133,29 @@ export default function BillingPage() {
         <div className="flex flex-col justify-between gap-6 lg:flex-row lg:items-center">
           <div>
             <div className="flex items-center gap-2 text-sm font-bold text-indigo-600">
-              <Sparkles size={17} />当前方案
+              <Sparkles size={17} />{t("billing.currentPlan")}
             </div>
             <h2 className="mt-3 text-2xl font-bold tracking-tight text-slate-950">Early Access</h2>
             <p className="mt-2 max-w-xl text-sm leading-6 text-slate-600">
-              您正在使用 Early Access 方案，包含核心平台能力。Stripe 付费订阅集成即将上线。
+              {t("billing.planDesc")}
             </p>
             <div className="mt-4 flex items-center gap-3">
               <span className="app-badge bg-emerald-50 text-emerald-700">
                 <CheckCircle2 size={14} />{data?.status ?? "active"}
               </span>
-              <span className="text-sm font-semibold text-slate-700">免费</span>
+              <span className="text-sm font-semibold text-slate-700">{t("billing.free")}</span>
             </div>
           </div>
           <div className="flex min-w-fit flex-col items-end gap-2">
             <button
               type="button"
               disabled
-              title="Stripe 集成即将上线"
+              title={t("billing.stripeComingSoon")}
               className="app-button-primary cursor-not-allowed opacity-60"
             >
-              <CreditCard size={18} />管理订阅
+              <CreditCard size={18} />{t("billing.manageSubscription")}
             </button>
-            <span className="text-xs text-slate-400">Stripe 集成即将上线</span>
+            <span className="text-xs text-slate-400">{t("billing.stripeComingSoon")}</span>
           </div>
         </div>
       </section>
@@ -162,16 +163,15 @@ export default function BillingPage() {
       {/* Usage Metrics */}
       <section className="app-card p-5 sm:p-6">
         <div className="mb-5">
-          <h3 className="font-bold text-slate-900">用量统计</h3>
-          <p className="mt-1 text-xs text-slate-500">当前周期内各项资源使用情况</p>
+          <h3 className="font-bold text-slate-900">{t("billing.usageStats")}</h3>
+          <p className="mt-1 text-xs text-slate-500">{t("billing.usageDesc")}</p>
         </div>
         {sortedUsage.length === 0 ? (
-          <p className="text-sm text-slate-500">暂无用量数据</p>
+          <p className="text-sm text-slate-500">{t("billing.noUsage")}</p>
         ) : (
           <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {sortedUsage.map((item) => {
               const meta = METRIC_LABELS[item.metric] ?? {
-                label: item.metric,
                 icon: HardDrive,
                 format: (v: number) => v.toLocaleString(),
               };
@@ -185,10 +185,10 @@ export default function BillingPage() {
                       <span className="grid size-8 place-items-center rounded-lg bg-white text-indigo-600 shadow-sm">
                         <Icon size={16} />
                       </span>
-                      <span className="text-sm font-semibold text-slate-700">{meta.label}</span>
+                      <span className="text-sm font-semibold text-slate-700">{meta.labelKey ? t(meta.labelKey) : item.metric}</span>
                     </div>
                     <span className={`app-badge ${isHard ? "bg-amber-50 text-amber-700" : "bg-sky-50 text-sky-700"}`}>
-                      {isHard ? "硬限制" : "软限制"}
+                      {isHard ? t("billing.hardLimit") : t("billing.softLimit")}
                     </span>
                   </div>
                   <div className="mt-3 flex items-baseline justify-between">
@@ -202,7 +202,7 @@ export default function BillingPage() {
                     />
                   </div>
                   <p className="mt-1.5 text-xs text-slate-400">
-                    剩余 {meta.format(item.remaining)}
+                    {t("billing.remaining", { value: meta.format(item.remaining) })}
                   </p>
                 </div>
               );
@@ -214,19 +214,19 @@ export default function BillingPage() {
       {/* Features List */}
       <section className="app-card p-5 sm:p-6">
         <div className="mb-5">
-          <h3 className="font-bold text-slate-900">功能权益</h3>
-          <p className="mt-1 text-xs text-slate-500">当前方案包含的功能</p>
+          <h3 className="font-bold text-slate-900">{t("billing.features")}</h3>
+          <p className="mt-1 text-xs text-slate-500">{t("billing.featuresDesc")}</p>
         </div>
         <div className="grid gap-3 sm:grid-cols-2">
           {(data?.features ?? []).map((feature) => {
-            const meta = FEATURE_LABELS[feature] ?? { label: feature, icon: CheckCircle2 };
+            const meta = FEATURE_LABELS[feature] ?? { icon: CheckCircle2 };
             const Icon = meta.icon;
             return (
               <div key={feature} className="flex items-center gap-3 rounded-xl border border-slate-100 bg-white p-3.5">
                 <span className="grid size-9 place-items-center rounded-lg bg-emerald-50 text-emerald-600">
                   <Icon size={17} />
                 </span>
-                <span className="flex-1 text-sm font-semibold text-slate-700">{meta.label}</span>
+                <span className="flex-1 text-sm font-semibold text-slate-700">{meta.labelKey ? t(meta.labelKey) : feature}</span>
                 <CheckCircle2 size={18} className="text-emerald-500" />
               </div>
             );
@@ -240,13 +240,13 @@ export default function BillingPage() {
           <div className="grid size-12 place-items-center rounded-xl bg-indigo-100 text-indigo-600">
             <CreditCard size={24} />
           </div>
-          <h3 className="mt-4 text-lg font-bold text-slate-900">即将推出</h3>
+          <h3 className="mt-4 text-lg font-bold text-slate-900">{t("billing.comingSoon")}</h3>
           <p className="mt-2 max-w-md text-sm leading-6 text-slate-500">
-            Stripe 订阅计费集成正在开发中。届时将支持 Pro 与 Enterprise 方案的在线升级、降级与账单管理。
+            {t("billing.comingSoonBody")}
           </p>
           <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
-            <span className="app-badge bg-white text-slate-600">Pro · $29/月</span>
-            <span className="app-badge bg-white text-slate-600">Enterprise · 定制</span>
+            <span className="app-badge bg-white text-slate-600">{t("billing.proPlan")}</span>
+            <span className="app-badge bg-white text-slate-600">{t("billing.enterprisePlan")}</span>
           </div>
         </div>
       </section>
@@ -254,11 +254,11 @@ export default function BillingPage() {
       {/* Billing History (empty) */}
       <section className="app-card p-5 sm:p-6">
         <div className="mb-3">
-          <h3 className="font-bold text-slate-900">账单记录</h3>
-          <p className="mt-1 text-xs text-slate-500">历史账单与支付记录</p>
+          <h3 className="font-bold text-slate-900">{t("billing.history")}</h3>
+          <p className="mt-1 text-xs text-slate-500">{t("billing.historyDesc")}</p>
         </div>
         {(data?.billingHistory ?? []).length === 0 ? (
-          <p className="py-6 text-center text-sm text-slate-400">暂无账单记录</p>
+          <p className="py-6 text-center text-sm text-slate-400">{t("billing.noHistory")}</p>
         ) : null}
       </section>
     </div>

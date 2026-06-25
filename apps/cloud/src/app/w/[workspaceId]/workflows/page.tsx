@@ -8,6 +8,8 @@ import {
 } from "lucide-react";
 import type { WorkflowDefinition, WorkflowTransition } from "@runory/contracts";
 import type { WorkflowInstance } from "@runory/platform-core";
+import { useI18n } from "@/i18n/locale-provider";
+import type { MessageKey } from "@/i18n/messages";
 
 interface PendingApproval extends WorkflowInstance {
   definition: WorkflowDefinition;
@@ -18,11 +20,11 @@ type StateType = "initial" | "intermediate" | "approved" | "rejected" | "final";
 type Role = "admin" | "member" | "viewer";
 
 const STATE_TYPES: StateType[] = ["initial", "intermediate", "approved", "rejected", "final"];
-const STATE_TYPE_LABELS: Record<StateType, string> = {
-  initial: "初始", intermediate: "中间", approved: "已批准", rejected: "已拒绝", final: "终态",
+const STATE_TYPE_LABEL_KEYS: Record<StateType, MessageKey> = {
+  initial: "workflows.stateType.initial", intermediate: "workflows.stateType.intermediate", approved: "workflows.stateType.approved", rejected: "workflows.stateType.rejected", final: "workflows.stateType.final",
 };
 const ROLES: Role[] = ["admin", "member", "viewer"];
-const ROLE_LABELS: Record<Role, string> = { admin: "管理员", member: "成员", viewer: "访客" };
+const ROLE_LABEL_KEYS: Record<Role, MessageKey> = { admin: "workflows.role.admin", member: "workflows.role.member", viewer: "workflows.role.viewer" };
 
 interface EditorState { name: string; label: string; type: StateType }
 interface EditorTransition {
@@ -32,6 +34,7 @@ interface EditorTransition {
 
 export default function WorkflowsPage() {
   const workspaceId = useParams().workspaceId as string;
+  const { t } = useI18n();
 
   const [definitions, setDefinitions] = useState<WorkflowDefinition[]>([]);
   const [instances, setInstances] = useState<WorkflowInstance[]>([]);
@@ -61,8 +64,8 @@ export default function WorkflowsPage() {
       ]);
       const defsJson = await defsRes.json();
       const instJson = await instRes.json();
-      if (!defsJson.success) throw new Error(defsJson.error?.message ?? "加载失败");
-      if (!instJson.success) throw new Error(instJson.error?.message ?? "加载失败");
+      if (!defsJson.success) throw new Error(defsJson.error?.message ?? t("workspace.loadFailed"));
+      if (!instJson.success) throw new Error(instJson.error?.message ?? t("workspace.loadFailed"));
       setDefinitions(defsJson.data);
       setInstances(instJson.data);
 
@@ -82,7 +85,7 @@ export default function WorkflowsPage() {
       }
       setPending(pendingList);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "加载失败");
+      setError(e instanceof Error ? e.message : t("workspace.loadFailed"));
     } finally {
       setLoading(false);
     }
@@ -125,12 +128,12 @@ export default function WorkflowsPage() {
         method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(def),
       });
       const json = await res.json();
-      if (!json.success) throw new Error(json.error?.message ?? "创建失败");
-      showToast("success", `工作流「${def.name}」已创建`);
+      if (!json.success) throw new Error(json.error?.message ?? t("workspace.createFailed"));
+      showToast("success", t("workflows.created", { name: def.name }));
       setShowCreateModal(false);
       await load();
     } catch (e) {
-      showToast("error", e instanceof Error ? e.message : "创建失败");
+      showToast("error", e instanceof Error ? e.message : t("workspace.createFailed"));
     } finally {
       setSubmitting(false);
     }
@@ -144,12 +147,12 @@ export default function WorkflowsPage() {
         body: JSON.stringify({ workflowId, objectType, recordId }),
       });
       const json = await res.json();
-      if (!json.success) throw new Error(json.error?.message ?? "启动失败");
-      showToast("success", "工作流实例已启动");
+      if (!json.success) throw new Error(json.error?.message ?? t("workflows.startFailed"));
+      showToast("success", t("workflows.instanceStarted"));
       setStartFor(null);
       await load();
     } catch (e) {
-      showToast("error", e instanceof Error ? e.message : "启动失败");
+      showToast("error", e instanceof Error ? e.message : t("workflows.startFailed"));
     } finally {
       setSubmitting(false);
     }
@@ -163,13 +166,13 @@ export default function WorkflowsPage() {
         body: JSON.stringify({ transitionId, comment: commentText || undefined }),
       });
       const json = await res.json();
-      if (!json.success) throw new Error(json.error?.message ?? "执行失败");
-      showToast("success", "操作已执行");
+      if (!json.success) throw new Error(json.error?.message ?? t("workflows.executeFailed"));
+      showToast("success", t("workflows.executed"));
       setExecuting(null);
       setComment("");
       await load();
     } catch (e) {
-      showToast("error", e instanceof Error ? e.message : "执行失败");
+      showToast("error", e instanceof Error ? e.message : t("workflows.executeFailed"));
     } finally {
       setSubmitting(false);
     }
@@ -181,19 +184,19 @@ export default function WorkflowsPage() {
   };
   const cancelTransition = () => { setExecuting(null); setComment(""); };
 
-  if (loading) return <p className="text-sm text-slate-400">加载中...</p>;
+  if (loading) return <p className="text-sm text-slate-400">{t("workspace.loading")}</p>;
 
   return (
     <div className="space-y-6">
       <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="app-eyebrow">Approval flows</p>
-          <h1 className="mt-2 text-3xl font-bold tracking-[-.025em] text-slate-950">工作流</h1>
-          <p className="mt-2 text-sm text-slate-500">管理审批流定义与运行中的工作流实例。</p>
+          <h1 className="mt-2 text-3xl font-bold tracking-[-.025em] text-slate-950">{t("workflows.title")}</h1>
+          <p className="mt-2 text-sm text-slate-500">{t("workflows.subtitle")}</p>
         </div>
         <div className="flex items-center gap-2 self-start">
-          <button onClick={() => void load()} className="app-button-secondary"><RefreshCw size={16} />刷新</button>
-          <button onClick={() => setShowCreateModal(true)} className="app-button-primary"><Plus size={16} />创建工作流</button>
+          <button onClick={() => void load()} className="app-button-secondary"><RefreshCw size={16} />{t("workspace.refresh")}</button>
+          <button onClick={() => setShowCreateModal(true)} className="app-button-primary"><Plus size={16} />{t("workflows.createWorkflow")}</button>
         </div>
       </header>
 
@@ -216,13 +219,13 @@ export default function WorkflowsPage() {
       <section className="app-card p-5 sm:p-6">
         <div className="mb-4 flex items-center justify-between">
           <div>
-            <h3 className="font-bold text-slate-900">待审批</h3>
-            <p className="mt-1 text-xs text-slate-500">当前状态需要审批的工作流实例</p>
+            <h3 className="font-bold text-slate-900">{t("workflows.pendingApprovals")}</h3>
+            <p className="mt-1 text-xs text-slate-500">{t("workflows.pendingApprovalsHint")}</p>
           </div>
-          <span className="app-badge bg-amber-50 text-amber-700">{pending.length} 项</span>
+          <span className="app-badge bg-amber-50 text-amber-700">{t("workflows.itemCount", { count: pending.length })}</span>
         </div>
         {pending.length === 0 ? (
-          <p className="text-sm text-slate-400">暂无待审批项</p>
+          <p className="text-sm text-slate-400">{t("workflows.noPending")}</p>
         ) : (
           <ul className="divide-y divide-slate-100">
             {pending.map(p => (
@@ -241,11 +244,11 @@ export default function WorkflowsPage() {
       {/* Workflow Definitions */}
       <section className="app-card p-5 sm:p-6">
         <div className="mb-4">
-          <h3 className="font-bold text-slate-900">工作流定义</h3>
-          <p className="mt-1 text-xs text-slate-500">已配置的审批流（共 {definitions.length} 个）</p>
+          <h3 className="font-bold text-slate-900">{t("workflows.definitions")}</h3>
+          <p className="mt-1 text-xs text-slate-500">{t("workflows.definitionsMeta", { count: definitions.length })}</p>
         </div>
         {definitions.length === 0 ? (
-          <p className="text-sm text-slate-400">暂无工作流定义，点击右上角「创建工作流」。</p>
+          <p className="text-sm text-slate-400">{t("workflows.noDefinitions")}</p>
         ) : (
           <ul className="divide-y divide-slate-100">
             {definitions.map(def => {
@@ -257,11 +260,11 @@ export default function WorkflowsPage() {
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-semibold text-slate-800">{def.name}</p>
                       <p className="truncate text-xs text-slate-500">
-                        目标对象: {def.targetObject} · 初始状态: {def.initialState} · 状态数: {def.states.length}
+                        {t("workflows.definitionMeta", { targetObject: def.targetObject, initialState: def.initialState, count: def.states.length })}
                       </p>
                     </div>
-                    <span className="app-badge bg-indigo-50 text-indigo-700">{defInstances.length} 实例</span>
-                    <button onClick={() => setStartFor(def)} className="app-button-secondary"><Play size={14} />启动实例</button>
+                    <span className="app-badge bg-indigo-50 text-indigo-700">{t("workflows.instanceCount", { count: defInstances.length })}</span>
+                    <button onClick={() => setStartFor(def)} className="app-button-secondary"><Play size={14} />{t("workflows.startInstance")}</button>
                   </div>
                   <div className="mt-3 flex flex-wrap gap-1.5 pl-12">
                     {def.states.map(s => (
@@ -278,11 +281,11 @@ export default function WorkflowsPage() {
       {/* Recent Instances */}
       <section className="app-card p-5 sm:p-6">
         <div className="mb-4">
-          <h3 className="font-bold text-slate-900">最近工作流实例</h3>
-          <p className="mt-1 text-xs text-slate-500">工作区中所有运行中的工作流（共 {instances.length} 个）</p>
+          <h3 className="font-bold text-slate-900">{t("workflows.recentInstances")}</h3>
+          <p className="mt-1 text-xs text-slate-500">{t("workflows.recentInstancesMeta", { count: instances.length })}</p>
         </div>
         {instances.length === 0 ? (
-          <p className="text-sm text-slate-400">暂无工作流实例</p>
+          <p className="text-sm text-slate-400">{t("workflows.noInstances")}</p>
         ) : (
           <ul className="divide-y divide-slate-100">
             {instances.slice(0, 20).map(inst => {
@@ -346,6 +349,7 @@ function InstanceRow({
   instance, definition, transitions, executing, comment, submitting,
   onCommentChange, onPickTransition, onCancelTransition, onExecute,
 }: InstanceRowProps) {
+  const { t } = useI18n();
   const terminal = isTerminalState(definition, instance.currentState);
   const stateType = definition?.states.find(s => s.name === instance.currentState)?.type;
   const Icon = terminal ? (stateType === "approved" ? CheckCircle2 : XCircle) : Clock3;
@@ -362,22 +366,22 @@ function InstanceRow({
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-semibold text-slate-800">{definition?.name ?? instance.workflowId}</p>
           <p className="truncate text-xs text-slate-500">
-            {instance.objectType} · {instance.recordId} · 历史 {instance.history.length} 步
+            {t("workflows.instanceMeta", { objectType: instance.objectType, recordId: instance.recordId, count: instance.history.length })}
           </p>
         </div>
         <span className="app-badge bg-slate-100 text-slate-700">{stateLabel}</span>
       </div>
       {!terminal && transitions.length > 0 && (
         <div className="mt-2 flex flex-wrap items-center gap-2 pl-12">
-          {transitions.map(t => {
-            const tid = `${t.fromStatus}->${t.toStatus}`;
+          {transitions.map(tr => {
+            const tid = `${tr.fromStatus}->${tr.toStatus}`;
             const active = isThisExecuting && executing?.transitionId === tid;
             return (
               <button key={tid} onClick={() => onPickTransition(tid)}
                 className={`app-button-secondary min-h-9 ${active ? "ring-2 ring-indigo-400" : ""}`}
                 disabled={submitting}>
-                <ArrowRight size={14} />{t.label}
-                {t.requiresApproval && <span className="text-amber-600">·需审批</span>}
+                <ArrowRight size={14} />{tr.label}
+                {tr.requiresApproval && <span className="text-amber-600">{t("workflows.requiresApprovalSuffix")}</span>}
               </button>
             );
           })}
@@ -386,12 +390,12 @@ function InstanceRow({
       {isThisExecuting && (
         <div className="mt-2 flex flex-col gap-2 pl-12 sm:flex-row sm:items-center">
           <input type="text" value={comment} onChange={e => onCommentChange(e.target.value)}
-            placeholder="备注（可选）" className="app-input h-9 flex-1" disabled={submitting} />
+            placeholder={t("workflows.commentPlaceholder")} className="app-input h-9 flex-1" disabled={submitting} />
           <div className="flex gap-2">
             <button onClick={onExecute} className="app-button-primary min-h-9" disabled={submitting}>
-              {submitting ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}确认执行
+              {submitting ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}{t("workflows.confirmExecute")}
             </button>
-            <button onClick={onCancelTransition} className="app-button-secondary min-h-9" disabled={submitting}>取消</button>
+            <button onClick={onCancelTransition} className="app-button-secondary min-h-9" disabled={submitting}>{t("workspace.cancel")}</button>
           </div>
         </div>
       )}
@@ -408,13 +412,14 @@ interface CreateWorkflowModalProps {
 }
 
 function CreateWorkflowModal({ submitting, onClose, onSubmit }: CreateWorkflowModalProps) {
+  const { t } = useI18n();
   const [id, setId] = useState("");
   const [name, setName] = useState("");
   const [targetObject, setTargetObject] = useState("");
   const [initialState, setInitialState] = useState("");
   const [states, setStates] = useState<EditorState[]>([
-    { name: "draft", label: "草稿", type: "initial" },
-    { name: "approved", label: "已批准", type: "approved" },
+    { name: "draft", label: t("workflows.sampleState.draft"), type: "initial" },
+    { name: "approved", label: t("workflows.sampleState.approved"), type: "approved" },
   ]);
   const [transitions, setTransitions] = useState<EditorTransition[]>([]);
 
@@ -423,17 +428,17 @@ function CreateWorkflowModal({ submitting, onClose, onSubmit }: CreateWorkflowMo
   const updateState = (i: number, patch: Partial<EditorState>) =>
     setStates(s => s.map((st, idx) => (idx === i ? { ...st, ...patch } : st)));
 
-  const addTransition = () => setTransitions(t => [...t, {
+  const addTransition = () => setTransitions(prev => [...prev, {
     fromStatus: states[0]?.name ?? "", toStatus: states[0]?.name ?? "",
     label: "", requiresApproval: false, requiredRole: "member",
   }]);
-  const removeTransition = (i: number) => setTransitions(t => t.filter((_, idx) => idx !== i));
+  const removeTransition = (i: number) => setTransitions(prev => prev.filter((_, idx) => idx !== i));
   const updateTransition = (i: number, patch: Partial<EditorTransition>) =>
-    setTransitions(t => t.map((tr, idx) => (idx === i ? { ...tr, ...patch } : tr)));
+    setTransitions(prev => prev.map((tr, idx) => (idx === i ? { ...tr, ...patch } : tr)));
 
   const canSubmit = Boolean(id && name && targetObject && initialState)
     && states.every(s => s.name && s.label)
-    && transitions.every(t => t.fromStatus && t.toStatus && t.label);
+    && transitions.every(tr => tr.fromStatus && tr.toStatus && tr.label);
 
   const handleSubmit = () => {
     if (!canSubmit) return;
@@ -444,37 +449,37 @@ function CreateWorkflowModal({ submitting, onClose, onSubmit }: CreateWorkflowMo
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-900/40 p-4 sm:p-8">
       <div className="w-full max-w-2xl rounded-2xl bg-white shadow-xl">
         <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
-          <h2 className="text-lg font-bold text-slate-900">创建工作流</h2>
+          <h2 className="text-lg font-bold text-slate-900">{t("workflows.createWorkflowTitle")}</h2>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600"><X size={20} /></button>
         </div>
         <div className="max-h-[70vh] space-y-5 overflow-y-auto px-6 py-5">
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="工作流 ID">
-              <input className="app-input" value={id} onChange={e => setId(e.target.value)} placeholder="如 quote-approval" />
+            <Field label={t("workflows.field.workflowId")}>
+              <input className="app-input" value={id} onChange={e => setId(e.target.value)} placeholder={t("workflows.placeholderWorkflowId")} />
             </Field>
-            <Field label="名称">
-              <input className="app-input" value={name} onChange={e => setName(e.target.value)} placeholder="如 报价审批流" />
+            <Field label={t("workflows.field.name")}>
+              <input className="app-input" value={name} onChange={e => setName(e.target.value)} placeholder={t("workflows.placeholderName")} />
             </Field>
-            <Field label="目标对象">
-              <input className="app-input" value={targetObject} onChange={e => setTargetObject(e.target.value)} placeholder="如 quote" />
+            <Field label={t("workflows.field.targetObject")}>
+              <input className="app-input" value={targetObject} onChange={e => setTargetObject(e.target.value)} placeholder={t("workflows.placeholderTargetObject")} />
             </Field>
-            <Field label="初始状态">
-              <input className="app-input" value={initialState} onChange={e => setInitialState(e.target.value)} placeholder="如 draft" />
+            <Field label={t("workflows.field.initialState")}>
+              <input className="app-input" value={initialState} onChange={e => setInitialState(e.target.value)} placeholder={t("workflows.placeholderInitialState")} />
             </Field>
           </div>
 
           <div>
             <div className="mb-2 flex items-center justify-between">
-              <p className="text-sm font-bold text-slate-900">状态列表</p>
-              <button onClick={addState} className="app-button-secondary min-h-8"><Plus size={14} />添加状态</button>
+              <p className="text-sm font-bold text-slate-900">{t("workflows.statesList")}</p>
+              <button onClick={addState} className="app-button-secondary min-h-8"><Plus size={14} />{t("workflows.addState")}</button>
             </div>
             <div className="space-y-2">
               {states.map((s, i) => (
                 <div key={i} className="flex items-center gap-2">
                   <input className="app-input h-9 w-32" value={s.name} onChange={e => updateState(i, { name: e.target.value })} placeholder="name" />
-                  <input className="app-input h-9 flex-1" value={s.label} onChange={e => updateState(i, { label: e.target.value })} placeholder="显示标签" />
+                  <input className="app-input h-9 flex-1" value={s.label} onChange={e => updateState(i, { label: e.target.value })} placeholder={t("workflows.placeholderStateLabel")} />
                   <select className="app-input h-9 w-32" value={s.type} onChange={e => updateState(i, { type: e.target.value as StateType })}>
-                    {STATE_TYPES.map(t => <option key={t} value={t}>{STATE_TYPE_LABELS[t]}</option>)}
+                    {STATE_TYPES.map(st => <option key={st} value={st}>{t(STATE_TYPE_LABEL_KEYS[st])}</option>)}
                   </select>
                   <button onClick={() => removeState(i)} className="text-slate-400 hover:text-red-600"><Trash2 size={16} /></button>
                 </div>
@@ -484,32 +489,32 @@ function CreateWorkflowModal({ submitting, onClose, onSubmit }: CreateWorkflowMo
 
           <div>
             <div className="mb-2 flex items-center justify-between">
-              <p className="text-sm font-bold text-slate-900">流转规则</p>
-              <button onClick={addTransition} className="app-button-secondary min-h-8"><Plus size={14} />添加流转</button>
+              <p className="text-sm font-bold text-slate-900">{t("workflows.transitions")}</p>
+              <button onClick={addTransition} className="app-button-secondary min-h-8"><Plus size={14} />{t("workflows.addTransition")}</button>
             </div>
             <div className="space-y-2">
-              {transitions.length === 0 && <p className="text-xs text-slate-400">暂无流转规则</p>}
-              {transitions.map((t, i) => (
+              {transitions.length === 0 && <p className="text-xs text-slate-400">{t("workflows.noTransitions")}</p>}
+              {transitions.map((tr, i) => (
                 <div key={i} className="space-y-2 rounded-lg border border-slate-100 p-2">
                   <div className="flex items-center gap-2">
-                    <select className="app-input h-9 flex-1" value={t.fromStatus} onChange={e => updateTransition(i, { fromStatus: e.target.value })}>
-                      <option value="">起始状态</option>
+                    <select className="app-input h-9 flex-1" value={tr.fromStatus} onChange={e => updateTransition(i, { fromStatus: e.target.value })}>
+                      <option value="">{t("workflows.fromState")}</option>
                       {states.map(s => <option key={s.name} value={s.name}>{s.label || s.name}</option>)}
                     </select>
                     <ArrowRight size={14} className="shrink-0 text-slate-400" />
-                    <select className="app-input h-9 flex-1" value={t.toStatus} onChange={e => updateTransition(i, { toStatus: e.target.value })}>
-                      <option value="">目标状态</option>
+                    <select className="app-input h-9 flex-1" value={tr.toStatus} onChange={e => updateTransition(i, { toStatus: e.target.value })}>
+                      <option value="">{t("workflows.toState")}</option>
                       {states.map(s => <option key={s.name} value={s.name}>{s.label || s.name}</option>)}
                     </select>
                     <button onClick={() => removeTransition(i)} className="text-slate-400 hover:text-red-600"><Trash2 size={16} /></button>
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
-                    <input className="app-input h-9 flex-1" value={t.label} onChange={e => updateTransition(i, { label: e.target.value })} placeholder="操作标签（如 提交审批）" />
+                    <input className="app-input h-9 flex-1" value={tr.label} onChange={e => updateTransition(i, { label: e.target.value })} placeholder={t("workflows.placeholderTransitionLabel")} />
                     <label className="flex items-center gap-1 text-xs text-slate-600">
-                      <input type="checkbox" checked={t.requiresApproval} onChange={e => updateTransition(i, { requiresApproval: e.target.checked })} />需审批
+                      <input type="checkbox" checked={tr.requiresApproval} onChange={e => updateTransition(i, { requiresApproval: e.target.checked })} />{t("workflows.requiresApprovalLabel")}
                     </label>
-                    <select className="app-input h-9 w-28" value={t.requiredRole} onChange={e => updateTransition(i, { requiredRole: e.target.value as Role })}>
-                      {ROLES.map(r => <option key={r} value={r}>{ROLE_LABELS[r]}</option>)}
+                    <select className="app-input h-9 w-28" value={tr.requiredRole} onChange={e => updateTransition(i, { requiredRole: e.target.value as Role })}>
+                      {ROLES.map(r => <option key={r} value={r}>{t(ROLE_LABEL_KEYS[r])}</option>)}
                     </select>
                   </div>
                 </div>
@@ -518,9 +523,9 @@ function CreateWorkflowModal({ submitting, onClose, onSubmit }: CreateWorkflowMo
           </div>
         </div>
         <div className="flex justify-end gap-2 border-t border-slate-100 px-6 py-4">
-          <button onClick={onClose} className="app-button-secondary" disabled={submitting}>取消</button>
+          <button onClick={onClose} className="app-button-secondary" disabled={submitting}>{t("workspace.cancel")}</button>
           <button onClick={handleSubmit} className="app-button-primary" disabled={submitting || !canSubmit}>
-            {submitting ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}创建
+            {submitting ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}{t("workspace.create")}
           </button>
         </div>
       </div>
@@ -538,6 +543,7 @@ interface StartInstanceModalProps {
 }
 
 function StartInstanceModal({ definition, submitting, onClose, onSubmit }: StartInstanceModalProps) {
+  const { t } = useI18n();
   const [objectType, setObjectType] = useState(definition.targetObject);
   const [recordId, setRecordId] = useState("");
 
@@ -545,21 +551,21 @@ function StartInstanceModal({ definition, submitting, onClose, onSubmit }: Start
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4">
       <div className="w-full max-w-md rounded-2xl bg-white shadow-xl">
         <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
-          <h2 className="text-lg font-bold text-slate-900">启动实例 · {definition.name}</h2>
+          <h2 className="text-lg font-bold text-slate-900">{t("workflows.startInstanceTitle", { name: definition.name })}</h2>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600"><X size={20} /></button>
         </div>
         <div className="space-y-4 px-6 py-5">
-          <Field label="对象类型">
+          <Field label={t("workflows.field.objectType")}>
             <input className="app-input" value={objectType} onChange={e => setObjectType(e.target.value)} />
           </Field>
-          <Field label="记录 ID">
-            <input className="app-input" value={recordId} onChange={e => setRecordId(e.target.value)} placeholder="如 rec_001" />
+          <Field label={t("workflows.field.recordId")}>
+            <input className="app-input" value={recordId} onChange={e => setRecordId(e.target.value)} placeholder={t("workflows.placeholderRecordId")} />
           </Field>
         </div>
         <div className="flex justify-end gap-2 border-t border-slate-100 px-6 py-4">
-          <button onClick={onClose} className="app-button-secondary" disabled={submitting}>取消</button>
+          <button onClick={onClose} className="app-button-secondary" disabled={submitting}>{t("workspace.cancel")}</button>
           <button onClick={() => onSubmit(objectType, recordId)} className="app-button-primary" disabled={submitting || !objectType || !recordId}>
-            {submitting ? <Loader2 size={14} className="animate-spin" /> : <Play size={14} />}启动
+            {submitting ? <Loader2 size={14} className="animate-spin" /> : <Play size={14} />}{t("workflows.start")}
           </button>
         </div>
       </div>

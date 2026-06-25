@@ -12,19 +12,22 @@ import {
   useRecords,
   useWorkspaceChangeEvent,
 } from "@/lib/api-hooks";
+import { useI18n } from "@/i18n/locale-provider";
+import type { MessageKey } from "@/i18n/messages";
 
 const OBJECT_KEY = "landing_page";
 const VIEW_KEY = "landing_page_list";
 const PAGE_SIZE = 20;
 
-const SORT_OPTIONS = [
-  { value: "created_at:desc", label: "创建时间（最新）" },
-  { value: "created_at:asc", label: "创建时间（最早）" },
+const SORT_OPTIONS: { value: string; labelKey: MessageKey }[] = [
+  { value: "created_at:desc", labelKey: "workspace.sortNewest" },
+  { value: "created_at:asc", labelKey: "workspace.sortOldest" },
 ];
 
 export default function LandingPageListPage() {
   const params = useParams();
   const router = useRouter();
+  const { t } = useI18n();
   const workspaceId = params.workspaceId as string;
 
   const { data: installations = [], isLoading: loadingInst } = useInstallations(workspaceId);
@@ -38,8 +41,8 @@ export default function LandingPageListPage() {
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
 
   useEffect(() => {
-    const t = setTimeout(() => setDebouncedSearch(searchInput), 300);
-    return () => clearTimeout(t);
+    const debounce = setTimeout(() => setDebouncedSearch(searchInput), 300);
+    return () => clearTimeout(debounce);
   }, [searchInput]);
 
   const [sortBy, sortOrder] = useMemo(() => {
@@ -87,7 +90,7 @@ export default function LandingPageListPage() {
   };
 
   if (loading) {
-    return <p className="text-sm text-slate-400">加载中...</p>;
+    return <p className="text-sm text-slate-400">{t("workspace.loading")}</p>;
   }
 
   const totalCount = records.length;
@@ -99,8 +102,8 @@ export default function LandingPageListPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">落地页</h1>
-          <p className="mt-1 text-sm text-slate-500">管理所有落地页记录</p>
+          <h1 className="text-2xl font-bold text-slate-900">{t("landingPages.title")}</h1>
+          <p className="mt-1 text-sm text-slate-500">{t("landingPages.subtitle")}</p>
         </div>
         {hasPack && (
           <button
@@ -110,20 +113,20 @@ export default function LandingPageListPage() {
             }
             className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
           >
-            添加落地页
+            {t("landingPages.add")}
           </button>
         )}
       </div>
 
       {!hasPack ? (
         <div className="rounded-lg border border-blue-200 bg-blue-50 p-8 text-center">
-          <p className="text-base font-semibold text-blue-800">尚未安装业务模块</p>
-          <p className="mt-1 text-sm text-blue-700">安装 CRM Lite Pack 后即可开始管理落地页。</p>
+          <p className="text-base font-semibold text-blue-800">{t("workspace.noPack")}</p>
+          <p className="mt-1 text-sm text-blue-700">{t("landingPages.noPackHint")}</p>
           <Link
             href={`/w/${workspaceId}/dashboard`}
             className="mt-4 inline-block rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
           >
-            安装 CRM Lite Pack
+            {t("dashboard.installCrmLite")}
           </Link>
         </div>
       ) : viewConfig ? (
@@ -132,10 +135,12 @@ export default function LandingPageListPage() {
             <div className="rounded-lg border border-purple-200 bg-purple-50 px-4 py-3 text-sm text-purple-900">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div>
-                  <p className="font-semibold">新的工作区字段已可用</p>
+                  <p className="font-semibold">{t("workspace.extensionNotice")}</p>
                   <p className="mt-1 text-purple-800">
-                    {extensionFields.map((field) => field.label).join(", ")}
-                    {" "}已加入落地页列表和表单。此提示仅在字段变更后出现一次。
+                    {t("workspace.extensionNoticeBody", {
+                      fields: extensionFields.map((field) => field.label).join(", "),
+                      title: t("landingPages.title"),
+                    })}
                   </p>
                 </div>
                 <button
@@ -143,7 +148,7 @@ export default function LandingPageListPage() {
                   onClick={dismissExtensionNotice}
                   className="min-w-fit rounded-md border border-purple-300 bg-white px-3 py-1.5 text-xs font-semibold text-purple-800 hover:bg-purple-100"
                 >
-                  知道了
+                  {t("workspace.dismiss")}
                 </button>
               </div>
             </div>
@@ -155,7 +160,7 @@ export default function LandingPageListPage() {
               type="search"
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
-              placeholder="搜索标题、路径标识..."
+              placeholder={t("landingPages.searchPlaceholder")}
               className="w-full max-w-sm rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
             />
             <select
@@ -165,37 +170,37 @@ export default function LandingPageListPage() {
             >
               {SORT_OPTIONS.map((opt) => (
                 <option key={opt.value} value={opt.value}>
-                  {opt.label}
+                  {t(opt.labelKey)}
                 </option>
               ))}
             </select>
           </div>
 
           {/* Record count */}
-          <p className="text-xs text-slate-500">共 {totalCount} 条记录</p>
+          <p className="text-xs text-slate-500">{t("workspace.recordCount", { count: totalCount })}</p>
 
           {/* Empty states */}
           {totalCount === 0 ? (
             isSearching ? (
               <div className="rounded-lg border border-slate-200 bg-white p-8 text-center">
-                <p className="text-sm text-slate-500">没有找到匹配的记录</p>
+                <p className="text-sm text-slate-500">{t("workspace.noResults")}</p>
                 <button
                   type="button"
                   onClick={() => setSearchInput("")}
                   className="mt-3 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
                 >
-                  清除搜索
+                  {t("workspace.clearSearch")}
                 </button>
               </div>
             ) : (
               <div className="rounded-lg border border-slate-200 bg-white p-8 text-center">
-                <p className="text-sm text-slate-500">还没有落地页记录</p>
+                <p className="text-sm text-slate-500">{t("workspace.noRecords", { title: t("landingPages.title") })}</p>
                 <button
                   type="button"
                   onClick={() => router.push(`/w/${workspaceId}/landing-pages/new`)}
                   className="mt-3 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
                 >
-                  添加第一个落地页
+                  {t("workspace.addFirst", { title: t("landingPages.title") })}
                 </button>
               </div>
             )
@@ -216,7 +221,7 @@ export default function LandingPageListPage() {
                     onClick={() => setVisibleCount((c) => c + PAGE_SIZE)}
                     className="rounded-md border border-slate-300 bg-white px-6 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
                   >
-                    加载更多
+                    {t("workspace.loadMore")}
                   </button>
                 </div>
               )}
@@ -224,7 +229,7 @@ export default function LandingPageListPage() {
           )}
         </div>
       ) : (
-        <p className="text-sm text-slate-500">未找到列表视图配置。</p>
+        <p className="text-sm text-slate-500">{t("workspace.viewNotFound")}</p>
       )}
     </div>
   );

@@ -14,6 +14,8 @@ import {
   Upload,
   XCircle,
 } from "lucide-react";
+import { useI18n } from "@/i18n/locale-provider";
+import type { MessageKey } from "@/i18n/messages";
 
 type ExportStatus = "pending" | "running" | "completed" | "failed";
 type ExportFormat = "json" | "csv";
@@ -35,11 +37,11 @@ interface ObjectDef {
   label: string;
 }
 
-const STATUS_META: Record<ExportStatus, { label: string; className: string; icon: typeof CheckCircle2 }> = {
-  pending: { label: "等待中", className: "bg-slate-100 text-slate-600", icon: Clock },
-  running: { label: "进行中", className: "bg-blue-50 text-blue-700", icon: Loader2 },
-  completed: { label: "已完成", className: "bg-emerald-50 text-emerald-700", icon: CheckCircle2 },
-  failed: { label: "失败", className: "bg-red-50 text-red-700", icon: XCircle },
+const STATUS_META: Record<ExportStatus, { labelKey: MessageKey; className: string; icon: typeof CheckCircle2 }> = {
+  pending: { labelKey: "exportPage.statusPending", className: "bg-slate-100 text-slate-600", icon: Clock },
+  running: { labelKey: "exportPage.statusRunning", className: "bg-blue-50 text-blue-700", icon: Loader2 },
+  completed: { labelKey: "exportPage.statusCompleted", className: "bg-emerald-50 text-emerald-700", icon: CheckCircle2 },
+  failed: { labelKey: "exportPage.statusFailed", className: "bg-red-50 text-red-700", icon: XCircle },
 };
 
 function formatDate(iso: string | null): string {
@@ -63,6 +65,7 @@ function buildCsvSummary(manifest: Record<string, unknown>): string {
 export default function ExportPage() {
   const params = useParams();
   const workspaceId = params.workspaceId as string;
+  const { t } = useI18n();
 
   const [jobs, setJobs] = useState<ExportJob[]>([]);
   const [objects, setObjects] = useState<ObjectDef[]>([]);
@@ -106,7 +109,7 @@ export default function ExportPage() {
         }
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : "加载失败");
+      setError(e instanceof Error ? e.message : t("workspace.loadFailed"));
     } finally {
       setLoading(false);
     }
@@ -128,13 +131,13 @@ export default function ExportPage() {
       });
       const json = await res.json();
       if (json.success) {
-        setMessage("导出任务已完成，可在下方下载");
+        setMessage(t("exportPage.exportCompleted"));
         await loadData();
       } else {
-        setError(json.error?.message ?? "创建导出失败");
+        setError(json.error?.message ?? t("exportPage.createFailed"));
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : "创建导出失败");
+      setError(e instanceof Error ? e.message : t("exportPage.createFailed"));
     } finally {
       setCreating(false);
     }
@@ -148,7 +151,7 @@ export default function ExportPage() {
       const res = await fetch(`/api/workspaces/${workspaceId}/export-jobs/${job.id}`);
       const json = await res.json();
       if (!json.success || !json.data?.manifestJson) {
-        throw new Error("无法获取导出内容");
+        throw new Error(t("exportPage.fetchContentFailed"));
       }
       const manifest = JSON.parse(json.data.manifestJson as string);
 
@@ -190,7 +193,7 @@ export default function ExportPage() {
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "下载失败");
+      setError(e instanceof Error ? e.message : t("exportPage.downloadFailed"));
     } finally {
       setDownloadingId(null);
     }
@@ -198,7 +201,7 @@ export default function ExportPage() {
 
   const handleImport = async (dryRun: boolean) => {
     if (!importData.trim()) {
-      setError("请粘贴导出的 JSON 数据");
+      setError(t("exportPage.importDataRequired"));
       return;
     }
     setImporting(true);
@@ -215,17 +218,17 @@ export default function ExportPage() {
       if (json.success) {
         setImportResult(json.data);
       } else {
-        setError(json.error?.message ?? "导入失败");
+        setError(json.error?.message ?? t("exportPage.importFailed"));
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : "导入失败：JSON 解析错误");
+      setError(e instanceof Error ? e.message : t("exportPage.importParseFailed"));
     } finally {
       setImporting(false);
     }
   };
 
   if (loading) {
-    return <p className="text-sm text-slate-400">加载中...</p>;
+    return <p className="text-sm text-slate-400">{t("workspace.loading")}</p>;
   }
 
   return (
@@ -233,15 +236,15 @@ export default function ExportPage() {
       <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="app-eyebrow">Export</p>
-          <h1 className="mt-2 text-2xl font-bold tracking-tight text-slate-950">数据导出</h1>
-          <p className="mt-1 text-sm text-slate-500">导出工作区数据用于备份或迁移</p>
+          <h1 className="mt-2 text-2xl font-bold tracking-tight text-slate-950">{t("exportPage.title")}</h1>
+          <p className="mt-1 text-sm text-slate-500">{t("exportPage.subtitle")}</p>
         </div>
         <button
           type="button"
           onClick={() => { setLoading(true); void loadData(); }}
           className="app-button-secondary self-start"
         >
-          <RefreshCw size={16} />刷新
+          <RefreshCw size={16} />{t("workspace.refresh")}
         </button>
       </header>
 
@@ -256,11 +259,11 @@ export default function ExportPage() {
       <section className="app-card p-5 sm:p-6">
         <div className="mb-4 flex items-center gap-2">
           <Download size={18} className="text-indigo-600" />
-          <h2 className="text-sm font-bold text-slate-900">创建新导出</h2>
+          <h2 className="text-sm font-bold text-slate-900">{t("exportPage.createExport")}</h2>
         </div>
         <div className="grid gap-4 sm:grid-cols-3">
           <div>
-            <label className="mb-1.5 block text-xs font-semibold text-slate-600">导出格式</label>
+            <label className="mb-1.5 block text-xs font-semibold text-slate-600">{t("exportPage.formatLabel")}</label>
             <div className="flex gap-2">
               <button
                 type="button"
@@ -286,22 +289,22 @@ export default function ExportPage() {
               </button>
             </div>
             {format === "csv" && (
-              <p className="mt-1.5 text-[11px] text-slate-400">CSV 导出为各分区汇总（分区名与记录数）</p>
+              <p className="mt-1.5 text-[11px] text-slate-400">{t("exportPage.csvHint")}</p>
             )}
           </div>
           <div>
-            <label className="mb-1.5 block text-xs font-semibold text-slate-600">导出范围</label>
+            <label className="mb-1.5 block text-xs font-semibold text-slate-600">{t("exportPage.scopeLabel")}</label>
             <select
               value={scope}
               onChange={(e) => setScope(e.target.value as "all" | "object")}
               className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
             >
-              <option value="all">全部数据</option>
-              <option value="object">指定对象</option>
+              <option value="all">{t("exportPage.scopeAll")}</option>
+              <option value="object">{t("exportPage.scopeObject")}</option>
             </select>
           </div>
           <div>
-            <label className="mb-1.5 block text-xs font-semibold text-slate-600">目标对象</label>
+            <label className="mb-1.5 block text-xs font-semibold text-slate-600">{t("exportPage.targetObject")}</label>
             <select
               value={objectKey}
               onChange={(e) => setObjectKey(e.target.value)}
@@ -309,7 +312,7 @@ export default function ExportPage() {
               className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 disabled:opacity-50"
             >
               {objects.length === 0 ? (
-                <option value="">暂无对象</option>
+                <option value="">{t("exportPage.noObjects")}</option>
               ) : (
                 objects.map((o) => (
                   <option key={o.objectKey} value={o.objectKey}>
@@ -328,11 +331,11 @@ export default function ExportPage() {
             className="app-button-primary"
           >
             <Download size={16} />
-            {creating ? "导出中..." : "创建导出"}
+            {creating ? t("exportPage.creating") : t("exportPage.createButton")}
           </button>
         </div>
         <p className="mt-3 text-[11px] text-slate-400">
-          导出任务会同步执行并生成完整工作区快照。下载时将按上方选择的格式与范围进行渲染。
+          {t("exportPage.exportHint")}
         </p>
       </section>
 
@@ -340,13 +343,13 @@ export default function ExportPage() {
       <section className="app-card p-5 sm:p-6">
         <div className="mb-4 flex items-center gap-2">
           <Clock size={18} className="text-slate-500" />
-          <h2 className="text-sm font-bold text-slate-900">导出历史</h2>
+          <h2 className="text-sm font-bold text-slate-900">{t("exportPage.history")}</h2>
           <span className="app-badge bg-slate-100 text-slate-600">{jobs.length}</span>
         </div>
         {jobs.length === 0 ? (
           <div className="py-8 text-center">
             <Package size={32} className="mx-auto text-slate-300" />
-            <p className="mt-3 text-sm text-slate-400">暂无导出记录，点击上方按钮创建第一个导出</p>
+            <p className="mt-3 text-sm text-slate-400">{t("exportPage.emptyHistory")}</p>
           </div>
         ) : (
           <ul className="divide-y divide-slate-100">
@@ -361,18 +364,18 @@ export default function ExportPage() {
                     </span>
                     <div>
                       <p className="text-sm font-semibold text-slate-800">
-                        导出任务
+                        {t("exportPage.jobLabel")}
                         <span className="ml-2 font-mono text-xs font-normal text-slate-400">{job.id.slice(-8)}</span>
                       </p>
                       <p className="text-xs text-slate-500">
-                        创建于 {formatDate(job.createdAt)}
-                        {job.completedAt && ` · 完成于 ${formatDate(job.completedAt)}`}
-                        {job.errorMessage && ` · 错误：${job.errorMessage}`}
+                        {t("exportPage.jobMetaCreated", { time: formatDate(job.createdAt) })}
+                        {job.completedAt && t("exportPage.jobMetaCompleted", { time: formatDate(job.completedAt) })}
+                        {job.errorMessage && t("exportPage.jobMetaError", { message: job.errorMessage })}
                       </p>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className={`app-badge ${meta.className}`}>{meta.label}</span>
+                    <span className={`app-badge ${meta.className}`}>{t(meta.labelKey)}</span>
                     {job.status === "completed" && (
                       <button
                         type="button"
@@ -381,7 +384,7 @@ export default function ExportPage() {
                         className="inline-flex items-center gap-1 rounded-md bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-indigo-700 disabled:opacity-50"
                       >
                         <Download size={14} />
-                        {downloadingId === job.id ? "下载中..." : "下载"}
+                        {downloadingId === job.id ? t("exportPage.downloading") : t("exportPage.download")}
                       </button>
                     )}
                   </div>
@@ -396,17 +399,17 @@ export default function ExportPage() {
       <section className="app-card p-5 sm:p-6">
         <div className="mb-4 flex items-center gap-2">
           <Upload size={18} className="text-slate-500" />
-          <h2 className="text-sm font-bold text-slate-900">数据导入</h2>
+          <h2 className="text-sm font-bold text-slate-900">{t("exportPage.importTitle")}</h2>
         </div>
         <p className="mb-3 text-xs text-slate-500">
-          粘贴之前导出的 JSON 数据以导入工作区元数据（对象、字段、视图、导航）。导入前请先使用"验证"进行预检。
+          {t("exportPage.importHint")}
         </p>
         <textarea
           value={importData}
           onChange={(e) => setImportData(e.target.value)}
           placeholder='{"workspace": {...}, "objects": [...], "fields": [...], ...}'
           className="app-input mb-3 h-32 font-mono text-xs"
-          aria-label="导入 JSON 数据"
+          aria-label={t("exportPage.importAriaLabel")}
         />
         <div className="flex gap-2">
           <button
@@ -415,7 +418,7 @@ export default function ExportPage() {
             disabled={importing || !importData.trim()}
             className="app-button-secondary"
           >
-            {importing ? "处理中..." : "验证（Dry Run）"}
+            {importing ? t("exportPage.processing") : t("exportPage.validateDryRun")}
           </button>
           <button
             type="button"
@@ -423,15 +426,15 @@ export default function ExportPage() {
             disabled={importing || !importData.trim()}
             className="app-button-primary"
           >
-            {importing ? "处理中..." : "执行导入"}
+            {importing ? t("exportPage.processing") : t("exportPage.runImport")}
           </button>
         </div>
         {importResult && (
           <div className={`mt-4 rounded-md p-4 text-sm ${importResult.valid ? "bg-emerald-50 text-emerald-800" : "bg-red-50 text-red-800"}`}>
             <p className="font-bold">
-              {importResult.valid ? "✓ 验证通过" : "✗ 验证失败"}
-              {importResult.dryRun && "（Dry Run）"}
-              {importResult.applied && "（已应用）"}
+              {importResult.valid ? t("exportPage.validationPassed") : t("exportPage.validationFailed")}
+              {importResult.dryRun && t("exportPage.dryRunSuffix")}
+              {importResult.applied && t("exportPage.appliedSuffix")}
             </p>
             {importResult.errors && importResult.errors.length > 0 && (
               <ul className="mt-2 list-disc pl-5 text-xs">
@@ -445,12 +448,12 @@ export default function ExportPage() {
             )}
             {importResult.stats && (
               <div className="mt-2 text-xs">
-                <p>数据统计：{Object.entries(importResult.stats).map(([k, v]) => `${k}: ${v}`).join(" · ")}</p>
+                <p>{t("exportPage.dataStats", { stats: Object.entries(importResult.stats).map(([k, v]) => `${k}: ${v}`).join(" · ") })}</p>
               </div>
             )}
             {importResult.imported && (
               <div className="mt-1 text-xs">
-                <p>已导入：{Object.entries(importResult.imported).map(([k, v]) => `${k}: ${v}`).join(" · ")}</p>
+                <p>{t("exportPage.importedStats", { stats: Object.entries(importResult.imported).map(([k, v]) => `${k}: ${v}`).join(" · ") })}</p>
               </div>
             )}
           </div>

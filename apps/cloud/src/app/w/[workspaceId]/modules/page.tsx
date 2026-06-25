@@ -8,6 +8,7 @@ import {
   RefreshCw, Sparkles, AlertCircle, ChevronRight,
 } from "lucide-react";
 import { notifyWorkspaceNavigationChanged } from "@/lib/workspace-events";
+import { useI18n } from "@/i18n/locale-provider";
 
 interface PackSummary {
   packId: string;
@@ -39,6 +40,7 @@ interface PackSummary {
 export default function ModulesPage() {
   const workspaceId = useParams().workspaceId as string;
   const router = useRouter();
+  const { t } = useI18n();
   const [packs, setPacks] = useState<PackSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [installingId, setInstallingId] = useState<string | null>(null);
@@ -49,14 +51,14 @@ export default function ModulesPage() {
     try {
       const res = await fetch(`/api/workspaces/${workspaceId}/packs`, { cache: "no-store" });
       const json = await res.json();
-      if (!json.success) throw new Error(json.error?.message ?? "加载失败");
+      if (!json.success) throw new Error(json.error?.message ?? t("workspace.loadFailed"));
       setPacks(json.data);
     } catch (cause) {
-      setError({ message: cause instanceof Error ? cause.message : "加载数据失败" });
+      setError({ message: cause instanceof Error ? cause.message : t("modules.loadDataFailed") });
     } finally {
       setLoading(false);
     }
-  }, [workspaceId]);
+  }, [workspaceId, t]);
 
   useEffect(() => {
     void loadData();
@@ -76,13 +78,13 @@ export default function ModulesPage() {
       );
       const json = await response.json();
       if (!json.success) {
-        throw new Error(json.error?.message ?? "安装失败");
+        throw new Error(json.error?.message ?? t("modules.installFailed"));
       }
       await loadData();
       notifyWorkspaceNavigationChanged();
       router.refresh();
     } catch (cause) {
-      setError({ message: cause instanceof Error ? cause.message : "安装失败" });
+      setError({ message: cause instanceof Error ? cause.message : t("modules.installFailed") });
     } finally {
       setInstallingId(null);
     }
@@ -101,11 +103,11 @@ export default function ModulesPage() {
       );
       const json = await response.json();
       if (!json.success) {
-        throw new Error(json.error?.message ?? "加载示例数据失败");
+        throw new Error(json.error?.message ?? t("modules.loadDemoFailed"));
       }
       await loadData();
     } catch (cause) {
-      setError({ message: cause instanceof Error ? cause.message : "加载示例数据失败" });
+      setError({ message: cause instanceof Error ? cause.message : t("modules.loadDemoFailed") });
     } finally {
       setLoadingDemoId(null);
     }
@@ -116,7 +118,7 @@ export default function ModulesPage() {
   const otherPacks = packs.filter((p) => !p.recommended && !p.installed);
 
   if (loading) {
-    return <p className="text-sm text-slate-400">加载中...</p>;
+    return <p className="text-sm text-slate-400">{t("workspace.loading")}</p>;
   }
 
   return (
@@ -125,9 +127,9 @@ export default function ModulesPage() {
         <div>
           <p className="app-eyebrow">Module center</p>
           <h1 className="mt-2 text-3xl font-bold tracking-[-.025em] text-slate-950">
-            模块中心
+            {t("modules.title")}
           </h1>
-          <p className="mt-2 text-sm text-slate-500">浏览、安装和管理功能包</p>
+          <p className="mt-2 text-sm text-slate-500">{t("modules.subtitle")}</p>
         </div>
         <button
           type="button"
@@ -135,7 +137,7 @@ export default function ModulesPage() {
           className="app-button-secondary self-start"
         >
           <RefreshCw size={16} />
-          刷新
+          {t("workspace.refresh")}
         </button>
       </header>
 
@@ -144,7 +146,7 @@ export default function ModulesPage() {
         className="inline-flex items-center gap-1 text-sm font-medium text-indigo-600 hover:text-indigo-800"
       >
         <ArrowLeft size={14} />
-        返回工作台
+        {t("workspace.goDashboard")}
       </Link>
 
       {error && (
@@ -154,7 +156,7 @@ export default function ModulesPage() {
             <div>
               <p>{error.message}</p>
               {error.requestId && (
-                <p className="mt-1 text-xs opacity-70">请求 ID: {error.requestId}</p>
+                <p className="mt-1 text-xs opacity-70">{t("modules.requestId", { id: error.requestId })}</p>
               )}
             </div>
           </div>
@@ -164,7 +166,7 @@ export default function ModulesPage() {
       {packs.length === 0 ? (
         <div className="app-card flex flex-col items-center p-10 text-center">
           <LayoutGrid size={32} className="text-slate-300" />
-          <p className="mt-3 text-sm text-slate-500">暂无可用功能包</p>
+          <p className="mt-3 text-sm text-slate-500">{t("modules.noPacksAvailable")}</p>
         </div>
       ) : (
         <>
@@ -173,7 +175,7 @@ export default function ModulesPage() {
             <section>
               <h2 className="mb-3 flex items-center gap-2 text-sm font-bold text-slate-900">
                 <Sparkles size={16} className="text-amber-500" />
-                推荐安装
+                {t("modules.recommendedTitle")}
               </h2>
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {recommendedPacks.map((pack) => (
@@ -196,7 +198,7 @@ export default function ModulesPage() {
             <section>
               <h2 className="mb-3 flex items-center gap-2 text-sm font-bold text-slate-900">
                 <CheckCircle2 size={16} className="text-emerald-600" />
-                已安装 ({installedPacks.length})
+                {t("modules.installedCount", { count: installedPacks.length })}
               </h2>
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {installedPacks.map((pack) => (
@@ -219,7 +221,7 @@ export default function ModulesPage() {
             <section>
               <h2 className="mb-3 flex items-center gap-2 text-sm font-bold text-slate-900">
                 <LayoutGrid size={16} className="text-slate-500" />
-                全部功能包
+                {t("modules.allPacks")}
               </h2>
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {otherPacks.map((pack) => (
@@ -254,6 +256,7 @@ interface PackCardProps {
 }
 
 function PackCard({ pack, workspaceId, installing, loadingDemo, onInstall, onLoadDemo }: PackCardProps) {
+  const { t } = useI18n();
   const [showInstallOptions, setShowInstallOptions] = useState(false);
   const demoLoaded = pack.installation?.demoDataStatus === "loaded";
   const demoError = pack.installation?.demoDataStatus === "error";
@@ -266,19 +269,19 @@ function PackCard({ pack, workspaceId, installing, loadingDemo, onInstall, onLoa
           {pack.recommended && (
             <span className="app-badge bg-amber-50 text-amber-700">
               <Sparkles size={12} />
-              推荐
+              {t("modules.recommendedBadge")}
             </span>
           )}
           {pack.installed && (
             <span className="app-badge bg-slate-100 text-slate-600">
               <CheckCircle2 size={12} />
-              已安装
+              {t("modules.installedBadge")}
             </span>
           )}
           {pack.updateAvailable && (
             <span className="app-badge bg-blue-50 text-blue-700">
               <RefreshCw size={12} />
-              有更新
+              {t("modules.updateAvailable")}
             </span>
           )}
         </div>
@@ -286,17 +289,17 @@ function PackCard({ pack, workspaceId, installing, loadingDemo, onInstall, onLoa
 
       <h3 className="mt-3 text-base font-bold text-slate-950">{pack.name}</h3>
       <p className="mt-1 line-clamp-2 text-sm text-slate-500">
-        {pack.description ?? "暂无描述"}
+        {pack.description ?? t("modules.noDescription")}
       </p>
 
       <dl className="mt-4 space-y-1.5 text-xs text-slate-500">
         <div className="flex justify-between">
-          <dt>版本</dt>
+          <dt>{t("modules.version")}</dt>
           <dd className="font-medium text-slate-700">v{pack.version}</dd>
         </div>
         {pack.marketplace && (
           <div className="flex justify-between">
-            <dt>分类</dt>
+            <dt>{t("modules.category")}</dt>
             <dd className="font-medium text-slate-700">{pack.marketplace.category}</dd>
           </div>
         )}
@@ -311,7 +314,7 @@ function PackCard({ pack, workspaceId, installing, loadingDemo, onInstall, onLoa
           <span className={
             demoLoaded ? "text-emerald-600" : demoError ? "text-red-600" : "text-slate-500"
           }>
-            {demoLoaded ? "示例数据已加载" : demoError ? "示例数据加载失败" : "示例数据未加载"}
+            {demoLoaded ? t("modules.demoLoaded") : demoError ? t("modules.demoError") : t("modules.demoNotLoaded")}
           </span>
         </div>
       )}
@@ -328,14 +331,14 @@ function PackCard({ pack, workspaceId, installing, loadingDemo, onInstall, onLoa
                 className="app-button-secondary flex-1"
               >
                 <Database size={14} />
-                {loadingDemo ? "加载中..." : "加载示例数据"}
+                {loadingDemo ? t("workspace.loading") : t("modules.loadDemoData")}
               </button>
             )}
             <Link
               href={`/w/${workspaceId}/modules/${pack.packId}`}
               className="app-button-secondary flex items-center gap-1"
             >
-              查看详情
+              {t("modules.viewDetails")}
               <ChevronRight size={14} />
             </Link>
           </>
@@ -348,7 +351,7 @@ function PackCard({ pack, workspaceId, installing, loadingDemo, onInstall, onLoa
               className="app-button-primary w-full"
             >
               <PackagePlus size={14} />
-              {installing ? "安装中..." : "安装并加载示例数据"}
+              {installing ? t("modules.installing") : t("modules.installWithDemo")}
             </button>
             <button
               type="button"
@@ -356,14 +359,14 @@ function PackCard({ pack, workspaceId, installing, loadingDemo, onInstall, onLoa
               disabled={installing}
               className="app-button-secondary w-full"
             >
-              仅安装（不加载示例数据）
+              {t("modules.installOnly")}
             </button>
             <button
               type="button"
               onClick={() => setShowInstallOptions(false)}
               className="text-xs text-slate-400 hover:text-slate-600"
             >
-              取消
+              {t("workspace.cancel")}
             </button>
           </div>
         ) : (
@@ -374,7 +377,7 @@ function PackCard({ pack, workspaceId, installing, loadingDemo, onInstall, onLoa
             className="app-button-primary flex-1"
           >
             <PackagePlus size={16} />
-            安装
+            {t("modules.install")}
           </button>
         )}
       </div>
