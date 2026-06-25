@@ -161,6 +161,7 @@ export default function NavigationShell({
   const [mobileOpen, setMobileOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+  const [groupsInitialized, setGroupsInitialized] = useState(false);
   const canManage = role === "owner" || role === "admin";
 
   const isActiveRoute = (route: string) => {
@@ -177,6 +178,14 @@ export default function NavigationShell({
   useEffect(() => {
     localStorage.setItem("runory:sidebar-collapsed", String(collapsed));
   }, [collapsed]);
+
+  // Start with installed business packs expanded so local/demo workspaces show
+  // the available product surface immediately.
+  useEffect(() => {
+    if (groupsInitialized || packs.length === 0) return;
+    setExpandedGroups(new Set(packs.map((pack) => pack.packId)));
+    setGroupsInitialized(true);
+  }, [groupsInitialized, packs]);
 
   // Auto-expand the group containing the active route
   useEffect(() => {
@@ -419,8 +428,10 @@ export default function NavigationShell({
   const sidebarWidth = collapsed ? "var(--sidebar-w-collapsed)" : "var(--sidebar-w)";
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_85%_0%,rgba(86,100,245,.08),transparent_26%)] md:grid md:grid-cols-[var(--sidebar-w)_minmax(0,1fr)]"
-         style={{ ["--sidebar-w" as string]: sidebarWidth }}>
+    <div
+      className="min-h-screen bg-[radial-gradient(circle_at_85%_0%,rgba(86,100,245,.08),transparent_26%)] md:grid md:grid-cols-[var(--workspace-sidebar-w)_minmax(0,1fr)]"
+      style={{ ["--workspace-sidebar-w" as string]: sidebarWidth }}
+    >
       {/* Desktop sidebar */}
       <aside
         className="fixed inset-y-0 left-0 z-40 hidden flex-col border-r border-slate-200 bg-white/90 backdrop-blur-xl md:flex"

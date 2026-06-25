@@ -57,18 +57,10 @@ export default function WorkspaceLayout({
         }
       }
       if (navJson.success) {
-        // v0.3.0: navigation API returns { items, packs, modulePackMap }
         const data = navJson.data as NavigationApiResponse;
-        if (data.items && Array.isArray(data.items)) {
-          setNavigation(data.items);
-          setPacks(data.packs ?? []);
-          setModulePackMap(data.modulePackMap ?? {});
-        } else {
-          // Backward compat: old API returned flat array
-          setNavigation(data as unknown as NavigationItem[]);
-          setPacks([]);
-          setModulePackMap({});
-        }
+        setNavigation(data.items);
+        setPacks(data.packs);
+        setModulePackMap(data.modulePackMap);
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : t("workspace.loadFailed"));

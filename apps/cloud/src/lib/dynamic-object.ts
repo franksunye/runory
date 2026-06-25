@@ -1,23 +1,40 @@
 "use client";
 
 import { useNavigation } from "./api-hooks";
+import type { NavigationItem } from "@runory/platform-core";
 
 /**
  * Convert a URL segment to an objectKey.
  * "service-sites" → "service_site", "companies" → "company", "tickets" → "ticket"
  */
 export function segmentToObjectKey(segment: string): string {
-  let singular: string;
-  if (segment.endsWith("ies")) {
-    singular = segment.slice(0, -3) + "y"; // companies → company
-  } else if (segment.endsWith("es") && !segment.endsWith("ses")) {
-    singular = segment.slice(0, -2); // boxes → box
-  } else if (segment.endsWith("s")) {
-    singular = segment.slice(0, -1); // tickets → ticket
-  } else {
-    singular = segment;
+  const parts = segment.split("-");
+  const last = parts[parts.length - 1] ?? segment;
+  let singular = last;
+  if (last.endsWith("ies")) {
+    singular = `${last.slice(0, -3)}y`; // companies → company
+  } else if (last.endsWith("ses")) {
+    singular = last.slice(0, -2); // statuses → status
+  } else if (last.endsWith("s")) {
+    singular = last.slice(0, -1); // reports → report, sites → site
   }
-  return singular.replace(/-/g, "_");
+  return [...parts.slice(0, -1), singular].join("_");
+}
+
+function pluralizeRouteToken(token: string): string {
+  if (token.endsWith("y")) return `${token.slice(0, -1)}ies`;
+  if (token.endsWith("s")) return `${token}es`;
+  return `${token}s`;
+}
+
+/**
+ * Convert an objectKey to the canonical dynamic route segment.
+ * "service_site" → "service-sites", "company" → "companies"
+ */
+export function objectKeyToRouteSegment(objectKey: string): string {
+  const parts = objectKey.split("_");
+  const last = parts[parts.length - 1] ?? objectKey;
+  return [...parts.slice(0, -1), pluralizeRouteToken(last)].join("-");
 }
 
 /**
@@ -41,8 +58,9 @@ export function useObjectLabel(
   workspaceId: string,
   routeSegment: string
 ): string {
-  const { data: navigation = [] } = useNavigation(workspaceId);
-  const navItem = navigation.find((n) => n.route === `/${routeSegment}`);
+  const { data: navigation } = useNavigation(workspaceId);
+  const navigationItems: NavigationItem[] = navigation?.items ?? [];
+  const navItem = navigationItems.find((n) => n.route === `/${routeSegment}`);
   const objectKey = segmentToObjectKey(routeSegment);
   return navItem?.label ?? objectKeyToTitle(objectKey);
 }

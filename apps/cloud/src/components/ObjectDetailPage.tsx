@@ -17,6 +17,7 @@ import {
 } from "@/lib/api-hooks";
 import { notifyWorkspaceDataChanged } from "@/lib/workspace-events";
 import { useI18n } from "@/i18n/locale-provider";
+import { objectKeyToRouteSegment } from "@/lib/dynamic-object";
 
 export interface ParentLinkConfig {
   /** Field on this record that holds the parent record's id */
@@ -26,7 +27,7 @@ export interface ParentLinkConfig {
   /** Section label, e.g. "关联公司" */
   label: string;
   /** Field on the parent record to display as link text */
-  titleField: string;
+  titleField?: string;
   /** Route base for the link, e.g. "/w/{workspaceId}/companies" */
   routeBase: string;
 }
@@ -39,11 +40,28 @@ export interface RelatedRecordsConfig {
   /** Section heading, e.g. "关联联系人" */
   label: string;
   /** Field to display as the link text */
-  titleField: string;
+  titleField?: string;
   /** Route base for links, e.g. "/w/{workspaceId}/contacts" — workspaceId will be substituted */
   routeBase: string;
   /** Optional secondary fields to show after the title */
   secondaryFields?: string[];
+}
+
+const DISPLAY_FIELD_CANDIDATES = [
+  "name",
+  "title",
+  "summary",
+  "subject",
+  "number",
+  "code",
+  "email",
+];
+
+function getDisplayField(fields: FieldDefinition[], preferred?: string): string {
+  if (preferred && fields.some((field) => field.fieldKey === preferred)) return preferred;
+  return DISPLAY_FIELD_CANDIDATES.find((candidate) =>
+    fields.some((field) => field.fieldKey === candidate)
+  ) ?? "id";
 }
 
 export interface ObjectDetailPageProps {
@@ -71,10 +89,12 @@ function ParentLinkPanel({
 }) {
   const { t } = useI18n();
   const parentId = record[config.foreignKey] as string | undefined;
+  const { data: parentDetail } = useFields(workspaceId, config.parentObjectKey);
   const { data: parentRecord } = useSWR<WorkspaceRecord>(
     parentId ? `/api/workspaces/${workspaceId}/objects/${config.parentObjectKey}/records/${parentId}` : null
   );
   if (!parentId) return null;
+  const displayField = getDisplayField(parentDetail?.fields ?? [], config.titleField);
   const routeBase = config.routeBase.replace("{workspaceId}", workspaceId);
   return (
     <div className="mt-4 border-t border-slate-100 pt-4">
@@ -85,7 +105,7 @@ function ParentLinkPanel({
             href={`${routeBase}/${parentId}`}
             className="font-medium text-blue-600 hover:text-blue-800"
           >
-            {String(parentRecord[config.titleField] ?? parentId)}
+            {String(parentRecord[displayField] ?? parentId)}
           </Link>
         ) : (
           <span className="text-slate-400">{t("workspace.loading")}</span>
@@ -105,6 +125,7 @@ function RelatedRecordsPanel({
   config: RelatedRecordsConfig;
 }) {
   const { t } = useI18n();
+  const { data: relatedDetail } = useFields(workspaceId, config.objectKey);
   const { data: allRecords = [] } = useRecords(workspaceId, config.objectKey, {
     search: recordId,
   });
@@ -114,6 +135,7 @@ function RelatedRecordsPanel({
   if (filtered.length === 0) return null;
 
   const routeBase = config.routeBase.replace("{workspaceId}", workspaceId);
+  const displayField = getDisplayField(relatedDetail?.fields ?? [], config.titleField);
   return (
     <div>
       <p className="text-xs font-medium uppercase tracking-wider text-slate-500">
@@ -126,7 +148,7 @@ function RelatedRecordsPanel({
               href={`${routeBase}/${r.id}`}
               className="text-sm font-medium text-blue-600 hover:text-blue-800"
             >
-              {String(r[config.titleField] ?? t("workspace.recordNotFound"))}
+              {String(r[displayField] ?? t("workspace.recordNotFound"))}
             </Link>
             {config.secondaryFields?.map((sf) =>
               r[sf] ? (
@@ -188,8 +210,7 @@ export default function ObjectDetailPage({
         foreignKey: r.foreignKey,
         parentObjectKey: r.targetObjectKey,
         label: r.label ?? t("workspace.relatedRecords", { target: r.targetObjectKey }),
-        titleField: "name",
-        routeBase: `/w/{workspaceId}/${r.targetObjectKey.replace(/_/g, "-")}s`,
+        routeBase: `/w/{workspaceId}/${objectKeyToRouteSegment(r.targetObjectKey)}`,
       }));
     return [...manualParentLinks, ...derived];
   }, [manualParentLinks, metadataRelations]);
@@ -202,8 +223,7 @@ export default function ObjectDetailPage({
         objectKey: r.objectKey,
         foreignKey: r.foreignKey,
         label: r.label ?? t("workspace.relatedRecords", { target: r.objectKey }),
-        titleField: "name",
-        routeBase: `/w/{workspaceId}/${r.objectKey.replace(/_/g, "-")}s`,
+        routeBase: `/w/{workspaceId}/${objectKeyToRouteSegment(r.objectKey)}`,
       }));
     return [...manualRelated, ...derived];
   }, [manualRelated, metadataBacklinks]);

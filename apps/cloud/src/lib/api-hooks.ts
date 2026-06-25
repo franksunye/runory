@@ -141,8 +141,21 @@ export function useAuditLogs(workspaceId: string, limit?: number) {
   return { data: sliced, error, isLoading, mutate };
 }
 
+export interface InstalledPackGroup {
+  packId: string;
+  packName: string;
+  category: string;
+  installedAt: string;
+}
+
+export interface NavigationApiResponse {
+  items: NavigationItem[];
+  packs: InstalledPackGroup[];
+  modulePackMap: Record<string, string>;
+}
+
 export function useNavigation(workspaceId: string) {
-  const { data, error, isLoading, mutate } = useSWR<NavigationItem[]>(
+  const { data, error, isLoading, mutate } = useSWR<NavigationApiResponse>(
     workspaceKey(workspaceId, "navigation")
   );
   return { data, error, isLoading, mutate };
