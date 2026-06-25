@@ -2,51 +2,11 @@
 
 import { useNavigation } from "./api-hooks";
 import type { NavigationItem } from "@runory/platform-core";
+import { segmentToObjectKey, objectKeyToTitle } from "./route-conversion";
 
-/**
- * Convert a URL segment to an objectKey.
- * "service-sites" → "service_site", "companies" → "company", "tickets" → "ticket"
- */
-export function segmentToObjectKey(segment: string): string {
-  const parts = segment.split("-");
-  const last = parts[parts.length - 1] ?? segment;
-  let singular = last;
-  if (last.endsWith("ies")) {
-    singular = `${last.slice(0, -3)}y`; // companies → company
-  } else if (last.endsWith("ses")) {
-    singular = last.slice(0, -2); // statuses → status
-  } else if (last.endsWith("s")) {
-    singular = last.slice(0, -1); // reports → report, sites → site
-  }
-  return [...parts.slice(0, -1), singular].join("_");
-}
-
-function pluralizeRouteToken(token: string): string {
-  if (token.endsWith("y")) return `${token.slice(0, -1)}ies`;
-  if (token.endsWith("s")) return `${token}es`;
-  return `${token}s`;
-}
-
-/**
- * Convert an objectKey to the canonical dynamic route segment.
- * "service_site" → "service-sites", "company" → "companies"
- */
-export function objectKeyToRouteSegment(objectKey: string): string {
-  const parts = objectKey.split("_");
-  const last = parts[parts.length - 1] ?? objectKey;
-  return [...parts.slice(0, -1), pluralizeRouteToken(last)].join("-");
-}
-
-/**
- * Convert an objectKey to a human-readable English title (fallback).
- * "service_site" → "Service Site"
- */
-export function objectKeyToTitle(objectKey: string): string {
-  return objectKey
-    .split("_")
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-    .join(" ");
-}
+// Re-export pure functions from route-conversion.ts (non-client module)
+// so existing imports from dynamic-object.ts continue to work.
+export { segmentToObjectKey, objectKeyToRouteSegment, objectKeyToTitle } from "./route-conversion";
 
 /**
  * Resolve a localized label for a dynamic object route.

@@ -10,7 +10,10 @@
     "start": "next start --port 3000",
     "clean": "rm -rf .next .next-dev",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run --passWithNoTests"
+    "test": "vitest run",
+    "db:status": "node scripts/db-status.mjs",
+    "db:reset": "node scripts/db-reset.mjs",
+    "bootstrap:demo": "node scripts/bootstrap-demo.mjs"
   },
   "dependencies": {
     "@libsql/client": "^0.17.3",

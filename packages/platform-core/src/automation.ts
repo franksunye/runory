@@ -584,7 +584,7 @@ export async function getAutomationRuns(
   const rows = await queryAll<AutomationRunRow>(
     `SELECT * FROM ${TABLES.automationRuns}
      WHERE ${conditions.join(" AND ")}
-     ORDER BY started_at DESC LIMIT ?`,
+     ORDER BY started_at DESC, rowid DESC LIMIT ?`,
     args
   );
   return rows.map(mapRunRow);
