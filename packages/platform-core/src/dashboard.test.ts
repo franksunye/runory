@@ -773,11 +773,11 @@ describe("configOverride persistence (v0.3.3)", () => {
   it("persists configOverride via upsertLayoutOverride and returns it in resolveEffectiveLayout", async () => {
     // Find a configurable widget in the CRM Lite layout
     const layout = await resolveEffectiveLayout(workspaceId);
-    const configurableItem = layout.find((i) => i.widget.configurable && i.widget.configurable.length > 0);
+    const configurableItem = layout.find((i) => i.widget?.configurable && i.widget.configurable.length > 0);
     expect(configurableItem).toBeDefined();
 
     // Override data.limit (or whatever the first configurable path is)
-    const path = configurableItem!.widget.configurable![0].path;
+    const path = configurableItem!.widget!.configurable![0].path;
     const override = path.split(".").reduceRight<Record<string, unknown>>(
       (acc, key) => ({ [key]: acc }),
       { overridden: true } as Record<string, unknown>
@@ -846,7 +846,7 @@ describe("multi-pack dashboard resilience (v0.3.3)", () => {
     // Every layout item should have a resolved widget declaration
     for (const item of layout) {
       expect(item.widget).toBeDefined();
-      expect(item.widget.key).toBe(item.widgetKey);
+      expect(item.widget!.key).toBe(item.widgetKey);
     }
   });
 

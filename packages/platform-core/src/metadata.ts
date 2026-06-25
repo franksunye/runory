@@ -550,7 +550,7 @@ export async function getRecords(
   return merged;
 }
 
-export async function createRecord(workspaceId: string, objectKey: string, data: Record<string, unknown>) {
+export async function createRecord(workspaceId: string, objectKey: string, data: Record<string, unknown>): Promise<Record<string, unknown> & { id: string }> {
   const id = genId("rec");
   const ts = now();
   const fields = await getFields(workspaceId, objectKey);
