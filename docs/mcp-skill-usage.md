@@ -60,35 +60,78 @@ pnpm --filter @runory/cloud mcp
 
 ### Available tools
 
-The MCP server registers 17 tools. The core Extension flow mirrors the Agent API routes:
+The MCP server registers **21 tools** (v0.4.4 stable operation surface). The tool names follow the operation-family convention — no `runory.*` prefix. Every governed change flows through the plan / preview / apply pipeline.
+
+#### Workspace operations
 
 | Tool | What it does |
 | --- | --- |
-| `runory.workspace.list` | List workspaces accessible to the authenticated user |
-| `runory.workspace.create` | Create a workspace (optionally from a template) |
-| `runory.workspace.status` | Get workspace status: installed modules, extensions, objects |
-| `runory.workspace.inspect_schema` | Get full schema (objects, fields, views) — call before generating a plan |
-| `runory.extension.plan` | Submit an Extension Plan for validation |
-| `runory.extension.preview` | Preview the diff of a plan |
-| `runory.extension.apply` | Apply a validated plan (creates fields, updates views, writes audit + rollback point) |
-| `runory.extension.rollback` | Roll back the latest version of an extension |
-| `runory.extension.list` | List all extensions and their current versions |
-| `runory.catalog.search` | Search the catalog for modules, packs, or templates |
-| `runory.module.install` | Install a pack by pack ID |
-| `runory.record.create` / `list` / `get` / `update` / `delete` | CRUD on workspace records |
-| `runory.audit.list` | List audit events with optional pagination and action filter |
+| `workspace.list` | List workspaces accessible to the authenticated principal |
+| `workspace.create` | Create a new workspace (optionally from a template) |
+| `workspace.inspect` | Unified discovery: workspace metadata, installed packs, extensions, and the full object schema (objects, fields, views). **Call this before proposing any governed change.** |
+
+#### Pack operations
+
+| Tool | What it does |
+| --- | --- |
+| `pack.list` | List all available packs with installation status, demo-data status, and update availability |
+| `pack.install` | Install a pack by pack ID, optionally loading demo data in the same call |
+
+#### Object / View inspection
+
+| Tool | What it does |
+| --- | --- |
+| `object.inspect` | Inspect a single business object: definition, fields, views, and relations |
+| `view.inspect` | Inspect the views defined for an object, including columns, filters, sections, and extension points |
+
+#### Governed extension pipeline (plan / preview / apply / rollback)
+
+`object.field.add` and `view.modify` are accomplished through this pipeline — they are not single-shot tools because every governed change must be previewable and auditable before it is committed.
+
+| Tool | What it does |
+| --- | --- |
+| `extension.plan` | Validate an Extension Plan against module extension points. Returns `{ valid, errors }` |
+| `extension.preview` | Preview the diff of a plan: added fields, affected views, view modifications (before/after), risk level |
+| `extension.apply` | Apply a validated plan (creates field definitions, updates views, writes audit + rollback point). Requires `createdBy` |
+| `extension.rollback` | Roll back the latest version of an extension. Requires `extensionId` and `rolledBy` |
+| `extension.list` | List all extensions in a workspace with their current versions |
+
+#### Workflow / Automation inspection
+
+| Tool | What it does |
+| --- | --- |
+| `workflow.inspect` | List state-machine workflows (states and transitions), or fetch a single workflow by ID |
+| `automation.inspect` | List event-triggered automations, or fetch a single automation by ID |
+
+#### Operation history / Audit
+
+| Tool | What it does |
+| --- | --- |
+| `agent_operation.history` | List the history of governed agent operations (extension applies and rollbacks) with actor, action, and timestamp |
+| `audit.search` | Search the workspace audit trail by action, actor, entity type, and pagination |
+
+#### Record CRUD
+
+| Tool | What it does |
+| --- | --- |
+| `record.create` | Create a record in a workspace object |
+| `record.list` | List records with optional pagination and search |
+| `record.get` | Get a single record by ID |
+| `record.update` | Update a record by ID |
+| `record.delete` | Delete a record by ID |
 
 ## How plan / preview / apply / rollback works
 
 The flow is identical to the in-product Customize page — MCP tools wrap the same `/agent/*` API routes.
 
 ```text
-1. runory.workspace.inspect_schema   → understand current schema
-2. runory.extension.plan             → validate the proposed plan ({ valid, errors })
-3. runory.extension.preview          → review the diff and risk level
-4. runory.extension.apply            → apply (writes audit + rollback point)
-5. runory.extension.list             → confirm the new extension version
-6. runory.audit.list                 → inspect the audit event
+1. workspace.inspect          → understand current schema (objects, fields, views, extensions)
+2. extension.plan             → validate the proposed plan ({ valid, errors })
+3. extension.preview          → review the diff and risk level
+4. extension.apply            → apply (writes audit + rollback point)
+5. extension.list             → confirm the new extension version
+6. agent_operation.history    → inspect the operation trail
+7. audit.search               → inspect the raw audit event
 ```
 
 ### Extension Plan shape
@@ -110,7 +153,7 @@ The `plan` argument is a JSON string with this shape (supports both `customField
       "ownership": "workspace_extension",
       "required": false,
       "validation": {},
-      "ui": { "listColumn": true, "slot": "main", "order": 10 }
+      "ui": { "listColumn": true, "slot": "company.default_list", "order": 10 }
     }
   ],
   "viewModifications": [
@@ -129,22 +172,23 @@ The `plan` argument is a JSON string with this shape (supports both `customField
 }
 ```
 
-`runory.extension.apply` also requires a `createdBy` string (e.g. `"codex"`, `"trae"`, `"user@example.com"`). `runory.extension.rollback` requires `extensionId` and `rolledBy`.
+`extension.apply` also requires a `createdBy` string (e.g. `"codex"`, `"trae"`, `"user@example.com"`). `extension.rollback` requires `extensionId` and `rolledBy`.
 
 ## How to run safe customization
 
-1. **Inspect first.** Call `runory.workspace.inspect_schema` so the Agent knows the current objects, fields, and views before proposing anything.
-2. **Plan before preview.** Submit the plan to `runory.extension.plan` and confirm `valid: true`. Fix any `errors` before continuing.
-3. **Preview before apply.** Call `runory.extension.preview` and review the diff and risk level. High-risk changes require explicit human confirmation.
+1. **Inspect first.** Call `workspace.inspect` so the Agent knows the current objects, fields, and views before proposing anything.
+2. **Plan before preview.** Submit the plan to `extension.plan` and confirm `valid: true`. Fix any `errors` before continuing.
+3. **Preview before apply.** Call `extension.preview` and review the diff and risk level. High-risk changes require explicit human confirmation.
 4. **Apply with an identity.** Pass a meaningful `createdBy` so audit attributes the change correctly.
-5. **Verify.** Call `runory.extension.list` and `runory.audit.list` to confirm the new version and the audit event.
-6. **Roll back if needed.** Call `runory.extension.rollback` with the `extensionId` to revert.
+5. **Verify.** Call `extension.list` and `agent_operation.history` to confirm the new version and the operation trail.
+6. **Roll back if needed.** Call `extension.rollback` with the `extensionId` to revert.
 
 ## How to inspect operation results
 
-- **Schema result:** `runory.workspace.inspect_schema` shows the new fields and modified views.
-- **Extension versions:** `runory.extension.list` shows each extension and its current version.
-- **Audit trail:** `runory.audit.list` (filter by `action: extension.apply`) shows who applied what, when, and the rollback point.
+- **Schema result:** `workspace.inspect` shows the new fields and modified views.
+- **Extension versions:** `extension.list` shows each extension and its current version.
+- **Operation trail:** `agent_operation.history` shows the structured history of agent applies and rollbacks.
+- **Audit trail:** `audit.search` (filter by `action: extension.apply`) shows who applied what, when, and the rollback point.
 - **In-product:** open `/w/[workspaceId]/audit` and `/w/[workspaceId]/customize` to see the same data in the UI.
 
 ## Connecting a client
@@ -175,9 +219,9 @@ The CLI lives in `apps/cli` and is focused on module development, not workspace 
 
 ## Current limitations (honest)
 
-- The MCP interface is **preview** during `v0.4`. The **stable MCP interface ships in `v0.4.4`**.
-- Tool names and shapes may evolve before the stable release. Pin to a version if you automate against it.
+- The MCP interface is **stable as of v0.4.4**. The 21-tool surface is the committed operation contract; breaking changes require a version bump.
 - The MCP server authenticates with a workspace API key (`RUNORY_API_KEY`). Without a key, it only works in local dev.
-- The full operation family set (e.g. `workflow.inspect`, `automation.inspect` as dedicated tools) is still being completed; the core Extension and record flows are available now.
+- `object.field.add` and `view.modify` are accomplished through the `extension.plan → extension.preview → extension.apply` pipeline. They are not single-shot tools because every governed change must be previewable and auditable.
+- Rollback reverts the latest extension version; multi-step rollback chains are not yet first-class.
 
 See [Release Notes](./release-notes.md) for the version roadmap.

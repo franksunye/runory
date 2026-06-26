@@ -153,9 +153,90 @@ Every apply records: who, through which entry, which API, what changed, before/a
 
 Every API response includes a request ID (from the `x-request-id` header, or generated server-side). Error responses are supportable — they include the request ID and a structured error, but never expose stack traces or SQL details in production. If an operation fails, capture the request ID and check [Troubleshooting](./troubleshooting.md).
 
+## Stable operation contract (v0.4.4)
+
+The MCP server exposes **21 tools** organized in operation families. Every governed change (adding a field, modifying a view) flows through the `extension.plan → extension.preview → extension.apply` pipeline — there are no single-shot mutation tools because every change must be previewable and auditable.
+
+| Family | Tools | Purpose |
+| --- | --- | --- |
+| Workspace | `workspace.list`, `workspace.create`, `workspace.inspect` | Discover and create workspaces; `workspace.inspect` is the unified discovery call |
+| Pack | `pack.list`, `pack.install` | Browse and install packs |
+| Object / View | `object.inspect`, `view.inspect` | Inspect object schema, fields, views, and relations |
+| Extension | `extension.plan`, `extension.preview`, `extension.apply`, `extension.rollback`, `extension.list` | Governed change pipeline (plan → preview → apply → rollback) |
+| Workflow / Automation | `workflow.inspect`, `automation.inspect` | Inspect workflows and automations |
+| History / Audit | `agent_operation.history`, `audit.search` | Review what changed and who changed it |
+| Record | `record.create`, `record.list`, `record.get`, `record.update`, `record.delete` | CRUD on business records |
+
+### Example: safe field addition (`object.field.add`)
+
+To add a "customer tier" dropdown to the `company` object:
+
+```text
+1. workspace.inspect              → confirm `company` exists and check extension points
+2. object.inspect (company)       → see current fields and views
+3. extension.plan                 → validate the plan below
+4. extension.preview              → review the diff (added field, affected views, risk: low)
+5. extension.apply                → commit (writes audit + rollback point)
+6. agent_operation.history        → verify the operation was recorded
+```
+
+Extension Plan:
+```jsonc
+{
+  "name": "Add customer tier field",
+  "description": "Tier dropdown on company",
+  "targetModules": ["runory.company"],
+  "riskLevel": "low",
+  "customFields": [
+    {
+      "targetObject": "company",
+      "fieldKey": "tier",
+      "label": "Tier",
+      "type": "select",
+      "ownership": "workspace_extension",
+      "required": false,
+      "validation": { "options": ["enterprise", "smb", "startup"] },
+      "ui": { "listColumn": true, "slot": "main", "order": 10 }
+    }
+  ]
+}
+```
+
+### Example: safe view modification (`view.modify`)
+
+To add a filter and reorder columns on the `company` default list view:
+
+```text
+1. view.inspect (company)         → see current view columns and extension points
+2. extension.plan                 → validate the plan below
+3. extension.preview              → review the before/after diff
+4. extension.apply                → commit
+5. audit.search (action=extension.apply)  → verify the audit event
+```
+
+Extension Plan:
+```jsonc
+{
+  "name": "Filter companies by tier",
+  "targetModules": ["runory.company"],
+  "riskLevel": "low",
+  "viewModifications": [
+    {
+      "targetObject": "company",
+      "viewKey": "default_list",
+      "modifications": {
+        "reorderColumns": ["name", "tier", "createdAt"],
+        "addFilters": [{ "field": "tier", "operator": "eq", "value": "enterprise" }],
+        "pageSize": 50
+      }
+    }
+  ]
+}
+```
+
 ## Current limitations
 
-- The Agent operation surface is **preview** during `v0.4`. The stable MCP interface ships in `v0.4.4`.
+- The Agent operation surface is **stable as of v0.4.4**. The 21-tool MCP surface is the committed operation contract.
 - View modifications support a fixed, approved component set (table, form, metric, chart, review queue, timeline, detail panel, empty state, action bar). Arbitrary generated UI is not supported.
 - Rollback reverts the latest extension version; multi-step rollback chains are not yet first-class.
 

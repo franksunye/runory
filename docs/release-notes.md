@@ -13,7 +13,7 @@ For the v0.1 release definition and acceptance matrix, see [v0.1.0 Cloud Early A
 - **English-first product UI.** English is the default and complete language; Chinese remains available for local demos. Shared components and dynamic object pages are i18n-complete; locale fallback always returns English.
 - **Public website and documentation.** Home, Product, Packs, Open Source, Pricing, Docs, and Changelog pages. The docs index links to [Getting Started](./getting-started.md), [Concepts](./concepts.md), [Workspace Guide](./workspace-guide.md), [Packs and Modules](./packs-and-modules.md), [Agent Operations](./agent-operations.md), [MCP / Skill Usage](./mcp-skill-usage.md), [SDK / Module Development](./sdk-module-development.md), [Admin / Governance](./admin-governance.md), [Troubleshooting](./troubleshooting.md), and these release notes.
 - **Free plan only.** No Stripe, no billing, no payment method. Fair-use limits may apply; paid plans will be announced before enforcement.
-- **MCP / Skill / Agent Operations 1.0 (preview).** The Runory MCP server (`apps/mcp`) and CLI (`apps/cli`) connect external Agents to governed workspace APIs.
+- **MCP / Skill / Agent Operations 1.0 (stable).** The Runory MCP server (`apps/mcp`) exposes 21 stable operation-family tools. External Agents (Codex, Trae, Cursor, Claude Code) connect via stdio transport and operate workspaces through the same governed APIs the Cloud UI uses.
 - **Canonical demo journey.** A new user can create a workspace, install an official pack, load demo data, use the workbench, perform a safe customization, and inspect audit.
 
 ### Iteration milestones
@@ -22,7 +22,23 @@ For the v0.1 release definition and acceptance matrix, see [v0.1.0 Cloud Early A
 - **v0.4.1 — English-first product UI.** Workspace shell, dashboard, pack install, dynamic object pages, customize/extension surfaces, workflows, automations, errors, request IDs, empty states, and toasts are English-complete.
 - **v0.4.2 — Website and documentation launch surface.** Public pages and this documentation set.
 - **v0.4.3 — Free onboarding and canonical demo journey.** Clear onboarding path, visible free-plan boundaries, reliable install/demo data, dashboard next-step guidance.
-- **v0.4.4 — MCP / Skill / Agent Operations 1.0 and release gate.** The **stable MCP interface** ships here. Operation schemas documented; the agent can inspect, plan, preview, apply, verify, audit, and roll back.
+- **v0.4.4 — MCP / Skill / Agent Operations 1.0 and release gate.** The **stable MCP interface** ships here. 21 operation-family tools (workspace, pack, object, view, extension, workflow, automation, history, audit, record). Operation schemas documented; the agent can inspect, plan, preview, apply, verify, audit, and roll back. Operation safety model documented with examples for safe field addition and view modification. Release quality gates pass.
+
+### v0.4.4 deliverables
+
+- **21 stable MCP tools** replacing the former `runory.*` preview naming:
+  - Workspace: `workspace.list`, `workspace.create`, `workspace.inspect` (unified discovery)
+  - Pack: `pack.list`, `pack.install`
+  - Object / View: `object.inspect`, `view.inspect`
+  - Extension pipeline: `extension.plan`, `extension.preview`, `extension.apply`, `extension.rollback`, `extension.list`
+  - Workflow / Automation: `workflow.inspect`, `automation.inspect`
+  - History / Audit: `agent_operation.history`, `audit.search`
+  - Record CRUD: `record.create`, `record.list`, `record.get`, `record.update`, `record.delete`
+- **`object.field.add` and `view.modify`** are accomplished through the `extension.plan → extension.preview → extension.apply` pipeline. They are not single-shot tools because every governed change must be previewable and auditable.
+- **Operation safety model** documented with risk classification (low / medium / high) and examples for safe field addition and view modification.
+- **MCP server tests** — 10 tests verifying tool count, names, schemas, and absence of legacy `runory.*` naming.
+- **Updated documentation** — [MCP / Skill Usage](./mcp-skill-usage.md), [Agent Operations](./agent-operations.md), and this file reflect the stable 21-tool surface.
+- **Updated Skill** — `skills/runory-smb-poc/SKILL.md` documents all 21 tools with usage examples.
 
 ### Stable vs preview in v0.4
 
@@ -35,7 +51,7 @@ For the v0.1 release definition and acceptance matrix, see [v0.1.0 Cloud Early A
 | Managed Workspace Extensions (plan/preview/apply/rollback) | Stable |
 | Audit trail, API keys, export, trash/restore | Stable |
 | English-first UI | Stable |
-| MCP server and external Agent operations | Preview (stable in v0.4.4) |
+| MCP server and external Agent operations | Stable (v0.4.4) |
 | SDK / module development | Private/preview |
 | Paid billing, Stripe | Not available |
 | Enterprise SSO (OIDC/SAML/SCIM) | Not available |

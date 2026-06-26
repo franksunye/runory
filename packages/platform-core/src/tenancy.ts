@@ -1,5 +1,6 @@
 import { batch, genId, now, queryAll, queryOne } from "./db";
 import { TABLES } from "./contracts";
+import { provisionEntitlement } from "./entitlements";
 import {
   ORGANIZATION_ROLES,
   WORKSPACE_ROLES,
@@ -115,6 +116,15 @@ export async function provisionWorkspaceTenant(
     },
   ]);
 
+  // Provision the early_access entitlement so quota checks (agent_operations,
+  // records, etc.) pass for the new organization. Safe to ignore if it already
+  // exists (e.g. when re-running dev bootstrap for the same org).
+  try {
+    await provisionEntitlement(organizationId);
+  } catch {
+    // Entitlement already exists — no action needed
+  }
+
   return {
     workspaceId,
     organizationId,
@@ -211,14 +221,15 @@ export async function listUserWorkspaces(userId: string): Promise<UserWorkspaceE
        o.id AS organization_id, o.name AS organization_name, o.slug AS organization_slug,
        wm.role AS workspace_role, om.role AS organization_role
      FROM ${TABLES.workspaceMemberships} wm
+     JOIN ${TABLES.users} u ON u.id = wm.user_id AND u.status = 'active'
      JOIN ${TABLES.workspaces} w ON w.id = wm.workspace_id
      JOIN ${TABLES.workspaceTenants} wt ON wt.workspace_id = w.id
      JOIN ${TABLES.organizations} o ON o.id = wt.organization_id
      LEFT JOIN ${TABLES.organizationMemberships} om
        ON om.organization_id = o.id AND om.user_id = wm.user_id AND om.status = 'active'
-     WHERE wm.user_id = ? AND wm.status = 'active'
+     WHERE (u.id = ? OR u.external_id = ?) AND wm.status = 'active'
      ORDER BY w.name ASC`,
-    [userId]
+    [userId, userId]
   );
 
   return rows.map((r) => ({

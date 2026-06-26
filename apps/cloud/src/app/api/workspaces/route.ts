@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { createWorkspace, listUserWorkspaces, enforceQuota } from "@runory/platform-core";
-import { getRequestActor, getCurrentPrincipal } from "@/lib/auth";
+import { getRequestActor, requirePrincipal } from "@/lib/auth";
 import { successResponse, handleError, invalidInput, getOrCreateRequestId } from "@/lib/http";
 
 export const dynamic = "force-dynamic";
@@ -9,10 +9,10 @@ export const dynamic = "force-dynamic";
 export async function GET(request: NextRequest) {
   const requestId = getOrCreateRequestId(request.headers.get("x-request-id"));
   try {
-    const principal = await getCurrentPrincipal(request);
-    if (!principal) {
-      return successResponse({ workspaces: [] }, 200, requestId);
-    }
+    // requirePrincipal falls back to dev bootstrap in local dev, so MCP
+    // clients (which carry no session cookie) can list workspaces. In
+    // production, unauthenticated requests receive a 401.
+    const principal = await requirePrincipal(request);
     const workspaces = await listUserWorkspaces(principal.userId);
     return successResponse({ workspaces }, 200, requestId);
   } catch (e) {
