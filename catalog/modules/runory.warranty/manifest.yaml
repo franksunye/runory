@@ -12,17 +12,17 @@ objects:
     label: Warranty
     fields:
       - key: warranty_number
-        label: 保修编号
+        label: Warranty Number
         type: text
         ownership: module_owned
         required: true
       - key: title
-        label: 标题
+        label: Title
         type: text
         ownership: module_owned
         required: true
       - key: status
-        label: 状态
+        label: Status
         type: select
         ownership: module_owned
         required: true
@@ -30,7 +30,7 @@ objects:
         validation:
           options: ["active", "expired", "voided", "pending"]
       - key: warranty_type
-        label: 保修类型
+        label: Warranty Type
         type: select
         ownership: module_owned
         required: true
@@ -38,51 +38,51 @@ objects:
         validation:
           options: ["standard", "extended", "premium", "trial"]
       - key: start_date
-        label: 开始日期
+        label: Start Date
         type: date
         ownership: module_owned
         required: true
       - key: end_date
-        label: 结束日期
+        label: End Date
         type: date
         ownership: module_owned
         required: true
       - key: company_id
-        label: 关联公司
+        label: Related Company
         type: text
         ownership: module_owned
       - key: contact_id
-        label: 关联联系人
+        label: Related Contact
         type: text
         ownership: module_owned
       - key: product_service_id
-        label: 关联产品/服务
+        label: Related Product/Service
         type: text
         ownership: module_owned
       - key: asset_id
-        label: 关联资产
+        label: Related Asset
         type: text
         ownership: module_owned
       - key: quote_id
-        label: 关联报价
+        label: Related Quote
         type: text
         ownership: module_owned
       - key: terms
-        label: 保修条款
+        label: Warranty Terms
         type: text
         ownership: module_owned
         description: "Warranty terms and conditions"
       - key: coverage_json
-        label: 覆盖范围
+        label: Coverage
         type: text
         ownership: module_owned
         description: "JSON array of covered items"
       - key: owner
-        label: 负责人
+        label: Owner
         type: text
         ownership: module_owned
       - key: notes
-        label: 备注
+        label: Notes
         type: text
         ownership: module_owned
 
@@ -90,21 +90,21 @@ views:
   - object: warranty
     key: warranty_list
     type: list
-    label: 保修列表
+    label: Warranty List
     config:
       columns:
         - field: warranty_number
-          label: 保修编号
+          label: Warranty Number
         - field: title
-          label: 标题
+          label: Title
         - field: status
-          label: 状态
+          label: Status
         - field: warranty_type
-          label: 保修类型
+          label: Warranty Type
         - field: start_date
-          label: 开始日期
+          label: Start Date
         - field: end_date
-          label: 结束日期
+          label: End Date
       actions:
         - create
         - view
@@ -113,10 +113,10 @@ views:
   - object: warranty
     key: warranty_form
     type: form
-    label: 保修表单
+    label: Warranty Form
     config:
       sections:
-        - title: 基本信息
+        - title: Basic Information
           fields:
             - field: warranty_number
               required: true
@@ -130,14 +130,14 @@ views:
               required: true
             - field: end_date
               required: true
-        - title: 关联
+        - title: Associations
           fields:
             - field: company_id
             - field: contact_id
             - field: product_service_id
             - field: asset_id
             - field: quote_id
-        - title: 条款与元数据
+        - title: Terms & Metadata
           fields:
             - field: terms
             - field: coverage_json
@@ -157,31 +157,31 @@ relations:
     targetModule: runory.company
     type: many_to_one
     foreignKey: company_id
-    label: 关联公司
+    label: Related Company
   - object: warranty
     targetObject: contact
     targetModule: runory.contact
     type: many_to_one
     foreignKey: contact_id
-    label: 关联联系人
+    label: Related Contact
   - object: warranty
     targetObject: product_service
     targetModule: runory.product-service
     type: many_to_one
     foreignKey: product_service_id
-    label: 关联产品/服务
+    label: Related Product/Service
   - object: warranty
     targetObject: asset
     targetModule: runory.asset
     type: many_to_one
     foreignKey: asset_id
-    label: 关联资产
+    label: Related Asset
   - object: warranty
     targetObject: quote
     targetModule: runory.quote
     type: many_to_one
     foreignKey: quote_id
-    label: 关联报价
+    label: Related Quote
 
 migrations:
   install: migrations/install.sql
@@ -189,7 +189,7 @@ migrations:
 
 ui:
   navigation:
-    - label: 保修
+    - label: Warranties
       route: /warranties
       icon: shield
       sortOrder: 70
@@ -227,7 +227,7 @@ dashboard:
   widgets:
     - key: active_warranties_metric
       type: metric_card
-      label: 活跃保修
+      label: Active Warranties
       icon: shield
       tone: emerald
       data:
@@ -238,7 +238,7 @@ dashboard:
 
     - key: expired_warranties_metric
       type: metric_card
-      label: 已过期保修
+      label: Expired Warranties
       icon: shield-off
       tone: red
       data:
@@ -249,7 +249,7 @@ dashboard:
 
     - key: warranty_status_breakdown
       type: breakdown
-      label: 保修状态分布
+      label: Warranty Status Distribution
       icon: pie-chart
       tone: cyan
       data:
@@ -259,7 +259,7 @@ dashboard:
 
     - key: warranty_type_breakdown
       type: breakdown
-      label: 保修类型分布
+      label: Warranty Type Distribution
       icon: pie-chart
       tone: violet
       data:
@@ -269,7 +269,7 @@ dashboard:
 
     - key: recent_warranties_list
       type: list
-      label: 最近保修
+      label: Recent Warranties
       icon: shield
       tone: cyan
       data:
@@ -281,14 +281,14 @@ dashboard:
       link: /warranties
       configurable:
         - path: data.limit
-          label: 显示条数
+          label: Display Count
           type: number
           min: 1
           max: 20
 
     - key: expiring_warranties_list
       type: list
-      label: 即将过期保修
+      label: Expiring Warranties
       icon: alert-circle
       tone: amber
       data:
@@ -301,7 +301,7 @@ dashboard:
       link: /warranties
       configurable:
         - path: data.limit
-          label: 显示条数
+          label: Display Count
           type: number
           min: 1
           max: 20

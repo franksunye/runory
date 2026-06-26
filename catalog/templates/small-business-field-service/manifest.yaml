@@ -3,14 +3,14 @@ name: Small Business Field Service
 version: 1.0.0
 
 terminology:
-  customer: 客户
-  contact: 联系人
-  work_order: 工单
-  service_site: 服务地点
-  asset: 资产
-  technician: 技师
-  service_visit: 服务行程
-  service_report: 服务报告
+  customer: Customer
+  contact: Contact
+  work_order: Work Order
+  service_site: Service Site
+  asset: Asset
+  technician: Technician
+  service_visit: Service Visit
+  service_report: Service Report
 
 navigation:
   - dashboard

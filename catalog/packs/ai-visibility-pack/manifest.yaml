@@ -34,8 +34,8 @@ defaultTemplate: small-business-ai-visibility
 # Pack-specific terminology overlay (v0.2.3).
 terminology:
   - object: company
-    label: 客户
-    navigationLabel: 客户
+    label: Customer
+    navigationLabel: Customer
     route: /companies
 
 # AI Visibility workbench — focuses on content readiness, visibility, and

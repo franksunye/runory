@@ -184,7 +184,7 @@ describe("AI Visibility pack terminology overlay", () => {
 
     const nav = await getNavigation(workspaceId);
     const companyNav = nav.find((n) => n.route === "/companies");
-    expect(companyNav?.label).toBe("客户");
+    expect(companyNav?.label).toBe("Customer");
   });
 
   it("does not fork the underlying object definitions", async () => {
@@ -355,13 +355,13 @@ describe("safe publishing states for answer blocks", () => {
 
     // Create entity profile and question map first
     const profile = await createRecord(workspaceId, "entity_profile", {
-      name: "测试画像",
+      name: "Test Profile",
       entity_type: "topic",
       status: "active",
     });
     const qm = await createRecord(workspaceId, "question_map", {
       entity_profile_id: profile.id,
-      name: "测试问题地图",
+      name: "Test Question Map",
       status: "draft",
       question_count: 1,
     });
@@ -370,8 +370,8 @@ describe("safe publishing states for answer blocks", () => {
     const draft = await createRecord(workspaceId, "answer_block", {
       question_map_id: qm.id,
       entity_profile_id: profile.id,
-      question: "测试问题？",
-      answer_text: "测试答案。",
+      question: "Test question?",
+      answer_text: "Test answer.",
       status: "draft",
       source_type: "manual",
     });
@@ -402,27 +402,27 @@ describe("safe publishing states for answer blocks", () => {
     await installPack(workspaceId, "ai-visibility-pack");
 
     const profile = await createRecord(workspaceId, "entity_profile", {
-      name: "测试画像",
+      name: "Test Profile",
       entity_type: "topic",
       status: "active",
     });
     const qm = await createRecord(workspaceId, "question_map", {
       entity_profile_id: profile.id,
-      name: "测试问题地图",
+      name: "Test Question Map",
       status: "draft",
       question_count: 1,
     });
 
     const draft = await createRecord(workspaceId, "answer_block", {
       question_map_id: qm.id,
-      question: "待拒绝问题？",
-      answer_text: "待拒绝答案。",
+      question: "Pending rejection question?",
+      answer_text: "Pending rejection answer.",
       status: "pending_review",
     });
 
     const rejected = await updateRecord(workspaceId, "answer_block", draft.id, {
       status: "rejected",
-      notes: "内容不准确，需要修订",
+      notes: "Inaccurate content, needs revision",
     });
     expect(rejected?.status).toBe("rejected");
   });
@@ -437,19 +437,19 @@ describe("AI visibility check with improvement suggestions", () => {
     await installPack(workspaceId, "ai-visibility-pack");
 
     const profile = await createRecord(workspaceId, "entity_profile", {
-      name: "测试画像",
+      name: "Test Profile",
       entity_type: "topic",
       status: "active",
     });
 
     const check = await createRecord(workspaceId, "ai_visibility_check", {
       entity_profile_id: profile.id,
-      query: "测试查询",
+      query: "Test query",
       engine: "chatgpt",
       locale: "zh-CN",
       result_status: "not_visible",
-      result_summary: "AI 引擎未返回相关内容",
-      improvement_suggestions: "建议增加结构化数据标记和 FAQ Schema",
+      result_summary: "AI engine did not return relevant content",
+      improvement_suggestions: "Suggest adding structured data markup and FAQ Schema",
       checked_at: "2026-06-23",
       checked_by: "Alex",
     });
@@ -463,7 +463,7 @@ describe("AI visibility check with improvement suggestions", () => {
     await installPack(workspaceId, "ai-visibility-pack");
 
     const profile = await createRecord(workspaceId, "entity_profile", {
-      name: "测试画像",
+      name: "Test Profile",
       entity_type: "topic",
       status: "active",
     });
@@ -472,7 +472,7 @@ describe("AI visibility check with improvement suggestions", () => {
     for (const engine of engines) {
       const check = await createRecord(workspaceId, "ai_visibility_check", {
         entity_profile_id: profile.id,
-        query: `测试查询 ${engine}`,
+        query: `Test query ${engine}`,
         engine,
         locale: "zh-CN",
         result_status: "visible",
@@ -707,10 +707,10 @@ describe("AI Visibility demo journey (end-to-end GEO flow)", () => {
 
     // 2. Create an entity profile
     const profile = await createRecord(workspaceId, "entity_profile", {
-      name: "新产品 AI 可见性画像",
+      name: "New Product AI Visibility Profile",
       entity_type: "topic",
-      description: "新产品的 AI 可见性优化画像",
-      keywords_json: '["新产品","产品功能","使用方法"]',
+      description: "AI visibility optimization profile for new product",
+      keywords_json: '["New product","Product features","Usage method"]',
       status: "active",
       locale: "zh-CN",
       owner: "Alex",
@@ -720,7 +720,7 @@ describe("AI Visibility demo journey (end-to-end GEO flow)", () => {
     // 3. Create a question map (draft → generating → ready → approved)
     const qmDraft = await createRecord(workspaceId, "question_map", {
       entity_profile_id: profile.id,
-      name: "新产品常见问题",
+      name: "New Product FAQ",
       status: "draft",
       source: "manual",
       questions_json: "[]",
@@ -736,7 +736,7 @@ describe("AI Visibility demo journey (end-to-end GEO flow)", () => {
     expect(qmGenerating?.status).toBe("generating");
 
     // Questions generated
-    const questions = ["新产品是什么？", "新产品有什么功能？", "如何使用新产品？"];
+    const questions = ["What is the new product?", "What features does the new product have?", "How to use the new product?"];
     const qmReady = await updateRecord(workspaceId, "question_map", qmDraft.id, {
       status: "ready",
       questions_json: JSON.stringify(questions),
@@ -755,8 +755,8 @@ describe("AI Visibility demo journey (end-to-end GEO flow)", () => {
     const abDraft = await createRecord(workspaceId, "answer_block", {
       question_map_id: qmDraft.id,
       entity_profile_id: profile.id,
-      question: "新产品是什么？",
-      answer_text: "我们的新产品是一款创新的解决方案，帮助用户高效完成任务。",
+      question: "What is the new product?",
+      answer_text: "Our new product is an innovative solution that helps users complete tasks efficiently.",
       status: "draft",
       source_type: "agent_generated",
       confidence_score: 75,
@@ -773,7 +773,7 @@ describe("AI Visibility demo journey (end-to-end GEO flow)", () => {
     const abApproved = await updateRecord(workspaceId, "answer_block", abDraft.id, {
       status: "approved",
       confidence_score: 90,
-      answer_text: "我们的新产品是一款创新的解决方案，帮助用户高效完成任务。支持多种场景，操作简便。",
+      answer_text: "Our new product is an innovative solution that helps users complete tasks efficiently. It supports multiple scenarios and is easy to use.",
     });
     expect(abApproved?.status).toBe("approved");
     expect(abApproved?.confidence_score).toBe(90);
@@ -787,27 +787,27 @@ describe("AI Visibility demo journey (end-to-end GEO flow)", () => {
     // 5. Add citation source
     const citation = await createRecord(workspaceId, "citation_source", {
       answer_block_id: abDraft.id,
-      title: "产品技术文档",
+      title: "Product Technical Documentation",
       url: "https://docs.example.com/product",
       source_type: "official",
-      snippet: "新产品是创新解决方案，支持多种场景。",
+      snippet: "The new product is an innovative solution supporting multiple scenarios.",
       credibility_score: 95,
       captured_at: "2026-06-23",
-      author: "产品团队",
-      publisher: "官方文档",
+      author: "Product Team",
+      publisher: "Official documentation",
     });
     expect(citation.id).toBeDefined();
 
     // 6. Run visibility check
     const check = await createRecord(workspaceId, "ai_visibility_check", {
       entity_profile_id: profile.id,
-      query: "新产品是什么",
+      query: "What is the new product",
       engine: "chatgpt",
       locale: "zh-CN",
       result_status: "partial",
-      result_summary: "ChatGPT 部分引用了我们的内容，但未完整呈现",
-      result_snippet: "新产品是一款解决方案...",
-      improvement_suggestions: "建议增加 FAQ Schema 和结构化数据标记，提升被完整引用的概率",
+      result_summary: "ChatGPT partially cited our content, but did not fully present it",
+      result_snippet: "The new product is a solution...",
+      improvement_suggestions: "Suggest adding FAQ Schema and structured data markup to increase the probability of being fully cited",
       checked_at: "2026-06-23",
       checked_by: "Alex",
     });
@@ -867,7 +867,7 @@ describe("AI Visibility pack installation tracking", () => {
     const terminology = JSON.parse(packInstalls[0].terminology_json!);
     expect(terminology).toHaveLength(1);
     expect(terminology[0].object).toBe("company");
-    expect(terminology[0].navigationLabel).toBe("客户");
+    expect(terminology[0].navigationLabel).toBe("Customer");
   });
 
   it("updates AI visibility pack installation on re-install (idempotent)", async () => {

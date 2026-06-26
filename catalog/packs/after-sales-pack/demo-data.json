@@ -6,7 +6,7 @@
       "match": { "field": "warranty_number", "value": "WAR-2026-001" },
       "data": {
         "warranty_number": "WAR-2026-001",
-        "title": "Acme HVAC 设备保修",
+        "title": "Acme HVAC Equipment Warranty",
         "status": "active",
         "warranty_type": "standard",
         "start_date": "2025-06-01",
@@ -16,10 +16,10 @@
         "product_service_id": { "$lookup": { "object": "product_service", "field": "sku", "value": "SVC-INSP-001" } },
         "asset_id": { "$lookup": { "object": "asset", "field": "serial_number", "value": "HVAC-ACME-001" } },
         "quote_id": { "$lookup": { "object": "quote", "field": "quote_number", "value": "Q-2026-001" } },
-        "terms": "标准保修 24 个月，覆盖制造缺陷和正常使用下的故障。不含人为损坏。",
-        "coverage_json": "[\"制造缺陷\",\"零件更换\",\"人工费\",\"现场维修\"]",
+        "terms": "Standard warranty 24 months, covers manufacturing defects and failures under normal use. Does not cover man-made damage.",
+        "coverage_json": "[\"Manufacturing defects\",\"Parts replacement\",\"Labor cost\",\"On-site repair\"]",
         "owner": "Alex Chen",
-        "notes": "标准保修，覆盖完整"
+        "notes": "Standard warranty, fully covered"
       }
     },
     {
@@ -28,7 +28,7 @@
       "match": { "field": "warranty_number", "value": "WAR-2026-002" },
       "data": {
         "warranty_number": "WAR-2026-002",
-        "title": "Nova 冷藏设备保修",
+        "title": "Nova Refrigeration Equipment Warranty",
         "status": "active",
         "warranty_type": "extended",
         "start_date": "2025-03-15",
@@ -36,8 +36,8 @@
         "company_id": { "$lookup": { "object": "company", "field": "domain", "value": "novaretail.example" } },
         "contact_id": { "$lookup": { "object": "contact", "field": "email", "value": "maya@acme.example" } },
         "asset_id": { "$lookup": { "object": "asset", "field": "serial_number", "value": "FRIDGE-NOVA-001" } },
-        "terms": "延长保修 36 个月，覆盖制冷系统、压缩机和电气系统。",
-        "coverage_json": "[\"制冷系统\",\"压缩机\",\"电气系统\",\"零件更换\"]",
+        "terms": "Extended warranty 36 months, covers refrigeration system, compressor and electrical system.",
+        "coverage_json": "[\"Refrigeration system\",\"Compressor\",\"Electrical system\",\"Parts replacement\"]",
         "owner": "Sam Lee"
       }
     },
@@ -47,7 +47,7 @@
       "match": { "field": "warranty_number", "value": "WAR-2026-003" },
       "data": {
         "warranty_number": "WAR-2026-003",
-        "title": "Vertex CNC 设备保修",
+        "title": "Vertex CNC Equipment Warranty",
         "status": "expired",
         "warranty_type": "standard",
         "start_date": "2022-01-01",
@@ -55,10 +55,10 @@
         "company_id": { "$lookup": { "object": "company", "field": "domain", "value": "vertexmfg.example" } },
         "contact_id": { "$lookup": { "object": "contact", "field": "email", "value": "maya@acme.example" } },
         "asset_id": { "$lookup": { "object": "asset", "field": "serial_number", "value": "CNC-VTX-001" } },
-        "terms": "标准保修 24 个月，已过期。",
-        "coverage_json": "[\"制造缺陷\",\"零件更换\"]",
+        "terms": "Standard warranty 24 months, expired.",
+        "coverage_json": "[\"Manufacturing defects\",\"Parts replacement\"]",
         "owner": "Alex Chen",
-        "notes": "已过期，维修需付费"
+        "notes": "Expired, repair requires payment"
       }
     },
     {
@@ -67,7 +67,7 @@
       "match": { "field": "warranty_number", "value": "WAR-2026-004" },
       "data": {
         "warranty_number": "WAR-2026-004",
-        "title": "Acme 仓库 HVAC 保修",
+        "title": "Acme Warehouse HVAC Warranty",
         "status": "active",
         "warranty_type": "premium",
         "start_date": "2025-09-01",
@@ -75,10 +75,10 @@
         "company_id": { "$lookup": { "object": "company", "field": "domain", "value": "acme.example" } },
         "contact_id": { "$lookup": { "object": "contact", "field": "email", "value": "maya@acme.example" } },
         "asset_id": { "$lookup": { "object": "asset", "field": "serial_number", "value": "HVAC-ACME-002" } },
-        "terms": "高级保修 36 个月，覆盖所有故障，含优先响应和年度巡检。",
-        "coverage_json": "[\"所有故障\",\"零件更换\",\"人工费\",\"优先响应\",\"年度巡检\"]",
+        "terms": "Premium warranty 36 months, covers all failures, includes priority response and annual inspection.",
+        "coverage_json": "[\"All failures\",\"Parts replacement\",\"Labor cost\",\"Priority response\",\"Annual inspection\"]",
         "owner": "Sam Lee",
-        "notes": "高级保修，即将续期"
+        "notes": "Premium warranty, renewal coming soon"
       }
     },
     {
@@ -87,17 +87,17 @@
       "match": { "field": "warranty_number", "value": "WAR-2026-005" },
       "data": {
         "warranty_number": "WAR-2026-005",
-        "title": "Harbor 设备保修待激活",
+        "title": "Harbor Equipment Warranty Pending Activation",
         "status": "pending",
         "warranty_type": "trial",
         "start_date": "2026-07-01",
         "end_date": "2027-07-01",
         "company_id": { "$lookup": { "object": "company", "field": "domain", "value": "harborlogistics.example" } },
         "contact_id": { "$lookup": { "object": "contact", "field": "email", "value": "maya@acme.example" } },
-        "terms": "试用保修 12 个月，待设备安装后激活。",
-        "coverage_json": "[\"制造缺陷\"]",
+        "terms": "Trial warranty 12 months, activated after equipment installation.",
+        "coverage_json": "[\"Manufacturing defects\"]",
         "owner": "Alex Chen",
-        "notes": "待激活"
+        "notes": "Pending activation"
       }
     },
     {
@@ -106,7 +106,7 @@
       "match": { "field": "entitlement_number", "value": "ENT-2026-001" },
       "data": {
         "entitlement_number": "ENT-2026-001",
-        "name": "Acme 支持工时包",
+        "name": "Acme Support Hours Package",
         "status": "active",
         "entitlement_type": "support_hours",
         "total_value": 50,
@@ -120,7 +120,7 @@
         "product_service_id": { "$lookup": { "object": "product_service", "field": "sku", "value": "SVC-INSP-001" } },
         "asset_id": { "$lookup": { "object": "asset", "field": "serial_number", "value": "HVAC-ACME-001" } },
         "owner": "Alex Chen",
-        "notes": "年度支持工时包，剩余 32 小时"
+        "notes": "Annual support hours package, 32 hours remaining"
       }
     },
     {
@@ -129,7 +129,7 @@
       "match": { "field": "entitlement_number", "value": "ENT-2026-002" },
       "data": {
         "entitlement_number": "ENT-2026-002",
-        "name": "Nova 巡检次数包",
+        "name": "Nova Inspection Visits Package",
         "status": "active",
         "entitlement_type": "visits",
         "total_value": 8,
@@ -149,7 +149,7 @@
       "match": { "field": "entitlement_number", "value": "ENT-2026-003" },
       "data": {
         "entitlement_number": "ENT-2026-003",
-        "name": "Vertex 维修折扣权益",
+        "name": "Vertex Repair Discount Entitlement",
         "status": "active",
         "entitlement_type": "discount",
         "total_value": 20,
@@ -161,7 +161,7 @@
         "company_id": { "$lookup": { "object": "company", "field": "domain", "value": "vertexmfg.example" } },
         "contact_id": { "$lookup": { "object": "contact", "field": "email", "value": "maya@acme.example" } },
         "owner": "Alex Chen",
-        "notes": "维修服务 15% 折扣"
+        "notes": "15% discount on repair services"
       }
     },
     {
@@ -170,7 +170,7 @@
       "match": { "field": "entitlement_number", "value": "ENT-2026-004" },
       "data": {
         "entitlement_number": "ENT-2026-004",
-        "name": "Pine 优先响应权益",
+        "name": "Pine Priority Response Entitlement",
         "status": "expired",
         "entitlement_type": "priority_response",
         "total_value": 1,
@@ -182,7 +182,7 @@
         "company_id": { "$lookup": { "object": "company", "field": "domain", "value": "pinehealth.example" } },
         "contact_id": { "$lookup": { "object": "contact", "field": "email", "value": "maya@acme.example" } },
         "owner": "Sam Lee",
-        "notes": "已过期"
+        "notes": "Expired"
       }
     },
     {
@@ -191,7 +191,7 @@
       "match": { "field": "return_number", "value": "RET-2026-001" },
       "data": {
         "return_number": "RET-2026-001",
-        "reason": "HVAC 滤芯存在制造缺陷，无法正常使用",
+        "reason": "HVAC filter has manufacturing defects and cannot be used normally",
         "status": "received",
         "priority": "high",
         "return_type": "defective",
@@ -206,7 +206,7 @@
         "refund_amount": 1500,
         "assigned_to": "Sam Lee",
         "owner": "Sam Lee",
-        "notes": "已退款"
+        "notes": "Refunded"
       }
     },
     {
@@ -215,7 +215,7 @@
       "match": { "field": "return_number", "value": "RET-2026-002" },
       "data": {
         "return_number": "RET-2026-002",
-        "reason": "收到错误型号的滤芯",
+        "reason": "Received wrong model of filter",
         "status": "in_transit",
         "priority": "medium",
         "return_type": "wrong_item",
@@ -225,7 +225,7 @@
         "contact_id": { "$lookup": { "object": "contact", "field": "email", "value": "maya@acme.example" } },
         "assigned_to": "Sam Lee",
         "owner": "Sam Lee",
-        "notes": "运输中"
+        "notes": "In transit"
       }
     },
     {
@@ -234,7 +234,7 @@
       "match": { "field": "return_number", "value": "RET-2026-003" },
       "data": {
         "return_number": "RET-2026-003",
-        "reason": "升级到新型号，退回旧设备",
+        "reason": "Upgrading to new model, returning old equipment",
         "status": "approved",
         "priority": "low",
         "return_type": "upgrade",
@@ -245,7 +245,7 @@
         "asset_id": { "$lookup": { "object": "asset", "field": "serial_number", "value": "CNC-VTX-001" } },
         "assigned_to": "Alex Chen",
         "owner": "Alex Chen",
-        "notes": "已批准，等待退回"
+        "notes": "Approved, waiting for return"
       }
     },
     {
@@ -254,7 +254,7 @@
       "match": { "field": "return_number", "value": "RET-2026-004" },
       "data": {
         "return_number": "RET-2026-004",
-        "reason": "超过退货期限",
+        "reason": "Exceeded return period",
         "status": "rejected",
         "priority": "low",
         "return_type": "not_needed",
@@ -264,7 +264,7 @@
         "contact_id": { "$lookup": { "object": "contact", "field": "email", "value": "maya@acme.example" } },
         "assigned_to": "Sam Lee",
         "owner": "Sam Lee",
-        "notes": "已拒绝，超过退货期限"
+        "notes": "Rejected, exceeded return period"
       }
     },
     {
@@ -273,7 +273,7 @@
       "match": { "field": "repair_number", "value": "REP-2026-001" },
       "data": {
         "repair_number": "REP-2026-001",
-        "issue_description": "Acme HVAC 制冷不足，需要工程师上门检查制冷剂和滤芯",
+        "issue_description": "Acme HVAC insufficient cooling, needs engineer on-site to check refrigerant and filter",
         "status": "in_repair",
         "priority": "high",
         "repair_type": "on_site",
@@ -290,7 +290,7 @@
         "warranty_id": "$war-acme-hvac.id",
         "assigned_to": "David Park",
         "owner": "Alex Chen",
-        "notes": "保修内维修，已派单"
+        "notes": "Warranty repair, dispatched"
       }
     },
     {
@@ -299,7 +299,7 @@
       "match": { "field": "repair_number", "value": "REP-2026-002" },
       "data": {
         "repair_number": "REP-2026-002",
-        "issue_description": "Vertex CNC 加工中心主轴故障，保修已过期需付费维修",
+        "issue_description": "Vertex CNC machining center spindle failure, warranty expired requires paid repair",
         "status": "quoted",
         "priority": "urgent",
         "repair_type": "on_site",
@@ -316,7 +316,7 @@
         "warranty_id": "$war-vertex-cnc.id",
         "assigned_to": "David Park",
         "owner": "Alex Chen",
-        "notes": "付费维修，已报价"
+        "notes": "Paid repair, quoted"
       }
     },
     {
@@ -325,7 +325,7 @@
       "match": { "field": "repair_number", "value": "REP-2026-003" },
       "data": {
         "repair_number": "REP-2026-003",
-        "issue_description": "Nova 冷藏设备温度异常，已更换温控器",
+        "issue_description": "Nova refrigeration equipment temperature abnormal, thermostat replaced",
         "status": "completed",
         "priority": "medium",
         "repair_type": "on_site",
@@ -341,7 +341,7 @@
         "warranty_id": "$war-nova-fridge.id",
         "assigned_to": "Maria Garcia",
         "owner": "Sam Lee",
-        "notes": "保修内维修完成"
+        "notes": "Warranty repair completed"
       }
     },
     {
@@ -350,7 +350,7 @@
       "match": { "field": "repair_number", "value": "REP-2026-004" },
       "data": {
         "repair_number": "REP-2026-004",
-        "issue_description": "Acme 仓库 HVAC 异常噪音，正在诊断",
+        "issue_description": "Acme Warehouse HVAC abnormal noise, diagnosing",
         "status": "diagnosing",
         "priority": "medium",
         "repair_type": "on_site",
@@ -363,7 +363,7 @@
         "warranty_id": "$war-acme-warehouse.id",
         "assigned_to": "James Wilson",
         "owner": "Sam Lee",
-        "notes": "诊断中"
+        "notes": "Diagnosing"
       }
     },
     {
@@ -372,7 +372,7 @@
       "match": { "field": "repair_number", "value": "REP-2026-005" },
       "data": {
         "repair_number": "REP-2026-005",
-        "issue_description": "Harbor 设备远程诊断，软件配置问题",
+        "issue_description": "Harbor equipment remote diagnosis, software configuration issue",
         "status": "completed",
         "priority": "low",
         "repair_type": "remote",
@@ -386,7 +386,7 @@
         "contact_id": { "$lookup": { "object": "contact", "field": "email", "value": "maya@acme.example" } },
         "assigned_to": "Sam Lee",
         "owner": "Sam Lee",
-        "notes": "远程修复完成"
+        "notes": "Remote repair completed"
       }
     },
     {
@@ -395,7 +395,7 @@
       "match": { "field": "plan_number", "value": "MP-2026-001" },
       "data": {
         "plan_number": "MP-2026-001",
-        "name": "Acme HVAC 季度维保计划",
+        "name": "Acme HVAC Quarterly Maintenance Plan",
         "status": "active",
         "plan_type": "recurring",
         "frequency": "quarterly",
@@ -408,7 +408,7 @@
         "contact_id": { "$lookup": { "object": "contact", "field": "email", "value": "maya@acme.example" } },
         "asset_id": { "$lookup": { "object": "asset", "field": "serial_number", "value": "HVAC-ACME-001" } },
         "owner": "Alex Chen",
-        "notes": "已完成 2 次，下次 9 月"
+        "notes": "2 visits completed, next in September"
       }
     },
     {
@@ -417,7 +417,7 @@
       "match": { "field": "plan_number", "value": "MP-2026-002" },
       "data": {
         "plan_number": "MP-2026-002",
-        "name": "Nova 冷藏设备年度维保",
+        "name": "Nova Refrigeration Equipment Annual Maintenance",
         "status": "active",
         "plan_type": "preventive",
         "frequency": "annual",
@@ -438,7 +438,7 @@
       "match": { "field": "plan_number", "value": "MP-2026-003" },
       "data": {
         "plan_number": "MP-2026-003",
-        "name": "Vertex CNC 月度校准计划",
+        "name": "Vertex CNC Monthly Calibration Plan",
         "status": "active",
         "plan_type": "preventive",
         "frequency": "monthly",
@@ -451,7 +451,7 @@
         "contact_id": { "$lookup": { "object": "contact", "field": "email", "value": "maya@acme.example" } },
         "asset_id": { "$lookup": { "object": "asset", "field": "serial_number", "value": "CNC-VTX-001" } },
         "owner": "Alex Chen",
-        "notes": "月度校准，已完成 5 次"
+        "notes": "Monthly calibration, 5 visits completed"
       }
     },
     {
@@ -460,7 +460,7 @@
       "match": { "field": "plan_number", "value": "MP-2026-004" },
       "data": {
         "plan_number": "MP-2026-004",
-        "name": "Acme 仓库季节性维保",
+        "name": "Acme Warehouse Seasonal Maintenance",
         "status": "active",
         "plan_type": "seasonal",
         "frequency": "quarterly",
@@ -481,7 +481,7 @@
       "match": { "field": "plan_number", "value": "MP-2026-005" },
       "data": {
         "plan_number": "MP-2026-005",
-        "name": "Pine 设备维保计划（暂停）",
+        "name": "Pine Equipment Maintenance Plan (Paused)",
         "status": "paused",
         "plan_type": "recurring",
         "frequency": "semi_annual",
@@ -493,7 +493,7 @@
         "company_id": { "$lookup": { "object": "company", "field": "domain", "value": "pinehealth.example" } },
         "contact_id": { "$lookup": { "object": "contact", "field": "email", "value": "maya@acme.example" } },
         "owner": "Alex Chen",
-        "notes": "客户暂停，待恢复"
+        "notes": "Paused by customer, pending resumption"
       }
     },
     {
@@ -502,7 +502,7 @@
       "match": { "field": "followup_number", "value": "CS-2026-001" },
       "data": {
         "followup_number": "CS-2026-001",
-        "subject": "Acme 季度满意度回访",
+        "subject": "Acme Quarterly Satisfaction Follow-up",
         "status": "completed",
         "followup_type": "check_in",
         "priority": "medium",
@@ -510,7 +510,7 @@
         "completed_at": "2026-06-15",
         "company_id": { "$lookup": { "object": "company", "field": "domain", "value": "acme.example" } },
         "contact_id": { "$lookup": { "object": "contact", "field": "email", "value": "maya@acme.example" } },
-        "outcome": "客户对服务满意，计划续签年度维保。满意度评分 9/10。",
+        "outcome": "Customer satisfied with service, plans to renew annual maintenance. Satisfaction score 9/10.",
         "satisfaction_score": 9,
         "assigned_to": "Sam Lee",
         "owner": "Sam Lee"
@@ -522,7 +522,7 @@
       "match": { "field": "followup_number", "value": "CS-2026-002" },
       "data": {
         "followup_number": "CS-2026-002",
-        "subject": "Nova 新客户 onboarding",
+        "subject": "Nova New Customer Onboarding",
         "status": "in_progress",
         "followup_type": "onboarding",
         "priority": "high",
@@ -531,7 +531,7 @@
         "contact_id": { "$lookup": { "object": "contact", "field": "email", "value": "maya@acme.example" } },
         "assigned_to": "Alex Chen",
         "owner": "Alex Chen",
-        "notes": "进行中"
+        "notes": "In progress"
       }
     },
     {
@@ -540,7 +540,7 @@
       "match": { "field": "followup_number", "value": "CS-2026-003" },
       "data": {
         "followup_number": "CS-2026-003",
-        "subject": "Vertex 维保续约跟进",
+        "subject": "Vertex Maintenance Renewal Follow-up",
         "status": "scheduled",
         "followup_type": "renewal",
         "priority": "high",
@@ -549,7 +549,7 @@
         "contact_id": { "$lookup": { "object": "contact", "field": "email", "value": "maya@acme.example" } },
         "assigned_to": "Sam Lee",
         "owner": "Sam Lee",
-        "notes": "保修已过期，跟进续约"
+        "notes": "Warranty expired, following up on renewal"
       }
     },
     {
@@ -558,7 +558,7 @@
       "match": { "field": "followup_number", "value": "CS-2026-004" },
       "data": {
         "followup_number": "CS-2026-004",
-        "subject": "Acme 升级高级保修跟进",
+        "subject": "Acme Premium Warranty Upgrade Follow-up",
         "status": "scheduled",
         "followup_type": "upsell",
         "priority": "medium",
@@ -567,7 +567,7 @@
         "contact_id": { "$lookup": { "object": "contact", "field": "email", "value": "maya@acme.example" } },
         "assigned_to": "Alex Chen",
         "owner": "Alex Chen",
-        "notes": "推荐升级到高级保修"
+        "notes": "Recommending upgrade to premium warranty"
       }
     },
     {
@@ -576,7 +576,7 @@
       "match": { "field": "followup_number", "value": "CS-2026-005" },
       "data": {
         "followup_number": "CS-2026-005",
-        "subject": "Harbor 满意度回访（逾期）",
+        "subject": "Harbor Satisfaction Follow-up (Overdue)",
         "status": "overdue",
         "followup_type": "satisfaction",
         "priority": "urgent",
@@ -585,7 +585,7 @@
         "contact_id": { "$lookup": { "object": "contact", "field": "email", "value": "maya@acme.example" } },
         "assigned_to": "Sam Lee",
         "owner": "Sam Lee",
-        "notes": "已逾期，需尽快跟进"
+        "notes": "Overdue, needs follow-up as soon as possible"
       }
     }
   ]

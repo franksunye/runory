@@ -553,3 +553,172 @@ export async function installPack(
     demoRecordsCreated,
   };
 }
+
+// ── Pack Uninstall (v0.4) ──
+
+export interface UninstallResult {
+  packId: string;
+  modulesRemoved: string[];
+  tablesDropped: string[];
+  sharedModulesKept: string[];
+}
+
+/**
+ * Uninstall a pack from a workspace.
+ *
+ * Behavior:
+ * - Modules exclusively owned by this pack (no other installed pack depends
+ *   on them) have their business tables DROPPED and all metadata deleted.
+ * - Shared modules (also installed by another pack) are kept — only the
+ *   pack_installations record is removed.
+ * - Dashboard layout overrides for the pack's modules are cleaned up.
+ *
+ * This is a destructive operation: business data in exclusively-owned tables
+ * is permanently lost. The caller should confirm with the user.
+ */
+export async function uninstallPack(
+  workspaceId: string,
+  packId: string
+): Promise<UninstallResult> {
+  // Verify the pack is installed
+  const installation = await queryOne<{ id: string }>(
+    `SELECT id FROM ${TABLES.packInstallations} WHERE workspace_id = ? AND pack_id = ?`,
+    [workspaceId, packId]
+  );
+  if (!installation) {
+    throw new Error(`Pack "${packId}" is not installed in this workspace`);
+  }
+
+  const pack = loadPackManifest(packId);
+  const packModuleIds = pack.modules.map((m) => m.split(":")[0]);
+
+  // Find all other installed packs' modules to determine shared modules
+  const otherPackModules = await queryAll<{ module_id: string }>(
+    `SELECT DISTINCT module_id FROM ${TABLES.installations}
+     WHERE workspace_id = ? AND pack_id != ? AND status = 'installed'`,
+    [workspaceId, packId]
+  );
+  const sharedModuleSet = new Set(otherPackModules.map((r) => r.module_id));
+
+  const modulesRemoved: string[] = [];
+  const tablesDropped: string[] = [];
+  const sharedModulesKept: string[] = [];
+
+  for (const moduleId of packModuleIds) {
+    const isShared = sharedModuleSet.has(moduleId);
+    if (isShared) {
+      // Shared module — keep tables and metadata, just remove this pack's installation record
+      sharedModulesKept.push(moduleId);
+      await execute(
+        `DELETE FROM ${TABLES.installations}
+         WHERE workspace_id = ? AND module_id = ? AND pack_id = ?`,
+        [workspaceId, moduleId, packId]
+      );
+      continue;
+    }
+
+    // Exclusively owned — drop tables and clean up all metadata
+
+    // 1. Find object keys owned by this module
+    const objects = await queryAll<{ object_key: string }>(
+      `SELECT object_key FROM ${TABLES.objectDefinitions}
+       WHERE workspace_id = ? AND module_id = ? AND ownership = 'module_owned'`,
+      [workspaceId, moduleId]
+    );
+
+    // 2. Drop business tables for each object
+    for (const obj of objects) {
+      const tableName = businessTable(obj.object_key);
+      try {
+        await execute(`DROP TABLE IF EXISTS ${tableName}`);
+        tablesDropped.push(tableName);
+      } catch {
+        // Table may not exist if install was partial — continue
+      }
+    }
+
+    // 3. Delete extension field values for these objects
+    for (const obj of objects) {
+      await execute(
+        `DELETE FROM ${TABLES.extensionFieldValues}
+         WHERE workspace_id = ? AND object_key = ?`,
+        [workspaceId, obj.object_key]
+      );
+    }
+
+    // 4. Delete metadata: field definitions, view definitions, navigation items,
+    //    relation definitions, object definitions
+    await execute(
+      `DELETE FROM ${TABLES.fieldDefinitions}
+       WHERE workspace_id = ? AND module_id = ?`,
+      [workspaceId, moduleId]
+    );
+    await execute(
+      `DELETE FROM ${TABLES.viewDefinitions}
+       WHERE workspace_id = ? AND module_id = ?`,
+      [workspaceId, moduleId]
+    );
+    await execute(
+      `DELETE FROM ${TABLES.navigationItems}
+       WHERE workspace_id = ? AND module_id = ?`,
+      [workspaceId, moduleId]
+    );
+    await execute(
+      `DELETE FROM ${TABLES.relationDefinitions}
+       WHERE workspace_id = ? AND module_id = ?`,
+      [workspaceId, moduleId]
+    );
+    await execute(
+      `DELETE FROM ${TABLES.objectDefinitions}
+       WHERE workspace_id = ? AND module_id = ?`,
+      [workspaceId, moduleId]
+    );
+
+    // 5. Delete the installation record
+    await execute(
+      `DELETE FROM ${TABLES.installations}
+       WHERE workspace_id = ? AND module_id = ? AND pack_id = ?`,
+      [workspaceId, moduleId, packId]
+    );
+
+    modulesRemoved.push(moduleId);
+  }
+
+  // 6. Delete the pack installation record
+  await execute(
+    `DELETE FROM ${TABLES.packInstallations}
+     WHERE workspace_id = ? AND pack_id = ?`,
+    [workspaceId, packId]
+  );
+
+  // 7. Clean up dashboard layout overrides for removed modules
+  for (const moduleId of modulesRemoved) {
+    try {
+      await execute(
+        `DELETE FROM ${TABLES.workspaceDashboardLayout}
+         WHERE workspace_id = ? AND module_id = ?`,
+        [workspaceId, moduleId]
+      );
+    } catch {
+      // Layout overrides table may not exist in all schemas — ignore
+    }
+  }
+
+  // 8. Clean up pack permission group assignments
+  try {
+    await execute(
+      `DELETE FROM ${TABLES.packPermissionAssignments}
+       WHERE workspace_id = ? AND pack_id = ?`,
+      [workspaceId, packId]
+    );
+  } catch {
+    // Permission assignments table may not exist — ignore
+  }
+
+  return {
+    packId,
+    modulesRemoved,
+    tablesDropped,
+    sharedModulesKept,
+  };
+}

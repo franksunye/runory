@@ -12,16 +12,16 @@ objects:
     label: Customer
     fields:
       - key: name
-        label: 客户名称
+        label: Customer Name
         type: text
         ownership: module_owned
         required: true
       - key: email
-        label: 邮箱
+        label: Email
         type: email
         ownership: module_owned
       - key: phone
-        label: 电话
+        label: Phone
         type: phone
         ownership: module_owned
 
@@ -29,15 +29,15 @@ views:
   - object: customer
     key: customer_list
     type: list
-    label: 客户列表
+    label: Customer List
     config:
       columns:
         - field: name
-          label: 客户名称
+          label: Customer Name
         - field: email
-          label: 邮箱
+          label: Email
         - field: phone
-          label: 电话
+          label: Phone
       actions:
         - create
         - view
@@ -46,10 +46,10 @@ views:
   - object: customer
     key: customer_form
     type: form
-    label: 客户表单
+    label: Customer Form
     config:
       sections:
-        - title: 基本信息
+        - title: Basic Information
           fields:
             - field: name
               required: true
@@ -68,7 +68,7 @@ migrations:
 
 ui:
   navigation:
-    - label: 客户
+    - label: Customers
       route: /customers
       icon: users
       sortOrder: 20
@@ -106,7 +106,7 @@ dashboard:
   widgets:
     - key: customer_total_metric
       type: metric_card
-      label: 客户总数
+      label: Total Customers
       icon: users
       tone: indigo
       data:
@@ -116,12 +116,12 @@ dashboard:
         kind: count
         object: customer
         where: "created_at >= now"
-        template: "本周新增 {count}"
+        template: "New this week: {count}"
       link: /customers
 
     - key: new_customers_trend
       type: trend_chart
-      label: 客户新增趋势
+      label: New Customers Trend
       icon: trending-up
       tone: indigo
       data:
@@ -130,13 +130,13 @@ dashboard:
         range: 14d
       configurable:
         - path: data.range
-          label: 时间范围
+          label: Time Range
           type: select
           options: ["7d", "14d", "30d"]
 
     - key: recent_customers_list
       type: list
-      label: 最近客户
+      label: Recent Customers
       icon: clock
       tone: slate
       data:
@@ -148,7 +148,7 @@ dashboard:
       link: /customers
       configurable:
         - path: data.limit
-          label: 显示条数
+          label: Items per Page
           type: number
           min: 1
           max: 20

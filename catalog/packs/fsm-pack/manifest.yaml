@@ -35,7 +35,7 @@ modules:
 defaultTemplate: small-business-field-service
 
 # Pack-specific terminology overlay (v0.2.3).
-# FSM labels the shared "company" object as "客户" (Customer) for field-service
+# FSM labels the shared "company" object as "Customer" for field-service
 # context, without forking the underlying object definition.
 terminology:
   - object: company

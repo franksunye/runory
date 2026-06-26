@@ -11,12 +11,12 @@ objects:
     label: Conversation
     fields:
       - key: ticket_id
-        label: 关联工单
+        label: Related Ticket
         type: text
         ownership: module_owned
         required: true
       - key: author_type
-        label: 作者类型
+        label: Author Type
         type: select
         ownership: module_owned
         required: true
@@ -24,16 +24,16 @@ objects:
         validation:
           options: ["customer", "agent", "system"]
       - key: author_name
-        label: 作者名称
+        label: Author Name
         type: text
         ownership: module_owned
       - key: body
-        label: 内容
+        label: Content
         type: text
         ownership: module_owned
         required: true
       - key: message_type
-        label: 消息类型
+        label: Message Type
         type: select
         ownership: module_owned
         required: true
@@ -41,21 +41,21 @@ objects:
         validation:
           options: ["comment", "note", "email", "system"]
       - key: is_internal
-        label: 内部备注
+        label: Internal Note
         type: boolean
         ownership: module_owned
         default_value: "false"
       - key: attachments_json
-        label: 附件
+        label: Attachments
         type: text
         ownership: module_owned
         description: "JSON array of attachment metadata"
       - key: owner
-        label: 负责人
+        label: Owner
         type: text
         ownership: module_owned
       - key: notes
-        label: 备注
+        label: Notes
         type: text
         ownership: module_owned
 
@@ -63,19 +63,19 @@ views:
   - object: conversation
     key: conversation_list
     type: list
-    label: 对话列表
+    label: Conversation List
     config:
       columns:
         - field: ticket_id
-          label: 关联工单
+          label: Related Ticket
         - field: author_type
-          label: 作者类型
+          label: Author Type
         - field: author_name
-          label: 作者名称
+          label: Author Name
         - field: message_type
-          label: 消息类型
+          label: Message Type
         - field: is_internal
-          label: 内部备注
+          label: Internal Note
       actions:
         - create
         - view
@@ -84,10 +84,10 @@ views:
   - object: conversation
     key: conversation_form
     type: form
-    label: 对话表单
+    label: Conversation Form
     config:
       sections:
-        - title: 基本信息
+        - title: Basic Information
           fields:
             - field: ticket_id
               required: true
@@ -99,7 +99,7 @@ views:
             - field: message_type
               required: true
             - field: is_internal
-        - title: 附件与元数据
+        - title: Attachments & Metadata
           fields:
             - field: attachments_json
             - field: owner
@@ -118,7 +118,7 @@ relations:
     targetModule: runory.ticket
     type: many_to_one
     foreignKey: ticket_id
-    label: 关联工单
+    label: Related Ticket
 
 migrations:
   install: migrations/install.sql
@@ -126,7 +126,7 @@ migrations:
 
 ui:
   navigation:
-    - label: 对话
+    - label: Conversations
       route: /conversations
       icon: message-circle
       sortOrder: 61
@@ -164,7 +164,7 @@ dashboard:
   widgets:
     - key: recent_conversations_list
       type: list
-      label: 最近对话
+      label: Recent Conversations
       icon: message-circle
       tone: cyan
       data:
@@ -176,7 +176,7 @@ dashboard:
       link: /conversations
       configurable:
         - path: data.limit
-          label: 显示条数
+          label: Display Count
           type: number
           min: 1
           max: 20

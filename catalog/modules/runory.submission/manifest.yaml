@@ -16,20 +16,20 @@ objects:
     label: Submission
     fields:
       - key: form_id
-        label: 关联表单
+        label: Linked Form
         type: text
         ownership: module_owned
         required: true
       - key: landing_page_id
-        label: 来源落地页
+        label: Source Landing Page
         type: text
         ownership: module_owned
       - key: campaign_id
-        label: 来源活动
+        label: Source Campaign
         type: text
         ownership: module_owned
       - key: status
-        label: 状态
+        label: Status
         type: select
         ownership: module_owned
         required: true
@@ -37,57 +37,57 @@ objects:
         validation:
           options: ["new", "processing", "converted", "rejected", "spam"]
       - key: payload_json
-        label: 提交数据
+        label: Submission Data
         type: text
         ownership: module_owned
         description: "JSON of submitted form fields"
       - key: contact_id
-        label: 关联联系人
+        label: Linked Contact
         type: text
         ownership: module_owned
       - key: company_id
-        label: 关联公司
+        label: Linked Company
         type: text
         ownership: module_owned
       - key: deal_id
-        label: 关联商机
+        label: Linked Deal
         type: text
         ownership: module_owned
       - key: source_url
-        label: 来源 URL
+        label: Source URL
         type: text
         ownership: module_owned
       - key: referrer
-        label: 来源页面
+        label: Referrer Page
         type: text
         ownership: module_owned
       - key: ip_address
-        label: IP 地址
+        label: IP Address
         type: text
         ownership: module_owned
       - key: user_agent
-        label: 用户代理
+        label: User Agent
         type: text
         ownership: module_owned
       - key: consent_given
-        label: 已获同意
+        label: Consent Given
         type: boolean
         ownership: module_owned
         default_value: "false"
       - key: consent_text
-        label: 同意条款
+        label: Consent Terms
         type: text
         ownership: module_owned
       - key: processed_by
-        label: 处理人
+        label: Processed By
         type: text
         ownership: module_owned
       - key: processed_at
-        label: 处理时间
+        label: Processed At
         type: date
         ownership: module_owned
       - key: notes
-        label: 备注
+        label: Notes
         type: text
         ownership: module_owned
 
@@ -95,23 +95,23 @@ views:
   - object: submission
     key: submission_list
     type: list
-    label: 提交列表
+    label: Submission List
     config:
       columns:
         - field: status
-          label: 状态
+          label: Status
         - field: form_id
-          label: 关联表单
+          label: Linked Form
         - field: campaign_id
-          label: 来源活动
+          label: Source Campaign
         - field: contact_id
-          label: 关联联系人
+          label: Linked Contact
         - field: company_id
-          label: 关联公司
+          label: Linked Company
         - field: consent_given
-          label: 已获同意
+          label: Consent Given
         - field: created_at
-          label: 提交时间
+          label: Submitted At
       actions:
         - create
         - view
@@ -120,30 +120,30 @@ views:
   - object: submission
     key: submission_form
     type: form
-    label: 提交详情
+    label: Submission Details
     config:
       sections:
-        - title: 基本信息
+        - title: Basic Information
           fields:
             - field: form_id
               required: true
             - field: status
               required: true
-        - title: 来源归因
+        - title: Source Attribution
           fields:
             - field: landing_page_id
             - field: campaign_id
             - field: source_url
             - field: referrer
-        - title: 关联记录
+        - title: Linked Records
           fields:
             - field: contact_id
             - field: company_id
             - field: deal_id
-        - title: 提交数据
+        - title: Submission Data
           fields:
             - field: payload_json
-        - title: 同意与处理
+        - title: Consent & Processing
           fields:
             - field: consent_given
             - field: consent_text
@@ -168,37 +168,37 @@ relations:
     targetModule: runory.form
     type: many_to_one
     foreignKey: form_id
-    label: 关联表单
+    label: Linked Form
   - object: submission
     targetObject: landing_page
     targetModule: runory.landing-page
     type: many_to_one
     foreignKey: landing_page_id
-    label: 来源落地页
+    label: Source Landing Page
   - object: submission
     targetObject: campaign
     targetModule: runory.campaign
     type: many_to_one
     foreignKey: campaign_id
-    label: 来源活动
+    label: Source Campaign
   - object: submission
     targetObject: company
     targetModule: runory.company
     type: many_to_one
     foreignKey: company_id
-    label: 关联公司
+    label: Linked Company
   - object: submission
     targetObject: contact
     targetModule: runory.contact
     type: many_to_one
     foreignKey: contact_id
-    label: 关联联系人
+    label: Linked Contact
   - object: submission
     targetObject: deal
     targetModule: runory.deal
     type: many_to_one
     foreignKey: deal_id
-    label: 关联商机
+    label: Linked Deal
 
 migrations:
   install: migrations/install.sql
@@ -206,7 +206,7 @@ migrations:
 
 ui:
   navigation:
-    - label: 提交记录
+    - label: Submissions
       route: /submissions
       icon: inbox
       sortOrder: 43
@@ -244,7 +244,7 @@ dashboard:
   widgets:
     - key: new_submissions_metric
       type: metric_card
-      label: 新提交
+      label: New Submissions
       icon: inbox
       tone: violet
       data:
@@ -255,7 +255,7 @@ dashboard:
 
     - key: submission_status_breakdown
       type: breakdown
-      label: 提交状态分布
+      label: Submission Status Breakdown
       icon: pie-chart
       tone: violet
       data:
@@ -265,7 +265,7 @@ dashboard:
 
     - key: recent_submissions_list
       type: list
-      label: 最近提交
+      label: Recent Submissions
       icon: inbox
       tone: violet
       data:
@@ -277,14 +277,14 @@ dashboard:
       link: /submissions
       configurable:
         - path: data.limit
-          label: 显示条数
+          label: Items per Page
           type: number
           min: 1
           max: 20
 
     - key: new_submissions_trend
       type: trend_chart
-      label: 提交新增趋势
+      label: New Submissions Trend
       icon: trending-up
       tone: violet
       data:
@@ -293,7 +293,7 @@ dashboard:
         range: 14d
       configurable:
         - path: data.range
-          label: 时间范围
+          label: Time Range
           type: select
           options: ["7d", "14d", "30d"]
 

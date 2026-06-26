@@ -3,11 +3,11 @@ name: Small Business Customer Service
 version: 1.0.0
 
 terminology:
-  customer: 客户
-  ticket: 工单
-  conversation: 对话
-  knowledge: 知识文章
-  support_sla: SLA 策略
+  customer: Customer
+  ticket: Ticket
+  conversation: Conversation
+  knowledge: Knowledge
+  support_sla: SLA Policy
 
 navigation:
   - dashboard

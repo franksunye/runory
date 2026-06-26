@@ -10,32 +10,32 @@ objects:
     label: Knowledge Article
     fields:
       - key: title
-        label: 标题
+        label: Title
         type: text
         ownership: module_owned
         required: true
       - key: slug
-        label: 路径标识
+        label: Slug
         type: text
         ownership: module_owned
         required: true
       - key: content
-        label: 内容
+        label: Content
         type: text
         ownership: module_owned
         required: true
       - key: category
-        label: 分类
+        label: Category
         type: text
         ownership: module_owned
         description: "Article category (e.g., troubleshooting, billing, warranty, faq)"
       - key: tags_json
-        label: 标签
+        label: Tags
         type: text
         ownership: module_owned
         description: "JSON array of tags"
       - key: status
-        label: 状态
+        label: Status
         type: select
         ownership: module_owned
         required: true
@@ -43,34 +43,34 @@ objects:
         validation:
           options: ["draft", "in_review", "published", "archived"]
       - key: views
-        label: 浏览量
+        label: Views
         type: number
         ownership: module_owned
         default_value: "0"
       - key: helpful_count
-        label: 有用数
+        label: Helpful Count
         type: number
         ownership: module_owned
         default_value: "0"
       - key: not_helpful_count
-        label: 无用数
+        label: Not Helpful Count
         type: number
         ownership: module_owned
         default_value: "0"
       - key: author
-        label: 作者
+        label: Author
         type: text
         ownership: module_owned
       - key: published_at
-        label: 发布时间
+        label: Published At
         type: date
         ownership: module_owned
       - key: owner
-        label: 负责人
+        label: Owner
         type: text
         ownership: module_owned
       - key: notes
-        label: 备注
+        label: Notes
         type: text
         ownership: module_owned
 
@@ -78,21 +78,21 @@ views:
   - object: knowledge
     key: knowledge_list
     type: list
-    label: 知识文章列表
+    label: Knowledge Article List
     config:
       columns:
         - field: title
-          label: 标题
+          label: Title
         - field: category
-          label: 分类
+          label: Category
         - field: status
-          label: 状态
+          label: Status
         - field: views
-          label: 浏览量
+          label: Views
         - field: helpful_count
-          label: 有用数
+          label: Helpful Count
         - field: author
-          label: 作者
+          label: Author
       actions:
         - create
         - view
@@ -101,10 +101,10 @@ views:
   - object: knowledge
     key: knowledge_form
     type: form
-    label: 知识文章表单
+    label: Knowledge Article Form
     config:
       sections:
-        - title: 基本信息
+        - title: Basic Information
           fields:
             - field: title
               required: true
@@ -116,12 +116,12 @@ views:
             - field: tags_json
             - field: status
               required: true
-        - title: 统计
+        - title: Statistics
           fields:
             - field: views
             - field: helpful_count
             - field: not_helpful_count
-        - title: 元数据
+        - title: Metadata
           fields:
             - field: author
             - field: published_at
@@ -140,7 +140,7 @@ migrations:
 
 ui:
   navigation:
-    - label: 知识库
+    - label: Knowledge Base
       route: /knowledge
       icon: book-open
       sortOrder: 62
@@ -178,7 +178,7 @@ dashboard:
   widgets:
     - key: published_knowledge_metric
       type: metric_card
-      label: 已发布文章
+      label: Published Articles
       icon: book-open
       tone: emerald
       data:
@@ -189,7 +189,7 @@ dashboard:
 
     - key: draft_knowledge_metric
       type: metric_card
-      label: 草稿文章
+      label: Draft Articles
       icon: edit
       tone: amber
       data:
@@ -200,7 +200,7 @@ dashboard:
 
     - key: knowledge_status_breakdown
       type: breakdown
-      label: 文章状态分布
+      label: Article Status Distribution
       icon: pie-chart
       tone: cyan
       data:
@@ -210,7 +210,7 @@ dashboard:
 
     - key: popular_knowledge_list
       type: list
-      label: 热门文章
+      label: Popular Articles
       icon: trending-up
       tone: violet
       data:
@@ -223,7 +223,7 @@ dashboard:
       link: /knowledge
       configurable:
         - path: data.limit
-          label: 显示条数
+          label: Display Count
           type: number
           min: 1
           max: 20

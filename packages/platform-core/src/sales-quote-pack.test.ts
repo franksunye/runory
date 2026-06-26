@@ -192,7 +192,7 @@ describe("shared module dedupe with CRM Lite Pack", () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Acceptance 3: Pack-specific terminology overlay — Sales Quote labels company as 客户
+// Acceptance 3: Pack-specific terminology overlay — Sales Quote labels company as Customer
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe("Sales Quote pack terminology overlay", () => {
@@ -202,11 +202,11 @@ describe("Sales Quote pack terminology overlay", () => {
 
     const nav = await getNavigation(workspaceId);
 
-    // Sales Quote pack (installed last) relabels company → 客户, deal → 商机
+    // Sales Quote pack (installed last) relabels company → Customer, deal → Opportunity
     const companyNav = nav.find((n) => n.route === "/companies");
     const dealNav = nav.find((n) => n.route === "/deals");
-    expect(companyNav?.label).toBe("客户");
-    expect(dealNav?.label).toBe("商机");
+    expect(companyNav?.label).toBe("Customer");
+    expect(dealNav?.label).toBe("Opportunity");
   });
 
   it("does not fork the underlying object definitions", async () => {
@@ -238,7 +238,7 @@ describe("Sales Quote demo data with cross-pack references", () => {
     expect(products.length).toBe(10);
     const inspection = products.find((p) => p.sku === "SVC-INSP-001");
     expect(inspection).toBeDefined();
-    expect(inspection?.name).toBe("现场巡检服务");
+    expect(inspection?.name).toBe("On-site inspection service");
 
     // Verify price books were created
     const priceBooks = await getRecords(workspaceId, "price_book");
@@ -629,11 +629,11 @@ describe("Sales Quote demo journey (end-to-end trial flow)", () => {
 
     // 2. Create a product/service
     const product = await createRecord(workspaceId, "product_service", {
-      name: "定制开发服务",
+      name: "Custom development service",
       type: "service",
       sku: "SVC-CUSTOM-001",
-      description: "定制软件开发服务",
-      unit: "人天",
+      description: "Custom software development service",
+      unit: "Person-day",
       default_price: 2000,
       currency: "CNY",
       active: true,
@@ -643,14 +643,14 @@ describe("Sales Quote demo journey (end-to-end trial flow)", () => {
     // 3. Create a quote (simulating deal-origin quote)
     const quote = await createRecord(workspaceId, "quote", {
       quote_number: "Q-2026-NEW-001",
-      title: "定制开发报价",
+      title: "Custom development quote",
       status: "draft",
       version: 1,
       currency: "CNY",
       valid_until: "2026-07-31",
       owner: "Alex",
-      terms: "付款条件：30 天内付款",
-      notes: "新创建的定制开发报价",
+      terms: "Payment terms: pay within 30 days",
+      notes: "Newly created custom development quote",
     });
     expect(quote.id).toBeDefined();
 
@@ -658,9 +658,9 @@ describe("Sales Quote demo journey (end-to-end trial flow)", () => {
     const line1 = await createRecord(workspaceId, "quote_line", {
       quote_id: quote.id,
       product_service_id: product.id,
-      description: "定制开发服务",
+      description: "Custom development service",
       quantity: 10,
-      unit: "人天",
+      unit: "Person-day",
       unit_price: 2000,
       tax_amount: 2400,
       line_total: 20000,
@@ -670,9 +670,9 @@ describe("Sales Quote demo journey (end-to-end trial flow)", () => {
 
     const line2 = await createRecord(workspaceId, "quote_line", {
       quote_id: quote.id,
-      description: "项目管理",
+      description: "Project management",
       quantity: 1,
-      unit: "月",
+      unit: "Month",
       unit_price: 5000,
       tax_amount: 600,
       line_total: 5000,
@@ -696,7 +696,7 @@ describe("Sales Quote demo journey (end-to-end trial flow)", () => {
       status: "pending",
       requested_by: "Alex",
       requested_at: "2026-06-23",
-      decision_notes: "等待审批",
+      decision_notes: "Pending approval",
     });
     expect(approval.id).toBeDefined();
 
@@ -710,7 +710,7 @@ describe("Sales Quote demo journey (end-to-end trial flow)", () => {
       status: "approved",
       reviewed_by: "Sam",
       reviewed_at: "2026-06-23",
-      decision_notes: "审批通过",
+      decision_notes: "Approval passed",
     });
     expect(approvedApproval?.status).toBe("approved");
 
@@ -769,9 +769,9 @@ describe("Sales Quote pack installation tracking", () => {
     const terminology = JSON.parse(packInstalls[0].terminology_json!);
     expect(terminology).toHaveLength(2);
     expect(terminology[0].object).toBe("company");
-    expect(terminology[0].navigationLabel).toBe("客户");
+    expect(terminology[0].navigationLabel).toBe("Customer");
     expect(terminology[1].object).toBe("deal");
-    expect(terminology[1].navigationLabel).toBe("商机");
+    expect(terminology[1].navigationLabel).toBe("Opportunity");
   });
 
   it("updates sales quote pack installation on re-install (idempotent)", async () => {

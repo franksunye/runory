@@ -8,12 +8,12 @@ objects:
     label: Product / Service
     fields:
       - key: name
-        label: 名称
+        label: Name
         type: text
         ownership: module_owned
         required: true
       - key: type
-        label: 类型
+        label: Type
         type: select
         ownership: module_owned
         required: true
@@ -25,33 +25,33 @@ objects:
         type: text
         ownership: module_owned
       - key: description
-        label: 描述
+        label: Description
         type: text
         ownership: module_owned
       - key: unit
-        label: 单位
+        label: Unit
         type: text
         ownership: module_owned
       - key: default_price
-        label: 默认价格
+        label: Default Price
         type: number
         ownership: module_owned
       - key: currency
-        label: 币种
+        label: Currency
         type: text
         ownership: module_owned
         default_value: "CNY"
       - key: active
-        label: 启用
+        label: Active
         type: boolean
         ownership: module_owned
         default_value: "true"
       - key: tax_category
-        label: 税类
+        label: Tax Category
         type: text
         ownership: module_owned
       - key: notes
-        label: 备注
+        label: Notes
         type: text
         ownership: module_owned
 
@@ -59,21 +59,21 @@ views:
   - object: product_service
     key: product_service_list
     type: list
-    label: 产品/服务列表
+    label: Product/Service List
     config:
       columns:
         - field: name
-          label: 名称
+          label: Name
         - field: type
-          label: 类型
+          label: Type
         - field: sku
           label: SKU
         - field: default_price
-          label: 默认价格
+          label: Default Price
         - field: currency
-          label: 币种
+          label: Currency
         - field: active
-          label: 启用
+          label: Active
       actions:
         - create
         - view
@@ -82,10 +82,10 @@ views:
   - object: product_service
     key: product_service_form
     type: form
-    label: 产品/服务表单
+    label: Product/Service Form
     config:
       sections:
-        - title: 基本信息
+        - title: Basic Information
           fields:
             - field: name
               required: true
@@ -93,13 +93,13 @@ views:
               required: true
             - field: sku
             - field: description
-        - title: 定价
+        - title: Pricing
           fields:
             - field: default_price
             - field: currency
             - field: unit
             - field: tax_category
-        - title: 状态
+        - title: Status
           fields:
             - field: active
             - field: notes
@@ -116,7 +116,7 @@ migrations:
 
 ui:
   navigation:
-    - label: 产品/服务
+    - label: Products/Services
       route: /products-services
       icon: package
       sortOrder: 70
@@ -154,7 +154,7 @@ dashboard:
   widgets:
     - key: active_products_metric
       type: metric_card
-      label: 启用产品/服务
+      label: Active Products/Services
       icon: package
       tone: indigo
       data:
@@ -165,7 +165,7 @@ dashboard:
 
     - key: product_type_breakdown
       type: breakdown
-      label: 产品类型分布
+      label: Product Type Breakdown
       icon: pie-chart
       tone: indigo
       data:
@@ -175,7 +175,7 @@ dashboard:
 
     - key: recent_products_list
       type: list
-      label: 最近产品/服务
+      label: Recent Products/Services
       icon: package
       tone: indigo
       data:
@@ -187,7 +187,7 @@ dashboard:
       link: /products-services
       configurable:
         - path: data.limit
-          label: 显示条数
+          label: Display Count
           type: number
           min: 1
           max: 20

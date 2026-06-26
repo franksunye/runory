@@ -3,9 +3,9 @@
     {
       "object": "campaign",
       "alias": "camp-summer-2026",
-      "match": { "field": "name", "value": "2026 夏季推广活动" },
+      "match": { "field": "name", "value": "2026 Summer Promotion Campaign" },
       "data": {
-        "name": "2026 夏季推广活动",
+        "name": "2026 Summer Promotion Campaign",
         "status": "active",
         "source": "newsletter",
         "medium": "email",
@@ -14,15 +14,15 @@
         "budget": 50000,
         "currency": "CNY",
         "owner": "Sam",
-        "notes": "面向中小企业的夏季服务推广"
+        "notes": "Summer service promotion for SMEs"
       }
     },
     {
       "object": "campaign",
       "alias": "camp-hvac-awareness",
-      "match": { "field": "name", "value": "HVAC 维护意识月" },
+      "match": { "field": "name", "value": "HVAC Maintenance Awareness Month" },
       "data": {
-        "name": "HVAC 维护意识月",
+        "name": "HVAC Maintenance Awareness Month",
         "status": "active",
         "source": "google",
         "medium": "cpc",
@@ -31,15 +31,15 @@
         "budget": 20000,
         "currency": "CNY",
         "owner": "Alex",
-        "notes": "Google Ads 搜索推广"
+        "notes": "Google Ads search promotion"
       }
     },
     {
       "object": "campaign",
       "alias": "camp-q3-enterprise",
-      "match": { "field": "name", "value": "Q3 企业客户拓展" },
+      "match": { "field": "name", "value": "Q3 Enterprise Customer Expansion" },
       "data": {
-        "name": "Q3 企业客户拓展",
+        "name": "Q3 Enterprise Customer Expansion",
         "status": "planning",
         "source": "linkedin",
         "medium": "social",
@@ -48,15 +48,15 @@
         "budget": 80000,
         "currency": "CNY",
         "owner": "Sam",
-        "notes": "LinkedIn 定向投放"
+        "notes": "LinkedIn targeted advertising"
       }
     },
     {
       "object": "campaign",
       "alias": "camp-spring-recap",
-      "match": { "field": "name", "value": "春季活动回顾" },
+      "match": { "field": "name", "value": "Spring Campaign Recap" },
       "data": {
-        "name": "春季活动回顾",
+        "name": "Spring Campaign Recap",
         "status": "completed",
         "source": "newsletter",
         "medium": "email",
@@ -65,15 +65,15 @@
         "budget": 30000,
         "currency": "CNY",
         "owner": "Alex",
-        "notes": "已完成的春季推广"
+        "notes": "Completed spring promotion"
       }
     },
     {
       "object": "campaign",
       "alias": "camp-referral",
-      "match": { "field": "name", "value": "客户推荐计划" },
+      "match": { "field": "name", "value": "Customer Referral Program" },
       "data": {
-        "name": "客户推荐计划",
+        "name": "Customer Referral Program",
         "status": "active",
         "source": "referral",
         "medium": "offline",
@@ -82,7 +82,7 @@
         "budget": 15000,
         "currency": "CNY",
         "owner": "Sam",
-        "notes": "全年客户推荐激励"
+        "notes": "Year-round customer referral incentives"
       }
     },
     {
@@ -90,15 +90,15 @@
       "alias": "form-contact-us",
       "match": { "field": "slug", "value": "contact-us" },
       "data": {
-        "name": "联系我们",
+        "name": "Contact Us",
         "slug": "contact-us",
         "status": "published",
         "target_object": "contact",
-        "fields_json": "[{\"key\":\"name\",\"label\":\"姓名\",\"type\":\"text\",\"required\":true},{\"key\":\"email\",\"label\":\"邮箱\",\"type\":\"text\",\"required\":true},{\"key\":\"phone\",\"label\":\"电话\",\"type\":\"text\"},{\"key\":\"company\",\"label\":\"公司\",\"type\":\"text\"},{\"key\":\"message\",\"label\":\"留言\",\"type\":\"text\",\"required\":true}]",
-        "submit_button_label": "提交",
-        "success_message": "感谢您的提交，我们会尽快与您联系。",
+        "fields_json": "[{\"key\":\"name\",\"label\":\"Name\",\"type\":\"text\",\"required\":true},{\"key\":\"email\",\"label\":\"Email\",\"type\":\"text\",\"required\":true},{\"key\":\"phone\",\"label\":\"Phone\",\"type\":\"text\"},{\"key\":\"company\",\"label\":\"Company\",\"type\":\"text\"},{\"key\":\"message\",\"label\":\"Message\",\"type\":\"text\",\"required\":true}]",
+        "submit_button_label": "Submit",
+        "success_message": "Thank you for your submission, we will contact you shortly.",
         "campaign_id": "$camp-summer-2026.id",
-        "notes": "通用联系表单"
+        "notes": "General contact form"
       }
     },
     {
@@ -106,15 +106,15 @@
       "alias": "form-hvac-quote",
       "match": { "field": "slug", "value": "hvac-quote-request" },
       "data": {
-        "name": "HVAC 维修报价申请",
+        "name": "HVAC Repair Quote Request",
         "slug": "hvac-quote-request",
         "status": "published",
         "target_object": "contact",
-        "fields_json": "[{\"key\":\"name\",\"label\":\"姓名\",\"type\":\"text\",\"required\":true},{\"key\":\"email\",\"label\":\"邮箱\",\"type\":\"text\",\"required\":true},{\"key\":\"phone\",\"label\":\"电话\",\"type\":\"text\",\"required\":true},{\"key\":\"company\",\"label\":\"公司\",\"type\":\"text\"},{\"key\":\"asset_type\",\"label\":\"设备类型\",\"type\":\"text\",\"required\":true},{\"key\":\"issue_description\",\"label\":\"问题描述\",\"type\":\"text\",\"required\":true}]",
-        "submit_button_label": "申请报价",
-        "success_message": "我们已收到您的报价申请，工程师将在 24 小时内联系您。",
+        "fields_json": "[{\"key\":\"name\",\"label\":\"Name\",\"type\":\"text\",\"required\":true},{\"key\":\"email\",\"label\":\"Email\",\"type\":\"text\",\"required\":true},{\"key\":\"phone\",\"label\":\"Phone\",\"type\":\"text\",\"required\":true},{\"key\":\"company\",\"label\":\"Company\",\"type\":\"text\"},{\"key\":\"asset_type\",\"label\":\"Equipment Type\",\"type\":\"text\",\"required\":true},{\"key\":\"issue_description\",\"label\":\"Issue Description\",\"type\":\"text\",\"required\":true}]",
+        "submit_button_label": "Request Quote",
+        "success_message": "We have received your quote request, an engineer will contact you within 24 hours.",
         "campaign_id": "$camp-hvac-awareness.id",
-        "notes": "HVAC 维修报价申请表单"
+        "notes": "HVAC repair quote request form"
       }
     },
     {
@@ -122,15 +122,15 @@
       "alias": "form-demo-request",
       "match": { "field": "slug", "value": "demo-request" },
       "data": {
-        "name": "产品演示申请",
+        "name": "Product Demo Request",
         "slug": "demo-request",
         "status": "published",
         "target_object": "contact",
-        "fields_json": "[{\"key\":\"name\",\"label\":\"姓名\",\"type\":\"text\",\"required\":true},{\"key\":\"email\",\"label\":\"邮箱\",\"type\":\"text\",\"required\":true},{\"key\":\"company\",\"label\":\"公司\",\"type\":\"text\",\"required\":true},{\"key\":\"team_size\",\"label\":\"团队规模\",\"type\":\"text\"},{\"key\":\"preferred_date\",\"label\":\"期望演示日期\",\"type\":\"text\"}]",
-        "submit_button_label": "预约演示",
-        "success_message": "感谢预约演示，我们会尽快安排时间。",
+        "fields_json": "[{\"key\":\"name\",\"label\":\"Name\",\"type\":\"text\",\"required\":true},{\"key\":\"email\",\"label\":\"Email\",\"type\":\"text\",\"required\":true},{\"key\":\"company\",\"label\":\"Company\",\"type\":\"text\",\"required\":true},{\"key\":\"team_size\",\"label\":\"Team Size\",\"type\":\"text\"},{\"key\":\"preferred_date\",\"label\":\"Preferred Demo Date\",\"type\":\"text\"}]",
+        "submit_button_label": "Schedule Demo",
+        "success_message": "Thank you for scheduling a demo, we will arrange a time shortly.",
         "campaign_id": "$camp-q3-enterprise.id",
-        "notes": "产品演示申请表单"
+        "notes": "Product demo request form"
       }
     },
     {
@@ -138,14 +138,14 @@
       "alias": "form-newsletter",
       "match": { "field": "slug", "value": "newsletter-signup" },
       "data": {
-        "name": "邮件订阅",
+        "name": "Newsletter Signup",
         "slug": "newsletter-signup",
         "status": "draft",
         "target_object": "contact",
-        "fields_json": "[{\"key\":\"email\",\"label\":\"邮箱\",\"type\":\"text\",\"required\":true}]",
-        "submit_button_label": "订阅",
-        "success_message": "订阅成功！",
-        "notes": "邮件订阅表单（草稿）"
+        "fields_json": "[{\"key\":\"email\",\"label\":\"Email\",\"type\":\"text\",\"required\":true}]",
+        "submit_button_label": "Subscribe",
+        "success_message": "Subscription successful!",
+        "notes": "Newsletter signup form (draft)"
       }
     },
     {
@@ -153,16 +153,16 @@
       "alias": "lp-summer-promo",
       "match": { "field": "slug", "value": "summer-promo" },
       "data": {
-        "title": "夏季服务推广",
+        "title": "Summer Service Promotion",
         "slug": "summer-promo",
         "status": "published",
-        "headline": "专业服务，夏季特惠",
-        "subheadline": "限时优惠，立即预约享受 8 折",
-        "body_html": "<p>我们的夏季服务推广正在进行中。无论是设备巡检、紧急维修还是年度维保，现在预约都能享受特别优惠。</p><ul><li>现场巡检服务 8 折</li><li>年度维保套餐立减 1000 元</li><li>紧急上门支持优先响应</li></ul>",
-        "cta_text": "立即申请",
+        "headline": "Professional service, summer special offer",
+        "subheadline": "Limited-time offer, book now for 20% off",
+        "body_html": "<p>Our summer service promotion is underway. Whether it is equipment inspection, emergency repair or annual maintenance, booking now gets you special discounts.</p><ul><li>On-site inspection service 20% off</li><li>Annual maintenance plan 1000 CNY off</li><li>Emergency on-site support priority response</li></ul>",
+        "cta_text": "Apply Now",
         "form_id": "$form-contact-us.id",
         "campaign_id": "$camp-summer-2026.id",
-        "meta_description": "夏季服务推广 - 专业设备维护与维修服务",
+        "meta_description": "Summer service promotion - professional equipment maintenance and repair service",
         "published_at": "2026-06-01",
         "owner": "Sam"
       }
@@ -172,16 +172,16 @@
       "alias": "lp-hvac-service",
       "match": { "field": "slug", "value": "hvac-maintenance" },
       "data": {
-        "title": "HVAC 专业维护服务",
+        "title": "HVAC Professional Maintenance Service",
         "slug": "hvac-maintenance",
         "status": "published",
-        "headline": "HVAC 维护，专业可靠",
-        "subheadline": "认证工程师，快速响应，透明报价",
-        "body_html": "<p>我们提供全面的 HVAC 维护服务，包括：</p><ul><li>定期巡检与保养</li><li>紧急维修</li><li>制冷剂补充</li><li>滤芯更换</li><li>设备校准</li></ul><p>所有服务均由认证工程师执行，提供详细报告。</p>",
-        "cta_text": "申请报价",
+        "headline": "HVAC maintenance, professional and reliable",
+        "subheadline": "Certified engineers, fast response, transparent pricing",
+        "body_html": "<p>We provide comprehensive HVAC maintenance services, including:</p><ul><li>Regular inspection and maintenance</li><li>Emergency repair</li><li>Refrigerant recharge</li><li>Filter replacement</li><li>Equipment calibration</li></ul><p>All services are performed by certified engineers, with detailed reports provided.</p>",
+        "cta_text": "Request Quote",
         "form_id": "$form-hvac-quote.id",
         "campaign_id": "$camp-hvac-awareness.id",
-        "meta_description": "HVAC 专业维护服务 - 认证工程师，快速响应",
+        "meta_description": "HVAC professional maintenance service - certified engineers, fast response",
         "published_at": "2026-06-15",
         "owner": "Alex"
       }
@@ -191,16 +191,16 @@
       "alias": "lp-enterprise-demo",
       "match": { "field": "slug", "value": "enterprise-demo" },
       "data": {
-        "title": "企业解决方案演示",
+        "title": "Enterprise Solution Demo",
         "slug": "enterprise-demo",
         "status": "pending_review",
-        "headline": "为您的企业量身定制",
-        "subheadline": "预约一对一演示，了解完整解决方案",
-        "body_html": "<p>我们的企业解决方案集成了 CRM、FSM、报价管理和营销捕获能力，帮助您：</p><ul><li>统一管理客户与服务</li><li>自动化报价与审批流程</li><li>捕获线上营销线索</li><li>追踪服务履约全流程</li></ul>",
-        "cta_text": "预约演示",
+        "headline": "Tailored for your enterprise",
+        "subheadline": "Schedule a one-on-one demo to learn about the complete solution",
+        "body_html": "<p>Our enterprise solution integrates CRM, FSM, quote management and marketing capture capabilities, helping you:</p><ul><li>Unify customer and service management</li><li>Automate quote and approval workflows</li><li>Capture online marketing leads</li><li>Track the full service fulfillment process</li></ul>",
+        "cta_text": "Schedule Demo",
         "form_id": "$form-demo-request.id",
         "campaign_id": "$camp-q3-enterprise.id",
-        "meta_description": "企业解决方案演示 - 一对一定制化展示",
+        "meta_description": "Enterprise solution demo - one-on-one customized presentation",
         "owner": "Sam"
       }
     },
@@ -209,16 +209,16 @@
       "alias": "lp-old-promo",
       "match": { "field": "slug", "value": "spring-promo" },
       "data": {
-        "title": "春季推广活动",
+        "title": "Spring Promotion Campaign",
         "slug": "spring-promo",
         "status": "unpublished",
-        "headline": "春季服务优惠",
-        "subheadline": "已结束的春季活动",
-        "body_html": "<p>此活动已结束。</p>",
-        "cta_text": "了解详情",
+        "headline": "Spring service discount",
+        "subheadline": "Ended spring campaign",
+        "body_html": "<p>This campaign has ended.</p>",
+        "cta_text": "Learn More",
         "form_id": "$form-contact-us.id",
         "campaign_id": "$camp-spring-recap.id",
-        "meta_description": "春季推广活动（已结束）",
+        "meta_description": "Spring promotion campaign (ended)",
         "published_at": "2026-03-01",
         "owner": "Alex"
       }
@@ -232,7 +232,7 @@
         "landing_page_id": "$lp-summer-promo.id",
         "campaign_id": "$camp-summer-2026.id",
         "status": "converted",
-        "payload_json": "{\"name\":\"David Chen\",\"email\":\"david.chen@example.com\",\"phone\":\"+86 138 0000 0001\",\"company\":\"Chen Tech\",\"message\":\"对我们的年度维保套餐感兴趣\"}",
+        "payload_json": "{\"name\":\"David Chen\",\"email\":\"david.chen@example.com\",\"phone\":\"+86 138 0000 0001\",\"company\":\"Chen Tech\",\"message\":\"Interested in our annual maintenance plan\"}",
         "contact_id": { "$lookup": { "object": "contact", "field": "email", "value": "maya@acme.example" } },
         "company_id": { "$lookup": { "object": "company", "field": "domain", "value": "acme.example" } },
         "source_url": "https://runory.example/p/summer-promo",
@@ -240,10 +240,10 @@
         "ip_address": "192.168.1.100",
         "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)",
         "consent_given": true,
-        "consent_text": "我同意接收相关服务信息",
+        "consent_text": "I agree to receive relevant service information",
         "processed_by": "Alex",
         "processed_at": "2026-06-20",
-        "notes": "已转化为联系人"
+        "notes": "Converted to contact"
       }
     },
     {
@@ -255,7 +255,7 @@
         "landing_page_id": "$lp-hvac-service.id",
         "campaign_id": "$camp-hvac-awareness.id",
         "status": "converted",
-        "payload_json": "{\"name\":\"Sarah Wong\",\"email\":\"sarah.wong@example.com\",\"phone\":\"+86 139 0000 0002\",\"company\":\"Wong Retail\",\"asset_type\":\"HVAC\",\"issue_description\":\"中央空调制冷不足\"}",
+        "payload_json": "{\"name\":\"Sarah Wong\",\"email\":\"sarah.wong@example.com\",\"phone\":\"+86 139 0000 0002\",\"company\":\"Wong Retail\",\"asset_type\":\"HVAC\",\"issue_description\":\"Central air conditioning insufficient cooling\"}",
         "contact_id": { "$lookup": { "object": "contact", "field": "email", "value": "jon@novaretail.example" } },
         "company_id": { "$lookup": { "object": "company", "field": "domain", "value": "novaretail.example" } },
         "deal_id": { "$lookup": { "object": "deal", "field": "name", "value": "Nova Store Rollout" } },
@@ -264,10 +264,10 @@
         "ip_address": "192.168.1.101",
         "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
         "consent_given": true,
-        "consent_text": "我同意接收报价及相关服务信息",
+        "consent_text": "I agree to receive quotes and related service information",
         "processed_by": "Alex",
         "processed_at": "2026-06-21",
-        "notes": "已转化为联系人和商机"
+        "notes": "Converted to contact and opportunity"
       }
     },
     {
@@ -279,14 +279,14 @@
         "landing_page_id": "$lp-summer-promo.id",
         "campaign_id": "$camp-referral.id",
         "status": "new",
-        "payload_json": "{\"name\":\"Michael Liu\",\"email\":\"michael.liu@example.com\",\"phone\":\"+86 137 0000 0003\",\"company\":\"Liu Manufacturing\",\"message\":\"希望了解设备校准服务\"}",
+        "payload_json": "{\"name\":\"Michael Liu\",\"email\":\"michael.liu@example.com\",\"phone\":\"+86 137 0000 0003\",\"company\":\"Liu Manufacturing\",\"message\":\"Would like to learn about equipment calibration service\"}",
         "source_url": "https://runory.example/p/summer-promo?utm_source=referral",
         "referrer": "https://partner.example.com/referrals",
         "ip_address": "192.168.1.102",
         "user_agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 16_0)",
         "consent_given": true,
-        "consent_text": "我同意接收相关服务信息",
-        "notes": "新提交，待处理"
+        "consent_text": "I agree to receive relevant service information",
+        "notes": "New submission, pending processing"
       }
     },
     {
@@ -298,14 +298,14 @@
         "landing_page_id": "$lp-hvac-service.id",
         "campaign_id": "$camp-hvac-awareness.id",
         "status": "new",
-        "payload_json": "{\"name\":\"Emily Zhang\",\"email\":\"emily.zhang@example.com\",\"phone\":\"+86 136 0000 0004\",\"company\":\"Zhang Logistics\",\"asset_type\":\"Refrigeration\",\"issue_description\":\"冷库温度异常\"}",
+        "payload_json": "{\"name\":\"Emily Zhang\",\"email\":\"emily.zhang@example.com\",\"phone\":\"+86 136 0000 0004\",\"company\":\"Zhang Logistics\",\"asset_type\":\"Refrigeration\",\"issue_description\":\"Cold storage temperature abnormal\"}",
         "source_url": "https://runory.example/p/hvac-maintenance?ad=google",
         "referrer": "https://google.com/search?q=cold+storage+repair",
         "ip_address": "192.168.1.103",
         "user_agent": "Mozilla/5.0 (X11; Linux x86_64)",
         "consent_given": true,
-        "consent_text": "我同意接收报价及相关服务信息",
-        "notes": "新提交，冷库维修需求"
+        "consent_text": "I agree to receive quotes and related service information",
+        "notes": "New submission, cold storage repair request"
       }
     },
     {
@@ -317,7 +317,7 @@
         "landing_page_id": "$lp-summer-promo.id",
         "campaign_id": "$camp-summer-2026.id",
         "status": "processing",
-        "payload_json": "{\"name\":\"Robert Wang\",\"email\":\"robert.wang@example.com\",\"phone\":\"+86 135 0000 0005\",\"company\":\"Wang Consulting\",\"message\":\"需要紧急上门支持\"}",
+        "payload_json": "{\"name\":\"Robert Wang\",\"email\":\"robert.wang@example.com\",\"phone\":\"+86 135 0000 0005\",\"company\":\"Wang Consulting\",\"message\":\"Need emergency on-site support\"}",
         "contact_id": { "$lookup": { "object": "contact", "field": "email", "value": "eric@harborlogistics.example" } },
         "company_id": { "$lookup": { "object": "company", "field": "domain", "value": "harborlogistics.example" } },
         "source_url": "https://runory.example/p/summer-promo?utm_source=newsletter",
@@ -325,10 +325,10 @@
         "ip_address": "192.168.1.104",
         "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)",
         "consent_given": true,
-        "consent_text": "我同意接收相关服务信息",
+        "consent_text": "I agree to receive relevant service information",
         "processed_by": "Sam",
         "processed_at": "2026-06-22",
-        "notes": "正在处理中"
+        "notes": "Processing"
       }
     },
     {
@@ -346,7 +346,7 @@
         "ip_address": "10.0.0.1",
         "user_agent": "bot/1.0",
         "consent_given": false,
-        "notes": "标记为垃圾提交"
+        "notes": "Marked as spam submission"
       }
     },
     {
@@ -358,16 +358,16 @@
         "landing_page_id": "$lp-summer-promo.id",
         "campaign_id": "$camp-q3-enterprise.id",
         "status": "rejected",
-        "payload_json": "{\"name\":\"Frank Zhao\",\"email\":\"frank.zhao@example.com\",\"phone\":\"+86 134 0000 0007\",\"company\":\"Zhao Holdings\",\"message\":\"价格太高，暂不考虑\"}",
+        "payload_json": "{\"name\":\"Frank Zhao\",\"email\":\"frank.zhao@example.com\",\"phone\":\"+86 134 0000 0007\",\"company\":\"Zhao Holdings\",\"message\":\"Price too high, not considering for now\"}",
         "source_url": "https://runory.example/p/summer-promo?utm_source=linkedin",
         "referrer": "https://linkedin.com/feed",
         "ip_address": "192.168.1.105",
         "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
         "consent_given": true,
-        "consent_text": "我同意接收相关服务信息",
+        "consent_text": "I agree to receive relevant service information",
         "processed_by": "Sam",
         "processed_at": "2026-06-19",
-        "notes": "客户表示价格过高，已拒绝"
+        "notes": "Customer indicated price too high, rejected"
       }
     },
     {
@@ -379,7 +379,7 @@
         "landing_page_id": "$lp-summer-promo.id",
         "campaign_id": "$camp-summer-2026.id",
         "status": "converted",
-        "payload_json": "{\"name\":\"Linda Sun\",\"email\":\"linda.sun@example.com\",\"phone\":\"+86 133 0000 0008\",\"company\":\"Sun Healthcare\",\"message\":\"需要设备校准和年度维保\"}",
+        "payload_json": "{\"name\":\"Linda Sun\",\"email\":\"linda.sun@example.com\",\"phone\":\"+86 133 0000 0008\",\"company\":\"Sun Healthcare\",\"message\":\"Need equipment calibration and annual maintenance\"}",
         "contact_id": { "$lookup": { "object": "contact", "field": "email", "value": "anna@pinehealth.example" } },
         "company_id": { "$lookup": { "object": "company", "field": "domain", "value": "pinehealth.example" } },
         "deal_id": { "$lookup": { "object": "deal", "field": "name", "value": "Pine Health Pilot Program" } },
@@ -388,10 +388,10 @@
         "ip_address": "192.168.1.106",
         "user_agent": "Mozilla/5.0 (iPad; CPU OS 16_0)",
         "consent_given": true,
-        "consent_text": "我同意接收相关服务信息",
+        "consent_text": "I agree to receive relevant service information",
         "processed_by": "Alex",
         "processed_at": "2026-06-18",
-        "notes": "已转化为联系人和商机"
+        "notes": "Converted to contact and opportunity"
       }
     },
     {
@@ -406,7 +406,7 @@
         "source": "form_submission",
         "submission_id": "$sub-1.id",
         "policy_version": "v1.0-2026",
-        "notes": "通过夏季推广表单授予"
+        "notes": "Granted via summer promotion form"
       }
     },
     {
@@ -421,7 +421,7 @@
         "source": "form_submission",
         "submission_id": "$sub-2.id",
         "policy_version": "v1.0-2026",
-        "notes": "通过 HVAC 报价表单授予"
+        "notes": "Granted via HVAC quote form"
       }
     },
     {
@@ -436,7 +436,7 @@
         "source": "form_submission",
         "submission_id": "$sub-5.id",
         "policy_version": "v1.0-2026",
-        "notes": "通过夏季推广表单授予"
+        "notes": "Granted via summer promotion form"
       }
     },
     {
@@ -452,7 +452,7 @@
         "source": "form_submission",
         "submission_id": "$sub-8.id",
         "policy_version": "v1.0-2026",
-        "notes": "已撤回营销邮件同意"
+        "notes": "Marketing email consent withdrawn"
       }
     },
     {
@@ -466,7 +466,7 @@
         "granted_at": "2026-06-15",
         "source": "explicit_opt_in",
         "policy_version": "v1.0-2026",
-        "notes": "网站 Cookie 同意"
+        "notes": "Website Cookie consent"
       }
     }
   ]

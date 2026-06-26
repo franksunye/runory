@@ -12,17 +12,17 @@ objects:
     label: Entitlement
     fields:
       - key: entitlement_number
-        label: 权益编号
+        label: Entitlement Number
         type: text
         ownership: module_owned
         required: true
       - key: name
-        label: 名称
+        label: Name
         type: text
         ownership: module_owned
         required: true
       - key: status
-        label: 状态
+        label: Status
         type: select
         ownership: module_owned
         required: true
@@ -30,7 +30,7 @@ objects:
         validation:
           options: ["active", "suspended", "expired", "consumed"]
       - key: entitlement_type
-        label: 权益类型
+        label: Entitlement Type
         type: select
         ownership: module_owned
         required: true
@@ -38,56 +38,56 @@ objects:
         validation:
           options: ["support_hours", "visits", "discount", "service_credits", "priority_response"]
       - key: total_value
-        label: 总量
+        label: Total Value
         type: number
         ownership: module_owned
         required: true
         default_value: "0"
       - key: consumed_value
-        label: 已用量
+        label: Consumed Value
         type: number
         ownership: module_owned
         default_value: "0"
       - key: remaining_value
-        label: 剩余量
+        label: Remaining Value
         type: number
         ownership: module_owned
         description: "Auto-calculated: total - consumed"
       - key: unit
-        label: 单位
+        label: Unit
         type: text
         ownership: module_owned
         default_value: "hours"
       - key: start_date
-        label: 开始日期
+        label: Start Date
         type: date
         ownership: module_owned
       - key: end_date
-        label: 结束日期
+        label: End Date
         type: date
         ownership: module_owned
       - key: company_id
-        label: 关联公司
+        label: Related Company
         type: text
         ownership: module_owned
       - key: contact_id
-        label: 关联联系人
+        label: Related Contact
         type: text
         ownership: module_owned
       - key: product_service_id
-        label: 关联产品/服务
+        label: Related Product/Service
         type: text
         ownership: module_owned
       - key: asset_id
-        label: 关联资产
+        label: Related Asset
         type: text
         ownership: module_owned
       - key: owner
-        label: 负责人
+        label: Owner
         type: text
         ownership: module_owned
       - key: notes
-        label: 备注
+        label: Notes
         type: text
         ownership: module_owned
 
@@ -95,23 +95,23 @@ views:
   - object: entitlement
     key: entitlement_list
     type: list
-    label: 权益列表
+    label: Entitlement List
     config:
       columns:
         - field: entitlement_number
-          label: 权益编号
+          label: Entitlement Number
         - field: name
-          label: 名称
+          label: Name
         - field: status
-          label: 状态
+          label: Status
         - field: entitlement_type
-          label: 权益类型
+          label: Entitlement Type
         - field: total_value
-          label: 总量
+          label: Total Value
         - field: consumed_value
-          label: 已用量
+          label: Consumed Value
         - field: remaining_value
-          label: 剩余量
+          label: Remaining Value
       actions:
         - create
         - view
@@ -120,10 +120,10 @@ views:
   - object: entitlement
     key: entitlement_form
     type: form
-    label: 权益表单
+    label: Entitlement Form
     config:
       sections:
-        - title: 基本信息
+        - title: Basic Information
           fields:
             - field: entitlement_number
               required: true
@@ -138,17 +138,17 @@ views:
             - field: consumed_value
             - field: remaining_value
             - field: unit
-        - title: 有效期
+        - title: Validity Period
           fields:
             - field: start_date
             - field: end_date
-        - title: 关联
+        - title: Associations
           fields:
             - field: company_id
             - field: contact_id
             - field: product_service_id
             - field: asset_id
-        - title: 元数据
+        - title: Metadata
           fields:
             - field: owner
             - field: notes
@@ -166,25 +166,25 @@ relations:
     targetModule: runory.company
     type: many_to_one
     foreignKey: company_id
-    label: 关联公司
+    label: Related Company
   - object: entitlement
     targetObject: contact
     targetModule: runory.contact
     type: many_to_one
     foreignKey: contact_id
-    label: 关联联系人
+    label: Related Contact
   - object: entitlement
     targetObject: product_service
     targetModule: runory.product-service
     type: many_to_one
     foreignKey: product_service_id
-    label: 关联产品/服务
+    label: Related Product/Service
   - object: entitlement
     targetObject: asset
     targetModule: runory.asset
     type: many_to_one
     foreignKey: asset_id
-    label: 关联资产
+    label: Related Asset
 
 migrations:
   install: migrations/install.sql
@@ -192,7 +192,7 @@ migrations:
 
 ui:
   navigation:
-    - label: 权益
+    - label: Entitlements
       route: /entitlements
       icon: gift
       sortOrder: 71
@@ -230,7 +230,7 @@ dashboard:
   widgets:
     - key: active_entitlements_metric
       type: metric_card
-      label: 活跃权益
+      label: Active Entitlements
       icon: gift
       tone: emerald
       data:
@@ -241,7 +241,7 @@ dashboard:
 
     - key: entitlement_status_breakdown
       type: breakdown
-      label: 权益状态分布
+      label: Entitlement Status Distribution
       icon: pie-chart
       tone: cyan
       data:
@@ -251,7 +251,7 @@ dashboard:
 
     - key: entitlement_type_breakdown
       type: breakdown
-      label: 权益类型分布
+      label: Entitlement Type Distribution
       icon: pie-chart
       tone: violet
       data:
@@ -261,7 +261,7 @@ dashboard:
 
     - key: recent_entitlements_list
       type: list
-      label: 最近权益
+      label: Recent Entitlements
       icon: gift
       tone: cyan
       data:
@@ -273,7 +273,7 @@ dashboard:
       link: /entitlements
       configurable:
         - path: data.limit
-          label: 显示条数
+          label: Display Count
           type: number
           min: 1
           max: 20

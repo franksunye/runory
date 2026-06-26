@@ -30,16 +30,16 @@ modules:
 defaultTemplate: small-business-marketing-capture
 
 # Pack-specific terminology overlay (v0.2.3).
-# Marketing Capture labels the shared "company" object as "客户" (Customer)
-# and "deal" as "商机" (Opportunity) for marketing context.
+# Marketing Capture labels the shared "company" object as "Customer"
+# and "deal" as "Opportunity" for marketing context.
 terminology:
   - object: company
-    label: 客户
-    navigationLabel: 客户
+    label: Customer
+    navigationLabel: Customer
     route: /companies
   - object: deal
-    label: 商机
-    navigationLabel: 商机
+    label: Opportunity
+    navigationLabel: Opportunity
     route: /deals
 
 # Marketing workbench — focuses on capture, conversion, and consent.

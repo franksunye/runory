@@ -3,14 +3,14 @@ name: Small Business Marketing Capture
 version: 1.0.0
 
 terminology:
-  customer: 客户
-  contact: 联系人
-  deal: 商机
-  campaign: 营销活动
-  form: 表单
-  landing_page: 落地页
-  submission: 提交记录
-  consent: 同意记录
+  customer: Customer
+  contact: Contact
+  deal: Opportunity
+  campaign: Campaign
+  form: Form
+  landing_page: Landing Page
+  submission: Submission
+  consent: Consent
 
 navigation:
   - dashboard

@@ -12,17 +12,17 @@ objects:
     label: Customer Success
     fields:
       - key: followup_number
-        label: 跟进编号
+        label: Follow-up Number
         type: text
         ownership: module_owned
         required: true
       - key: subject
-        label: 主题
+        label: Subject
         type: text
         ownership: module_owned
         required: true
       - key: status
-        label: 状态
+        label: Status
         type: select
         ownership: module_owned
         required: true
@@ -30,7 +30,7 @@ objects:
         validation:
           options: ["scheduled", "in_progress", "completed", "cancelled", "overdue"]
       - key: followup_type
-        label: 跟进类型
+        label: Follow-up Type
         type: select
         ownership: module_owned
         required: true
@@ -38,7 +38,7 @@ objects:
         validation:
           options: ["check_in", "onboarding", "renewal", "upsell", "satisfaction", "escalation"]
       - key: priority
-        label: 优先级
+        label: Priority
         type: select
         ownership: module_owned
         required: true
@@ -46,49 +46,49 @@ objects:
         validation:
           options: ["low", "medium", "high", "urgent"]
       - key: scheduled_at
-        label: 计划时间
+        label: Scheduled At
         type: date
         ownership: module_owned
       - key: completed_at
-        label: 完成时间
+        label: Completed At
         type: date
         ownership: module_owned
       - key: company_id
-        label: 关联公司
+        label: Related Company
         type: text
         ownership: module_owned
       - key: contact_id
-        label: 关联联系人
+        label: Related Contact
         type: text
         ownership: module_owned
       - key: deal_id
-        label: 关联商机
+        label: Related Deal
         type: text
         ownership: module_owned
       - key: task_id
-        label: 关联任务
+        label: Related Task
         type: text
         ownership: module_owned
       - key: outcome
-        label: 跟进结果
+        label: Follow-up Outcome
         type: text
         ownership: module_owned
         description: "Summary of the follow-up outcome"
       - key: satisfaction_score
-        label: 满意度评分
+        label: Satisfaction Score
         type: number
         ownership: module_owned
         description: "1-10 scale satisfaction score"
       - key: assigned_to
-        label: 分配给
+        label: Assigned To
         type: text
         ownership: module_owned
       - key: owner
-        label: 负责人
+        label: Owner
         type: text
         ownership: module_owned
       - key: notes
-        label: 备注
+        label: Notes
         type: text
         ownership: module_owned
 
@@ -96,23 +96,23 @@ views:
   - object: customer_success
     key: customer_success_list
     type: list
-    label: 客户成功列表
+    label: Customer Success List
     config:
       columns:
         - field: followup_number
-          label: 跟进编号
+          label: Follow-up Number
         - field: subject
-          label: 主题
+          label: Subject
         - field: status
-          label: 状态
+          label: Status
         - field: followup_type
-          label: 跟进类型
+          label: Follow-up Type
         - field: priority
-          label: 优先级
+          label: Priority
         - field: scheduled_at
-          label: 计划时间
+          label: Scheduled At
         - field: assigned_to
-          label: 分配给
+          label: Assigned To
       actions:
         - create
         - view
@@ -121,10 +121,10 @@ views:
   - object: customer_success
     key: customer_success_form
     type: form
-    label: 客户成功表单
+    label: Customer Success Form
     config:
       sections:
-        - title: 基本信息
+        - title: Basic Information
           fields:
             - field: followup_number
               required: true
@@ -136,17 +136,17 @@ views:
               required: true
             - field: priority
               required: true
-        - title: 时间
+        - title: Time
           fields:
             - field: scheduled_at
             - field: completed_at
-        - title: 关联
+        - title: Associations
           fields:
             - field: company_id
             - field: contact_id
             - field: deal_id
             - field: task_id
-        - title: 结果与元数据
+        - title: Outcome & Metadata
           fields:
             - field: outcome
             - field: satisfaction_score
@@ -167,25 +167,25 @@ relations:
     targetModule: runory.company
     type: many_to_one
     foreignKey: company_id
-    label: 关联公司
+    label: Related Company
   - object: customer_success
     targetObject: contact
     targetModule: runory.contact
     type: many_to_one
     foreignKey: contact_id
-    label: 关联联系人
+    label: Related Contact
   - object: customer_success
     targetObject: deal
     targetModule: runory.deal
     type: many_to_one
     foreignKey: deal_id
-    label: 关联商机
+    label: Related Deal
   - object: customer_success
     targetObject: task
     targetModule: runory.task
     type: many_to_one
     foreignKey: task_id
-    label: 关联任务
+    label: Related Task
 
 migrations:
   install: migrations/install.sql
@@ -193,7 +193,7 @@ migrations:
 
 ui:
   navigation:
-    - label: 客户成功
+    - label: Customer Success
       route: /customer-success
       icon: heart
       sortOrder: 75
@@ -231,7 +231,7 @@ dashboard:
   widgets:
     - key: open_followups_metric
       type: metric_card
-      label: 待处理跟进
+      label: Pending Follow-ups
       icon: heart
       tone: amber
       data:
@@ -242,7 +242,7 @@ dashboard:
 
     - key: overdue_followups_metric
       type: metric_card
-      label: 逾期跟进
+      label: Overdue Follow-ups
       icon: alert-triangle
       tone: red
       data:
@@ -253,7 +253,7 @@ dashboard:
 
     - key: completed_followups_metric
       type: metric_card
-      label: 已完成跟进
+      label: Completed Follow-ups
       icon: check-circle
       tone: emerald
       data:
@@ -264,7 +264,7 @@ dashboard:
 
     - key: followup_status_breakdown
       type: breakdown
-      label: 跟进状态分布
+      label: Follow-up Status Distribution
       icon: pie-chart
       tone: cyan
       data:
@@ -274,7 +274,7 @@ dashboard:
 
     - key: followup_type_breakdown
       type: breakdown
-      label: 跟进类型分布
+      label: Follow-up Type Distribution
       icon: pie-chart
       tone: violet
       data:
@@ -284,7 +284,7 @@ dashboard:
 
     - key: recent_followups_list
       type: list
-      label: 最近跟进
+      label: Recent Follow-ups
       icon: heart
       tone: cyan
       data:
@@ -296,14 +296,14 @@ dashboard:
       link: /customer-success
       configurable:
         - path: data.limit
-          label: 显示条数
+          label: Display Count
           type: number
           min: 1
           max: 20
 
     - key: overdue_followups_list
       type: list
-      label: 逾期跟进
+      label: Overdue Follow-ups
       icon: alert-triangle
       tone: red
       data:
@@ -316,7 +316,7 @@ dashboard:
       link: /customer-success
       configurable:
         - path: data.limit
-          label: 显示条数
+          label: Display Count
           type: number
           min: 1
           max: 20

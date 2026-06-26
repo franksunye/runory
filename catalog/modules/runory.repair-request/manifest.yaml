@@ -12,17 +12,17 @@ objects:
     label: Repair Request
     fields:
       - key: repair_number
-        label: 维修编号
+        label: Repair Number
         type: text
         ownership: module_owned
         required: true
       - key: issue_description
-        label: 故障描述
+        label: Issue Description
         type: text
         ownership: module_owned
         required: true
       - key: status
-        label: 状态
+        label: Status
         type: select
         ownership: module_owned
         required: true
@@ -30,7 +30,7 @@ objects:
         validation:
           options: ["requested", "diagnosing", "quoted", "in_repair", "completed", "rejected", "closed"]
       - key: priority
-        label: 优先级
+        label: Priority
         type: select
         ownership: module_owned
         required: true
@@ -38,7 +38,7 @@ objects:
         validation:
           options: ["low", "medium", "high", "urgent"]
       - key: repair_type
-        label: 维修类型
+        label: Repair Type
         type: select
         ownership: module_owned
         required: true
@@ -46,71 +46,71 @@ objects:
         validation:
           options: ["on_site", "in_workshop", "remote", "emergency"]
       - key: is_warranty
-        label: 保修内维修
+        label: Warranty Repair
         type: boolean
         ownership: module_owned
         default_value: "false"
       - key: is_paid
-        label: 付费维修
+        label: Paid Repair
         type: boolean
         ownership: module_owned
         default_value: "false"
       - key: estimated_cost
-        label: 预估费用
+        label: Estimated Cost
         type: number
         ownership: module_owned
       - key: actual_cost
-        label: 实际费用
+        label: Actual Cost
         type: number
         ownership: module_owned
       - key: requested_at
-        label: 申请时间
+        label: Requested At
         type: date
         ownership: module_owned
       - key: completed_at
-        label: 完成时间
+        label: Completed At
         type: date
         ownership: module_owned
       - key: company_id
-        label: 关联公司
+        label: Related Company
         type: text
         ownership: module_owned
       - key: contact_id
-        label: 关联联系人
+        label: Related Contact
         type: text
         ownership: module_owned
       - key: asset_id
-        label: 关联资产
+        label: Related Asset
         type: text
         ownership: module_owned
       - key: ticket_id
-        label: 关联工单
+        label: Related Ticket
         type: text
         ownership: module_owned
       - key: work_order_id
-        label: 关联工单（FSM）
+        label: Related Work Order (FSM)
         type: text
         ownership: module_owned
         description: "FSM work order created when onsite service is needed"
       - key: quote_id
-        label: 关联报价
+        label: Related Quote
         type: text
         ownership: module_owned
         description: "Quote created for paid repair"
       - key: warranty_id
-        label: 关联保修
+        label: Related Warranty
         type: text
         ownership: module_owned
       - key: assigned_to
-        label: 分配给
+        label: Assigned To
         type: text
         ownership: module_owned
       - key: owner
-        label: 负责人
+        label: Owner
         type: text
         ownership: module_owned
       - key: notes
-        label: 备注
+        label: Notes
         type: text
         ownership: module_owned
 
@@ -118,23 +118,23 @@ views:
   - object: repair_request
     key: repair_request_list
     type: list
-    label: 维修列表
+    label: Repair List
     config:
       columns:
         - field: repair_number
-          label: 维修编号
+          label: Repair Number
         - field: issue_description
-          label: 故障描述
+          label: Issue Description
         - field: status
-          label: 状态
+          label: Status
         - field: priority
-          label: 优先级
+          label: Priority
         - field: repair_type
-          label: 维修类型
+          label: Repair Type
         - field: is_warranty
-          label: 保修内
+          label: Under Warranty
         - field: assigned_to
-          label: 分配给
+          label: Assigned To
       actions:
         - create
         - view
@@ -143,10 +143,10 @@ views:
   - object: repair_request
     key: repair_request_form
     type: form
-    label: 维修表单
+    label: Repair Form
     config:
       sections:
-        - title: 基本信息
+        - title: Basic Information
           fields:
             - field: repair_number
               required: true
@@ -160,13 +160,13 @@ views:
               required: true
             - field: is_warranty
             - field: is_paid
-        - title: 费用与时间
+        - title: Cost & Time
           fields:
             - field: estimated_cost
             - field: actual_cost
             - field: requested_at
             - field: completed_at
-        - title: 关联
+        - title: Associations
           fields:
             - field: company_id
             - field: contact_id
@@ -175,7 +175,7 @@ views:
             - field: work_order_id
             - field: quote_id
             - field: warranty_id
-        - title: 元数据
+        - title: Metadata
           fields:
             - field: assigned_to
             - field: owner
@@ -194,37 +194,37 @@ relations:
     targetModule: runory.company
     type: many_to_one
     foreignKey: company_id
-    label: 关联公司
+    label: Related Company
   - object: repair_request
     targetObject: contact
     targetModule: runory.contact
     type: many_to_one
     foreignKey: contact_id
-    label: 关联联系人
+    label: Related Contact
   - object: repair_request
     targetObject: asset
     targetModule: runory.asset
     type: many_to_one
     foreignKey: asset_id
-    label: 关联资产
+    label: Related Asset
   - object: repair_request
     targetObject: ticket
     targetModule: runory.ticket
     type: many_to_one
     foreignKey: ticket_id
-    label: 关联工单
+    label: Related Ticket
   - object: repair_request
     targetObject: work_order
     targetModule: runory.work-order
     type: many_to_one
     foreignKey: work_order_id
-    label: 关联工单（FSM）
+    label: Related Work Order (FSM)
   - object: repair_request
     targetObject: quote
     targetModule: runory.quote
     type: many_to_one
     foreignKey: quote_id
-    label: 关联报价
+    label: Related Quote
 
 migrations:
   install: migrations/install.sql
@@ -232,7 +232,7 @@ migrations:
 
 ui:
   navigation:
-    - label: 维修
+    - label: Repairs
       route: /repair-requests
       icon: wrench
       sortOrder: 73
@@ -270,7 +270,7 @@ dashboard:
   widgets:
     - key: open_repairs_metric
       type: metric_card
-      label: 待处理维修
+      label: Pending Repairs
       icon: wrench
       tone: amber
       data:
@@ -281,7 +281,7 @@ dashboard:
 
     - key: completed_repairs_metric
       type: metric_card
-      label: 已完成维修
+      label: Completed Repairs
       icon: check-circle
       tone: emerald
       data:
@@ -292,7 +292,7 @@ dashboard:
 
     - key: warranty_repairs_metric
       type: metric_card
-      label: 保修内维修
+      label: Warranty Repairs
       icon: shield
       tone: cyan
       data:
@@ -303,7 +303,7 @@ dashboard:
 
     - key: repair_status_breakdown
       type: breakdown
-      label: 维修状态分布
+      label: Repair Status Distribution
       icon: pie-chart
       tone: cyan
       data:
@@ -313,7 +313,7 @@ dashboard:
 
     - key: repair_type_breakdown
       type: breakdown
-      label: 维修类型分布
+      label: Repair Type Distribution
       icon: pie-chart
       tone: violet
       data:
@@ -323,7 +323,7 @@ dashboard:
 
     - key: recent_repairs_list
       type: list
-      label: 最近维修
+      label: Recent Repairs
       icon: wrench
       tone: cyan
       data:
@@ -335,7 +335,7 @@ dashboard:
       link: /repair-requests
       configurable:
         - path: data.limit
-          label: 显示条数
+          label: Display Count
           type: number
           min: 1
           max: 20

@@ -34,8 +34,8 @@ defaultTemplate: small-business-customer-service
 # Pack-specific terminology overlay (v0.2.3).
 terminology:
   - object: company
-    label: 客户
-    navigationLabel: 客户
+    label: Customer
+    navigationLabel: Customer
     route: /companies
 
 # Customer Service workbench — focuses on ticket volume, resolution,

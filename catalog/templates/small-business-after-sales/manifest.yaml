@@ -3,13 +3,13 @@ name: Small Business After-sales
 version: 1.0.0
 
 terminology:
-  customer: 客户
-  warranty: 保修
-  entitlement: 权益
-  return_request: 退货
-  repair_request: 维修
-  maintenance_plan: 维保计划
-  customer_success: 客户成功
+  customer: Customer
+  warranty: Warranty
+  entitlement: Entitlement
+  return_request: Return Request
+  repair_request: Repair Request
+  maintenance_plan: Maintenance Plan
+  customer_success: Customer Success
 
 navigation:
   - dashboard

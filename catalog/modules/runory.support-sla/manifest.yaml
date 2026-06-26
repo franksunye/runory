@@ -10,16 +10,16 @@ objects:
     label: Support SLA
     fields:
       - key: name
-        label: 名称
+        label: Name
         type: text
         ownership: module_owned
         required: true
       - key: description
-        label: 描述
+        label: Description
         type: text
         ownership: module_owned
       - key: priority
-        label: 适用优先级
+        label: Applicable Priority
         type: select
         ownership: module_owned
         required: true
@@ -27,24 +27,24 @@ objects:
         validation:
           options: ["low", "medium", "high", "urgent"]
       - key: response_time_hours
-        label: 响应时间（小时）
+        label: Response Time (Hours)
         type: number
         ownership: module_owned
         required: true
         default_value: "24"
       - key: resolution_time_hours
-        label: 解决时间（小时）
+        label: Resolution Time (Hours)
         type: number
         ownership: module_owned
         required: true
         default_value: "72"
       - key: business_hours_only
-        label: 仅工作时间
+        label: Business Hours Only
         type: boolean
         ownership: module_owned
         default_value: "false"
       - key: status
-        label: 状态
+        label: Status
         type: select
         ownership: module_owned
         required: true
@@ -52,11 +52,11 @@ objects:
         validation:
           options: ["active", "inactive"]
       - key: owner
-        label: 负责人
+        label: Owner
         type: text
         ownership: module_owned
       - key: notes
-        label: 备注
+        label: Notes
         type: text
         ownership: module_owned
 
@@ -64,21 +64,21 @@ views:
   - object: support_sla
     key: support_sla_list
     type: list
-    label: SLA 策略列表
+    label: SLA Policy List
     config:
       columns:
         - field: name
-          label: 名称
+          label: Name
         - field: priority
-          label: 适用优先级
+          label: Applicable Priority
         - field: response_time_hours
-          label: 响应时间（小时）
+          label: Response Time (Hours)
         - field: resolution_time_hours
-          label: 解决时间（小时）
+          label: Resolution Time (Hours)
         - field: business_hours_only
-          label: 仅工作时间
+          label: Business Hours Only
         - field: status
-          label: 状态
+          label: Status
       actions:
         - create
         - view
@@ -87,10 +87,10 @@ views:
   - object: support_sla
     key: support_sla_form
     type: form
-    label: SLA 策略表单
+    label: SLA Policy Form
     config:
       sections:
-        - title: 基本信息
+        - title: Basic Information
           fields:
             - field: name
               required: true
@@ -99,14 +99,14 @@ views:
               required: true
             - field: status
               required: true
-        - title: 时间承诺
+        - title: Time Commitments
           fields:
             - field: response_time_hours
               required: true
             - field: resolution_time_hours
               required: true
             - field: business_hours_only
-        - title: 元数据
+        - title: Metadata
           fields:
             - field: owner
             - field: notes
@@ -123,7 +123,7 @@ migrations:
 
 ui:
   navigation:
-    - label: SLA 策略
+    - label: SLA Policies
       route: /support-slas
       icon: clock
       sortOrder: 63
@@ -161,7 +161,7 @@ dashboard:
   widgets:
     - key: active_sla_metric
       type: metric_card
-      label: 活跃 SLA
+      label: Active SLAs
       icon: clock
       tone: emerald
       data:
@@ -172,7 +172,7 @@ dashboard:
 
     - key: sla_priority_breakdown
       type: breakdown
-      label: SLA 优先级分布
+      label: SLA Priority Distribution
       icon: pie-chart
       tone: red
       data:
@@ -182,7 +182,7 @@ dashboard:
 
     - key: recent_sla_list
       type: list
-      label: SLA 策略
+      label: SLA Policies
       icon: clock
       tone: cyan
       data:
@@ -194,7 +194,7 @@ dashboard:
       link: /support-slas
       configurable:
         - path: data.limit
-          label: 显示条数
+          label: Display Count
           type: number
           min: 1
           max: 20

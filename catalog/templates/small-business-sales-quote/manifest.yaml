@@ -3,14 +3,14 @@ name: Small Business Sales Quote
 version: 1.0.0
 
 terminology:
-  customer: 客户
-  contact: 联系人
-  deal: 商机
-  quote: 报价
-  quote_line: 报价项
-  quote_approval: 报价审批
-  product_service: 产品/服务
-  price_book: 价格表
+  customer: Customer
+  contact: Contact
+  deal: Opportunity
+  quote: Quote
+  quote_line: Quote Line
+  quote_approval: Quote Approval
+  product_service: Product/Service
+  price_book: Price Book
 
 navigation:
   - dashboard

@@ -8,18 +8,18 @@ objects:
     label: Form
     fields:
       - key: name
-        label: 名称
+        label: Name
         type: text
         ownership: module_owned
         required: true
       - key: slug
-        label: 路径标识
+        label: Slug
         type: text
         ownership: module_owned
         required: true
         description: "URL-friendly identifier (e.g., contact-us)"
       - key: status
-        label: 状态
+        label: Status
         type: select
         ownership: module_owned
         required: true
@@ -27,7 +27,7 @@ objects:
         validation:
           options: ["draft", "pending_review", "published", "unpublished"]
       - key: target_object
-        label: 目标对象
+        label: Target Object
         type: select
         ownership: module_owned
         default_value: "contact"
@@ -35,26 +35,26 @@ objects:
           options: ["contact", "company", "deal"]
         description: "Object to create from submissions"
       - key: fields_json
-        label: 表单字段
+        label: Form Fields
         type: text
         ownership: module_owned
         description: "JSON array of field definitions"
       - key: submit_button_label
-        label: 提交按钮文案
+        label: Submit Button Label
         type: text
         ownership: module_owned
-        default_value: "提交"
+        default_value: "Submit"
       - key: success_message
-        label: 成功提示
+        label: Success Message
         type: text
         ownership: module_owned
-        default_value: "感谢您的提交，我们会尽快与您联系。"
+        default_value: "Thank you for your submission. We will contact you shortly."
       - key: campaign_id
-        label: 关联活动
+        label: Linked Campaign
         type: text
         ownership: module_owned
       - key: notes
-        label: 备注
+        label: Notes
         type: text
         ownership: module_owned
 
@@ -62,17 +62,17 @@ views:
   - object: form
     key: form_list
     type: list
-    label: 表单列表
+    label: Form List
     config:
       columns:
         - field: name
-          label: 名称
+          label: Name
         - field: slug
-          label: 路径标识
+          label: Slug
         - field: status
-          label: 状态
+          label: Status
         - field: target_object
-          label: 目标对象
+          label: Target Object
       actions:
         - create
         - view
@@ -81,10 +81,10 @@ views:
   - object: form
     key: form_form
     type: form
-    label: 表单配置
+    label: Form Settings
     config:
       sections:
-        - title: 基本信息
+        - title: Basic Information
           fields:
             - field: name
               required: true
@@ -92,12 +92,12 @@ views:
               required: true
             - field: status
               required: true
-        - title: 提交配置
+        - title: Submission Settings
           fields:
             - field: target_object
             - field: submit_button_label
             - field: success_message
-        - title: 高级
+        - title: Advanced
           fields:
             - field: fields_json
             - field: campaign_id
@@ -116,7 +116,7 @@ relations:
     targetModule: runory.campaign
     type: many_to_one
     foreignKey: campaign_id
-    label: 关联活动
+    label: Linked Campaign
 
 migrations:
   install: migrations/install.sql
@@ -124,7 +124,7 @@ migrations:
 
 ui:
   navigation:
-    - label: 表单
+    - label: Forms
       route: /forms
       icon: file-plus
       sortOrder: 42
@@ -162,7 +162,7 @@ dashboard:
   widgets:
     - key: published_forms_metric
       type: metric_card
-      label: 已发布表单
+      label: Published Forms
       icon: file-plus
       tone: violet
       data:
@@ -173,7 +173,7 @@ dashboard:
 
     - key: form_status_breakdown
       type: breakdown
-      label: 表单状态分布
+      label: Form Status Breakdown
       icon: pie-chart
       tone: violet
       data:
@@ -183,7 +183,7 @@ dashboard:
 
     - key: recent_forms_list
       type: list
-      label: 最近表单
+      label: Recent Forms
       icon: file-plus
       tone: violet
       data:
@@ -195,7 +195,7 @@ dashboard:
       link: /forms
       configurable:
         - path: data.limit
-          label: 显示条数
+          label: Items per Page
           type: number
           min: 1
           max: 20

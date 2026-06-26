@@ -38,8 +38,8 @@ defaultTemplate: small-business-after-sales
 # Pack-specific terminology overlay (v0.2.3).
 terminology:
   - object: company
-    label: 客户
-    navigationLabel: 客户
+    label: Customer
+    navigationLabel: Customer
     route: /companies
 
 # After-sales workbench — focuses on warranty coverage, repair status,

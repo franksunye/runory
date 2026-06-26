@@ -12,17 +12,17 @@ objects:
     label: Return Request
     fields:
       - key: return_number
-        label: 退货编号
+        label: Return Number
         type: text
         ownership: module_owned
         required: true
       - key: reason
-        label: 退货原因
+        label: Return Reason
         type: text
         ownership: module_owned
         required: true
       - key: status
-        label: 状态
+        label: Status
         type: select
         ownership: module_owned
         required: true
@@ -30,7 +30,7 @@ objects:
         validation:
           options: ["requested", "approved", "rejected", "in_transit", "received", "refunded", "closed"]
       - key: priority
-        label: 优先级
+        label: Priority
         type: select
         ownership: module_owned
         required: true
@@ -38,7 +38,7 @@ objects:
         validation:
           options: ["low", "medium", "high", "urgent"]
       - key: return_type
-        label: 退货类型
+        label: Return Type
         type: select
         ownership: module_owned
         required: true
@@ -46,56 +46,56 @@ objects:
         validation:
           options: ["defective", "wrong_item", "not_needed", "warranty_claim", "upgrade"]
       - key: quantity
-        label: 数量
+        label: Quantity
         type: number
         ownership: module_owned
         default_value: "1"
       - key: requested_at
-        label: 申请时间
+        label: Requested At
         type: date
         ownership: module_owned
       - key: received_at
-        label: 收货时间
+        label: Received At
         type: date
         ownership: module_owned
       - key: refunded_at
-        label: 退款时间
+        label: Refunded At
         type: date
         ownership: module_owned
       - key: company_id
-        label: 关联公司
+        label: Related Company
         type: text
         ownership: module_owned
       - key: contact_id
-        label: 关联联系人
+        label: Related Contact
         type: text
         ownership: module_owned
       - key: asset_id
-        label: 关联资产
+        label: Related Asset
         type: text
         ownership: module_owned
       - key: ticket_id
-        label: 关联工单
+        label: Related Ticket
         type: text
         ownership: module_owned
       - key: work_order_id
-        label: 关联工单（FSM）
+        label: Related Work Order (FSM)
         type: text
         ownership: module_owned
       - key: refund_amount
-        label: 退款金额
+        label: Refund Amount
         type: number
         ownership: module_owned
       - key: assigned_to
-        label: 分配给
+        label: Assigned To
         type: text
         ownership: module_owned
       - key: owner
-        label: 负责人
+        label: Owner
         type: text
         ownership: module_owned
       - key: notes
-        label: 备注
+        label: Notes
         type: text
         ownership: module_owned
 
@@ -103,21 +103,21 @@ views:
   - object: return_request
     key: return_request_list
     type: list
-    label: 退货列表
+    label: Return List
     config:
       columns:
         - field: return_number
-          label: 退货编号
+          label: Return Number
         - field: reason
-          label: 退货原因
+          label: Return Reason
         - field: status
-          label: 状态
+          label: Status
         - field: priority
-          label: 优先级
+          label: Priority
         - field: return_type
-          label: 退货类型
+          label: Return Type
         - field: assigned_to
-          label: 分配给
+          label: Assigned To
       actions:
         - create
         - view
@@ -126,10 +126,10 @@ views:
   - object: return_request
     key: return_request_form
     type: form
-    label: 退货表单
+    label: Return Form
     config:
       sections:
-        - title: 基本信息
+        - title: Basic Information
           fields:
             - field: return_number
               required: true
@@ -142,20 +142,20 @@ views:
             - field: return_type
               required: true
             - field: quantity
-        - title: 时间与金额
+        - title: Time & Amount
           fields:
             - field: requested_at
             - field: received_at
             - field: refunded_at
             - field: refund_amount
-        - title: 关联
+        - title: Associations
           fields:
             - field: company_id
             - field: contact_id
             - field: asset_id
             - field: ticket_id
             - field: work_order_id
-        - title: 元数据
+        - title: Metadata
           fields:
             - field: assigned_to
             - field: owner
@@ -174,31 +174,31 @@ relations:
     targetModule: runory.company
     type: many_to_one
     foreignKey: company_id
-    label: 关联公司
+    label: Related Company
   - object: return_request
     targetObject: contact
     targetModule: runory.contact
     type: many_to_one
     foreignKey: contact_id
-    label: 关联联系人
+    label: Related Contact
   - object: return_request
     targetObject: asset
     targetModule: runory.asset
     type: many_to_one
     foreignKey: asset_id
-    label: 关联资产
+    label: Related Asset
   - object: return_request
     targetObject: ticket
     targetModule: runory.ticket
     type: many_to_one
     foreignKey: ticket_id
-    label: 关联工单
+    label: Related Ticket
   - object: return_request
     targetObject: work_order
     targetModule: runory.work-order
     type: many_to_one
     foreignKey: work_order_id
-    label: 关联工单（FSM）
+    label: Related Work Order (FSM)
 
 migrations:
   install: migrations/install.sql
@@ -206,7 +206,7 @@ migrations:
 
 ui:
   navigation:
-    - label: 退货
+    - label: Returns
       route: /return-requests
       icon: corner-up-left
       sortOrder: 72
@@ -244,7 +244,7 @@ dashboard:
   widgets:
     - key: open_returns_metric
       type: metric_card
-      label: 待处理退货
+      label: Pending Returns
       icon: corner-up-left
       tone: amber
       data:
@@ -255,7 +255,7 @@ dashboard:
 
     - key: completed_returns_metric
       type: metric_card
-      label: 已完成退货
+      label: Completed Returns
       icon: check-circle
       tone: emerald
       data:
@@ -266,7 +266,7 @@ dashboard:
 
     - key: return_status_breakdown
       type: breakdown
-      label: 退货状态分布
+      label: Return Status Distribution
       icon: pie-chart
       tone: cyan
       data:
@@ -276,7 +276,7 @@ dashboard:
 
     - key: recent_returns_list
       type: list
-      label: 最近退货
+      label: Recent Returns
       icon: corner-up-left
       tone: cyan
       data:
@@ -288,7 +288,7 @@ dashboard:
       link: /return-requests
       configurable:
         - path: data.limit
-          label: 显示条数
+          label: Display Count
           type: number
           min: 1
           max: 20

@@ -189,8 +189,8 @@ describe("Marketing Capture pack terminology overlay", () => {
 
     const companyNav = nav.find((n) => n.route === "/companies");
     const dealNav = nav.find((n) => n.route === "/deals");
-    expect(companyNav?.label).toBe("客户");
-    expect(dealNav?.label).toBe("商机");
+    expect(companyNav?.label).toBe("Customer");
+    expect(dealNav?.label).toBe("Opportunity");
   });
 
   it("does not fork the underlying object definitions", async () => {
@@ -216,7 +216,7 @@ describe("Marketing Capture demo data with cross-pack references", () => {
     // Verify campaigns were created
     const campaigns = await getRecords(workspaceId, "campaign");
     expect(campaigns.length).toBe(5);
-    const summerCamp = campaigns.find((c) => String(c.name).includes("夏季"));
+    const summerCamp = campaigns.find((c) => String(c.name).includes("Summer"));
     expect(summerCamp).toBeDefined();
 
     // Verify forms were created
@@ -351,10 +351,10 @@ describe("safe publishing states", () => {
 
     // Create draft landing page
     const draft = await createRecord(workspaceId, "landing_page", {
-      title: "测试落地页",
+      title: "Test Landing Page",
       slug: "test-publishing",
       status: "draft",
-      headline: "测试标题",
+      headline: "Test Headline",
     });
     expect(draft.status).toBe("draft");
 
@@ -383,7 +383,7 @@ describe("safe publishing states", () => {
     await installPack(workspaceId, "marketing-capture-pack");
 
     const draft = await createRecord(workspaceId, "form", {
-      name: "测试表单",
+      name: "Test Form",
       slug: "test-form-publishing",
       status: "draft",
       target_object: "contact",
@@ -417,25 +417,25 @@ describe("public form submission", () => {
 
     // Create a published form
     const form = await createRecord(workspaceId, "form", {
-      name: "公开测试表单",
+      name: "Public Test Form",
       slug: "public-test",
       status: "published",
       target_object: "contact",
-      fields_json: '[{"key":"name","label":"姓名","type":"text","required":true},{"key":"email","label":"邮箱","type":"text","required":true}]',
-      success_message: "提交成功",
+      fields_json: '[{"key":"name","label":"Name","type":"text","required":true},{"key":"email","label":"Email","type":"text","required":true}]',
+      success_message: "Submission successful",
     });
 
     // Simulate public submission by creating a submission record directly
     const submission = await createRecord(workspaceId, "submission", {
       form_id: form.id,
       status: "new",
-      payload_json: JSON.stringify({ name: "测试用户", email: "test@example.com" }),
+      payload_json: JSON.stringify({ name: "Test User", email: "test@example.com" }),
       source_url: "https://runory.example/p/test-page",
       referrer: "https://google.com",
       ip_address: "192.168.1.1",
       user_agent: "Mozilla/5.0",
       consent_given: true,
-      consent_text: "我同意接收相关服务信息",
+      consent_text: "I agree to receive related service information",
     });
 
     expect(submission.id).toBeDefined();
@@ -450,7 +450,7 @@ describe("public form submission", () => {
 
     // Create a published form
     const form = await createRecord(workspaceId, "form", {
-      name: "转化测试表单",
+      name: "Conversion Test Form",
       slug: "conversion-test",
       status: "published",
       target_object: "contact",
@@ -460,13 +460,13 @@ describe("public form submission", () => {
     const submission = await createRecord(workspaceId, "submission", {
       form_id: form.id,
       status: "new",
-      payload_json: JSON.stringify({ name: "转化测试", email: "convert@example.com" }),
+      payload_json: JSON.stringify({ name: "Conversion Test", email: "convert@example.com" }),
       consent_given: true,
     });
 
     // Create a contact from the submission
     const contact = await createRecord(workspaceId, "contact", {
-      name: "转化测试",
+      name: "Conversion Test",
       email: "convert@example.com",
       source: "form_submission",
     });
@@ -700,7 +700,7 @@ describe("Marketing Capture demo journey (end-to-end capture flow)", () => {
 
     // 2. Create a campaign
     const campaign = await createRecord(workspaceId, "campaign", {
-      name: "新产品发布活动",
+      name: "New Product Launch Campaign",
       status: "active",
       source: "website",
       medium: "organic",
@@ -714,13 +714,13 @@ describe("Marketing Capture demo journey (end-to-end capture flow)", () => {
 
     // 3. Create a form (draft → pending_review → published)
     const formDraft = await createRecord(workspaceId, "form", {
-      name: "新产品咨询表单",
+      name: "New Product Inquiry Form",
       slug: "new-product-inquiry",
       status: "draft",
       target_object: "contact",
-      fields_json: '[{"key":"name","label":"姓名","type":"text","required":true},{"key":"email","label":"邮箱","type":"text","required":true},{"key":"company","label":"公司","type":"text"}]',
-      submit_button_label: "提交咨询",
-      success_message: "感谢您的咨询，我们会尽快联系您。",
+      fields_json: '[{"key":"name","label":"Name","type":"text","required":true},{"key":"email","label":"Email","type":"text","required":true},{"key":"company","label":"Company","type":"text"}]',
+      submit_button_label: "Submit Inquiry",
+      success_message: "Thank you for your inquiry, we will contact you soon.",
       campaign_id: campaign.id,
     });
 
@@ -736,16 +736,16 @@ describe("Marketing Capture demo journey (end-to-end capture flow)", () => {
 
     // 4. Create a landing page (draft → pending_review → published)
     const lpDraft = await createRecord(workspaceId, "landing_page", {
-      title: "新产品发布",
+      title: "New Product Launch",
       slug: "new-product-launch",
       status: "draft",
-      headline: "全新产品，震撼上市",
-      subheadline: "立即了解，抢先体验",
-      body_html: "<p>我们的新产品正式发布，欢迎咨询。</p>",
-      cta_text: "立即咨询",
+      headline: "Brand new product, spectacular launch",
+      subheadline: "Learn now, experience first",
+      body_html: "<p>Our new product is officially launched, inquiries welcome.</p>",
+      cta_text: "Inquire Now",
       form_id: formDraft.id,
       campaign_id: campaign.id,
-      meta_description: "新产品发布 - 立即了解",
+      meta_description: "New Product Launch - Learn now",
     });
 
     const lpPending = await updateRecord(workspaceId, "landing_page", lpDraft.id, {
@@ -766,23 +766,23 @@ describe("Marketing Capture demo journey (end-to-end capture flow)", () => {
       campaign_id: campaign.id,
       status: "new",
       payload_json: JSON.stringify({
-        name: "张三",
+        name: "Zhang San",
         email: "zhangsan@example.com",
-        company: "张三科技",
+        company: "Zhang San Tech",
       }),
       source_url: "https://runory.example/p/new-product-launch",
       referrer: "https://google.com",
       ip_address: "192.168.1.1",
       user_agent: "Mozilla/5.0",
       consent_given: true,
-      consent_text: "我同意接收相关服务信息",
+      consent_text: "I agree to receive related service information",
     });
     expect(submission.id).toBeDefined();
     expect(submission.status).toBe("new");
 
     // 6. Create consent record (after creating contact)
     const contact = await createRecord(workspaceId, "contact", {
-      name: "张三",
+      name: "Zhang San",
       email: "zhangsan@example.com",
       source: "form_submission",
     });
@@ -856,9 +856,9 @@ describe("Marketing Capture pack installation tracking", () => {
     const terminology = JSON.parse(packInstalls[0].terminology_json!);
     expect(terminology).toHaveLength(2);
     expect(terminology[0].object).toBe("company");
-    expect(terminology[0].navigationLabel).toBe("客户");
+    expect(terminology[0].navigationLabel).toBe("Customer");
     expect(terminology[1].object).toBe("deal");
-    expect(terminology[1].navigationLabel).toBe("商机");
+    expect(terminology[1].navigationLabel).toBe("Opportunity");
   });
 
   it("updates marketing capture pack installation on re-install (idempotent)", async () => {

@@ -13,21 +13,21 @@ objects:
     label: Ticket
     fields:
       - key: ticket_number
-        label: 工单编号
+        label: Ticket Number
         type: text
         ownership: module_owned
         required: true
       - key: subject
-        label: 主题
+        label: Subject
         type: text
         ownership: module_owned
         required: true
       - key: description
-        label: 描述
+        label: Description
         type: text
         ownership: module_owned
       - key: status
-        label: 状态
+        label: Status
         type: select
         ownership: module_owned
         required: true
@@ -35,7 +35,7 @@ objects:
         validation:
           options: ["new", "open", "pending", "resolved", "closed", "escalated"]
       - key: priority
-        label: 优先级
+        label: Priority
         type: select
         ownership: module_owned
         required: true
@@ -43,7 +43,7 @@ objects:
         validation:
           options: ["low", "medium", "high", "urgent"]
       - key: channel
-        label: 渠道
+        label: Channel
         type: select
         ownership: module_owned
         required: true
@@ -51,62 +51,62 @@ objects:
         validation:
           options: ["email", "phone", "web", "chat", "social"]
       - key: category
-        label: 分类
+        label: Category
         type: text
         ownership: module_owned
         description: "Ticket category (e.g., billing, technical, warranty, inquiry)"
       - key: company_id
-        label: 关联公司
+        label: Related Company
         type: text
         ownership: module_owned
       - key: contact_id
-        label: 关联联系人
+        label: Related Contact
         type: text
         ownership: module_owned
       - key: asset_id
-        label: 关联资产
+        label: Related Asset
         type: text
         ownership: module_owned
       - key: work_order_id
-        label: 关联工单
+        label: Related Work Order
         type: text
         ownership: module_owned
         description: "FSM work order created when onsite service is needed"
       - key: quote_id
-        label: 关联报价
+        label: Related Quote
         type: text
         ownership: module_owned
       - key: task_id
-        label: 关联任务
+        label: Related Task
         type: text
         ownership: module_owned
       - key: knowledge_id
-        label: 解决知识文章
+        label: Resolving Knowledge Article
         type: text
         ownership: module_owned
         description: "Knowledge article that resolved this ticket"
       - key: sla_id
-        label: SLA 策略
+        label: SLA Policy
         type: text
         ownership: module_owned
       - key: assigned_to
-        label: 分配给
+        label: Assigned To
         type: text
         ownership: module_owned
       - key: resolved_at
-        label: 解决时间
+        label: Resolved At
         type: date
         ownership: module_owned
       - key: closed_at
-        label: 关闭时间
+        label: Closed At
         type: date
         ownership: module_owned
       - key: owner
-        label: 负责人
+        label: Owner
         type: text
         ownership: module_owned
       - key: notes
-        label: 备注
+        label: Notes
         type: text
         ownership: module_owned
 
@@ -114,21 +114,21 @@ views:
   - object: ticket
     key: ticket_list
     type: list
-    label: 工单列表
+    label: Ticket List
     config:
       columns:
         - field: ticket_number
-          label: 工单编号
+          label: Ticket Number
         - field: subject
-          label: 主题
+          label: Subject
         - field: status
-          label: 状态
+          label: Status
         - field: priority
-          label: 优先级
+          label: Priority
         - field: channel
-          label: 渠道
+          label: Channel
         - field: assigned_to
-          label: 分配给
+          label: Assigned To
       actions:
         - create
         - view
@@ -137,10 +137,10 @@ views:
   - object: ticket
     key: ticket_form
     type: form
-    label: 工单表单
+    label: Ticket Form
     config:
       sections:
-        - title: 基本信息
+        - title: Basic Information
           fields:
             - field: ticket_number
               required: true
@@ -154,7 +154,7 @@ views:
             - field: channel
               required: true
             - field: category
-        - title: 关联
+        - title: Associations
           fields:
             - field: company_id
             - field: contact_id
@@ -164,7 +164,7 @@ views:
             - field: task_id
             - field: knowledge_id
             - field: sla_id
-        - title: 分配与时间
+        - title: Assignment & Time
           fields:
             - field: assigned_to
             - field: resolved_at
@@ -185,49 +185,49 @@ relations:
     targetModule: runory.company
     type: many_to_one
     foreignKey: company_id
-    label: 关联公司
+    label: Related Company
   - object: ticket
     targetObject: contact
     targetModule: runory.contact
     type: many_to_one
     foreignKey: contact_id
-    label: 关联联系人
+    label: Related Contact
   - object: ticket
     targetObject: task
     targetModule: runory.task
     type: many_to_one
     foreignKey: task_id
-    label: 关联任务
+    label: Related Task
   - object: ticket
     targetObject: asset
     targetModule: runory.asset
     type: many_to_one
     foreignKey: asset_id
-    label: 关联资产
+    label: Related Asset
   - object: ticket
     targetObject: work_order
     targetModule: runory.work-order
     type: many_to_one
     foreignKey: work_order_id
-    label: 关联工单
+    label: Related Work Order
   - object: ticket
     targetObject: quote
     targetModule: runory.quote
     type: many_to_one
     foreignKey: quote_id
-    label: 关联报价
+    label: Related Quote
   - object: ticket
     targetObject: knowledge
     targetModule: runory.knowledge
     type: many_to_one
     foreignKey: knowledge_id
-    label: 解决知识文章
+    label: Resolving Knowledge Article
   - object: ticket
     targetObject: support_sla
     targetModule: runory.support-sla
     type: many_to_one
     foreignKey: sla_id
-    label: SLA 策略
+    label: SLA Policy
 
 migrations:
   install: migrations/install.sql
@@ -235,7 +235,7 @@ migrations:
 
 ui:
   navigation:
-    - label: 工单
+    - label: Tickets
       route: /tickets
       icon: life-buoy
       sortOrder: 60
@@ -273,7 +273,7 @@ dashboard:
   widgets:
     - key: open_tickets_metric
       type: metric_card
-      label: 待处理工单
+      label: Open Tickets
       icon: life-buoy
       tone: amber
       data:
@@ -284,7 +284,7 @@ dashboard:
 
     - key: escalated_tickets_metric
       type: metric_card
-      label: 升级工单
+      label: Escalated Tickets
       icon: alert-triangle
       tone: red
       data:
@@ -295,7 +295,7 @@ dashboard:
 
     - key: resolved_tickets_metric
       type: metric_card
-      label: 已解决工单
+      label: Resolved Tickets
       icon: check-circle
       tone: emerald
       data:
@@ -306,7 +306,7 @@ dashboard:
 
     - key: ticket_status_breakdown
       type: breakdown
-      label: 工单状态分布
+      label: Ticket Status Distribution
       icon: pie-chart
       tone: cyan
       data:
@@ -316,7 +316,7 @@ dashboard:
 
     - key: ticket_priority_breakdown
       type: breakdown
-      label: 工单优先级分布
+      label: Ticket Priority Distribution
       icon: pie-chart
       tone: red
       data:
@@ -326,7 +326,7 @@ dashboard:
 
     - key: ticket_channel_breakdown
       type: breakdown
-      label: 工单渠道分布
+      label: Ticket Channel Distribution
       icon: pie-chart
       tone: violet
       data:
@@ -336,7 +336,7 @@ dashboard:
 
     - key: recent_tickets_list
       type: list
-      label: 最近工单
+      label: Recent Tickets
       icon: life-buoy
       tone: cyan
       data:
@@ -348,14 +348,14 @@ dashboard:
       link: /tickets
       configurable:
         - path: data.limit
-          label: 显示条数
+          label: Display Count
           type: number
           min: 1
           max: 20
 
     - key: escalated_tickets_list
       type: list
-      label: 升级工单
+      label: Escalated Tickets
       icon: alert-triangle
       tone: red
       data:
@@ -368,7 +368,7 @@ dashboard:
       link: /tickets
       configurable:
         - path: data.limit
-          label: 显示条数
+          label: Display Count
           type: number
           min: 1
           max: 20

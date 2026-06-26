@@ -11,18 +11,18 @@ objects:
     label: AI Visibility Check
     fields:
       - key: entity_profile_id
-        label: 关联实体画像
+        label: Linked Entity Profile
         type: text
         ownership: module_owned
         required: true
       - key: query
-        label: 查询问题
+        label: Query
         type: text
         ownership: module_owned
         required: true
         description: "The question/query used to check AI visibility"
       - key: engine
-        label: AI 引擎
+        label: AI Engine
         type: select
         ownership: module_owned
         required: true
@@ -30,12 +30,12 @@ objects:
         validation:
           options: ["google", "bing", "chatgpt", "perplexity", "claude", "gemini"]
       - key: locale
-        label: 语言区域
+        label: Locale
         type: text
         ownership: module_owned
         default_value: "zh-CN"
       - key: result_status
-        label: 结果状态
+        label: Result Status
         type: select
         ownership: module_owned
         required: true
@@ -43,34 +43,34 @@ objects:
         validation:
           options: ["visible", "partial", "not_visible", "not_checked"]
       - key: result_summary
-        label: 结果摘要
+        label: Result Summary
         type: text
         ownership: module_owned
         description: "Summary of what the AI engine returned"
       - key: result_snippet
-        label: 结果片段
+        label: Result Snippet
         type: text
         ownership: module_owned
         description: "Verbatim snippet from the AI engine response"
       - key: improvement_suggestions
-        label: 改进建议
+        label: Improvement Suggestions
         type: text
         ownership: module_owned
         description: "Agent-generated suggestions for improving visibility"
       - key: checked_at
-        label: 检查时间
+        label: Checked At
         type: date
         ownership: module_owned
       - key: checked_by
-        label: 检查者
+        label: Checked By
         type: text
         ownership: module_owned
       - key: owner
-        label: 负责人
+        label: Owner
         type: text
         ownership: module_owned
       - key: notes
-        label: 备注
+        label: Notes
         type: text
         ownership: module_owned
 
@@ -78,19 +78,19 @@ views:
   - object: ai_visibility_check
     key: ai_visibility_check_list
     type: list
-    label: 可见性检查列表
+    label: Visibility Check List
     config:
       columns:
         - field: query
-          label: 查询问题
+          label: Query
         - field: engine
-          label: AI 引擎
+          label: AI Engine
         - field: result_status
-          label: 结果状态
+          label: Result Status
         - field: locale
-          label: 语言区域
+          label: Locale
         - field: checked_at
-          label: 检查时间
+          label: Checked At
       actions:
         - create
         - view
@@ -99,10 +99,10 @@ views:
   - object: ai_visibility_check
     key: ai_visibility_check_form
     type: form
-    label: 可见性检查表单
+    label: Visibility Check Form
     config:
       sections:
-        - title: 基本信息
+        - title: Basic Information
           fields:
             - field: entity_profile_id
               required: true
@@ -111,16 +111,16 @@ views:
             - field: engine
               required: true
             - field: locale
-        - title: 结果
+        - title: Results
           fields:
             - field: result_status
               required: true
             - field: result_summary
             - field: result_snippet
-        - title: 改进
+        - title: Improvements
           fields:
             - field: improvement_suggestions
-        - title: 元数据
+        - title: Metadata
           fields:
             - field: checked_at
             - field: checked_by
@@ -140,7 +140,7 @@ relations:
     targetModule: runory.entity-profile
     type: many_to_one
     foreignKey: entity_profile_id
-    label: 关联实体画像
+    label: Linked Entity Profile
 
 migrations:
   install: migrations/install.sql
@@ -148,7 +148,7 @@ migrations:
 
 ui:
   navigation:
-    - label: 可见性检查
+    - label: Visibility Checks
       route: /ai-visibility-checks
       icon: search
       sortOrder: 58
@@ -186,7 +186,7 @@ dashboard:
   widgets:
     - key: visible_checks_metric
       type: metric_card
-      label: 可见检查
+      label: Visible Checks
       icon: search
       tone: emerald
       data:
@@ -197,7 +197,7 @@ dashboard:
 
     - key: not_visible_checks_metric
       type: metric_card
-      label: 不可见检查
+      label: Not Visible Checks
       icon: search
       tone: red
       data:
@@ -208,7 +208,7 @@ dashboard:
 
     - key: visibility_status_breakdown
       type: breakdown
-      label: 可见性状态分布
+      label: Visibility Status Breakdown
       icon: pie-chart
       tone: cyan
       data:
@@ -218,7 +218,7 @@ dashboard:
 
     - key: visibility_by_engine_breakdown
       type: breakdown
-      label: 引擎分布
+      label: Engine Breakdown
       icon: pie-chart
       tone: cyan
       data:
@@ -228,7 +228,7 @@ dashboard:
 
     - key: recent_visibility_checks_list
       type: list
-      label: 最近可见性检查
+      label: Recent Visibility Checks
       icon: search
       tone: cyan
       data:
@@ -240,14 +240,14 @@ dashboard:
       link: /ai-visibility-checks
       configurable:
         - path: data.limit
-          label: 显示条数
+          label: Items per Page
           type: number
           min: 1
           max: 20
 
     - key: not_visible_checks_list
       type: list
-      label: 不可见查询
+      label: Not Visible Queries
       icon: alert-circle
       tone: red
       data:
@@ -260,7 +260,7 @@ dashboard:
       link: /ai-visibility-checks
       configurable:
         - path: data.limit
-          label: 显示条数
+          label: Items per Page
           type: number
           min: 1
           max: 20

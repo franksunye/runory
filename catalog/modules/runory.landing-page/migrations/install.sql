@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS {{BUSINESS_TABLE_PREFIX}}landing_page (
   headline TEXT,
   subheadline TEXT,
   body_html TEXT,
-  cta_text TEXT DEFAULT '立即申请',
+  cta_text TEXT DEFAULT 'Apply Now',
   form_id TEXT,
   campaign_id TEXT,
   meta_description TEXT,

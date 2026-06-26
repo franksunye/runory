@@ -3,8 +3,8 @@ name: Small Business CRM
 version: 1.0.0
 
 terminology:
-  customer: 客户
-  contact: 联系人
+  customer: Customer
+  contact: Contact
 
 navigation:
   - dashboard

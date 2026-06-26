@@ -23,16 +23,16 @@ modules:
   - "runory.task:^2.0.0"
 
 # Pack-specific terminology overlay (v0.2.3).
-# This pack labels the shared "company" object as "客户企业" (Customer Enterprise)
-# and "task" as "服务工单" (Service Order) without forking the underlying objects.
+# This pack labels the shared "company" object as "Customer Enterprise"
+# and "task" as "Service Order" without forking the underlying objects.
 terminology:
   - object: company
-    label: 客户企业
-    navigationLabel: 客户企业
+    label: Customer Enterprise
+    navigationLabel: Customer Enterprise
     route: /companies
   - object: task
-    label: 服务工单
-    navigationLabel: 服务工单
+    label: Service Order
+    navigationLabel: Service Order
     route: /tasks
 
 marketplace:

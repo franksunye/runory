@@ -8,18 +8,18 @@ objects:
     label: Landing Page
     fields:
       - key: title
-        label: 标题
+        label: Title
         type: text
         ownership: module_owned
         required: true
       - key: slug
-        label: 路径标识
+        label: Slug
         type: text
         ownership: module_owned
         required: true
         description: "Public URL path (e.g., /p/summer-promo)"
       - key: status
-        label: 状态
+        label: Status
         type: select
         ownership: module_owned
         required: true
@@ -27,41 +27,41 @@ objects:
         validation:
           options: ["draft", "pending_review", "published", "unpublished"]
       - key: headline
-        label: 主标题
+        label: Headline
         type: text
         ownership: module_owned
       - key: subheadline
-        label: 副标题
+        label: Subheadline
         type: text
         ownership: module_owned
       - key: body_html
-        label: 正文内容
+        label: Body Content
         type: text
         ownership: module_owned
         description: "HTML content of the landing page"
       - key: cta_text
-        label: 行动号召文案
+        label: Call-to-Action Text
         type: text
         ownership: module_owned
-        default_value: "立即申请"
+        default_value: "Apply Now"
       - key: form_id
-        label: 关联表单
+        label: Linked Form
         type: text
         ownership: module_owned
       - key: campaign_id
-        label: 关联活动
+        label: Linked Campaign
         type: text
         ownership: module_owned
       - key: meta_description
-        label: SEO 描述
+        label: SEO Description
         type: text
         ownership: module_owned
       - key: published_at
-        label: 发布时间
+        label: Published At
         type: date
         ownership: module_owned
       - key: owner
-        label: 负责人
+        label: Owner
         type: text
         ownership: module_owned
 
@@ -69,19 +69,19 @@ views:
   - object: landing_page
     key: landing_page_list
     type: list
-    label: 落地页列表
+    label: Landing Page List
     config:
       columns:
         - field: title
-          label: 标题
+          label: Title
         - field: slug
-          label: 路径标识
+          label: Slug
         - field: status
-          label: 状态
+          label: Status
         - field: campaign_id
-          label: 关联活动
+          label: Linked Campaign
         - field: published_at
-          label: 发布时间
+          label: Published At
       actions:
         - create
         - view
@@ -90,10 +90,10 @@ views:
   - object: landing_page
     key: landing_page_form
     type: form
-    label: 落地页配置
+    label: Landing Page Settings
     config:
       sections:
-        - title: 基本信息
+        - title: Basic Information
           fields:
             - field: title
               required: true
@@ -101,17 +101,17 @@ views:
               required: true
             - field: status
               required: true
-        - title: 内容
+        - title: Content
           fields:
             - field: headline
             - field: subheadline
             - field: body_html
             - field: cta_text
-        - title: 关联
+        - title: Associations
           fields:
             - field: form_id
             - field: campaign_id
-        - title: SEO 与发布
+        - title: SEO & Publishing
           fields:
             - field: meta_description
             - field: published_at
@@ -130,13 +130,13 @@ relations:
     targetModule: runory.form
     type: many_to_one
     foreignKey: form_id
-    label: 关联表单
+    label: Linked Form
   - object: landing_page
     targetObject: campaign
     targetModule: runory.campaign
     type: many_to_one
     foreignKey: campaign_id
-    label: 关联活动
+    label: Linked Campaign
 
 migrations:
   install: migrations/install.sql
@@ -144,7 +144,7 @@ migrations:
 
 ui:
   navigation:
-    - label: 落地页
+    - label: Landing Pages
       route: /landing-pages
       icon: layout
       sortOrder: 41
@@ -182,7 +182,7 @@ dashboard:
   widgets:
     - key: published_landing_pages_metric
       type: metric_card
-      label: 已发布落地页
+      label: Published Landing Pages
       icon: layout
       tone: violet
       data:
@@ -193,7 +193,7 @@ dashboard:
 
     - key: landing_page_status_breakdown
       type: breakdown
-      label: 落地页状态分布
+      label: Landing Page Status Breakdown
       icon: pie-chart
       tone: violet
       data:
@@ -203,7 +203,7 @@ dashboard:
 
     - key: recent_landing_pages_list
       type: list
-      label: 最近落地页
+      label: Recent Landing Pages
       icon: layout
       tone: violet
       data:
@@ -215,7 +215,7 @@ dashboard:
       link: /landing-pages
       configurable:
         - path: data.limit
-          label: 显示条数
+          label: Items per Page
           type: number
           min: 1
           max: 20

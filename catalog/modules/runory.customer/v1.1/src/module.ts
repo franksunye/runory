@@ -17,28 +17,28 @@ const manifest = defineModule({
       fields: [
         {
           key: "name",
-          label: "客户名称",
+          label: "Customer Name",
           type: "text",
           ownership: "module_owned",
           required: true,
         },
         {
           key: "email",
-          label: "邮箱",
+          label: "Email",
           type: "email",
           ownership: "module_owned",
           required: false,
         },
         {
           key: "phone",
-          label: "电话",
+          label: "Phone",
           type: "phone",
           ownership: "module_owned",
           required: false,
         },
         {
           key: "industry",
-          label: "行业",
+          label: "Industry",
           type: "select",
           ownership: "module_owned",
           required: false,
@@ -48,7 +48,7 @@ const manifest = defineModule({
         },
         {
           key: "website",
-          label: "网站",
+          label: "Website",
           type: "text",
           ownership: "module_owned",
           required: false,
@@ -62,13 +62,13 @@ const manifest = defineModule({
       object: "customer",
       key: "customer_list",
       type: "list",
-      label: "客户列表",
+      label: "Customer List",
       config: {
         columns: [
-          { field: "name", label: "客户名称" },
-          { field: "email", label: "邮箱" },
-          { field: "phone", label: "电话" },
-          { field: "industry", label: "行业" },
+          { field: "name", label: "Customer Name" },
+          { field: "email", label: "Email" },
+          { field: "phone", label: "Phone" },
+          { field: "industry", label: "Industry" },
         ],
         actions: ["create", "view"],
         pageSize: 20,
@@ -78,11 +78,11 @@ const manifest = defineModule({
       object: "customer",
       key: "customer_form",
       type: "form",
-      label: "客户表单",
+      label: "Customer Form",
       config: {
         sections: [
           {
-            title: "基本信息",
+            title: "Basic Info",
             fields: [
               { field: "name", required: true },
               { field: "email" },
@@ -119,7 +119,7 @@ const manifest = defineModule({
   ui: {
     navigation: [
       {
-        label: "客户",
+        label: "Customer",
         route: "/customers",
         icon: "users",
         sortOrder: 20,

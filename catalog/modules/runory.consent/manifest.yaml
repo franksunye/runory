@@ -11,18 +11,18 @@ objects:
     label: Consent
     fields:
       - key: contact_id
-        label: 关联联系人
+        label: Linked Contact
         type: text
         ownership: module_owned
         required: true
       - key: purpose
-        label: 同意目的
+        label: Consent Purpose
         type: text
         ownership: module_owned
         required: true
         description: "e.g., marketing_emails, data_processing, cookie_tracking"
       - key: status
-        label: 状态
+        label: Status
         type: select
         ownership: module_owned
         required: true
@@ -30,28 +30,28 @@ objects:
         validation:
           options: ["granted", "withdrawn", "expired"]
       - key: granted_at
-        label: 授予时间
+        label: Granted At
         type: date
         ownership: module_owned
       - key: withdrawn_at
-        label: 撤回时间
+        label: Withdrawn At
         type: date
         ownership: module_owned
       - key: source
-        label: 来源
+        label: Source
         type: text
         ownership: module_owned
         description: "Where consent was captured (e.g., form_submission, explicit_opt_in)"
       - key: submission_id
-        label: 关联提交
+        label: Linked Submission
         type: text
         ownership: module_owned
       - key: policy_version
-        label: 政策版本
+        label: Policy Version
         type: text
         ownership: module_owned
       - key: notes
-        label: 备注
+        label: Notes
         type: text
         ownership: module_owned
 
@@ -59,21 +59,21 @@ views:
   - object: consent
     key: consent_list
     type: list
-    label: 同意记录列表
+    label: Consent List
     config:
       columns:
         - field: contact_id
-          label: 关联联系人
+          label: Linked Contact
         - field: purpose
-          label: 同意目的
+          label: Consent Purpose
         - field: status
-          label: 状态
+          label: Status
         - field: granted_at
-          label: 授予时间
+          label: Granted At
         - field: withdrawn_at
-          label: 撤回时间
+          label: Withdrawn At
         - field: source
-          label: 来源
+          label: Source
       actions:
         - create
         - view
@@ -82,10 +82,10 @@ views:
   - object: consent
     key: consent_form
     type: form
-    label: 同意记录表单
+    label: Consent Form
     config:
       sections:
-        - title: 基本信息
+        - title: Basic Information
           fields:
             - field: contact_id
               required: true
@@ -93,11 +93,11 @@ views:
               required: true
             - field: status
               required: true
-        - title: 时间
+        - title: Time
           fields:
             - field: granted_at
             - field: withdrawn_at
-        - title: 来源
+        - title: Source
           fields:
             - field: source
             - field: submission_id
@@ -117,13 +117,13 @@ relations:
     targetModule: runory.contact
     type: many_to_one
     foreignKey: contact_id
-    label: 关联联系人
+    label: Linked Contact
   - object: consent
     targetObject: submission
     targetModule: runory.submission
     type: many_to_one
     foreignKey: submission_id
-    label: 关联提交
+    label: Linked Submission
 
 migrations:
   install: migrations/install.sql
@@ -131,7 +131,7 @@ migrations:
 
 ui:
   navigation:
-    - label: 同意记录
+    - label: Consents
       route: /consents
       icon: shield-check
       sortOrder: 44
@@ -169,7 +169,7 @@ dashboard:
   widgets:
     - key: active_consents_metric
       type: metric_card
-      label: 有效同意
+      label: Active Consents
       icon: shield-check
       tone: violet
       data:
@@ -180,7 +180,7 @@ dashboard:
 
     - key: consent_status_breakdown
       type: breakdown
-      label: 同意状态分布
+      label: Consent Status Breakdown
       icon: pie-chart
       tone: violet
       data:
@@ -190,7 +190,7 @@ dashboard:
 
     - key: recent_consents_list
       type: list
-      label: 最近同意记录
+      label: Recent Consents
       icon: shield-check
       tone: violet
       data:
@@ -202,7 +202,7 @@ dashboard:
       link: /consents
       configurable:
         - path: data.limit
-          label: 显示条数
+          label: Items per Page
           type: number
           min: 1
           max: 20

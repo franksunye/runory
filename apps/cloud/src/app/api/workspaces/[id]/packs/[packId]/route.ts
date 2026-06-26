@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { loadPackManifest, getInstalledPacks, hasPackDemoData } from "@runory/platform-core";
+import { loadPackManifest, getInstalledPacks, hasPackDemoData, uninstallPack } from "@runory/platform-core";
 import { requireWorkspaceContext } from "@/lib/auth";
 import { successResponse, handleError, getOrCreateRequestId } from "@/lib/http";
 
@@ -49,6 +49,26 @@ export async function GET(
       200,
       ctx.requestId
     );
+  } catch (e) {
+    return handleError(e, requestId);
+  }
+}
+
+// DELETE /api/workspaces/[id]/packs/[packId]
+// Uninstall a pack. Exclusively-owned module tables are dropped; shared
+// modules (used by another installed pack) are kept. Requires admin role.
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string; packId: string }> }
+) {
+  const requestId = getOrCreateRequestId(request.headers.get("x-request-id"));
+  try {
+    const { id, packId } = await params;
+    const { ctx, workspaceId } = await requireWorkspaceContext(request, id, "admin");
+
+    const result = await uninstallPack(workspaceId, packId);
+
+    return successResponse(result, 200, ctx.requestId);
   } catch (e) {
     return handleError(e, requestId);
   }

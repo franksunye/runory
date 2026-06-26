@@ -136,9 +136,9 @@ describe("pack-specific terminology overlays", () => {
     const companyNav = nav.find((n) => n.route === "/companies");
     const taskNav = nav.find((n) => n.route === "/tasks");
 
-    // Last pack wins — consumer pack relabels company → 客户企业, task → 服务工单
-    expect(companyNav?.label).toBe("客户企业");
-    expect(taskNav?.label).toBe("服务工单");
+    // Last pack wins — consumer pack relabels company → Customer Enterprise, task → Service Order
+    expect(companyNav?.label).toBe("Customer Enterprise");
+    expect(taskNav?.label).toBe("Service Order");
   });
 
   it("does not fork the underlying object definitions", async () => {
@@ -160,9 +160,9 @@ describe("pack-specific terminology overlays", () => {
     expect(pack.terminology).toBeDefined();
     expect(pack.terminology).toHaveLength(2);
     expect(pack.terminology?.[0].object).toBe("company");
-    expect(pack.terminology?.[0].navigationLabel).toBe("客户企业");
+    expect(pack.terminology?.[0].navigationLabel).toBe("Customer Enterprise");
     expect(pack.terminology?.[1].object).toBe("task");
-    expect(pack.terminology?.[1].navigationLabel).toBe("服务工单");
+    expect(pack.terminology?.[1].navigationLabel).toBe("Service Order");
   });
 });
 

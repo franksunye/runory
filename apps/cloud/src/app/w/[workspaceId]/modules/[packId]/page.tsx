@@ -5,7 +5,7 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import {
   ArrowLeft, CheckCircle2, Database, PackagePlus, RefreshCw,
-  AlertCircle, ChevronRight, Sparkles,
+  AlertCircle, ChevronRight, Sparkles, Trash2, X,
 } from "lucide-react";
 import { notifyWorkspaceNavigationChanged } from "@/lib/workspace-events";
 import { useI18n } from "@/i18n/locale-provider";
@@ -48,6 +48,8 @@ export default function PackDetailPage() {
   const [loading, setLoading] = useState(true);
   const [installing, setInstalling] = useState(false);
   const [loadingDemo, setLoadingDemo] = useState(false);
+  const [uninstalling, setUninstalling] = useState(false);
+  const [showUninstallConfirm, setShowUninstallConfirm] = useState(false);
   const [error, setError] = useState<{ message: string; requestId?: string } | null>(null);
 
   const loadData = useCallback(async () => {
@@ -114,6 +116,32 @@ export default function PackDetailPage() {
       setError({ message: cause instanceof Error ? cause.message : t("modules.loadDemoFailed") });
     } finally {
       setLoadingDemo(false);
+    }
+  };
+
+  const handleUninstall = async () => {
+    setUninstalling(true);
+    setError(null);
+    setShowUninstallConfirm(false);
+    try {
+      const res = await fetch(
+        `/api/workspaces/${workspaceId}/packs/${packId}`,
+        {
+          method: "DELETE",
+          headers: { "X-Requested-With": "XMLHttpRequest" },
+        }
+      );
+      const json = await res.json();
+      if (!json.success) {
+        setError({ message: json.error?.message ?? t("modules.uninstallFailed"), requestId: json.error?.requestId });
+        return;
+      }
+      await loadData();
+      notifyWorkspaceNavigationChanged();
+    } catch (cause) {
+      setError({ message: cause instanceof Error ? cause.message : t("modules.uninstallFailed") });
+    } finally {
+      setUninstalling(false);
     }
   };
 
@@ -245,6 +273,15 @@ export default function PackDetailPage() {
                   {t("modules.demoError")}
                 </span>
               )}
+              <button
+                type="button"
+                onClick={() => setShowUninstallConfirm(true)}
+                disabled={uninstalling}
+                className="app-button-secondary ml-auto !text-red-600 hover:!bg-red-50 hover:!border-red-300"
+              >
+                <Trash2 size={14} />
+                {uninstalling ? t("modules.uninstalling") : t("modules.uninstall")}
+              </button>
             </>
           )}
         </div>
@@ -334,6 +371,44 @@ export default function PackDetailPage() {
           ))}
         </div>
       </section>
+
+      {/* Uninstall confirmation modal */}
+      {showUninstallConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" role="dialog" aria-modal="true">
+          <div className="mx-4 w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
+            <div className="flex items-start justify-between gap-3">
+              <h3 className="text-base font-bold text-slate-950">{t("modules.uninstallConfirmTitle")}</h3>
+              <button
+                type="button"
+                onClick={() => setShowUninstallConfirm(false)}
+                className="text-slate-400 hover:text-slate-600"
+                aria-label={t("modules.uninstallCancel")}
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <p className="mt-3 text-sm text-slate-600">{t("modules.uninstallConfirmBody")}</p>
+            <div className="mt-6 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setShowUninstallConfirm(false)}
+                className="app-button-secondary"
+              >
+                {t("modules.uninstallCancel")}
+              </button>
+              <button
+                type="button"
+                onClick={handleUninstall}
+                disabled={uninstalling}
+                className="app-button-primary !bg-red-600 hover:!bg-red-700"
+              >
+                <Trash2 size={14} />
+                {uninstalling ? t("modules.uninstalling") : t("modules.uninstallConfirmButton")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

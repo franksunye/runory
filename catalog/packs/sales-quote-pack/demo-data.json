@@ -5,16 +5,16 @@
       "alias": "ps-inspection",
       "match": { "field": "sku", "value": "SVC-INSP-001" },
       "data": {
-        "name": "现场巡检服务",
+        "name": "On-site inspection service",
         "type": "service",
         "sku": "SVC-INSP-001",
-        "description": "专业工程师现场设备巡检，包含运行状态检查和报告",
-        "unit": "次",
+        "description": "Professional engineer on-site equipment inspection, including operating status check and report",
+        "unit": "Visit",
         "default_price": 800,
         "currency": "CNY",
         "active": true,
         "tax_category": "standard",
-        "notes": "标准巡检服务，按次计费"
+        "notes": "Standard inspection service, billed per visit"
       }
     },
     {
@@ -22,11 +22,11 @@
       "alias": "ps-hvac-repair",
       "match": { "field": "sku", "value": "SVC-HVAC-001" },
       "data": {
-        "name": "HVAC 紧急维修",
+        "name": "HVAC Emergency Repair",
         "type": "service",
         "sku": "SVC-HVAC-001",
-        "description": "HVAC 系统紧急维修服务，包含故障诊断和现场修复",
-        "unit": "次",
+        "description": "HVAC system emergency repair service, including fault diagnosis and on-site repair",
+        "unit": "Visit",
         "default_price": 2500,
         "currency": "CNY",
         "active": true,
@@ -38,11 +38,11 @@
       "alias": "ps-refrigerant",
       "match": { "field": "sku", "value": "SVC-REFR-001" },
       "data": {
-        "name": "制冷剂补充服务",
+        "name": "Refrigerant Recharge Service",
         "type": "service",
         "sku": "SVC-REFR-001",
-        "description": "制冷剂补充与检漏服务",
-        "unit": "次",
+        "description": "Refrigerant recharge and leak detection service",
+        "unit": "Visit",
         "default_price": 1800,
         "currency": "CNY",
         "active": true
@@ -53,11 +53,11 @@
       "alias": "ps-calibration",
       "match": { "field": "sku", "value": "SVC-CAL-001" },
       "data": {
-        "name": "设备校准服务",
+        "name": "Equipment Calibration Service",
         "type": "service",
         "sku": "SVC-CAL-001",
-        "description": "精密设备校准与调试服务",
-        "unit": "次",
+        "description": "Precision equipment calibration and commissioning service",
+        "unit": "Visit",
         "default_price": 3200,
         "currency": "CNY",
         "active": true
@@ -68,11 +68,11 @@
       "alias": "ps-filter",
       "match": { "field": "sku", "value": "PRT-FLT-001" },
       "data": {
-        "name": "HVAC 滤芯（标准）",
+        "name": "HVAC Filter (Standard)",
         "type": "product",
         "sku": "PRT-FLT-001",
-        "description": "标准 HVAC 空气滤芯，适用于多数商用机型",
-        "unit": "个",
+        "description": "Standard HVAC air filter, suitable for most commercial models",
+        "unit": "Piece",
         "default_price": 150,
         "currency": "CNY",
         "active": true
@@ -83,11 +83,11 @@
       "alias": "ps-filter-premium",
       "match": { "field": "sku", "value": "PRT-FLT-002" },
       "data": {
-        "name": "HVAC 滤芯（高效）",
+        "name": "HVAC Filter (High Efficiency)",
         "type": "product",
         "sku": "PRT-FLT-002",
-        "description": "高效 HEPA 滤芯，适用于洁净室与机房环境",
-        "unit": "个",
+        "description": "High efficiency HEPA filter, suitable for cleanrooms and server rooms",
+        "unit": "Piece",
         "default_price": 380,
         "currency": "CNY",
         "active": true
@@ -98,11 +98,11 @@
       "alias": "ps-sensor",
       "match": { "field": "sku", "value": "PRT-SNR-001" },
       "data": {
-        "name": "温度传感器",
+        "name": "Temperature Sensor",
         "type": "product",
         "sku": "PRT-SNR-001",
-        "description": "工业级温度传感器，支持远程监控",
-        "unit": "个",
+        "description": "Industrial-grade temperature sensor, supports remote monitoring",
+        "unit": "Piece",
         "default_price": 650,
         "currency": "CNY",
         "active": true
@@ -113,11 +113,11 @@
       "alias": "ps-maintenance-bundle",
       "match": { "field": "sku", "value": "BND-MAINT-001" },
       "data": {
-        "name": "年度维保套餐",
+        "name": "Annual Maintenance Plan",
         "type": "bundle",
         "sku": "BND-MAINT-001",
-        "description": "包含 4 次现场巡检、滤芯更换与优先紧急响应",
-        "unit": "年",
+        "description": "Includes 4 on-site inspections, filter replacement and priority emergency response",
+        "unit": "Year",
         "default_price": 9800,
         "currency": "CNY",
         "active": true
@@ -128,11 +128,11 @@
       "alias": "ps-onsite-support",
       "match": { "field": "sku", "value": "SVC-ONSITE-001" },
       "data": {
-        "name": "紧急上门支持",
+        "name": "Emergency On-site Support",
         "type": "service",
         "sku": "SVC-ONSITE-001",
-        "description": "4 小时内紧急上门技术支持",
-        "unit": "次",
+        "description": "Emergency on-site technical support within 4 hours",
+        "unit": "Visit",
         "default_price": 1500,
         "currency": "CNY",
         "active": true
@@ -143,11 +143,11 @@
       "alias": "ps-training",
       "match": { "field": "sku", "value": "SVC-TRN-001" },
       "data": {
-        "name": "操作培训服务",
+        "name": "Operation Training Service",
         "type": "service",
         "sku": "SVC-TRN-001",
-        "description": "设备操作与日常维护培训（半天）",
-        "unit": "场",
+        "description": "Equipment operation and daily maintenance training (half day)",
+        "unit": "Session",
         "default_price": 2000,
         "currency": "CNY",
         "active": true
@@ -156,27 +156,27 @@
     {
       "object": "price_book",
       "alias": "pb-standard",
-      "match": { "field": "name", "value": "标准价格表 2026" },
+      "match": { "field": "name", "value": "Standard Price Book 2026" },
       "data": {
-        "name": "标准价格表 2026",
+        "name": "Standard Price Book 2026",
         "currency": "CNY",
         "active": true,
         "effective_from": "2026-01-01",
         "effective_to": "2026-12-31",
-        "notes": "适用于所有标准客户的标准报价基准"
+        "notes": "Standard pricing baseline applicable to all standard customers"
       }
     },
     {
       "object": "price_book",
       "alias": "pb-premium",
-      "match": { "field": "name", "value": "VIP 客户价格表 2026" },
+      "match": { "field": "name", "value": "VIP Customer Price Book 2026" },
       "data": {
-        "name": "VIP 客户价格表 2026",
+        "name": "VIP Customer Price Book 2026",
         "currency": "CNY",
         "active": true,
         "effective_from": "2026-01-01",
         "effective_to": "2026-12-31",
-        "notes": "VIP 客户享受 9 折优惠"
+        "notes": "VIP customers enjoy 10% discount"
       }
     },
     {
@@ -185,7 +185,7 @@
       "match": { "field": "quote_number", "value": "Q-2026-001" },
       "data": {
         "quote_number": "Q-2026-001",
-        "title": "Acme 扩展计划报价",
+        "title": "Acme Expansion Plan Quote",
         "status": "accepted",
         "version": 1,
         "company_id": { "$lookup": { "object": "company", "field": "domain", "value": "acme.example" } },
@@ -198,20 +198,20 @@
         "total_amount": 90400,
         "valid_until": "2026-07-31",
         "owner": "Alex",
-        "terms": "付款条件：30 天内付款。包含 1 年免费维护。",
-        "notes": "Acme 扩展计划首版报价，已接受"
+        "terms": "Payment terms: payment within 30 days. Includes 1 year free maintenance.",
+        "notes": "Acme Expansion Plan first version quote, accepted"
       }
     },
     {
       "object": "quote_line",
       "alias": "ql-acme-deal-v1-1",
-      "match": { "field": "description", "value": "年度维保套餐" },
+      "match": { "field": "description", "value": "Annual Maintenance Plan" },
       "data": {
         "quote_id": "$q-acme-deal-v1.id",
         "product_service_id": "$ps-maintenance-bundle.id",
-        "description": "年度维保套餐",
+        "description": "Annual Maintenance Plan",
         "quantity": 2,
-        "unit": "年",
+        "unit": "Year",
         "unit_price": 9800,
         "discount_amount": 980,
         "tax_amount": 1176,
@@ -222,13 +222,13 @@
     {
       "object": "quote_line",
       "alias": "ql-acme-deal-v1-2",
-      "match": { "field": "description", "value": "现场巡检服务" },
+      "match": { "field": "description", "value": "On-site inspection service" },
       "data": {
         "quote_id": "$q-acme-deal-v1.id",
         "product_service_id": "$ps-inspection.id",
-        "description": "现场巡检服务",
+        "description": "On-site inspection service",
         "quantity": 4,
-        "unit": "次",
+        "unit": "Visit",
         "unit_price": 800,
         "tax_amount": 384,
         "line_total": 3200,
@@ -238,13 +238,13 @@
     {
       "object": "quote_line",
       "alias": "ql-acme-deal-v1-3",
-      "match": { "field": "description", "value": "紧急上门支持" },
+      "match": { "field": "description", "value": "Emergency On-site Support" },
       "data": {
         "quote_id": "$q-acme-deal-v1.id",
         "product_service_id": "$ps-onsite-support.id",
-        "description": "紧急上门支持",
+        "description": "Emergency On-site Support",
         "quantity": 6,
-        "unit": "次",
+        "unit": "Visit",
         "unit_price": 1500,
         "discount_amount": 900,
         "tax_amount": 864,
@@ -258,7 +258,7 @@
       "match": { "field": "quote_number", "value": "Q-2026-001-V2" },
       "data": {
         "quote_number": "Q-2026-001-V2",
-        "title": "Acme 扩展计划报价（修订版）",
+        "title": "Acme Expansion Plan Quote (Revised)",
         "status": "sent",
         "version": 2,
         "company_id": { "$lookup": { "object": "company", "field": "domain", "value": "acme.example" } },
@@ -271,20 +271,20 @@
         "total_amount": 98040,
         "valid_until": "2026-08-15",
         "owner": "Alex",
-        "terms": "付款条件：30 天内付款。包含 1 年免费维护与培训。",
-        "notes": "根据客户反馈调整后的修订版报价"
+        "terms": "Payment terms: payment within 30 days. Includes 1 year free maintenance and training.",
+        "notes": "Revised quote adjusted based on customer feedback"
       }
     },
     {
       "object": "quote_line",
       "alias": "ql-acme-deal-v2-1",
-      "match": { "field": "description", "value": "年度维保套餐（修订）" },
+      "match": { "field": "description", "value": "Annual Maintenance Plan (Revised)" },
       "data": {
         "quote_id": "$q-acme-deal-v2.id",
         "product_service_id": "$ps-maintenance-bundle.id",
-        "description": "年度维保套餐（修订）",
+        "description": "Annual Maintenance Plan (Revised)",
         "quantity": 2,
-        "unit": "年",
+        "unit": "Year",
         "unit_price": 9800,
         "tax_amount": 2352,
         "line_total": 19600,
@@ -294,13 +294,13 @@
     {
       "object": "quote_line",
       "alias": "ql-acme-deal-v2-2",
-      "match": { "field": "description", "value": "操作培训服务" },
+      "match": { "field": "description", "value": "Operation Training Service" },
       "data": {
         "quote_id": "$q-acme-deal-v2.id",
         "product_service_id": "$ps-training.id",
-        "description": "操作培训服务",
+        "description": "Operation Training Service",
         "quantity": 3,
-        "unit": "场",
+        "unit": "Session",
         "unit_price": 2000,
         "tax_amount": 720,
         "line_total": 6000,
@@ -313,7 +313,7 @@
       "match": { "field": "quote_number", "value": "Q-2026-002" },
       "data": {
         "quote_number": "Q-2026-002",
-        "title": "Acme HVAC 紧急维修报价",
+        "title": "Acme HVAC Emergency Repair Quote",
         "status": "pending_approval",
         "version": 1,
         "company_id": { "$lookup": { "object": "company", "field": "domain", "value": "acme.example" } },
@@ -328,20 +328,20 @@
         "total_amount": 4704,
         "valid_until": "2026-07-15",
         "owner": "Alex",
-        "terms": "紧急维修报价，需审批后执行",
-        "notes": "源自 FSM 工单的紧急维修报价"
+        "terms": "Emergency repair quote, requires approval before execution",
+        "notes": "Emergency repair quote originating from FSM work order"
       }
     },
     {
       "object": "quote_line",
       "alias": "ql-acme-wo-1",
-      "match": { "field": "description", "value": "HVAC 紧急维修服务" },
+      "match": { "field": "description", "value": "HVAC Emergency Repair Service" },
       "data": {
         "quote_id": "$q-acme-wo-urgent.id",
         "product_service_id": "$ps-hvac-repair.id",
-        "description": "HVAC 紧急维修服务",
+        "description": "HVAC Emergency Repair Service",
         "quantity": 1,
-        "unit": "次",
+        "unit": "Visit",
         "unit_price": 2500,
         "tax_amount": 300,
         "line_total": 2500,
@@ -351,13 +351,13 @@
     {
       "object": "quote_line",
       "alias": "ql-acme-wo-2",
-      "match": { "field": "description", "value": "HVAC 滤芯（高效）" },
+      "match": { "field": "description", "value": "HVAC Filter (High Efficiency)" },
       "data": {
         "quote_id": "$q-acme-wo-urgent.id",
         "product_service_id": "$ps-filter-premium.id",
-        "description": "HVAC 滤芯（高效）",
+        "description": "HVAC Filter (High Efficiency)",
         "quantity": 2,
-        "unit": "个",
+        "unit": "Piece",
         "unit_price": 380,
         "tax_amount": 91,
         "line_total": 760,
@@ -367,13 +367,13 @@
     {
       "object": "quote_line",
       "alias": "ql-acme-wo-3",
-      "match": { "field": "description", "value": "温度传感器" },
+      "match": { "field": "description", "value": "Temperature Sensor" },
       "data": {
         "quote_id": "$q-acme-wo-urgent.id",
         "product_service_id": "$ps-sensor.id",
-        "description": "温度传感器",
+        "description": "Temperature Sensor",
         "quantity": 1,
-        "unit": "个",
+        "unit": "Piece",
         "unit_price": 650,
         "tax_amount": 78,
         "line_total": 650,
@@ -383,13 +383,13 @@
     {
       "object": "quote_approval",
       "alias": "qa-acme-wo",
-      "match": { "field": "decision_notes", "value": "紧急维修报价，等待审批" },
+      "match": { "field": "decision_notes", "value": "Emergency repair quote, pending approval" },
       "data": {
         "quote_id": "$q-acme-wo-urgent.id",
         "status": "pending",
         "requested_by": "Alex",
         "requested_at": "2026-06-22",
-        "decision_notes": "紧急维修报价，等待审批"
+        "decision_notes": "Emergency repair quote, pending approval"
       }
     },
     {
@@ -398,7 +398,7 @@
       "match": { "field": "quote_number", "value": "Q-2026-003" },
       "data": {
         "quote_number": "Q-2026-003",
-        "title": "Acme 仓库 HVAC 制冷剂补充报价",
+        "title": "Acme Warehouse HVAC Refrigerant Recharge Quote",
         "status": "approved",
         "version": 1,
         "company_id": { "$lookup": { "object": "company", "field": "domain", "value": "acme.example" } },
@@ -413,20 +413,20 @@
         "total_amount": 2688,
         "valid_until": "2026-07-10",
         "owner": "Alex",
-        "terms": "标准付款条件",
-        "notes": "仓库 HVAC 维修报价，已审批"
+        "terms": "Standard payment terms",
+        "notes": "Warehouse HVAC repair quote, approved"
       }
     },
     {
       "object": "quote_line",
       "alias": "ql-acme-wo-overdue-1",
-      "match": { "field": "description", "value": "制冷剂补充服务" },
+      "match": { "field": "description", "value": "Refrigerant Recharge Service" },
       "data": {
         "quote_id": "$q-acme-wo-overdue.id",
         "product_service_id": "$ps-refrigerant.id",
-        "description": "制冷剂补充服务",
+        "description": "Refrigerant Recharge Service",
         "quantity": 1,
-        "unit": "次",
+        "unit": "Visit",
         "unit_price": 1800,
         "tax_amount": 216,
         "line_total": 1800,
@@ -436,13 +436,13 @@
     {
       "object": "quote_line",
       "alias": "ql-acme-wo-overdue-2",
-      "match": { "field": "description", "value": "现场巡检服务" },
+      "match": { "field": "description", "value": "On-site inspection service" },
       "data": {
         "quote_id": "$q-acme-wo-overdue.id",
         "product_service_id": "$ps-inspection.id",
-        "description": "现场巡检服务",
+        "description": "On-site inspection service",
         "quantity": 1,
-        "unit": "次",
+        "unit": "Visit",
         "unit_price": 800,
         "tax_amount": 96,
         "line_total": 800,
@@ -452,7 +452,7 @@
     {
       "object": "quote_approval",
       "alias": "qa-acme-wo-overdue",
-      "match": { "field": "decision_notes", "value": "仓库维修报价已审批通过" },
+      "match": { "field": "decision_notes", "value": "Warehouse repair quote approved" },
       "data": {
         "quote_id": "$q-acme-wo-overdue.id",
         "status": "approved",
@@ -460,7 +460,7 @@
         "reviewed_by": "Sam",
         "requested_at": "2026-06-12",
         "reviewed_at": "2026-06-13",
-        "decision_notes": "仓库维修报价已审批通过"
+        "decision_notes": "Warehouse repair quote approved"
       }
     },
     {
@@ -469,7 +469,7 @@
       "match": { "field": "quote_number", "value": "Q-2026-004" },
       "data": {
         "quote_number": "Q-2026-004",
-        "title": "Nova 门店推广报价",
+        "title": "Nova Store Promotion Quote",
         "status": "accepted",
         "version": 1,
         "company_id": { "$lookup": { "object": "company", "field": "domain", "value": "novaretail.example" } },
@@ -482,20 +482,20 @@
         "total_amount": 58240,
         "valid_until": "2026-06-30",
         "owner": "Sam",
-        "terms": "付款条件：45 天内付款",
-        "notes": "Nova 门店推广已接受报价"
+        "terms": "Payment terms: payment within 45 days",
+        "notes": "Nova Store Promotion accepted quote"
       }
     },
     {
       "object": "quote_line",
       "alias": "ql-nova-deal-1",
-      "match": { "field": "description", "value": "年度维保套餐（Nova）" },
+      "match": { "field": "description", "value": "Annual Maintenance Plan (Nova)" },
       "data": {
         "quote_id": "$q-nova-deal.id",
         "product_service_id": "$ps-maintenance-bundle.id",
-        "description": "年度维保套餐（Nova）",
+        "description": "Annual Maintenance Plan (Nova)",
         "quantity": 1,
-        "unit": "年",
+        "unit": "Year",
         "unit_price": 9800,
         "tax_amount": 1176,
         "line_total": 9800,
@@ -505,13 +505,13 @@
     {
       "object": "quote_line",
       "alias": "ql-nova-deal-2",
-      "match": { "field": "description", "value": "现场巡检服务（Nova）" },
+      "match": { "field": "description", "value": "On-site inspection service (Nova)" },
       "data": {
         "quote_id": "$q-nova-deal.id",
         "product_service_id": "$ps-inspection.id",
-        "description": "现场巡检服务（Nova）",
+        "description": "On-site inspection service (Nova)",
         "quantity": 8,
-        "unit": "次",
+        "unit": "Visit",
         "unit_price": 800,
         "discount_amount": 400,
         "tax_amount": 912,
@@ -522,13 +522,13 @@
     {
       "object": "quote_line",
       "alias": "ql-nova-deal-3",
-      "match": { "field": "description", "value": "操作培训服务（Nova）" },
+      "match": { "field": "description", "value": "Operation Training Service (Nova)" },
       "data": {
         "quote_id": "$q-nova-deal.id",
         "product_service_id": "$ps-training.id",
-        "description": "操作培训服务（Nova）",
+        "description": "Operation Training Service (Nova)",
         "quantity": 5,
-        "unit": "场",
+        "unit": "Session",
         "unit_price": 2000,
         "discount_amount": 1000,
         "tax_amount": 1080,
@@ -542,7 +542,7 @@
       "match": { "field": "quote_number", "value": "Q-2026-005" },
       "data": {
         "quote_number": "Q-2026-005",
-        "title": "Vertex 平台升级报价",
+        "title": "Vertex Platform Upgrade Quote",
         "status": "draft",
         "version": 1,
         "company_id": { "$lookup": { "object": "company", "field": "domain", "value": "vertexmfg.example" } },
@@ -555,20 +555,20 @@
         "total_amount": 134400,
         "valid_until": "2026-08-01",
         "owner": "Alex",
-        "terms": "付款条件：分期付款，首付 30%",
-        "notes": "Vertex 平台升级草稿报价"
+        "terms": "Payment terms: installment payment, 30% down payment",
+        "notes": "Vertex Platform Upgrade draft quote"
       }
     },
     {
       "object": "quote_line",
       "alias": "ql-vertex-deal-1",
-      "match": { "field": "description", "value": "设备校准服务（Vertex）" },
+      "match": { "field": "description", "value": "Equipment Calibration Service (Vertex)" },
       "data": {
         "quote_id": "$q-vertex-deal.id",
         "product_service_id": "$ps-calibration.id",
-        "description": "设备校准服务（Vertex）",
+        "description": "Equipment Calibration Service (Vertex)",
         "quantity": 3,
-        "unit": "次",
+        "unit": "Visit",
         "unit_price": 3200,
         "tax_amount": 1152,
         "line_total": 9600,
@@ -578,13 +578,13 @@
     {
       "object": "quote_line",
       "alias": "ql-vertex-deal-2",
-      "match": { "field": "description", "value": "年度维保套餐（Vertex）" },
+      "match": { "field": "description", "value": "Annual Maintenance Plan (Vertex)" },
       "data": {
         "quote_id": "$q-vertex-deal.id",
         "product_service_id": "$ps-maintenance-bundle.id",
-        "description": "年度维保套餐（Vertex）",
+        "description": "Annual Maintenance Plan (Vertex)",
         "quantity": 3,
-        "unit": "年",
+        "unit": "Year",
         "unit_price": 9800,
         "discount_amount": 2940,
         "tax_amount": 3170,
@@ -595,13 +595,13 @@
     {
       "object": "quote_line",
       "alias": "ql-vertex-deal-3",
-      "match": { "field": "description", "value": "紧急上门支持（Vertex）" },
+      "match": { "field": "description", "value": "Emergency On-site Support (Vertex)" },
       "data": {
         "quote_id": "$q-vertex-deal.id",
         "product_service_id": "$ps-onsite-support.id",
-        "description": "紧急上门支持（Vertex）",
+        "description": "Emergency On-site Support (Vertex)",
         "quantity": 10,
-        "unit": "次",
+        "unit": "Visit",
         "unit_price": 1500,
         "discount_amount": 1500,
         "tax_amount": 1620,
@@ -615,7 +615,7 @@
       "match": { "field": "quote_number", "value": "Q-2026-006" },
       "data": {
         "quote_number": "Q-2026-006",
-        "title": "Vertex CNC 校准与服务报价",
+        "title": "Vertex CNC Calibration and Service Quote",
         "status": "draft",
         "version": 1,
         "company_id": { "$lookup": { "object": "company", "field": "domain", "value": "vertexmfg.example" } },
@@ -630,19 +630,19 @@
         "total_amount": 7616,
         "valid_until": "2026-07-20",
         "owner": "Alex",
-        "notes": "源自 FSM 工单的 CNC 校准报价草稿"
+        "notes": "CNC calibration quote draft originating from FSM work order"
       }
     },
     {
       "object": "quote_line",
       "alias": "ql-vertex-wo-1",
-      "match": { "field": "description", "value": "设备校准服务（Vertex CNC）" },
+      "match": { "field": "description", "value": "Equipment Calibration Service (Vertex CNC)" },
       "data": {
         "quote_id": "$q-vertex-wo.id",
         "product_service_id": "$ps-calibration.id",
-        "description": "设备校准服务（Vertex CNC）",
+        "description": "Equipment Calibration Service (Vertex CNC)",
         "quantity": 1,
-        "unit": "次",
+        "unit": "Visit",
         "unit_price": 3200,
         "tax_amount": 384,
         "line_total": 3200,
@@ -652,13 +652,13 @@
     {
       "object": "quote_line",
       "alias": "ql-vertex-wo-2",
-      "match": { "field": "description", "value": "现场巡检服务（Vertex CNC）" },
+      "match": { "field": "description", "value": "On-site inspection service (Vertex CNC)" },
       "data": {
         "quote_id": "$q-vertex-wo.id",
         "product_service_id": "$ps-inspection.id",
-        "description": "现场巡检服务（Vertex CNC）",
+        "description": "On-site inspection service (Vertex CNC)",
         "quantity": 2,
-        "unit": "次",
+        "unit": "Visit",
         "unit_price": 800,
         "tax_amount": 192,
         "line_total": 1600,
@@ -668,13 +668,13 @@
     {
       "object": "quote_line",
       "alias": "ql-vertex-wo-3",
-      "match": { "field": "description", "value": "温度传感器（Vertex）" },
+      "match": { "field": "description", "value": "Temperature Sensor (Vertex)" },
       "data": {
         "quote_id": "$q-vertex-wo.id",
         "product_service_id": "$ps-sensor.id",
-        "description": "温度传感器（Vertex）",
+        "description": "Temperature Sensor (Vertex)",
         "quantity": 2,
-        "unit": "个",
+        "unit": "Piece",
         "unit_price": 650,
         "tax_amount": 156,
         "line_total": 1300,
@@ -687,7 +687,7 @@
       "match": { "field": "quote_number", "value": "Q-2026-007" },
       "data": {
         "quote_number": "Q-2026-007",
-        "title": "Harbor 入驻服务报价",
+        "title": "Harbor Onboarding Service Quote",
         "status": "pending_approval",
         "version": 1,
         "company_id": { "$lookup": { "object": "company", "field": "domain", "value": "harborlogistics.example" } },
@@ -700,20 +700,20 @@
         "total_amount": 40320,
         "valid_until": "2026-07-25",
         "owner": "Sam",
-        "terms": "付款条件：30 天内付款",
-        "notes": "Harbor 入驻服务报价，等待审批"
+        "terms": "Payment terms: payment within 30 days",
+        "notes": "Harbor Onboarding Service quote, pending approval"
       }
     },
     {
       "object": "quote_line",
       "alias": "ql-harbor-deal-1",
-      "match": { "field": "description", "value": "年度维保套餐（Harbor）" },
+      "match": { "field": "description", "value": "Annual Maintenance Plan (Harbor)" },
       "data": {
         "quote_id": "$q-harbor-deal.id",
         "product_service_id": "$ps-maintenance-bundle.id",
-        "description": "年度维保套餐（Harbor）",
+        "description": "Annual Maintenance Plan (Harbor)",
         "quantity": 1,
-        "unit": "年",
+        "unit": "Year",
         "unit_price": 9800,
         "tax_amount": 1176,
         "line_total": 9800,
@@ -723,13 +723,13 @@
     {
       "object": "quote_line",
       "alias": "ql-harbor-deal-2",
-      "match": { "field": "description", "value": "操作培训服务（Harbor）" },
+      "match": { "field": "description", "value": "Operation Training Service (Harbor)" },
       "data": {
         "quote_id": "$q-harbor-deal.id",
         "product_service_id": "$ps-training.id",
-        "description": "操作培训服务（Harbor）",
+        "description": "Operation Training Service (Harbor)",
         "quantity": 4,
-        "unit": "场",
+        "unit": "Session",
         "unit_price": 2000,
         "discount_amount": 800,
         "tax_amount": 768,
@@ -740,13 +740,13 @@
     {
       "object": "quote_approval",
       "alias": "qa-harbor-deal",
-      "match": { "field": "decision_notes", "value": "Harbor 入驻服务报价等待审批" },
+      "match": { "field": "decision_notes", "value": "Harbor Onboarding Service quote pending approval" },
       "data": {
         "quote_id": "$q-harbor-deal.id",
         "status": "pending",
         "requested_by": "Sam",
         "requested_at": "2026-06-21",
-        "decision_notes": "Harbor 入驻服务报价等待审批"
+        "decision_notes": "Harbor Onboarding Service quote pending approval"
       }
     },
     {
@@ -755,7 +755,7 @@
       "match": { "field": "quote_number", "value": "Q-2026-008" },
       "data": {
         "quote_number": "Q-2026-008",
-        "title": "Pine Health 试点项目报价",
+        "title": "Pine Health Pilot Program Quote",
         "status": "expired",
         "version": 1,
         "company_id": { "$lookup": { "object": "company", "field": "domain", "value": "pinehealth.example" } },
@@ -768,19 +768,19 @@
         "total_amount": 23520,
         "valid_until": "2026-06-15",
         "owner": "Alex",
-        "notes": "已过期的试点项目报价"
+        "notes": "Expired pilot program quote"
       }
     },
     {
       "object": "quote_line",
       "alias": "ql-pine-deal-1",
-      "match": { "field": "description", "value": "现场巡检服务（Pine）" },
+      "match": { "field": "description", "value": "On-site inspection service (Pine)" },
       "data": {
         "quote_id": "$q-pine-deal.id",
         "product_service_id": "$ps-inspection.id",
-        "description": "现场巡检服务（Pine）",
+        "description": "On-site inspection service (Pine)",
         "quantity": 6,
-        "unit": "次",
+        "unit": "Visit",
         "unit_price": 800,
         "tax_amount": 576,
         "line_total": 4800,
@@ -790,13 +790,13 @@
     {
       "object": "quote_line",
       "alias": "ql-pine-deal-2",
-      "match": { "field": "description", "value": "操作培训服务（Pine）" },
+      "match": { "field": "description", "value": "Operation Training Service (Pine)" },
       "data": {
         "quote_id": "$q-pine-deal.id",
         "product_service_id": "$ps-training.id",
-        "description": "操作培训服务（Pine）",
+        "description": "Operation Training Service (Pine)",
         "quantity": 2,
-        "unit": "场",
+        "unit": "Session",
         "unit_price": 2000,
         "tax_amount": 480,
         "line_total": 4000,
@@ -809,7 +809,7 @@
       "match": { "field": "quote_number", "value": "Q-2026-009" },
       "data": {
         "quote_number": "Q-2026-009",
-        "title": "Nova 制冷检查报价",
+        "title": "Nova Refrigeration Inspection Quote",
         "status": "sent",
         "version": 1,
         "company_id": { "$lookup": { "object": "company", "field": "domain", "value": "novaretail.example" } },
@@ -824,19 +824,19 @@
         "total_amount": 3584,
         "valid_until": "2026-07-05",
         "owner": "Sam",
-        "notes": "Nova 制冷检查报价，已发送"
+        "notes": "Nova refrigeration inspection quote, sent"
       }
     },
     {
       "object": "quote_line",
       "alias": "ql-nova-wo-1",
-      "match": { "field": "description", "value": "现场巡检服务（Nova 制冷）" },
+      "match": { "field": "description", "value": "On-site inspection service (Nova Refrigeration)" },
       "data": {
         "quote_id": "$q-nova-wo.id",
         "product_service_id": "$ps-inspection.id",
-        "description": "现场巡检服务（Nova 制冷）",
+        "description": "On-site inspection service (Nova Refrigeration)",
         "quantity": 1,
-        "unit": "次",
+        "unit": "Visit",
         "unit_price": 800,
         "tax_amount": 96,
         "line_total": 800,
@@ -846,13 +846,13 @@
     {
       "object": "quote_line",
       "alias": "ql-nova-wo-2",
-      "match": { "field": "description", "value": "制冷剂补充服务（Nova）" },
+      "match": { "field": "description", "value": "Refrigerant Recharge Service (Nova)" },
       "data": {
         "quote_id": "$q-nova-wo.id",
         "product_service_id": "$ps-refrigerant.id",
-        "description": "制冷剂补充服务（Nova）",
+        "description": "Refrigerant Recharge Service (Nova)",
         "quantity": 1,
-        "unit": "次",
+        "unit": "Visit",
         "unit_price": 1800,
         "tax_amount": 216,
         "line_total": 1800,
@@ -862,13 +862,13 @@
     {
       "object": "quote_line",
       "alias": "ql-nova-wo-3",
-      "match": { "field": "description", "value": "HVAC 滤芯（标准）" },
+      "match": { "field": "description", "value": "HVAC Filter (Standard)" },
       "data": {
         "quote_id": "$q-nova-wo.id",
         "product_service_id": "$ps-filter.id",
-        "description": "HVAC 滤芯（标准）",
+        "description": "HVAC Filter (Standard)",
         "quantity": 4,
-        "unit": "个",
+        "unit": "Piece",
         "unit_price": 150,
         "tax_amount": 72,
         "line_total": 600,
@@ -881,7 +881,7 @@
       "match": { "field": "quote_number", "value": "Q-2026-010" },
       "data": {
         "quote_number": "Q-2026-010",
-        "title": "Quantum 研究合同报价",
+        "title": "Quantum Research Contract Quote",
         "status": "rejected",
         "version": 1,
         "company_id": { "$lookup": { "object": "company", "field": "domain", "value": "quantumlabs.example" } },
@@ -894,19 +894,19 @@
         "total_amount": 190400,
         "valid_until": "2026-05-15",
         "owner": "Sam",
-        "notes": "已被客户拒绝的研究合同报价"
+        "notes": "Research contract quote rejected by customer"
       }
     },
     {
       "object": "quote_line",
       "alias": "ql-quantum-deal-1",
-      "match": { "field": "description", "value": "设备校准服务（Quantum）" },
+      "match": { "field": "description", "value": "Equipment Calibration Service (Quantum)" },
       "data": {
         "quote_id": "$q-quantum-deal.id",
         "product_service_id": "$ps-calibration.id",
-        "description": "设备校准服务（Quantum）",
+        "description": "Equipment Calibration Service (Quantum)",
         "quantity": 5,
-        "unit": "次",
+        "unit": "Visit",
         "unit_price": 3200,
         "tax_amount": 1920,
         "line_total": 16000,
@@ -916,13 +916,13 @@
     {
       "object": "quote_line",
       "alias": "ql-quantum-deal-2",
-      "match": { "field": "description", "value": "年度维保套餐（Quantum）" },
+      "match": { "field": "description", "value": "Annual Maintenance Plan (Quantum)" },
       "data": {
         "quote_id": "$q-quantum-deal.id",
         "product_service_id": "$ps-maintenance-bundle.id",
-        "description": "年度维保套餐（Quantum）",
+        "description": "Annual Maintenance Plan (Quantum)",
         "quantity": 5,
-        "unit": "年",
+        "unit": "Year",
         "unit_price": 9800,
         "discount_amount": 4900,
         "tax_amount": 5292,
@@ -933,7 +933,7 @@
     {
       "object": "quote_approval",
       "alias": "qa-quantum-deal",
-      "match": { "field": "decision_notes", "value": "Quantum 报价已审批但被客户拒绝" },
+      "match": { "field": "decision_notes", "value": "Quantum quote approved but rejected by customer" },
       "data": {
         "quote_id": "$q-quantum-deal.id",
         "status": "approved",
@@ -941,13 +941,13 @@
         "reviewed_by": "Alex",
         "requested_at": "2026-04-20",
         "reviewed_at": "2026-04-22",
-        "decision_notes": "Quantum 报价已审批但被客户拒绝"
+        "decision_notes": "Quantum quote approved but rejected by customer"
       }
     },
     {
       "object": "quote_approval",
       "alias": "qa-acme-deal-v1",
-      "match": { "field": "decision_notes", "value": "Acme 扩展计划报价已审批通过" },
+      "match": { "field": "decision_notes", "value": "Acme Expansion Plan quote approved" },
       "data": {
         "quote_id": "$q-acme-deal-v1.id",
         "status": "approved",
@@ -955,7 +955,7 @@
         "reviewed_by": "Sam",
         "requested_at": "2026-06-10",
         "reviewed_at": "2026-06-11",
-        "decision_notes": "Acme 扩展计划报价已审批通过"
+        "decision_notes": "Acme Expansion Plan quote approved"
       }
     }
   ]

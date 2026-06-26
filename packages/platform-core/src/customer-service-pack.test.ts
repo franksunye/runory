@@ -185,7 +185,7 @@ describe("Customer Service pack terminology overlay", () => {
 
     const nav = await getNavigation(workspaceId);
     const companyNav = nav.find((n) => n.route === "/companies");
-    expect(companyNav?.label).toBe("客户");
+    expect(companyNav?.label).toBe("Customer");
   });
 
   it("does not fork the underlying object definitions", async () => {
@@ -227,7 +227,7 @@ describe("Customer Service demo data with cross-pack references", () => {
     }
     const urgentSla = slas.find((s) => s.priority === "urgent");
     expect(urgentSla).toBeDefined();
-    expect(urgentSla?.name).toBe("紧急 SLA");
+    expect(urgentSla?.name).toBe("Urgent SLA");
 
     // Verify tickets were created (6)
     const tickets = await getRecords(workspaceId, "ticket");
@@ -425,8 +425,8 @@ describe("ticket lifecycle and SLA", () => {
 
     const created = await createRecord(workspaceId, "ticket", {
       ticket_number: "TKT-JOURNEY-001",
-      subject: "生命周期测试工单",
-      description: "用于测试工单状态流转",
+      subject: "Lifecycle Test Ticket",
+      description: "For testing ticket status transitions",
       status: "new",
       priority: "medium",
       channel: "web",
@@ -460,7 +460,7 @@ describe("ticket lifecycle and SLA", () => {
 
     const created = await createRecord(workspaceId, "ticket", {
       ticket_number: "TKT-ESC-001",
-      subject: "升级测试工单",
+      subject: "Escalation Test Ticket",
       status: "open",
       priority: "high",
       channel: "phone",
@@ -479,8 +479,8 @@ describe("ticket lifecycle and SLA", () => {
     await installPack(workspaceId, "customer-service-pack");
 
     const urgentSla = await createRecord(workspaceId, "support_sla", {
-      name: "紧急 SLA",
-      description: "1 小时内响应，4 小时内解决",
+      name: "Urgent SLA",
+      description: "1 hour response, 4 hours resolution",
       priority: "urgent",
       response_time_hours: 1,
       resolution_time_hours: 4,
@@ -492,8 +492,8 @@ describe("ticket lifecycle and SLA", () => {
     expect(urgentSla.resolution_time_hours).toBe(4);
 
     const standardSla = await createRecord(workspaceId, "support_sla", {
-      name: "标准 SLA",
-      description: "24 小时内响应，72 小时内解决",
+      name: "Standard SLA",
+      description: "24 hour response, 72 hours resolution",
       priority: "medium",
       response_time_hours: 24,
       resolution_time_hours: 72,
@@ -507,7 +507,7 @@ describe("ticket lifecycle and SLA", () => {
     // Link SLA to a ticket
     const ticket = await createRecord(workspaceId, "ticket", {
       ticket_number: "TKT-SLA-001",
-      subject: "SLA 关联测试",
+      subject: "SLA Association Test",
       status: "open",
       priority: "urgent",
       channel: "phone",
@@ -527,9 +527,9 @@ describe("knowledge article resolution", () => {
     await installPack(workspaceId, "customer-service-pack");
 
     const article = await createRecord(workspaceId, "knowledge", {
-      title: "解决方案文章",
+      title: "Resolution Article",
       slug: "resolution-article",
-      content: "这是一篇用于解决工单的知识文章。",
+      content: "This is a knowledge article for resolving tickets.",
       category: "troubleshooting",
       status: "published",
       author: "Alex Chen",
@@ -538,7 +538,7 @@ describe("knowledge article resolution", () => {
 
     const ticket = await createRecord(workspaceId, "ticket", {
       ticket_number: "TKT-KB-001",
-      subject: "知识文章解决测试",
+      subject: "Knowledge Article Resolution Test",
       status: "open",
       priority: "medium",
       channel: "email",
@@ -835,9 +835,9 @@ describe("Customer Service demo journey (end-to-end support flow)", () => {
 
     // 2. Create a knowledge article for later resolution
     const article = await createRecord(workspaceId, "knowledge", {
-      title: "工单解决方案知识文章",
+      title: "Ticket Resolution Knowledge Article",
       slug: "journey-resolution-article",
-      content: "这是一篇用于解决旅程工单的知识文章，包含详细的解决步骤。",
+      content: "This is a knowledge article for resolving the journey ticket, including detailed resolution steps.",
       category: "troubleshooting",
       status: "published",
       author: "Alex Chen",
@@ -847,14 +847,14 @@ describe("Customer Service demo journey (end-to-end support flow)", () => {
 
     // 3. Create a company and contact to link
     const company = await createRecord(workspaceId, "company", {
-      name: "旅程测试公司",
+      name: "Journey Test Company",
       domain: "journey.example",
       industry: "technology",
       lifecycle_stage: "customer",
       owner: "Alex Chen",
     });
     const contact = await createRecord(workspaceId, "contact", {
-      name: "旅程联系人",
+      name: "Journey Contact",
       email: "contact@journey.example",
       company_id: company.id,
       owner: "Alex Chen",
@@ -863,8 +863,8 @@ describe("Customer Service demo journey (end-to-end support flow)", () => {
     // 4. Create a ticket linked to company and contact
     const ticket = await createRecord(workspaceId, "ticket", {
       ticket_number: "TKT-JOURNEY-002",
-      subject: "客户报修 — 设备故障",
-      description: "客户报告设备无法正常工作，需要工程师支援。",
+      subject: "Customer repair request — equipment failure",
+      description: "Customer reports equipment not working properly, engineer support needed.",
       status: "new",
       priority: "medium",
       channel: "phone",
@@ -883,8 +883,8 @@ describe("Customer Service demo journey (end-to-end support flow)", () => {
     const customerMsg = await createRecord(workspaceId, "conversation", {
       ticket_id: ticket.id,
       author_type: "customer",
-      author_name: "旅程联系人",
-      body: "我们的设备从昨天开始出现故障，请尽快派人维修。",
+      author_name: "Journey Contact",
+      body: "Our equipment has been malfunctioning since yesterday, please send someone for repair as soon as possible.",
       message_type: "email",
       is_internal: false,
     });
@@ -896,7 +896,7 @@ describe("Customer Service demo journey (end-to-end support flow)", () => {
       ticket_id: ticket.id,
       author_type: "agent",
       author_name: "David Park",
-      body: "收到您的报修请求，已安排工程师上门检查。",
+      body: "Received your repair request, an engineer has been scheduled for on-site inspection.",
       message_type: "email",
       is_internal: false,
     });
@@ -930,7 +930,7 @@ describe("Customer Service demo journey (end-to-end support flow)", () => {
       ticket_id: ticket.id,
       author_type: "agent",
       author_name: "David Park",
-      body: "已通过知识文章解决故障，设备恢复正常运行。",
+      body: "Issue resolved through knowledge article, equipment is back to normal operation.",
       message_type: "comment",
       is_internal: false,
     });
@@ -993,7 +993,7 @@ describe("Customer Service pack installation tracking", () => {
     const terminology = JSON.parse(packInstalls[0].terminology_json!);
     expect(terminology).toHaveLength(1);
     expect(terminology[0].object).toBe("company");
-    expect(terminology[0].navigationLabel).toBe("客户");
+    expect(terminology[0].navigationLabel).toBe("Customer");
   });
 
   it("updates customer service pack installation on re-install (idempotent)", async () => {

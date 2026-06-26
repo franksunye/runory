@@ -11,12 +11,12 @@ objects:
     label: Quote Approval
     fields:
       - key: quote_id
-        label: 关联报价
+        label: Associated Quote
         type: text
         ownership: module_owned
         required: true
       - key: status
-        label: 状态
+        label: Status
         type: select
         ownership: module_owned
         required: true
@@ -24,23 +24,23 @@ objects:
         validation:
           options: ["pending", "approved", "rejected", "cancelled"]
       - key: requested_by
-        label: 申请人
+        label: Requester
         type: text
         ownership: module_owned
       - key: reviewed_by
-        label: 审批人
+        label: Approver
         type: text
         ownership: module_owned
       - key: requested_at
-        label: 申请时间
+        label: Requested At
         type: date
         ownership: module_owned
       - key: reviewed_at
-        label: 审批时间
+        label: Reviewed At
         type: date
         ownership: module_owned
       - key: decision_notes
-        label: 审批意见
+        label: Decision Notes
         type: text
         ownership: module_owned
 
@@ -48,19 +48,19 @@ views:
   - object: quote_approval
     key: quote_approval_list
     type: list
-    label: 报价审批列表
+    label: Quote Approval List
     config:
       columns:
         - field: quote_id
-          label: 关联报价
+          label: Associated Quote
         - field: status
-          label: 状态
+          label: Status
         - field: requested_by
-          label: 申请人
+          label: Requester
         - field: reviewed_by
-          label: 审批人
+          label: Approver
         - field: requested_at
-          label: 申请时间
+          label: Requested At
       actions:
         - create
         - view
@@ -69,20 +69,20 @@ views:
   - object: quote_approval
     key: quote_approval_form
     type: form
-    label: 报价审批表单
+    label: Quote Approval Form
     config:
       sections:
-        - title: 基本信息
+        - title: Basic Information
           fields:
             - field: quote_id
               required: true
             - field: status
               required: true
-        - title: 申请人信息
+        - title: Requester Information
           fields:
             - field: requested_by
             - field: requested_at
-        - title: 审批信息
+        - title: Approval Information
           fields:
             - field: reviewed_by
             - field: reviewed_at
@@ -102,7 +102,7 @@ relations:
     targetModule: runory.quote
     type: many_to_one
     foreignKey: quote_id
-    label: 关联报价
+    label: Associated Quote
 
 migrations:
   install: migrations/install.sql
@@ -110,7 +110,7 @@ migrations:
 
 ui:
   navigation:
-    - label: 报价审批
+    - label: Quote Approvals
       route: /quote-approvals
       icon: check-square
       sortOrder: 35
@@ -148,7 +148,7 @@ dashboard:
   widgets:
     - key: pending_quote_approvals_metric
       type: metric_card
-      label: 待审批报价
+      label: Pending Approval Quotes
       icon: clock
       tone: amber
       data:
@@ -159,7 +159,7 @@ dashboard:
 
     - key: quote_approval_status_breakdown
       type: breakdown
-      label: 报价审批状态分布
+      label: Quote Approval Status Breakdown
       icon: pie-chart
       tone: amber
       data:
@@ -169,7 +169,7 @@ dashboard:
 
     - key: pending_quote_approvals_list
       type: list
-      label: 待审批报价
+      label: Pending Approval Quotes
       icon: clock
       tone: amber
       data:
@@ -182,7 +182,7 @@ dashboard:
       link: /quote-approvals
       configurable:
         - path: data.limit
-          label: 显示条数
+          label: Display Count
           type: number
           min: 1
           max: 20

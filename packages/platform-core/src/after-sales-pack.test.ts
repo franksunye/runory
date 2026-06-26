@@ -206,7 +206,7 @@ describe("After-sales pack terminology overlay", () => {
 
     const nav = await getNavigation(workspaceId);
     const companyNav = nav.find((n) => n.route === "/companies");
-    expect(companyNav?.label).toBe("客户");
+    expect(companyNav?.label).toBe("Customer");
   });
 
   it("does not fork the underlying object definitions", async () => {
@@ -503,7 +503,7 @@ describe("warranty and entitlement lifecycle", () => {
 
     const active = await createRecord(workspaceId, "warranty", {
       warranty_number: "WAR-LIFE-001",
-      title: "活跃保修",
+      title: "Active Warranty",
       status: "active",
       warranty_type: "standard",
       start_date: "2026-01-01",
@@ -513,7 +513,7 @@ describe("warranty and entitlement lifecycle", () => {
 
     const expired = await createRecord(workspaceId, "warranty", {
       warranty_number: "WAR-LIFE-002",
-      title: "已过期保修",
+      title: "Expired Warranty",
       status: "expired",
       warranty_type: "standard",
       start_date: "2024-01-01",
@@ -523,7 +523,7 @@ describe("warranty and entitlement lifecycle", () => {
 
     const voided = await createRecord(workspaceId, "warranty", {
       warranty_number: "WAR-LIFE-003",
-      title: "已作废保修",
+      title: "Voided Warranty",
       status: "voided",
       warranty_type: "standard",
       start_date: "2026-01-01",
@@ -533,7 +533,7 @@ describe("warranty and entitlement lifecycle", () => {
 
     const pending = await createRecord(workspaceId, "warranty", {
       warranty_number: "WAR-LIFE-004",
-      title: "待激活保修",
+      title: "Pending Warranty",
       status: "pending",
       warranty_type: "trial",
       start_date: "2026-07-01",
@@ -551,7 +551,7 @@ describe("warranty and entitlement lifecycle", () => {
 
     const active = await createRecord(workspaceId, "entitlement", {
       entitlement_number: "ENT-LIFE-001",
-      name: "活跃权益",
+      name: "Active Entitlement",
       status: "active",
       entitlement_type: "support_hours",
       total_value: 50,
@@ -563,7 +563,7 @@ describe("warranty and entitlement lifecycle", () => {
 
     const suspended = await createRecord(workspaceId, "entitlement", {
       entitlement_number: "ENT-LIFE-002",
-      name: "已暂停权益",
+      name: "Suspended Entitlement",
       status: "suspended",
       entitlement_type: "visits",
       total_value: 10,
@@ -575,7 +575,7 @@ describe("warranty and entitlement lifecycle", () => {
 
     const expired = await createRecord(workspaceId, "entitlement", {
       entitlement_number: "ENT-LIFE-003",
-      name: "已过期权益",
+      name: "Expired Entitlement",
       status: "expired",
       entitlement_type: "discount",
       total_value: 20,
@@ -587,7 +587,7 @@ describe("warranty and entitlement lifecycle", () => {
 
     const consumed = await createRecord(workspaceId, "entitlement", {
       entitlement_number: "ENT-LIFE-004",
-      name: "已消耗权益",
+      name: "Consumed Entitlement",
       status: "consumed",
       entitlement_type: "service_credits",
       total_value: 100,
@@ -716,7 +716,7 @@ describe("maintenance plan progress tracking", () => {
 
     const plan = await createRecord(workspaceId, "maintenance_plan", {
       plan_number: "MP-PROG-001",
-      name: "进度测试维保计划",
+      name: "Progress Test Maintenance Plan",
       status: "active",
       plan_type: "recurring",
       frequency: "quarterly",
@@ -1160,14 +1160,14 @@ describe("After-sales demo journey (end-to-end after-sales flow)", () => {
 
     // 2. Create a company and contact to link
     const company = await createRecord(workspaceId, "company", {
-      name: "旅程测试公司",
+      name: "Journey Test Company",
       domain: "journey.example",
       industry: "technology",
       lifecycle_stage: "customer",
       owner: "Alex Chen",
     });
     const contact = await createRecord(workspaceId, "contact", {
-      name: "旅程联系人",
+      name: "Journey Contact",
       email: "contact@journey.example",
       company_id: company.id,
       owner: "Alex Chen",
@@ -1176,15 +1176,15 @@ describe("After-sales demo journey (end-to-end after-sales flow)", () => {
     // 3. Create a warranty linked to company and contact
     const warranty = await createRecord(workspaceId, "warranty", {
       warranty_number: "WAR-JOURNEY-001",
-      title: "旅程测试保修",
+      title: "Journey Test Warranty",
       status: "active",
       warranty_type: "standard",
       start_date: "2026-01-01",
       end_date: "2027-01-01",
       company_id: company.id,
       contact_id: contact.id,
-      terms: "标准保修 12 个月",
-      coverage_json: "[\"制造缺陷\",\"零件更换\"]",
+      terms: "Standard 12-month warranty",
+      coverage_json: "[\"Manufacturing defects\",\"Parts replacement\"]",
       owner: "Alex Chen",
     });
     expect(warranty.id).toBeDefined();
@@ -1195,7 +1195,7 @@ describe("After-sales demo journey (end-to-end after-sales flow)", () => {
     // 4. Create a repair request linked to warranty
     const repair = await createRecord(workspaceId, "repair_request", {
       repair_number: "REP-JOURNEY-001",
-      issue_description: "客户报修 — 设备制冷不足",
+      issue_description: "Customer repair request — insufficient cooling",
       status: "requested",
       priority: "high",
       repair_type: "on_site",
@@ -1223,7 +1223,7 @@ describe("After-sales demo journey (end-to-end after-sales flow)", () => {
     // 6. Create a maintenance plan
     const plan = await createRecord(workspaceId, "maintenance_plan", {
       plan_number: "MP-JOURNEY-001",
-      name: "旅程测试维保计划",
+      name: "Journey Test Maintenance Plan",
       status: "active",
       plan_type: "recurring",
       frequency: "quarterly",
@@ -1242,7 +1242,7 @@ describe("After-sales demo journey (end-to-end after-sales flow)", () => {
     // 7. Create a customer success followup
     const followup = await createRecord(workspaceId, "customer_success", {
       followup_number: "CS-JOURNEY-001",
-      subject: "旅程测试客户回访",
+      subject: "Journey Test Customer Follow-up",
       status: "scheduled",
       followup_type: "check_in",
       priority: "medium",
@@ -1302,7 +1302,7 @@ describe("After-sales demo journey (end-to-end after-sales flow)", () => {
     const completedFollowup = await updateRecord(workspaceId, "customer_success", followup.id, {
       status: "completed",
       completed_at: "2026-06-24",
-      outcome: "客户对维修服务满意",
+      outcome: "Customer satisfied with repair service",
       satisfaction_score: 9,
     });
     expect(completedFollowup?.status).toBe("completed");
@@ -1351,7 +1351,7 @@ describe("After-sales pack installation tracking", () => {
     const terminology = JSON.parse(packInstalls[0].terminology_json!);
     expect(terminology).toHaveLength(1);
     expect(terminology[0].object).toBe("company");
-    expect(terminology[0].navigationLabel).toBe("客户");
+    expect(terminology[0].navigationLabel).toBe("Customer");
   });
 
   it("updates after-sales pack installation on re-install (idempotent)", async () => {

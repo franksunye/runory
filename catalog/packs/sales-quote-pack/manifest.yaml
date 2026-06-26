@@ -30,16 +30,16 @@ modules:
 defaultTemplate: small-business-sales-quote
 
 # Pack-specific terminology overlay (v0.2.3).
-# Sales Quote labels the shared "company" object as "客户" (Customer) for
+# Sales Quote labels the shared "company" object as "Customer" for
 # commercial proposal context, without forking the underlying object definition.
 terminology:
   - object: company
-    label: 客户
-    navigationLabel: 客户
+    label: Customer
+    navigationLabel: Customer
     route: /companies
   - object: deal
-    label: 商机
-    navigationLabel: 商机
+    label: Opportunity
+    navigationLabel: Opportunity
     route: /deals
 
 # Sales Quote workbench — focuses on commercial proposals, approvals, and value.

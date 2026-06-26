@@ -10,6 +10,7 @@
     "build": "pnpm --recursive build",
     "typecheck": "pnpm --recursive typecheck",
     "test": "pnpm --recursive test",
+    "reset": "node scripts/dev-reset.mjs",
     "mcp": "pnpm --filter @runory/mcp start"
   },
   "devDependencies": {

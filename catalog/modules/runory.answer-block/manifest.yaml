@@ -13,26 +13,26 @@ objects:
     label: Answer Block
     fields:
       - key: question_map_id
-        label: 关联问题地图
+        label: Linked Question Map
         type: text
         ownership: module_owned
         required: true
       - key: entity_profile_id
-        label: 关联实体画像
+        label: Linked Entity Profile
         type: text
         ownership: module_owned
       - key: question
-        label: 问题
+        label: Question
         type: text
         ownership: module_owned
         required: true
       - key: answer_text
-        label: 答案内容
+        label: Answer Content
         type: text
         ownership: module_owned
         required: true
       - key: status
-        label: 状态
+        label: Status
         type: select
         ownership: module_owned
         required: true
@@ -40,33 +40,33 @@ objects:
         validation:
           options: ["draft", "pending_review", "approved", "published", "rejected"]
       - key: source_type
-        label: 来源类型
+        label: Source Type
         type: select
         ownership: module_owned
         default_value: "manual"
         validation:
           options: ["manual", "agent_generated", "imported"]
       - key: landing_page_id
-        label: 发布落地页
+        label: Published Landing Page
         type: text
         ownership: module_owned
         description: "Landing page where this answer block is published"
       - key: confidence_score
-        label: 置信度
+        label: Confidence
         type: number
         ownership: module_owned
         description: "0-100 confidence score"
       - key: locale
-        label: 语言区域
+        label: Locale
         type: text
         ownership: module_owned
         default_value: "zh-CN"
       - key: owner
-        label: 负责人
+        label: Owner
         type: text
         ownership: module_owned
       - key: notes
-        label: 备注
+        label: Notes
         type: text
         ownership: module_owned
 
@@ -74,19 +74,19 @@ views:
   - object: answer_block
     key: answer_block_list
     type: list
-    label: 答案块列表
+    label: Answer Block List
     config:
       columns:
         - field: question
-          label: 问题
+          label: Question
         - field: status
-          label: 状态
+          label: Status
         - field: source_type
-          label: 来源类型
+          label: Source Type
         - field: confidence_score
-          label: 置信度
+          label: Confidence
         - field: locale
-          label: 语言区域
+          label: Locale
       actions:
         - create
         - view
@@ -95,10 +95,10 @@ views:
   - object: answer_block
     key: answer_block_form
     type: form
-    label: 答案块表单
+    label: Answer Block Form
     config:
       sections:
-        - title: 基本信息
+        - title: Basic Information
           fields:
             - field: question_map_id
               required: true
@@ -108,11 +108,11 @@ views:
               required: true
             - field: status
               required: true
-        - title: 关联
+        - title: Associations
           fields:
             - field: entity_profile_id
             - field: landing_page_id
-        - title: 元数据
+        - title: Metadata
           fields:
             - field: source_type
             - field: confidence_score
@@ -135,19 +135,19 @@ relations:
     targetModule: runory.question-map
     type: many_to_one
     foreignKey: question_map_id
-    label: 关联问题地图
+    label: Linked Question Map
   - object: answer_block
     targetObject: entity_profile
     targetModule: runory.entity-profile
     type: many_to_one
     foreignKey: entity_profile_id
-    label: 关联实体画像
+    label: Linked Entity Profile
   - object: answer_block
     targetObject: landing_page
     targetModule: runory.landing-page
     type: many_to_one
     foreignKey: landing_page_id
-    label: 发布落地页
+    label: Published Landing Page
 
 migrations:
   install: migrations/install.sql
@@ -155,7 +155,7 @@ migrations:
 
 ui:
   navigation:
-    - label: 答案块
+    - label: Answer Blocks
       route: /answer-blocks
       icon: message-square
       sortOrder: 54
@@ -193,7 +193,7 @@ dashboard:
   widgets:
     - key: approved_answer_blocks_metric
       type: metric_card
-      label: 已批准答案
+      label: Approved Answers
       icon: message-square
       tone: cyan
       data:
@@ -204,7 +204,7 @@ dashboard:
 
     - key: pending_review_answer_blocks_metric
       type: metric_card
-      label: 待审核答案
+      label: Pending Review Answers
       icon: clock
       tone: amber
       data:
@@ -215,7 +215,7 @@ dashboard:
 
     - key: answer_block_status_breakdown
       type: breakdown
-      label: 答案状态分布
+      label: Answer Status Breakdown
       icon: pie-chart
       tone: cyan
       data:
@@ -225,7 +225,7 @@ dashboard:
 
     - key: pending_review_answer_blocks_list
       type: list
-      label: 待审核答案
+      label: Pending Review Answers
       icon: clock
       tone: amber
       data:
@@ -238,14 +238,14 @@ dashboard:
       link: /answer-blocks
       configurable:
         - path: data.limit
-          label: 显示条数
+          label: Items per Page
           type: number
           min: 1
           max: 20
 
     - key: published_answer_blocks_list
       type: list
-      label: 已发布答案
+      label: Published Answers
       icon: check-circle
       tone: emerald
       data:
@@ -258,7 +258,7 @@ dashboard:
       link: /answer-blocks
       configurable:
         - path: data.limit
-          label: 显示条数
+          label: Items per Page
           type: number
           min: 1
           max: 20

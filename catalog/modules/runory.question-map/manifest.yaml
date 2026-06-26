@@ -11,17 +11,17 @@ objects:
     label: Question Map
     fields:
       - key: entity_profile_id
-        label: 关联实体画像
+        label: Linked Entity Profile
         type: text
         ownership: module_owned
         required: true
       - key: name
-        label: 名称
+        label: Name
         type: text
         ownership: module_owned
         required: true
       - key: status
-        label: 状态
+        label: Status
         type: select
         ownership: module_owned
         required: true
@@ -29,33 +29,33 @@ objects:
         validation:
           options: ["draft", "generating", "ready", "approved", "archived"]
       - key: source
-        label: 来源
+        label: Source
         type: select
         ownership: module_owned
         default_value: "manual"
         validation:
           options: ["manual", "agent_generated", "imported"]
       - key: questions_json
-        label: 问题列表
+        label: Question List
         type: text
         ownership: module_owned
         description: "JSON array of questions"
       - key: question_count
-        label: 问题数量
+        label: Question Count
         type: number
         ownership: module_owned
         default_value: "0"
       - key: locale
-        label: 语言区域
+        label: Locale
         type: text
         ownership: module_owned
         default_value: "zh-CN"
       - key: owner
-        label: 负责人
+        label: Owner
         type: text
         ownership: module_owned
       - key: notes
-        label: 备注
+        label: Notes
         type: text
         ownership: module_owned
 
@@ -63,21 +63,21 @@ views:
   - object: question_map
     key: question_map_list
     type: list
-    label: 问题地图列表
+    label: Question Map List
     config:
       columns:
         - field: name
-          label: 名称
+          label: Name
         - field: entity_profile_id
-          label: 关联实体画像
+          label: Linked Entity Profile
         - field: status
-          label: 状态
+          label: Status
         - field: source
-          label: 来源
+          label: Source
         - field: question_count
-          label: 问题数量
+          label: Question Count
         - field: locale
-          label: 语言区域
+          label: Locale
       actions:
         - create
         - view
@@ -86,10 +86,10 @@ views:
   - object: question_map
     key: question_map_form
     type: form
-    label: 问题地图表单
+    label: Question Map Form
     config:
       sections:
-        - title: 基本信息
+        - title: Basic Information
           fields:
             - field: entity_profile_id
               required: true
@@ -97,13 +97,13 @@ views:
               required: true
             - field: status
               required: true
-        - title: 内容
+        - title: Content
           fields:
             - field: source
             - field: questions_json
             - field: question_count
             - field: locale
-        - title: 其他
+        - title: Other
           fields:
             - field: owner
             - field: notes
@@ -121,7 +121,7 @@ relations:
     targetModule: runory.entity-profile
     type: many_to_one
     foreignKey: entity_profile_id
-    label: 关联实体画像
+    label: Linked Entity Profile
 
 migrations:
   install: migrations/install.sql
@@ -129,7 +129,7 @@ migrations:
 
 ui:
   navigation:
-    - label: 问题地图
+    - label: Question Maps
       route: /question-maps
       icon: help-circle
       sortOrder: 52
@@ -167,7 +167,7 @@ dashboard:
   widgets:
     - key: ready_question_maps_metric
       type: metric_card
-      label: 就绪问题地图
+      label: Ready Question Maps
       icon: help-circle
       tone: cyan
       data:
@@ -178,7 +178,7 @@ dashboard:
 
     - key: question_map_status_breakdown
       type: breakdown
-      label: 问题地图状态分布
+      label: Question Map Status Breakdown
       icon: pie-chart
       tone: cyan
       data:
@@ -188,7 +188,7 @@ dashboard:
 
     - key: recent_question_maps_list
       type: list
-      label: 最近问题地图
+      label: Recent Question Maps
       icon: help-circle
       tone: cyan
       data:
@@ -200,7 +200,7 @@ dashboard:
       link: /question-maps
       configurable:
         - path: data.limit
-          label: 显示条数
+          label: Items per Page
           type: number
           min: 1
           max: 20

@@ -3,12 +3,12 @@ name: Small Business AI Visibility
 version: 1.0.0
 
 terminology:
-  customer: 客户
-  entity_profile: 实体画像
-  question_map: 问题地图
-  answer_block: 答案块
-  citation_source: 引用来源
-  ai_visibility_check: 可见性检查
+  customer: Customer
+  entity_profile: Entity Profile
+  question_map: Question Map
+  answer_block: Answer Block
+  citation_source: Citation Source
+  ai_visibility_check: AI Visibility Check
 
 navigation:
   - dashboard

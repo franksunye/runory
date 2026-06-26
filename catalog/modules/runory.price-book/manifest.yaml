@@ -8,31 +8,31 @@ objects:
     label: Price Book
     fields:
       - key: name
-        label: 名称
+        label: Name
         type: text
         ownership: module_owned
         required: true
       - key: currency
-        label: 币种
+        label: Currency
         type: text
         ownership: module_owned
         required: true
         default_value: "CNY"
       - key: active
-        label: 启用
+        label: Active
         type: boolean
         ownership: module_owned
         default_value: "true"
       - key: effective_from
-        label: 生效起始
+        label: Effective From
         type: date
         ownership: module_owned
       - key: effective_to
-        label: 生效结束
+        label: Effective To
         type: date
         ownership: module_owned
       - key: notes
-        label: 备注
+        label: Notes
         type: text
         ownership: module_owned
 
@@ -40,19 +40,19 @@ views:
   - object: price_book
     key: price_book_list
     type: list
-    label: 价格表列表
+    label: Price Book List
     config:
       columns:
         - field: name
-          label: 名称
+          label: Name
         - field: currency
-          label: 币种
+          label: Currency
         - field: effective_from
-          label: 生效起始
+          label: Effective From
         - field: effective_to
-          label: 生效结束
+          label: Effective To
         - field: active
-          label: 启用
+          label: Active
       actions:
         - create
         - view
@@ -61,20 +61,20 @@ views:
   - object: price_book
     key: price_book_form
     type: form
-    label: 价格表表单
+    label: Price Book Form
     config:
       sections:
-        - title: 基本信息
+        - title: Basic Information
           fields:
             - field: name
               required: true
             - field: currency
               required: true
-        - title: 生效期
+        - title: Effective Period
           fields:
             - field: effective_from
             - field: effective_to
-        - title: 状态
+        - title: Status
           fields:
             - field: active
             - field: notes
@@ -91,7 +91,7 @@ migrations:
 
 ui:
   navigation:
-    - label: 价格表
+    - label: Price Books
       route: /price-books
       icon: tag
       sortOrder: 75
@@ -129,7 +129,7 @@ dashboard:
   widgets:
     - key: active_price_books_metric
       type: metric_card
-      label: 启用价格表
+      label: Active Price Books
       icon: tag
       tone: indigo
       data:
@@ -140,7 +140,7 @@ dashboard:
 
     - key: recent_price_books_list
       type: list
-      label: 最近价格表
+      label: Recent Price Books
       icon: tag
       tone: indigo
       data:
@@ -152,7 +152,7 @@ dashboard:
       link: /price-books
       configurable:
         - path: data.limit
-          label: 显示条数
+          label: Display Count
           type: number
           min: 1
           max: 20
