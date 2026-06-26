@@ -384,7 +384,9 @@
       "id": "fsm-work-order-lifecycle",
       "name": "Work Order Lifecycle",
       "targetObject": "work_order",
+      "stateField": "status",
       "initialState": "new",
+      "autoStart": true,
       "states": [
         { "name": "new", "label": "New", "type": "initial" },
         { "name": "scheduled", "label": "Scheduled", "type": "intermediate" },

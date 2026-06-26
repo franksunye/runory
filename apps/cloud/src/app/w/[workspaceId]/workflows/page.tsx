@@ -1,40 +1,24 @@
 "use client";
 
 import { useEffect, useState, useCallback, type ReactNode } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import {
   GitBranch, Plus, RefreshCw, CheckCircle2, XCircle, Clock3,
-  Play, ArrowRight, X, Trash2, AlertCircle, Loader2,
+  Play, ArrowRight, X, Pencil, Trash2, AlertCircle, Loader2,
 } from "lucide-react";
 import type { WorkflowDefinition, WorkflowTransition } from "@runory/contracts";
 import type { WorkflowInstance } from "@runory/platform-core";
 import { useI18n } from "@/i18n/locale-provider";
-import { useObjects, useRecords } from "@/lib/api-hooks";
-import type { MessageKey } from "@/i18n/messages";
+import { useRecords } from "@/lib/api-hooks";
 
 interface PendingApproval extends WorkflowInstance {
   definition: WorkflowDefinition;
 }
 interface Toast { type: "success" | "error"; message: string }
 
-type StateType = "initial" | "intermediate" | "approved" | "rejected" | "final";
-type Role = "admin" | "member" | "viewer";
-
-const STATE_TYPES: StateType[] = ["initial", "intermediate", "approved", "rejected", "final"];
-const STATE_TYPE_LABEL_KEYS: Record<StateType, MessageKey> = {
-  initial: "workflows.stateType.initial", intermediate: "workflows.stateType.intermediate", approved: "workflows.stateType.approved", rejected: "workflows.stateType.rejected", final: "workflows.stateType.final",
-};
-const ROLES: Role[] = ["admin", "member", "viewer"];
-const ROLE_LABEL_KEYS: Record<Role, MessageKey> = { admin: "workflows.role.admin", member: "workflows.role.member", viewer: "workflows.role.viewer" };
-
-interface EditorState { name: string; label: string; type: StateType }
-interface EditorTransition {
-  fromStatus: string; toStatus: string; label: string;
-  requiresApproval: boolean; requiredRole: Role;
-}
-
 export default function WorkflowsPage() {
   const workspaceId = useParams().workspaceId as string;
+  const router = useRouter();
   const { t } = useI18n();
 
   const [definitions, setDefinitions] = useState<WorkflowDefinition[]>([]);
@@ -43,7 +27,6 @@ export default function WorkflowsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<Toast | null>(null);
-  const [showCreateModal, setShowCreateModal] = useState(false);
   const [startFor, setStartFor] = useState<WorkflowDefinition | null>(null);
   const [transitionsMap, setTransitionsMap] = useState<Record<string, WorkflowTransition[]>>({});
   const [executing, setExecuting] = useState<{ instanceId: string; transitionId: string } | null>(null);
@@ -122,24 +105,6 @@ export default function WorkflowsPage() {
     }
   }, [instances, definitions, loadTransitions]);
 
-  const handleCreateWorkflow = async (def: WorkflowDefinition) => {
-    setSubmitting(true);
-    try {
-      const res = await fetch(`/api/workspaces/${workspaceId}/workflows`, {
-        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(def),
-      });
-      const json = await res.json();
-      if (!json.success) throw new Error(json.error?.message ?? t("workspace.createFailed"));
-      showToast("success", t("workflows.created", { name: def.name }));
-      setShowCreateModal(false);
-      await load();
-    } catch (e) {
-      showToast("error", e instanceof Error ? e.message : t("workspace.createFailed"));
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
   const handleStartInstance = async (workflowId: string, objectType: string, recordId: string) => {
     setSubmitting(true);
     try {
@@ -179,6 +144,19 @@ export default function WorkflowsPage() {
     }
   };
 
+  const handleDeleteDefinition = async (def: WorkflowDefinition) => {
+    if (!confirm(t("workflows.deleteConfirm", { name: def.name }))) return;
+    try {
+      const res = await fetch(`/api/workspaces/${workspaceId}/workflows/${def.id}`, { method: "DELETE" });
+      const json = await res.json();
+      if (!json.success) throw new Error(json.error?.message ?? t("workspace.deleteFailed"));
+      showToast("success", t("workflows.deleted", { name: def.name }));
+      await load();
+    } catch (e) {
+      showToast("error", e instanceof Error ? e.message : t("workspace.deleteFailed"));
+    }
+  };
+
   const pickTransition = (instanceId: string, transitionId: string) => {
     setExecuting({ instanceId, transitionId });
     setComment("");
@@ -197,7 +175,7 @@ export default function WorkflowsPage() {
         </div>
         <div className="flex items-center gap-2 self-start">
           <button onClick={() => void load()} className="app-button-secondary"><RefreshCw size={16} />{t("workspace.refresh")}</button>
-          <button onClick={() => setShowCreateModal(true)} className="app-button-primary"><Plus size={16} />{t("workflows.createWorkflow")}</button>
+          <button onClick={() => router.push(`/w/${workspaceId}/workflows/editor`)} className="app-button-primary"><Plus size={16} />{t("workflows.createWorkflow")}</button>
         </div>
       </header>
 
@@ -266,6 +244,8 @@ export default function WorkflowsPage() {
                     </div>
                     <span className="app-badge bg-indigo-50 text-indigo-700">{t("workflows.instanceCount", { count: defInstances.length })}</span>
                     <button onClick={() => setStartFor(def)} className="app-button-secondary"><Play size={14} />{t("workflows.startInstance")}</button>
+                    <button onClick={() => router.push(`/w/${workspaceId}/workflows/editor?id=${def.id}`)} className="app-button-secondary"><Pencil size={14} />{t("workspace.edit")}</button>
+                    <button onClick={() => handleDeleteDefinition(def)} className="text-slate-400 hover:text-red-600" title={t("workspace.delete")}><Trash2 size={16} /></button>
                   </div>
                   <div className="mt-3 flex flex-wrap gap-1.5 pl-12">
                     {def.states.map(s => (
@@ -305,9 +285,6 @@ export default function WorkflowsPage() {
         )}
       </section>
 
-      {showCreateModal && (
-        <CreateWorkflowModal workspaceId={workspaceId} submitting={submitting} onClose={() => setShowCreateModal(false)} onSubmit={handleCreateWorkflow} />
-      )}
       {startFor && (
         <StartInstanceModal workspaceId={workspaceId} definition={startFor} submitting={submitting} onClose={() => setStartFor(null)}
           onSubmit={(ot, rid) => handleStartInstance(startFor.id, ot, rid)} />
@@ -401,141 +378,6 @@ function InstanceRow({
         </div>
       )}
     </li>
-  );
-}
-
-// ── Create Workflow Modal (state machine editor) ──
-
-interface CreateWorkflowModalProps {
-  workspaceId: string;
-  submitting: boolean;
-  onClose: () => void;
-  onSubmit: (def: WorkflowDefinition) => void;
-}
-
-function CreateWorkflowModal({ workspaceId, submitting, onClose, onSubmit }: CreateWorkflowModalProps) {
-  const { t } = useI18n();
-  const { data: objects = [] } = useObjects(workspaceId);
-  const [id, setId] = useState("");
-  const [name, setName] = useState("");
-  const [targetObject, setTargetObject] = useState("");
-  const [initialState, setInitialState] = useState("");
-  const [states, setStates] = useState<EditorState[]>([
-    { name: "draft", label: t("workflows.sampleState.draft"), type: "initial" },
-    { name: "approved", label: t("workflows.sampleState.approved"), type: "approved" },
-  ]);
-  const [transitions, setTransitions] = useState<EditorTransition[]>([]);
-
-  const addState = () => setStates(s => [...s, { name: "", label: "", type: "intermediate" }]);
-  const removeState = (i: number) => setStates(s => s.filter((_, idx) => idx !== i));
-  const updateState = (i: number, patch: Partial<EditorState>) =>
-    setStates(s => s.map((st, idx) => (idx === i ? { ...st, ...patch } : st)));
-
-  const addTransition = () => setTransitions(prev => [...prev, {
-    fromStatus: states[0]?.name ?? "", toStatus: states[0]?.name ?? "",
-    label: "", requiresApproval: false, requiredRole: "member",
-  }]);
-  const removeTransition = (i: number) => setTransitions(prev => prev.filter((_, idx) => idx !== i));
-  const updateTransition = (i: number, patch: Partial<EditorTransition>) =>
-    setTransitions(prev => prev.map((tr, idx) => (idx === i ? { ...tr, ...patch } : tr)));
-
-  const canSubmit = Boolean(id && name && targetObject && initialState)
-    && states.every(s => s.name && s.label)
-    && transitions.every(tr => tr.fromStatus && tr.toStatus && tr.label);
-
-  const handleSubmit = () => {
-    if (!canSubmit) return;
-    onSubmit({ id, name, targetObject, initialState, states, transitions });
-  };
-
-  return (
-    <div className="fixed inset-0 z-[60] flex items-start justify-center overflow-y-auto bg-slate-900/40 p-4 sm:p-8">
-      <div className="w-full max-w-2xl rounded-2xl bg-white shadow-xl">
-        <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
-          <h2 className="text-lg font-bold text-slate-900">{t("workflows.createWorkflowTitle")}</h2>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600"><X size={20} /></button>
-        </div>
-        <div className="max-h-[70vh] space-y-5 overflow-y-auto px-6 py-5">
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Field label={t("workflows.field.workflowId")}>
-              <input className="app-input" value={id} onChange={e => setId(e.target.value)} placeholder={t("workflows.placeholderWorkflowId")} />
-            </Field>
-            <Field label={t("workflows.field.name")}>
-              <input className="app-input" value={name} onChange={e => setName(e.target.value)} placeholder={t("workflows.placeholderName")} />
-            </Field>
-            <Field label={t("workflows.field.targetObject")}>
-              <select className="app-input" value={targetObject} onChange={e => setTargetObject(e.target.value)}>
-                <option value="">{t("workflows.placeholderTargetObject")}</option>
-                {objects.map(obj => <option key={obj.objectKey} value={obj.objectKey}>{obj.label ?? obj.objectKey}</option>)}
-              </select>
-            </Field>
-            <Field label={t("workflows.field.initialState")}>
-              <input className="app-input" value={initialState} onChange={e => setInitialState(e.target.value)} placeholder={t("workflows.placeholderInitialState")} />
-            </Field>
-          </div>
-
-          <div>
-            <div className="mb-2 flex items-center justify-between">
-              <p className="text-sm font-bold text-slate-900">{t("workflows.statesList")}</p>
-              <button onClick={addState} className="app-button-secondary min-h-8"><Plus size={14} />{t("workflows.addState")}</button>
-            </div>
-            <div className="space-y-2">
-              {states.map((s, i) => (
-                <div key={i} className="flex items-center gap-2">
-                  <input className="app-input h-9 w-32" value={s.name} onChange={e => updateState(i, { name: e.target.value })} placeholder="name" />
-                  <input className="app-input h-9 flex-1" value={s.label} onChange={e => updateState(i, { label: e.target.value })} placeholder={t("workflows.placeholderStateLabel")} />
-                  <select className="app-input h-9 w-32" value={s.type} onChange={e => updateState(i, { type: e.target.value as StateType })}>
-                    {STATE_TYPES.map(st => <option key={st} value={st}>{t(STATE_TYPE_LABEL_KEYS[st])}</option>)}
-                  </select>
-                  <button onClick={() => removeState(i)} className="text-slate-400 hover:text-red-600"><Trash2 size={16} /></button>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div>
-            <div className="mb-2 flex items-center justify-between">
-              <p className="text-sm font-bold text-slate-900">{t("workflows.transitions")}</p>
-              <button onClick={addTransition} className="app-button-secondary min-h-8"><Plus size={14} />{t("workflows.addTransition")}</button>
-            </div>
-            <div className="space-y-2">
-              {transitions.length === 0 && <p className="text-xs text-slate-400">{t("workflows.noTransitions")}</p>}
-              {transitions.map((tr, i) => (
-                <div key={i} className="space-y-2 rounded-lg border border-slate-100 p-2">
-                  <div className="flex items-center gap-2">
-                    <select className="app-input h-9 flex-1" value={tr.fromStatus} onChange={e => updateTransition(i, { fromStatus: e.target.value })}>
-                      <option value="">{t("workflows.fromState")}</option>
-                      {states.map(s => <option key={s.name} value={s.name}>{s.label || s.name}</option>)}
-                    </select>
-                    <ArrowRight size={14} className="shrink-0 text-slate-400" />
-                    <select className="app-input h-9 flex-1" value={tr.toStatus} onChange={e => updateTransition(i, { toStatus: e.target.value })}>
-                      <option value="">{t("workflows.toState")}</option>
-                      {states.map(s => <option key={s.name} value={s.name}>{s.label || s.name}</option>)}
-                    </select>
-                    <button onClick={() => removeTransition(i)} className="text-slate-400 hover:text-red-600"><Trash2 size={16} /></button>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <input className="app-input h-9 flex-1" value={tr.label} onChange={e => updateTransition(i, { label: e.target.value })} placeholder={t("workflows.placeholderTransitionLabel")} />
-                    <label className="flex items-center gap-1 text-xs text-slate-600">
-                      <input type="checkbox" checked={tr.requiresApproval} onChange={e => updateTransition(i, { requiresApproval: e.target.checked })} />{t("workflows.requiresApprovalLabel")}
-                    </label>
-                    <select className="app-input h-9 w-28" value={tr.requiredRole} onChange={e => updateTransition(i, { requiredRole: e.target.value as Role })}>
-                      {ROLES.map(r => <option key={r} value={r}>{t(ROLE_LABEL_KEYS[r])}</option>)}
-                    </select>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-        <div className="flex justify-end gap-2 border-t border-slate-100 px-6 py-4">
-          <button onClick={onClose} className="app-button-secondary" disabled={submitting}>{t("workspace.cancel")}</button>
-          <button onClick={handleSubmit} className="app-button-primary" disabled={submitting || !canSubmit}>
-            {submitting ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}{t("workspace.create")}
-          </button>
-        </div>
-      </div>
-    </div>
   );
 }
 

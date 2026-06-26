@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import {
   getWorkflowDefinition,
   deleteWorkflowDefinition,
+  updateWorkflowDefinition,
   writeAuditEvent,
 } from "@runory/platform-core";
 import { requireWorkspaceContext } from "@/lib/auth";
@@ -56,6 +57,34 @@ export async function DELETE(
       console.error("[audit] Failed to write audit event:", err);
     });
     return successResponse({ deleted: true }, 200, ctx.requestId);
+  } catch (e) {
+    return handleError(e, requestId);
+  }
+}
+
+export async function PUT(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string; workflowId: string }> }
+) {
+  const requestId = getOrCreateRequestId(request.headers.get("x-request-id"));
+  try {
+    const { id, workflowId } = await params;
+    const { ctx, workspaceId } = await requireWorkspaceContext(request, id, "admin");
+    const body = await request.json() as Record<string, unknown>;
+    const updated = await updateWorkflowDefinition(workspaceId, workflowId, body);
+    writeAuditEvent({
+      workspaceId,
+      actorType: ctx.principal?.authMethod === "api_key" ? "api_key" : "user",
+      actorId: ctx.principal?.userId ?? "unknown",
+      action: "workflow.definition.update",
+      entityType: "workflow_definition",
+      entityId: workflowId,
+      after: updated as Record<string, unknown>,
+      requestId: ctx.requestId,
+    }).catch((err) => {
+      console.error("[audit] Failed to write audit event:", err);
+    });
+    return successResponse(updated, 200, ctx.requestId);
   } catch (e) {
     return handleError(e, requestId);
   }

@@ -20,6 +20,9 @@ interface SchemaFormProps {
   submitLabel?: string;
   cancelLabel?: string;
   workspaceId?: string;
+  /** Map of fieldKey → reason string. Fields in this map are rendered as
+   *  read-only with the reason shown as a hint badge. */
+  readOnlyFields?: Record<string, string>;
 }
 
 interface FormSection {
@@ -36,6 +39,7 @@ export default function SchemaForm({
   submitLabel,
   cancelLabel,
   workspaceId,
+  readOnlyFields = {},
 }: SchemaFormProps) {
   const { t } = useI18n();
   const fieldMap = new Map(fields.map((f) => [f.fieldKey, f]));
@@ -126,6 +130,8 @@ export default function SchemaForm({
                     value={values[sf.field]}
                     onChange={(v) => handleChange(sf.field, v)}
                     workspaceId={workspaceId}
+                    readOnly={sf.field in readOnlyFields}
+                    readOnlyReason={readOnlyFields[sf.field]}
                   />
                   {errors[sf.field] && (
                     <p className="mt-1 text-xs text-red-500">

@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import SchemaForm from "./SchemaForm";
 import type { FieldDefinition } from "@runory/platform-core";
 import {
   useFields,
   useViews,
+  useWorkflowDefinitions,
   useWorkspaceChangeEvent,
 } from "@/lib/api-hooks";
 import { notifyWorkspaceDataChanged } from "@/lib/workspace-events";
@@ -36,6 +37,7 @@ export default function ObjectCreatePage({
 
   const { data: objDetail, isLoading: loadingObj } = useFields(workspaceId, objectKey);
   const { data: views = [], isLoading: loadingViews } = useViews(workspaceId, objectKey);
+  const { data: workflowDefs } = useWorkflowDefinitions(workspaceId);
 
   useWorkspaceChangeEvent(workspaceId);
 
@@ -45,6 +47,30 @@ export default function ObjectCreatePage({
   const loading = loadingObj || loadingViews;
   const fields: FieldDefinition[] = objDetail?.fields ?? [];
   const viewConfig = views.find((v) => v.viewKey === viewKey)?.config ?? null;
+
+  // Check for auto-start workflow: if a workflow definition has autoStart=true
+  // and targets this object with a stateField, lock that field and pre-fill
+  // it with the workflow's initialState.
+  const autoStartInfo = useMemo(() => {
+    if (!workflowDefs) return null;
+    const def = workflowDefs.find(
+      d => d.autoStart && d.targetObject === objectKey && d.stateField
+    );
+    if (!def || !def.stateField) return null;
+    return { stateField: def.stateField, initialState: def.initialState };
+  }, [workflowDefs, objectKey]);
+
+  const readOnlyFields = useMemo(() => {
+    if (!autoStartInfo) return {};
+    return {
+      [autoStartInfo.stateField]: t("workspace.workflow.autoStartLocked", { state: autoStartInfo.initialState }),
+    };
+  }, [autoStartInfo, t]);
+
+  const initialValues = useMemo(() => {
+    if (!autoStartInfo) return undefined;
+    return { [autoStartInfo.stateField]: autoStartInfo.initialState } as Record<string, string | number | boolean | null>;
+  }, [autoStartInfo]);
 
   const handleSubmit = async (data: Record<string, any>) => {
     setSubmitting(true);
@@ -110,10 +136,12 @@ export default function ObjectCreatePage({
         <SchemaForm
           fields={fields}
           viewConfig={viewConfig}
+          initialValues={initialValues}
           onSubmit={handleSubmit}
           onCancel={() => router.push(basePath)}
           submitLabel={submitting ? t("workspace.saving") : t("workspace.save")}
           workspaceId={workspaceId}
+          readOnlyFields={readOnlyFields}
         />
       ) : (
         <p className="text-sm text-slate-500">{t("workspace.viewNotFound")}</p>

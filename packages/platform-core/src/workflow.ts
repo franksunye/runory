@@ -179,6 +179,65 @@ export async function deleteWorkflowDefinition(
   return true;
 }
 
+export async function updateWorkflowDefinition(
+  workspaceId: string,
+  workflowId: string,
+  updates: Partial<Pick<WorkflowDefinition, "name" | "states" | "transitions" | "initialState" | "stateField" | "autoStart">>
+): Promise<WorkflowDefinition> {
+  const existing = await getWorkflowDefinition(workspaceId, workflowId);
+  if (!existing) {
+    throw new NotFoundError(`Workflow definition "${workflowId}" not found`);
+  }
+
+  const merged: WorkflowDefinition = { ...existing, ...updates };
+
+  // Re-validate the merged definition
+  const parsed = workflowDefinitionSchema.safeParse(merged);
+  if (!parsed.success) {
+    throw new InvalidInputError(`Invalid workflow definition: ${parsed.error.message}`);
+  }
+  const validated = parsed.data;
+
+  // Validate initialState exists in states
+  const stateNames = validated.states.map(s => s.name);
+  if (!stateNames.includes(validated.initialState)) {
+    throw new InvalidInputError(
+      `initialState "${validated.initialState}" is not in the states list`
+    );
+  }
+
+  // Validate transitions reference declared states
+  for (const t of validated.transitions) {
+    if (!stateNames.includes(t.fromStatus)) {
+      throw new InvalidInputError(`Transition fromStatus "${t.fromStatus}" is not a declared state`);
+    }
+    if (!stateNames.includes(t.toStatus)) {
+      throw new InvalidInputError(`Transition toStatus "${t.toStatus}" is not a declared state`);
+    }
+  }
+
+  // Safety check: existing instances must not be in a removed state
+  const allInstances = await getWorkflowInstances(workspaceId, validated.targetObject);
+  const activeInstances = allInstances.filter(i => i.workflowId === workflowId);
+  for (const inst of activeInstances) {
+    if (!stateNames.includes(inst.currentState)) {
+      throw new InvalidInputError(
+        `Cannot remove state "${inst.currentState}": workflow instance "${inst.id}" is currently in this state`
+      );
+    }
+  }
+
+  const ts = now();
+  await execute(
+    `UPDATE ${TABLES.workflowDefinitions}
+     SET name = ?, target_object = ?, definition_json = ?, updated_at = ?
+     WHERE workspace_id = ? AND workflow_id = ?`,
+    [validated.name, validated.targetObject, JSON.stringify(validated), ts, workspaceId, workflowId]
+  );
+
+  return validated;
+}
+
 // ── Workflow Instance Lifecycle ──
 
 export async function startWorkflow(
@@ -186,7 +245,8 @@ export async function startWorkflow(
   workflowId: string,
   objectType: string,
   recordId: string,
-  actor: WorkflowActor
+  actor: WorkflowActor,
+  options?: { overrideState?: string; skipSync?: boolean }
 ): Promise<WorkflowInstance> {
   const def = await getWorkflowDefinition(workspaceId, workflowId);
   if (!def) {
@@ -200,6 +260,18 @@ export async function startWorkflow(
     );
   }
 
+  // Use overrideState if provided (e.g. demo data seeding where records
+  // already have a state value that should be preserved), otherwise use
+  // the definition's initialState.
+  const startState = options?.overrideState ?? def.initialState;
+
+  // Validate that the overrideState is a declared state
+  if (options?.overrideState && !def.states.some(s => s.name === options.overrideState)) {
+    throw new InvalidInputError(
+      `overrideState "${options.overrideState}" is not a declared state in workflow "${workflowId}"`
+    );
+  }
+
   const id = genId("wfi");
   const ts = now();
   const instance: WorkflowInstance = {
@@ -208,7 +280,7 @@ export async function startWorkflow(
     workflowId,
     objectType,
     recordId,
-    currentState: def.initialState,
+    currentState: startState,
     history: [],
     createdAt: ts,
     updatedAt: ts,
@@ -230,6 +302,23 @@ export async function startWorkflow(
       ts,
     ]
   );
+
+  // Auto-sync initial state to the record's stateField (v0.4).
+  // Skip when overrideState is used (record already has the correct value)
+  // or when skipSync is explicitly requested.
+  if (def.stateField && !options?.skipSync && !options?.overrideState) {
+    try {
+      const existing = await getRecord(workspaceId, objectType, recordId);
+      const currentVal = existing?.[def.stateField];
+      if (currentVal !== def.initialState) {
+        await updateRecord(workspaceId, objectType, recordId, {
+          [def.stateField]: def.initialState,
+        });
+      }
+    } catch (err) {
+      console.error("[workflow] Failed to sync initial state to record:", err);
+    }
+  }
 
   // Audit: workflow.start
   writeAuditEvent({
@@ -396,6 +485,24 @@ export async function transitionWorkflow(
     },
   ]);
 
+  // Auto-sync state to the record's stateField (v0.4).
+  // After a successful transition, if the workflow definition declares a
+  // stateField, update the bound record so the record's field reflects the
+  // new workflow state. This is the core of the "workflow-driven field" design:
+  // the workflow instance is the single source of truth, and the record field
+  // is a reflection of it.
+  if (def.stateField) {
+    try {
+      await updateRecord(workspaceId, instance.objectType, instance.recordId, {
+        [def.stateField]: transition.toStatus,
+      });
+    } catch (err) {
+      // Best-effort: the transition itself already succeeded. Log the error
+      // but do not roll back the state change.
+      console.error("[workflow] Failed to sync state to record field:", err);
+    }
+  }
+
   // Audit: workflow.transition (or workflow.approve for approval transitions)
   const auditAction = transition.requiresApproval ? "workflow.approve" : "workflow.transition";
   writeAuditEvent({
@@ -553,6 +660,53 @@ function evaluateCondition(
     default:
       return false;
   }
+}
+
+// ── Record-Workflow Helpers (v0.4) ──
+
+/**
+ * Find the workflow instance bound to a specific record.
+ * Returns the most recent instance along with its definition.
+ * If multiple workflows target the same object, returns the first (most recent).
+ */
+export async function getRecordWorkflow(
+  workspaceId: string,
+  objectType: string,
+  recordId: string
+): Promise<{ instance: WorkflowInstance; definition: WorkflowDefinition } | undefined> {
+  const instances = await getWorkflowInstances(workspaceId, objectType, recordId);
+  if (instances.length === 0) return undefined;
+
+  const instance = instances[0];
+  const definition = await getWorkflowDefinition(workspaceId, instance.workflowId);
+  if (!definition) return undefined;
+
+  return { instance, definition };
+}
+
+/**
+ * Find workflow definitions that should auto-start for a given object.
+ * Used by the record creation API to automatically start workflow instances.
+ */
+export async function getAutoStartWorkflowDefinitions(
+  workspaceId: string,
+  objectKey: string
+): Promise<WorkflowDefinition[]> {
+  const all = await getWorkflowDefinitions(workspaceId);
+  return all.filter(d => d.autoStart && d.targetObject === objectKey);
+}
+
+/**
+ * Check if a state is terminal (no further transitions expected).
+ * Terminal state types: approved, rejected, final.
+ */
+export function isTerminalState(
+  definition: WorkflowDefinition,
+  stateName: string
+): boolean {
+  const state = definition.states.find(s => s.name === stateName);
+  if (!state) return false;
+  return state.type === "approved" || state.type === "rejected" || state.type === "final";
 }
 
 // ── Helpers ──

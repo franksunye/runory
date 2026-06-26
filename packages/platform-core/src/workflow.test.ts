@@ -3,11 +3,12 @@ import { existsSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { db, execute, genId, now, queryAll } from "./db";
 import { runMigrations } from "./migrations";
-import { TABLES } from "./contracts";
+import { TABLES, businessTable } from "./contracts";
 import {
   createWorkflowDefinition,
   getWorkflowDefinitions,
   getWorkflowDefinition,
+  updateWorkflowDefinition,
   deleteWorkflowDefinition,
   startWorkflow,
   getWorkflowInstance,
@@ -15,8 +16,13 @@ import {
   transitionWorkflow,
   getAvailableTransitions,
   evaluateConditions,
+  getPendingApprovals,
+  getRecordWorkflow,
+  getAutoStartWorkflowDefinitions,
+  isTerminalState,
   type WorkflowActor,
 } from "./workflow";
+import { createRecord, getRecord } from "./metadata";
 import type { WorkflowDefinition } from "@runory/contracts";
 
 const dataDir = join(process.cwd(), "data");
@@ -80,6 +86,7 @@ const APPROVAL_WORKFLOW: WorkflowDefinition = {
       requiredRole: "admin",
     },
   ],
+  autoStart: false,
 };
 
 beforeAll(async () => {
@@ -582,6 +589,7 @@ describe("transitionWorkflow condition enforcement (v0.3.5)", () => {
           ],
         },
       ],
+      autoStart: false,
     };
     await createWorkflowDefinition(workspaceId, def);
     const instance = await startWorkflow(workspaceId, "conditional-workflow", "quote", "rec1", adminActor);
@@ -629,6 +637,7 @@ describe("transitionWorkflow system action (v0.3.5)", () => {
           },
         },
       ],
+      autoStart: false,
     };
     const created = await createWorkflowDefinition(workspaceId, def);
     expect(created.transitions[0].systemAction).toBeDefined();
@@ -658,6 +667,7 @@ describe("transitionWorkflow system action (v0.3.5)", () => {
           },
         },
       ],
+      autoStart: false,
     };
     await createWorkflowDefinition(workspaceId, def);
     const instance = await startWorkflow(workspaceId, "notification-workflow", "quote", "rec1", memberActor);
@@ -709,5 +719,262 @@ describe("workflow audit actions (v0.3.5)", () => {
       []
     );
     expect(auditEvents).toHaveLength(1);
+  });
+});
+
+// ── stateField Auto-Sync Tests (v0.4) ──
+
+/** Helper: set up a deal business table + object/field definitions for stateField tests */
+async function setupDealObject(wsId: string) {
+  const ts = now();
+  const tbl = businessTable("deal");
+
+  // Create business table
+  await execute(
+    `CREATE TABLE IF NOT EXISTS ${tbl} (
+      id TEXT PRIMARY KEY,
+      workspace_id TEXT NOT NULL,
+      name TEXT,
+      stage TEXT DEFAULT 'new',
+      amount REAL,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      UNIQUE(workspace_id, id)
+    )`,
+    []
+  );
+
+  // Object definition
+  await execute(
+    `INSERT INTO ${TABLES.objectDefinitions} (id, workspace_id, object_key, label, module_id, ownership, created_at)
+     VALUES (?, ?, 'deal', 'Deal', 'test', 'module_owned', ?)`,
+    [genId("obj"), wsId, ts]
+  );
+
+  // Field definitions
+  const fields = [
+    { key: "name", label: "Name", type: "text" },
+    { key: "stage", label: "Stage", type: "select" },
+    { key: "amount", label: "Amount", type: "number" },
+  ];
+  for (const f of fields) {
+    await execute(
+      `INSERT INTO ${TABLES.fieldDefinitions}
+       (id, workspace_id, object_key, field_key, label, type, ownership, required, default_value, validation_json, module_id, created_at)
+       VALUES (?, ?, 'deal', ?, ?, ?, 'module_owned', 0, ?, ?, 'test', ?)`,
+      [
+        genId("fld"),
+        wsId,
+        f.key,
+        f.label,
+        f.type,
+        f.key === "stage" ? "new" : null,
+        f.key === "stage" ? JSON.stringify({ options: ["new", "qualified", "won", "lost"] }) : null,
+        ts,
+      ]
+    );
+  }
+}
+
+const STATE_FIELD_WORKFLOW: WorkflowDefinition = {
+  id: "deal-stage-flow",
+  name: "Deal Stage Flow",
+  targetObject: "deal",
+  initialState: "new",
+  stateField: "stage",
+  autoStart: false,
+  states: [
+    { name: "new", label: "New", type: "initial" },
+    { name: "qualified", label: "Qualified", type: "intermediate" },
+    { name: "won", label: "Won", type: "final" },
+    { name: "lost", label: "Lost", type: "rejected" },
+  ],
+  transitions: [
+    { fromStatus: "new", toStatus: "qualified", label: "Qualify", requiresApproval: false, requiredRole: "member" },
+    { fromStatus: "qualified", toStatus: "won", label: "Close Won", requiresApproval: true, requiredRole: "admin" },
+    { fromStatus: "qualified", toStatus: "lost", label: "Close Lost", requiresApproval: false, requiredRole: "member" },
+  ],
+};
+
+describe("stateField auto-sync", () => {
+  it("syncs initialState to record on startWorkflow", async () => {
+    await setupDealObject(workspaceId);
+    await createWorkflowDefinition(workspaceId, STATE_FIELD_WORKFLOW);
+
+    // Create a deal record
+    const record = await createRecord(workspaceId, "deal", { name: "Test Deal", stage: "new" });
+
+    // Start workflow — should sync initialState ("new") to stage
+    const instance = await startWorkflow(workspaceId, "deal-stage-flow", "deal", record.id, memberActor);
+
+    // Verify the record's stage was synced
+    const updated = await getRecord(workspaceId, "deal", record.id);
+    expect(updated?.stage).toBe("new");
+
+    // Verify instance was created with correct initial state
+    expect(instance.currentState).toBe("new");
+  });
+
+  it("syncs new state to record field on transition", async () => {
+    await setupDealObject(workspaceId);
+    await createWorkflowDefinition(workspaceId, STATE_FIELD_WORKFLOW);
+
+    const record = await createRecord(workspaceId, "deal", { name: "Sync Test Deal", stage: "new" });
+    const instance = await startWorkflow(workspaceId, "deal-stage-flow", "deal", record.id, memberActor);
+
+    // Transition: new → qualified
+    await transitionWorkflow(workspaceId, instance.id, "new->qualified", memberActor);
+
+    // Verify the record's stage was synced to "qualified"
+    const updated = await getRecord(workspaceId, "deal", record.id);
+    expect(updated?.stage).toBe("qualified");
+  });
+
+  it("syncs state on approval transition", async () => {
+    await setupDealObject(workspaceId);
+    await createWorkflowDefinition(workspaceId, STATE_FIELD_WORKFLOW);
+
+    const record = await createRecord(workspaceId, "deal", { name: "Approval Sync Deal", stage: "new" });
+    const instance = await startWorkflow(workspaceId, "deal-stage-flow", "deal", record.id, memberActor);
+
+    // new → qualified
+    await transitionWorkflow(workspaceId, instance.id, "new->qualified", memberActor);
+
+    // qualified → won (requires admin)
+    await transitionWorkflow(workspaceId, instance.id, "qualified->won", adminActor);
+
+    // Verify the record's stage was synced to "won"
+    const updated = await getRecord(workspaceId, "deal", record.id);
+    expect(updated?.stage).toBe("won");
+  });
+
+  it("does not block transition when sync fails (best-effort)", async () => {
+    // Create workflow without setting up the deal table
+    await createWorkflowDefinition(workspaceId, STATE_FIELD_WORKFLOW);
+
+    // Use a non-existent record — sync will fail but transition should succeed
+    const instance = await startWorkflow(workspaceId, "deal-stage-flow", "deal", "nonexistent-rec", memberActor);
+
+    // Transition should succeed even though sync fails
+    await transitionWorkflow(workspaceId, instance.id, "new->qualified", memberActor);
+
+    const updated = await getWorkflowInstance(workspaceId, instance.id);
+    expect(updated?.currentState).toBe("qualified");
+  });
+});
+
+describe("updateWorkflowDefinition", () => {
+  it("updates workflow name and transitions", async () => {
+    await createWorkflowDefinition(workspaceId, APPROVAL_WORKFLOW);
+
+    const updated = await updateWorkflowDefinition(workspaceId, "quote-approval", {
+      name: "Updated Approval Flow",
+      transitions: [
+        ...APPROVAL_WORKFLOW.transitions,
+        { fromStatus: "approved", toStatus: "archived", label: "Archive", requiresApproval: false, requiredRole: "admin" },
+      ],
+      states: [
+        ...APPROVAL_WORKFLOW.states,
+        { name: "archived", label: "Archived", type: "final" },
+      ],
+    });
+
+    expect(updated.name).toBe("Updated Approval Flow");
+    expect(updated.transitions).toHaveLength(4);
+    expect(updated.states.some(s => s.name === "archived")).toBe(true);
+  });
+
+  it("rejects update when existing instance is in a removed state", async () => {
+    await createWorkflowDefinition(workspaceId, APPROVAL_WORKFLOW);
+    const instance = await startWorkflow(workspaceId, "quote-approval", "quote", "rec1", memberActor);
+    await transitionWorkflow(workspaceId, instance.id, "draft->pending_approval", memberActor);
+
+    // Try to remove "pending_approval" state — should fail
+    await expect(
+      updateWorkflowDefinition(workspaceId, "quote-approval", {
+        states: APPROVAL_WORKFLOW.states.filter(s => s.name !== "pending_approval"),
+        transitions: APPROVAL_WORKFLOW.transitions.filter(t => t.fromStatus !== "pending_approval" && t.toStatus !== "pending_approval"),
+      })
+    ).rejects.toThrow(/pending_approval/);
+  });
+
+  it("updates stateField and autoStart", async () => {
+    await createWorkflowDefinition(workspaceId, APPROVAL_WORKFLOW);
+
+    const updated = await updateWorkflowDefinition(workspaceId, "quote-approval", {
+      stateField: "status",
+      autoStart: true,
+    });
+
+    expect(updated.stateField).toBe("status");
+    expect(updated.autoStart).toBe(true);
+  });
+});
+
+describe("getRecordWorkflow", () => {
+  it("returns undefined when no workflow instance is bound", async () => {
+    const result = await getRecordWorkflow(workspaceId, "deal", "nonexistent-rec");
+    expect(result).toBeUndefined();
+  });
+
+  it("returns instance and definition for a bound record", async () => {
+    await createWorkflowDefinition(workspaceId, APPROVAL_WORKFLOW);
+    const instance = await startWorkflow(workspaceId, "quote-approval", "quote", "rec-bound", memberActor);
+
+    const result = await getRecordWorkflow(workspaceId, "quote", "rec-bound");
+    expect(result).toBeDefined();
+    expect(result?.instance.id).toBe(instance.id);
+    expect(result?.definition.id).toBe("quote-approval");
+  });
+});
+
+describe("getAutoStartWorkflowDefinitions", () => {
+  it("returns only auto-start workflows for the given object", async () => {
+    await createWorkflowDefinition(workspaceId, { ...APPROVAL_WORKFLOW, autoStart: true });
+    await createWorkflowDefinition(workspaceId, { ...STATE_FIELD_WORKFLOW, autoStart: false });
+
+    const result = await getAutoStartWorkflowDefinitions(workspaceId, "quote");
+    expect(result).toHaveLength(1);
+    expect(result[0].id).toBe("quote-approval");
+  });
+
+  it("returns empty array when no auto-start workflows exist", async () => {
+    await createWorkflowDefinition(workspaceId, { ...APPROVAL_WORKFLOW, autoStart: false });
+
+    const result = await getAutoStartWorkflowDefinitions(workspaceId, "quote");
+    expect(result).toHaveLength(0);
+  });
+});
+
+describe("isTerminalState", () => {
+  const def: WorkflowDefinition = {
+    id: "test",
+    name: "Test",
+    targetObject: "test",
+    initialState: "draft",
+    autoStart: false,
+    states: [
+      { name: "draft", label: "Draft", type: "initial" },
+      { name: "review", label: "Review", type: "intermediate" },
+      { name: "approved", label: "Approved", type: "approved" },
+      { name: "rejected", label: "Rejected", type: "rejected" },
+      { name: "done", label: "Done", type: "final" },
+    ],
+    transitions: [],
+  };
+
+  it("returns false for initial and intermediate states", () => {
+    expect(isTerminalState(def, "draft")).toBe(false);
+    expect(isTerminalState(def, "review")).toBe(false);
+  });
+
+  it("returns true for approved, rejected, and final states", () => {
+    expect(isTerminalState(def, "approved")).toBe(true);
+    expect(isTerminalState(def, "rejected")).toBe(true);
+    expect(isTerminalState(def, "done")).toBe(true);
+  });
+
+  it("returns false for unknown state", () => {
+    expect(isTerminalState(def, "unknown")).toBe(false);
   });
 });

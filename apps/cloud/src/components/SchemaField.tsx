@@ -9,13 +9,44 @@ interface SchemaFieldProps {
   value: any;
   onChange: (value: any) => void;
   workspaceId?: string;
+  /** When true, the field renders as read-only static text with a badge. */
+  readOnly?: boolean;
+  /** Optional reason text shown in the badge when readOnly. */
+  readOnlyReason?: string;
 }
 
-export default function SchemaField({ field, value, onChange, workspaceId }: SchemaFieldProps) {
+export default function SchemaField({ field, value, onChange, workspaceId, readOnly, readOnlyReason }: SchemaFieldProps) {
   const { t } = useI18n();
   const baseClass = "app-input";
 
   const enterPlaceholder = t("workspace.field.enterPlaceholder", { label: field.label });
+
+  // Read-only mode: render as static text with a badge
+  if (readOnly) {
+    const displayValue =
+      field.type === "boolean"
+        ? value
+          ? t("workspace.yes")
+          : t("workspace.no")
+        : value === null || value === undefined || value === ""
+          ? "—"
+          : String(value);
+    return (
+      <div className="space-y-1">
+        <div className="flex items-center gap-2 rounded-md bg-slate-50 px-3 py-2 text-sm text-slate-700">
+          <span className="font-medium">{displayValue}</span>
+        </div>
+        {readOnlyReason && (
+          <p className="flex items-center gap-1 text-xs text-indigo-600">
+            <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            {readOnlyReason}
+          </p>
+        )}
+      </div>
+    );
+  }
 
   const renderInput = () => {
     switch (field.type) {

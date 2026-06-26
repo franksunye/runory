@@ -434,7 +434,9 @@
       "id": "crm-deal-stage-workflow",
       "name": "Deal Stage Workflow",
       "targetObject": "deal",
+      "stateField": "stage",
       "initialState": "new",
+      "autoStart": true,
       "states": [
         { "name": "new", "label": "New", "type": "initial" },
         { "name": "qualified", "label": "Qualified", "type": "intermediate" },

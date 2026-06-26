@@ -68,6 +68,7 @@ export type AuditAction =
   | "dashboard.layout.reset"
   // Workflow Runtime (v0.3.5)
   | "workflow.definition.create"
+  | "workflow.definition.update"
   | "workflow.definition.delete"
   | "workflow.start"
   | "workflow.transition"

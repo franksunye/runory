@@ -370,9 +370,6 @@ export default function NavigationShell({
         {renderNavItem({ id: "dashboard", label: t("workspace.nav.dashboard"), route: "/dashboard", icon: LayoutDashboard })}
 
         {/* Pack Groups */}
-        {packGroups.length > 0 && !collapsed && (
-          <p className="sidebar-group-label mt-5">{t("workspace.nav.business")}</p>
-        )}
         <div className={collapsed ? "mt-4 space-y-1" : "space-y-1"}>
           {packGroups.map(({ pack, items }) => {
             if (items.length === 0) return null;
@@ -387,14 +384,13 @@ export default function NavigationShell({
             }
 
             return (
-              <div key={pack.packId} className="pt-1">
+              <div key={pack.packId}>
                 <button
                   onClick={() => toggleGroup(pack.packId)}
-                  className="sidebar-group-label flex w-full items-center gap-1.5 rounded-md px-3 py-1.5 transition hover:text-slate-600"
+                  className="sidebar-group-label mt-5 flex w-full items-center gap-1.5"
                 >
                   {isExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
                   <span>{groupLabel}</span>
-                  <span className="ml-auto text-[10px] font-normal text-slate-300">{items.length}</span>
                 </button>
                 {isExpanded && (
                   <div className="space-y-0.5">

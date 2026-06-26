@@ -17,9 +17,12 @@ export async function POST(request: NextRequest) {
       ?? "127.0.0.1";
 
     const isDev = process.env.NODE_ENV !== "production";
+    // Allow returning the OTP code on the page in production when an explicit
+    // toggle is set. This enables end-to-end login without an email provider.
+    const returnDevCode = isDev || process.env.PLATFORM_OTP_RETURN_DEV_CODE === "true";
     const result = await requestOtp(body.email, ip, {
-      devMode: isDev,
-      skipRateLimit: isDev,
+      devMode: returnDevCode,
+      skipRateLimit: returnDevCode,
     });
 
     // Per SaaS Core Boundaries §4.2: "Interface responses must not leak whether email is already registered."
@@ -27,7 +30,7 @@ export async function POST(request: NextRequest) {
     return successResponse({
       message: "If this email is valid, a verification code has been sent.",
       expiresAt: result.expiresAt,
-      ...(isDev && result.devCode ? { devCode: result.devCode } : {}),
+      ...(returnDevCode && result.devCode ? { devCode: result.devCode } : {}),
     }, 200, requestId);
   } catch (e) {
     return handleError(e, requestId);

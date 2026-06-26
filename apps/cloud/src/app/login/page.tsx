@@ -10,6 +10,7 @@ export default function LoginPage() {
   const router = useRouter();
   const { t } = useI18n();
   const isDev = process.env.NODE_ENV !== "production";
+  const showDevHint = isDev || process.env.NEXT_PUBLIC_OTP_DEV_CODE_ENABLED === "true";
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -96,7 +97,7 @@ export default function LoginPage() {
             </div>
           )}
 
-          {isDev && !sent && (
+          {showDevHint && !sent && (
             <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
               <p className="font-semibold">Local development login</p>
               <p className="mt-1">

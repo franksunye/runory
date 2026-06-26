@@ -6,7 +6,7 @@ import { TABLES, MODULES_DIR, PACKS_DIR, TEMPLATES_DIR, businessTable } from "./
 import { getDeploymentMode, renderSqlWithPrefix, getBusinessTablePrefix, getTablePrefix } from "./platform-config";
 import { createRecord, getRecords } from "./metadata";
 import { createAutomation, getAutomations } from "./automation";
-import { createWorkflowDefinition, getWorkflowDefinitions } from "./workflow";
+import { createWorkflowDefinition, getWorkflowDefinitions, getAutoStartWorkflowDefinitions, startWorkflow, getRecordWorkflow } from "./workflow";
 import {
   moduleManifestSchema,
   packManifestSchema,
@@ -230,6 +230,47 @@ async function seedPackDemoData(workspaceId: string, packId: string): Promise<nu
       if (existingIds.has(def.id)) continue;
       await createWorkflowDefinition(workspaceId, def);
       created++;
+    }
+  }
+
+  // Auto-start workflow instances for existing records (v0.4).
+  // After workflow definitions are seeded, check for autoStart workflows and
+  // start instances for all existing records of the target object that don't
+  // already have a workflow instance bound. This ensures demo data records
+  // are properly integrated with the workflow lifecycle.
+  //
+  // For records that already have a stateField value (e.g. demo data with
+  // status "scheduled" or "in_progress"), we use that value as the workflow
+  // instance's starting state via overrideState. This preserves the demo
+  // data's intended state distribution instead of resetting everything to
+  // the workflow's initialState.
+  const allDefs = await getWorkflowDefinitions(workspaceId);
+  const autoStartDefs = allDefs.filter(d => d.autoStart && d.stateField);
+  for (const def of autoStartDefs) {
+    const records = await getRecords(workspaceId, def.targetObject, { limit: 1000 });
+    for (const rec of records) {
+      const recordId = String(rec.id);
+      // Skip if this record already has a workflow instance
+      const existing = await getRecordWorkflow(workspaceId, def.targetObject, recordId);
+      if (existing) continue;
+
+      // Use the record's existing stateField value as the starting state
+      // if it's a valid workflow state. Fall back to initialState otherwise.
+      const existingState = rec[def.stateField!] as string | undefined;
+      const stateNames = def.states.map(s => s.name);
+      const overrideState = existingState && stateNames.includes(existingState)
+        ? existingState
+        : undefined;
+
+      try {
+        await startWorkflow(workspaceId, def.id, def.targetObject, recordId, {
+          id: "demo-seed",
+          type: "system",
+          role: "admin",
+        }, { overrideState });
+      } catch (err) {
+        console.error(`[installer] Auto-start workflow "${def.id}" for record ${recordId} failed:`, err);
+      }
     }
   }
 

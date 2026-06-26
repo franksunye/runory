@@ -10,7 +10,12 @@ import type {
   ObjectDefinition,
   RelationDefinition,
   ViewDefinition,
+  WorkflowInstance,
 } from "@runory/platform-core";
+import type {
+  WorkflowDefinition,
+  WorkflowTransition,
+} from "@runory/contracts";
 import {
   WORKSPACE_NAVIGATION_CHANGED,
   WORKSPACE_DATA_CHANGED,
@@ -195,4 +200,38 @@ export function useWorkspaceChangeEvent(workspaceId: string): void {
       window.removeEventListener(WORKSPACE_DATA_CHANGED, revalidate);
     };
   }, [workspaceId, mutate]);
+}
+
+// ── Workflow Hooks (v0.4) ──
+
+export function useWorkflowDefinitions(workspaceId: string) {
+  const { data, error, isLoading, mutate } = useSWR<WorkflowDefinition[]>(
+    workspaceKey(workspaceId, "workflows")
+  );
+  return { data, error, isLoading, mutate };
+}
+
+export interface RecordWorkflowData {
+  instance: WorkflowInstance;
+  definition: WorkflowDefinition;
+  availableTransitions: WorkflowTransition[];
+  isTerminal: boolean;
+}
+
+/**
+ * Fetches the workflow instance bound to a specific record, along with
+ * the definition and available transitions. Returns null when no workflow
+ * is bound to the record.
+ */
+export function useRecordWorkflow(
+  workspaceId: string,
+  objectKey: string,
+  recordId: string | undefined
+) {
+  const { data, error, isLoading, mutate } = useSWR<RecordWorkflowData | null>(
+    recordId
+      ? workspaceKey(workspaceId, `objects/${objectKey}/records/${recordId}/workflow`)
+      : null
+  );
+  return { data, error, isLoading, mutate };
 }

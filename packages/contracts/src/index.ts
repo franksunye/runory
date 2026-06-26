@@ -428,6 +428,13 @@ export const workflowDefinitionSchema = z.object({
     type: z.enum(["initial", "intermediate", "approved", "rejected", "final"]).default("intermediate"),
   })),
   transitions: z.array(workflowTransitionSchema),
+  // When set, the workflow engine automatically syncs currentState to this
+  // field on the target record after every transition and on instance start.
+  // The UI also locks this field as read-only when a workflow instance is bound.
+  stateField: z.string().optional(),
+  // When true, a workflow instance is automatically started when a new record
+  // of targetObject is created (via the record creation API).
+  autoStart: z.boolean().default(false),
 });
 
 export type WorkflowDefinition = z.infer<typeof workflowDefinitionSchema>;
