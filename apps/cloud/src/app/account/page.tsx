@@ -19,6 +19,7 @@ import {
   User,
 } from "lucide-react";
 import TrustIndicators from "@/components/TrustIndicators";
+import { useI18n } from "@/i18n/locale-provider";
 
 interface WorkspaceEntry {
   workspaceId: string;
@@ -43,9 +44,9 @@ interface MeResponse {
   workspaces?: WorkspaceEntry[];
 }
 
-function formatTime(ts: string): string {
+function formatTime(ts: string, locale: string): string {
   try {
-    return new Date(ts).toLocaleString("zh-CN");
+    return new Date(ts).toLocaleString(locale === "zh" ? "zh-CN" : "en-US");
   } catch {
     return ts;
   }
@@ -53,6 +54,7 @@ function formatTime(ts: string): string {
 
 export default function AccountPage() {
   const router = useRouter();
+  const { t, locale } = useI18n();
   const [me, setMe] = useState<MeResponse | null>(null);
   const [sessions, setSessions] = useState<SessionInfo[]>([]);
   const [loading, setLoading] = useState(true);
@@ -114,17 +116,17 @@ export default function AccountPage() {
       });
       const json = await res.json();
       if (json.success) {
-        setMessage("显示名称已更新");
+        setMessage(t("account.profileUpdated"));
         setMe((prev) =>
           prev && prev.principal
             ? { ...prev, principal: { ...prev.principal, displayName: json.data.displayName } }
             : prev
         );
       } else {
-        setError(json.error?.message ?? "更新失败");
+        setError(json.error?.message ?? t("account.updateFailed"));
       }
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "更新失败");
+      setError(cause instanceof Error ? cause.message : t("account.updateFailed"));
     } finally {
       setSavingProfile(false);
     }
@@ -155,10 +157,10 @@ export default function AccountPage() {
         router.push("/login");
         router.refresh();
       } else {
-        setError(json.error?.message ?? "删除账户失败");
+        setError(json.error?.message ?? t("account.deleteFailed"));
       }
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "删除账户失败");
+      setError(cause instanceof Error ? cause.message : t("account.deleteFailed"));
     } finally {
       setDeleting(false);
     }
@@ -167,7 +169,7 @@ export default function AccountPage() {
   if (loading) {
     return (
       <main className="grid min-h-screen place-items-center bg-[#f7f8fc]">
-        <p className="text-sm text-slate-500">加载中...</p>
+        <p className="text-sm text-slate-500">{t("switcher.loading")}</p>
       </main>
     );
   }
@@ -193,13 +195,13 @@ export default function AccountPage() {
               href="/dashboard"
               className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-100"
             >
-              我的工作区
+              {t("account.myWorkspaces")}
             </Link>
             <button
               onClick={handleLogout}
               className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-100"
             >
-              <LogOut size={15} /> 退出登录
+              <LogOut size={15} /> {t("switcher.logout")}
             </button>
           </div>
         </div>
@@ -211,8 +213,8 @@ export default function AccountPage() {
             <User size={22} />
           </div>
           <div>
-            <h1 className="text-2xl font-bold tracking-tight text-slate-950">账户</h1>
-            <p className="mt-0.5 text-sm text-slate-600">管理你的个人资料、会话与账户安全</p>
+            <h1 className="text-2xl font-bold tracking-tight text-slate-950">{t("account.title")}</h1>
+            <p className="mt-0.5 text-sm text-slate-600">{t("account.subtitle")}</p>
           </div>
         </div>
 
@@ -231,12 +233,12 @@ export default function AccountPage() {
           {/* Profile Section */}
           <section className="app-card p-6">
             <h2 className="flex items-center gap-2 text-base font-bold text-slate-900">
-              <User size={18} className="text-slate-500" /> 个人资料
+              <User size={18} className="text-slate-500" /> {t("account.profileTitle")}
             </h2>
-            <p className="mt-1 text-xs text-slate-500">你的账户基本信息</p>
+            <p className="mt-1 text-xs text-slate-500">{t("account.profileHint")}</p>
             <form onSubmit={handleSaveProfile} className="mt-5 grid gap-4 sm:grid-cols-2">
               <div>
-                <label className="mb-1.5 block text-xs font-semibold text-slate-600">邮箱</label>
+                <label className="mb-1.5 block text-xs font-semibold text-slate-600">{t("account.emailLabel")}</label>
                 <div className="relative">
                   <Mail size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                   <input
@@ -247,7 +249,7 @@ export default function AccountPage() {
                 </div>
               </div>
               <div>
-                <label htmlFor="displayName" className="mb-1.5 block text-xs font-semibold text-slate-600">显示名称</label>
+                <label htmlFor="displayName" className="mb-1.5 block text-xs font-semibold text-slate-600">{t("account.displayNameLabel")}</label>
                 <input
                   id="displayName"
                   value={displayName}
@@ -258,7 +260,7 @@ export default function AccountPage() {
               </div>
               <div className="sm:col-span-2 flex justify-end">
                 <button type="submit" disabled={savingProfile || !displayName.trim()} className="app-button-primary">
-                  {savingProfile ? "保存中..." : "保存"}
+                  {savingProfile ? t("account.saving") : t("account.save")}
                 </button>
               </div>
             </form>
@@ -269,37 +271,37 @@ export default function AccountPage() {
             <div className="flex items-center justify-between">
               <div>
                 <h2 className="flex items-center gap-2 text-base font-bold text-slate-900">
-                  <Monitor size={18} className="text-slate-500" /> 会话管理
+                  <Monitor size={18} className="text-slate-500" /> {t("account.sessionsTitle")}
                 </h2>
-                <p className="mt-1 text-xs text-slate-500">当前登录的设备与会话</p>
+                <p className="mt-1 text-xs text-slate-500">{t("account.sessionsHint")}</p>
               </div>
               {otherSessions.length > 0 && (
                 <button
                   onClick={handleLogoutAll}
                   className="rounded-lg border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-600 transition hover:bg-red-50"
                 >
-                  注销所有其他会话
+                  {t("account.logoutAllOthers")}
                 </button>
               )}
             </div>
             <ul className="mt-4 divide-y divide-slate-100">
               {sessions.length === 0 ? (
-                <li className="py-4 text-center text-sm text-slate-500">暂无活跃会话</li>
+                <li className="py-4 text-center text-sm text-slate-500">{t("account.noSessions")}</li>
               ) : (
                 sessions.map((s) => (
                   <li key={s.id} className="flex flex-col gap-1 py-3 sm:flex-row sm:items-center sm:justify-between">
                     <div className="flex items-center gap-2">
                       <Monitor size={15} className="text-slate-400" />
                       <span className="text-sm font-semibold text-slate-700">
-                        {s.isCurrent ? "当前会话" : "其他设备"}
+                        {s.isCurrent ? t("account.currentSession") : t("account.otherDevice")}
                       </span>
                       {s.isCurrent && (
-                        <span className="app-badge bg-emerald-50 text-emerald-700">当前</span>
+                        <span className="app-badge bg-emerald-50 text-emerald-700">{t("account.current")}</span>
                       )}
                     </div>
                     <div className="flex flex-col text-xs text-slate-500 sm:flex-row sm:gap-4">
-                      <span>最后使用：{formatTime(s.lastUsedAt)}</span>
-                      <span>过期时间：{formatTime(s.expiresAt)}</span>
+                      <span>{t("account.lastUsed", { time: formatTime(s.lastUsedAt, locale) })}</span>
+                      <span>{t("account.expiresAt", { time: formatTime(s.expiresAt, locale) })}</span>
                     </div>
                   </li>
                 ))
@@ -310,7 +312,7 @@ export default function AccountPage() {
                 onClick={handleLogout}
                 className="app-button-secondary"
               >
-                <LogOut size={15} /> 注销当前会话
+                <LogOut size={15} /> {t("account.logoutCurrent")}
               </button>
             </div>
           </section>
@@ -318,54 +320,56 @@ export default function AccountPage() {
           {/* Security Section */}
           <section className="app-card p-6">
             <h2 className="flex items-center gap-2 text-base font-bold text-slate-900">
-              <ShieldCheck size={18} className="text-slate-500" /> 安全与数据
+              <ShieldCheck size={18} className="text-slate-500" /> {t("account.securityTitle")}
             </h2>
-            <p className="mt-1 text-xs text-slate-500">导出你的数据或管理账户生命周期</p>
+            <p className="mt-1 text-xs text-slate-500">{t("account.securityHint")}</p>
             <div className="mt-5 grid gap-4 sm:grid-cols-2">
               <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-4">
                 <div className="flex items-center gap-2">
                   <Download size={18} className="text-indigo-600" />
-                  <h3 className="text-sm font-bold text-slate-800">导出我的数据</h3>
+                  <h3 className="text-sm font-bold text-slate-800">{t("account.exportTitle")}</h3>
                 </div>
-                <p className="mt-1.5 text-xs text-slate-500">进入工作区导出页面，下载你的业务数据</p>
+                <p className="mt-1.5 text-xs text-slate-500">{t("account.exportHint")}</p>
                 <Link
                   href={exportHref}
                   className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
                 >
-                  <Download size={13} /> 前往导出
+                  <Download size={13} /> {t("account.goExport")}
                 </Link>
               </div>
               <div className="rounded-xl border border-red-200 bg-red-50/40 p-4">
                 <div className="flex items-center gap-2">
                   <ShieldAlert size={18} className="text-red-600" />
-                  <h3 className="text-sm font-bold text-red-700">删除账户</h3>
+                  <h3 className="text-sm font-bold text-red-700">{t("account.deleteAccountTitle")}</h3>
                 </div>
-                <p className="mt-1.5 text-xs text-red-600/80">永久删除账户及所有关联数据，此操作不可撤销</p>
+                <p className="mt-1.5 text-xs text-red-600/80">{t("account.deleteAccountHint")}</p>
                 <button
                   type="button"
                   onClick={() => setDeleteConfirmOpen((v) => !v)}
                   className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-red-300 bg-white px-3 py-1.5 text-xs font-semibold text-red-600 transition hover:bg-red-50"
                 >
-                  <AlertTriangle size={13} /> 删除账户
+                  <AlertTriangle size={13} /> {t("account.deleteAccount")}
                 </button>
                 {deleteConfirmOpen && (
                   <div className="mt-3 rounded-lg border border-red-200 bg-white p-3">
                     <p className="text-xs font-semibold text-red-700">
-                      请输入 <span className="font-mono font-bold">删除我的账户</span> 以确认
+                      {t("account.deleteConfirmPrompt", { confirm: t("account.deleteConfirmText") }).split(t("account.deleteConfirmText"))[0]}
+                      <span className="font-mono font-bold">{t("account.deleteConfirmText")}</span>
+                      {t("account.deleteConfirmPrompt", { confirm: t("account.deleteConfirmText") }).split(t("account.deleteConfirmText"))[1]}
                     </p>
                     <input
                       value={deleteConfirmText}
                       onChange={(e) => setDeleteConfirmText(e.target.value)}
-                      placeholder="删除我的账户"
+                      placeholder={t("account.deleteConfirmText")}
                       className="mt-2 w-full rounded-lg border border-red-300 px-3 py-2 text-sm outline-none focus:border-red-400 focus:ring-2 focus:ring-red-100"
                     />
                     <button
                       type="button"
                       onClick={handleDeleteAccount}
-                      disabled={deleting || deleteConfirmText.trim() !== "删除我的账户"}
+                      disabled={deleting || deleteConfirmText.trim().toLowerCase() !== t("account.deleteConfirmText").toLowerCase()}
                       className="mt-2 w-full rounded-lg bg-red-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
                     >
-                      {deleting ? "删除中..." : "确认删除账户"}
+                      {deleting ? t("account.deleting") : t("account.confirmDelete")}
                     </button>
                   </div>
                 )}
@@ -377,20 +381,20 @@ export default function AccountPage() {
           <section className="app-card overflow-hidden bg-[linear-gradient(110deg,#fff_0%,#fff_58%,#f0f2ff_100%)] p-6">
             <div className="flex items-center gap-2">
               <Sparkles size={18} className="text-indigo-600" />
-              <h2 className="text-base font-bold text-slate-900">方案与权益</h2>
+              <h2 className="text-base font-bold text-slate-900">{t("account.planTitle")}</h2>
             </div>
             <div className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex items-center gap-3">
                 <span className="app-badge bg-indigo-100 text-indigo-700">
                   <CheckCircle2 size={14} /> Early Access
                 </span>
-                <span className="text-sm font-semibold text-slate-600">免费</span>
+                <span className="text-sm font-semibold text-slate-600">{t("account.free")}</span>
               </div>
               <Link
                 href={billingHref}
                 className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
               >
-                <CreditCard size={13} /> 查看账单详情
+                <CreditCard size={13} /> {t("account.viewBilling")}
               </Link>
             </div>
             <div className="mt-4">
@@ -399,18 +403,16 @@ export default function AccountPage() {
                 onClick={() => setEaExpanded((v) => !v)}
                 className="inline-flex items-center gap-1 text-xs font-semibold text-indigo-600 hover:text-indigo-700"
               >
-                什么是 Early Access？
+                {t("account.whatIsEarlyAccess")}
                 {eaExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
               </button>
               {eaExpanded && (
                 <div className="mt-2 rounded-lg border border-slate-200 bg-white/70 p-4 text-sm leading-6 text-slate-600">
                   <p>
-                    Early Access 是 Runory 当前阶段的公开方案。你可以在免费使用核心平台能力的同时，
-                    体验受控扩展、审计与回滚等企业级治理功能。部分高级功能（如 Stripe 订阅计费、
-                    高级分析）仍在开发中，正式发布后将提供平滑升级路径。
+                    {t("account.earlyAccessBody1")}
                   </p>
                   <p className="mt-2">
-                    你的所有数据均可随时导出，账户可随时删除——Runory 不是黑盒。
+                    {t("account.earlyAccessBody2")}
                   </p>
                 </div>
               )}

@@ -9,8 +9,8 @@ export function MarketingFooter() {
   const { t } = useI18n();
   const gh = SITE_CONFIG.githubUrl;
   const groups = [
-    { title: t("common.product"), links: [[t("common.product"), "/#product"], [t("common.pricing"), "/pricing"], [t("common.cloudPreview"), "/login"]] },
-    { title: t("common.developers"), links: [[t("common.openSource"), "/open-source"], ["GitHub", gh], [t("common.docs"), `${gh}/tree/main/docs`], [t("common.releases"), `${gh}/releases`]] },
+    { title: t("common.product"), links: [[t("common.product"), "/#product"], [t("common.packs"), "/packs"], [t("common.pricing"), "/pricing"], [t("common.cloudPreview"), "/login"]] },
+    { title: t("common.developers"), links: [[t("common.openSource"), "/open-source"], ["GitHub", gh], [t("common.docs"), "/docs"], [t("common.releases"), `${gh}/releases`]] },
     { title: t("common.architecture"), links: [["SaaS Core", `${gh}/blob/main/docs/07-saas-core-boundaries.md`], ["Catalog & Release", `${gh}/blob/main/docs/09-catalog-release-control-plane.md`], ["SDK", `${gh}/blob/main/docs/10-runory-sdk-product.md`]] },
   ];
   return (

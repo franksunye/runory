@@ -27,7 +27,7 @@ export default function PricingPage() {
           <div className="grid lg:grid-cols-[.72fr_1.28fr]">
             <div className="bg-slate-950 p-8 text-white sm:p-10">
               <div className="flex items-center gap-2 text-sm font-bold text-indigo-300"><Cloud size={18} /> CLOUD EARLY ACCESS</div>
-              <div className="mt-8"><span className="text-5xl font-bold">¥0</span><span className="text-slate-400"> / 月</span></div>
+              <div className="mt-8"><span className="text-5xl font-bold">¥0</span><span className="text-slate-400"> {t("pricing.month")}</span></div>
               <p className="mt-4 text-sm leading-6 text-slate-400">{t("pricing.audience")}</p>
               <Link href="/login" className="mt-8 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-white px-4 text-sm font-bold text-slate-950 hover:bg-indigo-50">{t("common.startFree")} <ArrowRight size={16} /></Link>
               <p className="mt-3 text-center text-xs text-slate-500">{t("pricing.noCard")}</p>

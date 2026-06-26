@@ -11,11 +11,12 @@ export function MarketingHeader({ authenticated = false }: { authenticated?: boo
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const { locale, setLocale, t } = useI18n();
-  const links = [
+  const links: { href: string; label: string; external?: boolean }[] = [
     { href: "/#product", label: t("common.product") },
     { href: "/open-source", label: t("common.openSource") },
     { href: "/pricing", label: t("common.pricing") },
-    { href: `${SITE_CONFIG.githubUrl}/tree/main/docs`, label: t("common.docs"), external: true },
+    { href: "/packs", label: t("common.packs") },
+    { href: "/docs", label: t("common.docs") },
   ];
 
   return (

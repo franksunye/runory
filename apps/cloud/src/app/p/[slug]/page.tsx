@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { queryAll, businessTable } from "@runory/platform-core";
+import { en } from "@/i18n/messages";
 
 export const dynamic = "force-dynamic";
 
@@ -114,7 +115,7 @@ export default async function PublicLandingPage({
         <section className="mx-auto max-w-2xl px-6 py-12">
           <div className="rounded-2xl border border-slate-200 bg-white p-8 shadow-lg">
             <h2 className="mb-6 text-2xl font-bold text-slate-900">
-              {landingPage.cta_text ?? "立即申请"}
+              {landingPage.cta_text ?? en["publicForm.defaultCta"]}
             </h2>
             <form
               id="public-form"
@@ -165,7 +166,7 @@ export default async function PublicLandingPage({
                   className="mt-1 h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
                 />
                 <label htmlFor="_consent" className="ml-2 text-sm text-slate-600">
-                  我同意接收相关服务信息，并已阅读隐私政策
+                  {en["publicForm.consentLabel"]}
                 </label>
               </div>
 
@@ -173,20 +174,20 @@ export default async function PublicLandingPage({
                 type="submit"
                 className="w-full rounded-md bg-blue-600 px-4 py-3 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
               >
-                {form.submit_button_label ?? "提交"}
+                {form.submit_button_label ?? en["publicForm.defaultSubmit"]}
               </button>
 
               <p
                 id="form-success"
                 className="hidden rounded-md bg-green-50 px-4 py-3 text-sm text-green-700"
               >
-                {form.success_message ?? "感谢您的提交，我们会尽快与您联系。"}
+                {form.success_message ?? en["publicForm.defaultSuccess"]}
               </p>
               <p
                 id="form-error"
                 className="hidden rounded-md bg-red-50 px-4 py-3 text-sm text-red-700"
               >
-                提交失败，请稍后再试。
+                {en["publicForm.defaultError"]}
               </p>
             </form>
           </div>
@@ -231,7 +232,7 @@ export default async function PublicLandingPage({
                   });
                   // Add metadata
                   data._consent = document.getElementById('_consent').checked;
-                  data._consent_text = '我同意接收相关服务信息，并已阅读隐私政策';
+                  data._consent_text = ${JSON.stringify(en["publicForm.consentLabel"])};
                   data._landing_page_id = landingPageId;
                   data._source_url = window.location.href;
 
@@ -247,11 +248,11 @@ export default async function PublicLandingPage({
                       successEl.classList.remove('hidden');
                       successEl.scrollIntoView({ behavior: 'smooth' });
                     } else {
-                      errorEl.textContent = json.error?.message || '提交失败，请稍后再试。';
+                      errorEl.textContent = json.error?.message || ${JSON.stringify(en["publicForm.defaultError"])};
                       errorEl.classList.remove('hidden');
                     }
                   } catch (err) {
-                    errorEl.textContent = '网络错误，请检查连接后重试。';
+                    errorEl.textContent = ${JSON.stringify(en["publicForm.networkError"])};
                     errorEl.classList.remove('hidden');
                   }
                 });
