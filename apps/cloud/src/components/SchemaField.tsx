@@ -13,8 +13,7 @@ interface SchemaFieldProps {
 
 export default function SchemaField({ field, value, onChange, workspaceId }: SchemaFieldProps) {
   const { t } = useI18n();
-  const baseClass =
-    "w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500";
+  const baseClass = "app-input";
 
   const enterPlaceholder = t("workspace.field.enterPlaceholder", { label: field.label });
 
@@ -186,7 +185,7 @@ function LookupField({
     return (
       <input
         type="text"
-        className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+        className="app-input"
         value={value ?? ""}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
@@ -212,7 +211,7 @@ function LookupField({
       )}
       <input
         type="search"
-        className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+        className="app-input"
         value={search}
         onChange={(e) => setSearch(e.target.value)}
         placeholder={t("workspace.field.searchToSelect")}

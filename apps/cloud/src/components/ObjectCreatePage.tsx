@@ -74,29 +74,36 @@ export default function ObjectCreatePage({
   };
 
   if (loading) {
-    return <p className="text-sm text-slate-400">{t("workspace.loading")}</p>;
+    return (
+      <div className="space-y-6">
+        <div className="app-skeleton h-8 w-48" />
+        <div className="app-card space-y-4 p-6">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="app-skeleton h-11 w-full" />
+          ))}
+        </div>
+      </div>
+    );
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 page-enter">
       <div>
         <button
           type="button"
           onClick={() => router.push(basePath)}
-          className="text-xs font-medium text-blue-600 hover:text-blue-800"
+          className="text-xs font-semibold text-slate-500 transition hover:text-slate-800"
         >
           ← {backLabel ?? t("workspace.backToList", { title })}
         </button>
-        <h1 className="mt-1 text-2xl font-bold text-slate-900">{t("workspace.createTitle", { title })}</h1>
+        <h1 className="mt-2 text-3xl font-bold tracking-[-.025em] text-slate-950">{t("workspace.createTitle", { title })}</h1>
         {(subtitle ?? t("workspace.createSubtitle")) && (
-          <p className="mt-1 text-sm text-slate-500">{subtitle ?? t("workspace.createSubtitle")}</p>
+          <p className="mt-2 text-sm text-slate-500">{subtitle ?? t("workspace.createSubtitle")}</p>
         )}
       </div>
 
       {error && (
-        <div className="rounded-md bg-red-50 px-4 py-3 text-sm text-red-700">
-          {error}
-        </div>
+        <div className="app-error">{error}</div>
       )}
 
       {viewConfig ? (
@@ -104,6 +111,7 @@ export default function ObjectCreatePage({
           fields={fields}
           viewConfig={viewConfig}
           onSubmit={handleSubmit}
+          onCancel={() => router.push(basePath)}
           submitLabel={submitting ? t("workspace.saving") : t("workspace.save")}
           workspaceId={workspaceId}
         />

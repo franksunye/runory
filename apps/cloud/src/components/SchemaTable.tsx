@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { Inbox } from "lucide-react";
 import type { FieldDefinition } from "@runory/platform-core";
 import { useI18n } from "@/i18n/locale-provider";
 import type { MessageKey } from "@/i18n/messages";
@@ -142,7 +144,11 @@ function renderCell(
       const routeSegment = objectKeyToRouteSegment(targetObject);
       const href = `/w/${workspaceId}/${routeSegment}/${value}`;
       return (
-        <Link href={href} className="font-medium text-blue-600 hover:text-blue-800">
+        <Link
+          href={href}
+          onClick={(e) => e.stopPropagation()}
+          className="font-medium text-indigo-600 hover:text-indigo-800"
+        >
           {displayValue}
         </Link>
       );
@@ -162,6 +168,7 @@ export default function SchemaTable({
   basePath,
 }: SchemaTableProps) {
   const { t, locale } = useI18n();
+  const router = useRouter();
   const fieldMap = new Map(fields.map((f) => [f.fieldKey, f]));
   const columns: ListColumn[] = viewConfig?.columns ?? [];
   const linkBase = basePath ?? `/w/${workspaceId}/${objectKey}s`;
@@ -172,73 +179,78 @@ export default function SchemaTable({
 
   if (records.length === 0) {
     return (
-      <div className="rounded-lg border border-slate-200 bg-white p-8 text-center">
-        <p className="text-sm text-slate-500">{t("workspace.table.noData")}</p>
+      <div className="app-card flex flex-col items-center px-6 py-12 text-center">
+        <Inbox size={28} className="text-slate-300" />
+        <p className="mt-3 text-sm text-slate-500">{t("workspace.table.noData")}</p>
       </div>
     );
   }
 
   return (
-    <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
-      <table className="min-w-full divide-y divide-slate-200">
-        <thead className="bg-slate-50">
-          <tr>
-            {columns.map((col) => {
-              const fieldDef = fieldMap.get(col.field);
-              const label = col.label ?? fieldDef?.label ?? col.field;
-              const isExtension =
-                fieldDef?.ownership === "workspace_extension";
-              return (
-                <th
-                  key={col.field}
-                  className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500"
-                >
-                  <span className="inline-flex items-center gap-1">
-                    {label}
-                    {isExtension && (
-                      <span className="rounded bg-purple-100 px-1 text-[10px] font-medium text-purple-700">
-                        {t("workspace.extension")}
-                      </span>
-                    )}
-                  </span>
-                </th>
-              );
-            })}
-            <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-slate-500">
-              {t("workspace.table.actions")}
-            </th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-slate-100">
-          {records.map((record) => (
-            <tr key={String(record.id)} className="hover:bg-slate-50">
+    <div className="app-card overflow-hidden p-0">
+      <div className="overflow-x-auto">
+        <table className="min-w-full divide-y divide-slate-200">
+          <thead className="bg-slate-50/80">
+            <tr>
               {columns.map((col) => {
                 const fieldDef = fieldMap.get(col.field);
-                const type = fieldDef?.type ?? "text";
-                const displayKey = `${col.field}_display`;
-                const displayValue = (record as Record<string, unknown>)[displayKey] as string | null | undefined;
-                const targetObject = fieldDef?.validation?.targetObject as string | undefined;
+                const label = col.label ?? fieldDef?.label ?? col.field;
+                const isExtension =
+                  fieldDef?.ownership === "workspace_extension";
                 return (
-                  <td
+                  <th
                     key={col.field}
-                    className="whitespace-nowrap px-4 py-3 text-sm text-slate-700"
+                    className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-slate-500"
                   >
-                    {renderCell(col.field, record[col.field], type, t, locale, displayValue, targetObject, workspaceId)}
-                  </td>
+                    <span className="inline-flex items-center gap-1">
+                      {label}
+                      {isExtension && (
+                        <span className="rounded bg-purple-100 px-1 text-[10px] font-medium text-purple-700">
+                          {t("workspace.extension")}
+                        </span>
+                      )}
+                    </span>
+                  </th>
                 );
               })}
-              <td className="whitespace-nowrap px-4 py-3 text-right text-sm">
-                <Link
-                  href={`${linkBase}/${record.id}`}
-                  className="font-medium text-blue-600 hover:text-blue-800"
-                >
-                  {t("workspace.table.view")}
-                </Link>
-              </td>
+              <th className="px-4 py-3" />
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody className="divide-y divide-slate-100 bg-white">
+            {records.map((record) => {
+              const href = `${linkBase}/${record.id}`;
+              return (
+                <tr
+                  key={String(record.id)}
+                  onClick={() => router.push(href)}
+                  className="cursor-pointer transition hover:bg-indigo-50/40"
+                >
+                  {columns.map((col) => {
+                    const fieldDef = fieldMap.get(col.field);
+                    const type = fieldDef?.type ?? "text";
+                    const displayKey = `${col.field}_display`;
+                    const displayValue = (record as Record<string, unknown>)[displayKey] as string | null | undefined;
+                    const targetObject = fieldDef?.validation?.targetObject as string | undefined;
+                    return (
+                      <td
+                        key={col.field}
+                        className="whitespace-nowrap px-4 py-3 text-sm text-slate-700"
+                      >
+                        {renderCell(col.field, record[col.field], type, t, locale, displayValue, targetObject, workspaceId)}
+                      </td>
+                    );
+                  })}
+                  <td className="whitespace-nowrap px-4 py-3 text-right text-sm">
+                    <span className="text-xs font-semibold text-indigo-600 group-hover:text-indigo-800">
+                      {t("workspace.table.view")}
+                    </span>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

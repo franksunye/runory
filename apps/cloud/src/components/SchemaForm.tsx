@@ -16,7 +16,9 @@ interface SchemaFormProps {
   viewConfig: ViewConfig;
   initialValues?: RecordData;
   onSubmit: (data: RecordData) => void;
+  onCancel?: () => void;
   submitLabel?: string;
+  cancelLabel?: string;
   workspaceId?: string;
 }
 
@@ -30,7 +32,9 @@ export default function SchemaForm({
   viewConfig,
   initialValues = {},
   onSubmit,
+  onCancel,
   submitLabel,
+  cancelLabel,
   workspaceId,
 }: SchemaFormProps) {
   const { t } = useI18n();
@@ -89,9 +93,9 @@ export default function SchemaForm({
       {sections.map((section, si) => (
         <div
           key={si}
-          className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm"
+          className="app-card p-5 sm:p-6"
         >
-          <h3 className="mb-4 text-sm font-semibold text-slate-700">
+          <h3 className="mb-4 text-sm font-bold text-slate-900">
             {section.title}
           </h3>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -135,9 +139,18 @@ export default function SchemaForm({
         </div>
       ))}
       <div className="flex justify-end gap-3">
+        {onCancel && (
+          <button
+            type="button"
+            onClick={onCancel}
+            className="app-button-secondary"
+          >
+            {cancelLabel ?? t("workspace.cancel")}
+          </button>
+        )}
         <button
           type="submit"
-          className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+          className="app-button-primary"
         >
           {submitLabel ?? t("workspace.save")}
         </button>

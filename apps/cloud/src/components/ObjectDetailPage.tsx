@@ -3,6 +3,7 @@
 import { useState, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import { Pencil, Trash2, ArrowLeft } from "lucide-react";
 import useSWR from "swr";
 import SchemaForm from "./SchemaForm";
 import type { FieldDefinition } from "@runory/platform-core";
@@ -151,7 +152,7 @@ function ParentLinkPanel({
         {parentRecord ? (
           <Link
             href={`${routeBase}/${parentId}`}
-            className="font-medium text-blue-600 hover:text-blue-800"
+            className="font-medium text-indigo-600 hover:text-indigo-800"
           >
             {String(parentRecord[displayField] ?? parentId)}
           </Link>
@@ -194,7 +195,7 @@ function RelatedRecordsPanel({
           <li key={String(r.id)}>
             <Link
               href={`${routeBase}/${r.id}`}
-              className="text-sm font-medium text-blue-600 hover:text-blue-800"
+              className="text-sm font-medium text-indigo-600 hover:text-indigo-800"
             >
               {String(r[displayField] ?? t("workspace.recordNotFound"))}
             </Link>
@@ -244,6 +245,8 @@ export default function ObjectDetailPage({
   const fields: FieldDefinition[] = objDetail?.fields ?? [];
   const viewConfig = views.find((v) => v.viewKey === viewKey)?.config ?? null;
   const label = singularLabel ?? title;
+  const fieldMap = useMemo(() => new Map(fields.map((f) => [f.fieldKey, f])), [fields]);
+  const viewSections = (viewConfig?.sections as Array<{ title: string; fields: Array<{ field: string; required?: boolean }> }> | undefined) ?? [];
 
   // Derive parentLinks and related from relation metadata (v0.3.2).
   // Manual props take precedence; metadata fills in the rest.
@@ -341,67 +344,98 @@ export default function ObjectDetailPage({
   };
 
   if (loading) {
-    return <p className="text-sm text-slate-400">{t("workspace.loading")}</p>;
+    return (
+      <div className="space-y-6">
+        <div className="app-skeleton h-8 w-48" />
+        <div className="app-card space-y-4 p-6">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="app-skeleton h-10 w-full" />
+          ))}
+        </div>
+      </div>
+    );
   }
 
   if (!record) {
     return (
       <div className="space-y-4">
         {(error || recordError) && (
-          <div className="rounded-md bg-red-50 px-4 py-3 text-sm text-red-700">
+          <div className="app-error">
             {error ?? (recordError instanceof Error ? recordError.message : t("workspace.recordNotFound"))}
           </div>
         )}
         <Link
           href={basePath}
-          className="text-sm font-medium text-blue-600 hover:text-blue-800"
+          className="inline-flex items-center gap-1 text-xs font-semibold text-slate-500 transition hover:text-slate-800"
         >
-          ← {backLabel ?? t("workspace.backToList", { title })}
+          <ArrowLeft size={14} />{backLabel ?? t("workspace.backToList", { title })}
         </Link>
       </div>
     );
   }
 
+  const renderFieldRow = (field: FieldDefinition) => {
+    const value = record[field.fieldKey];
+    const isExtension = field.ownership === "workspace_extension";
+    return (
+      <div key={field.id}>
+        <dt className="flex items-center gap-1 text-xs font-bold uppercase tracking-wider text-slate-500">
+          {field.label}
+          {isExtension && (
+            <span className="rounded bg-purple-100 px-1 text-[10px] font-medium text-purple-700">
+              {t("workspace.extension")}
+            </span>
+          )}
+        </dt>
+        <dd className="mt-1 text-sm text-slate-900">
+          {field.type === "boolean"
+            ? value
+              ? t("workspace.yes")
+              : t("workspace.no")
+            : value === null || value === undefined || value === ""
+              ? "—"
+              : String(value)}
+        </dd>
+      </div>
+    );
+  };
+
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-6 page-enter">
+      <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <Link
             href={basePath}
-            className="text-xs font-medium text-blue-600 hover:text-blue-800"
+            className="inline-flex items-center gap-1 text-xs font-semibold text-slate-500 transition hover:text-slate-800"
           >
-            ← {backLabel ?? t("workspace.backToList", { title })}
+            <ArrowLeft size={14} />{backLabel ?? t("workspace.backToList", { title })}
           </Link>
-          <h1 className="mt-1 text-2xl font-bold text-slate-900">
+          <h1 className="mt-2 text-3xl font-bold tracking-[-.025em] text-slate-950">
             {t("workspace.detailTitle", { title })}
           </h1>
         </div>
         {!editing && (
-          <div className="flex gap-2">
+          <div className="flex gap-2 self-start">
             <button
               type="button"
               onClick={() => setEditing(true)}
-              className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+              className="app-button-secondary"
             >
-              {t("workspace.edit")}
+              <Pencil size={15} />{t("workspace.edit")}
             </button>
             <button
               type="button"
               onClick={handleDelete}
               disabled={deleting}
-              className="rounded-md border border-red-300 bg-white px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-50 disabled:opacity-50"
+              className="app-button-danger"
             >
-              {deleting ? t("workspace.deleting") : t("workspace.delete")}
+              <Trash2 size={15} />{deleting ? t("workspace.deleting") : t("workspace.delete")}
             </button>
           </div>
         )}
-      </div>
+      </header>
 
-      {error && (
-        <div className="rounded-md bg-red-50 px-4 py-3 text-sm text-red-700">
-          {error}
-        </div>
-      )}
+      {error && <div className="app-error">{error}</div>}
 
       {editing && viewConfig ? (
         <SchemaForm
@@ -409,43 +443,39 @@ export default function ObjectDetailPage({
           viewConfig={viewConfig}
           initialValues={record}
           onSubmit={handleUpdate}
+          onCancel={() => setEditing(false)}
           submitLabel={submitting ? t("workspace.saving") : t("workspace.save")}
           workspaceId={workspaceId}
         />
       ) : (
-        <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-          <dl className="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2">
-            {fields.filter((field) => !fkFieldKeys.has(field.fieldKey)).map((field) => {
-              const value = record[field.fieldKey];
-              const isExtension =
-                field.ownership === "workspace_extension";
+        <div className="space-y-6">
+          {/* Field sections (grouped cards) */}
+          {viewSections.length > 0 ? (
+            viewSections.map((section, si) => {
+              const sectionFields = section.fields
+                .map((sf) => fieldMap.get(sf.field))
+                .filter((f): f is FieldDefinition => !!f && !fkFieldKeys.has(f.fieldKey));
+              if (sectionFields.length === 0) return null;
               return (
-                <div key={field.id}>
-                  <dt className="flex items-center gap-1 text-xs font-medium uppercase tracking-wider text-slate-500">
-                    {field.label}
-                    {isExtension && (
-                      <span className="rounded bg-purple-100 px-1 text-[10px] font-medium text-purple-700">
-                        {t("workspace.extension")}
-                      </span>
-                    )}
-                  </dt>
-                  <dd className="mt-1 text-sm text-slate-900">
-                    {field.type === "boolean"
-                      ? value
-                        ? t("workspace.yes")
-                        : t("workspace.no")
-                      : value === null || value === undefined || value === ""
-                        ? "—"
-                        : String(value)}
-                  </dd>
+                <div key={si} className="app-card p-5 sm:p-6">
+                  <h3 className="mb-4 text-sm font-bold text-slate-900">{section.title}</h3>
+                  <dl className="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2">
+                    {sectionFields.map(renderFieldRow)}
+                  </dl>
                 </div>
               );
-            })}
-          </dl>
+            })
+          ) : (
+            <div className="app-card p-5 sm:p-6">
+              <dl className="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2">
+                {fields.filter((field) => !fkFieldKeys.has(field.fieldKey)).map(renderFieldRow)}
+              </dl>
+            </div>
+          )}
 
-          {/* Parent record links */}
-          {parentLinks.length > 0 && (
-            <>
+          {/* Parent + related associations */}
+          {(parentLinks.length > 0 || related.length > 0) && (
+            <div className="app-card p-5 sm:p-6">
               {parentLinks.map((cfg) => (
                 <ParentLinkPanel
                   key={cfg.foreignKey}
@@ -454,24 +484,23 @@ export default function ObjectDetailPage({
                   config={cfg}
                 />
               ))}
-            </>
-          )}
-
-          {/* Related records panels */}
-          {related.length > 0 && (
-            <div className="mt-6 space-y-4 border-t border-slate-100 pt-4">
-              {related.map((cfg) => (
-                <RelatedRecordsPanel
-                  key={cfg.objectKey}
-                  workspaceId={workspaceId}
-                  recordId={recordId}
-                  config={cfg}
-                />
-              ))}
+              {related.length > 0 && (
+                <div className="mt-6 space-y-4 border-t border-slate-100 pt-4">
+                  {related.map((cfg) => (
+                    <RelatedRecordsPanel
+                      key={cfg.objectKey}
+                      workspaceId={workspaceId}
+                      recordId={recordId}
+                      config={cfg}
+                    />
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
-          <div className="mt-4 border-t border-slate-100 pt-4 text-xs text-slate-400">
+          {/* Meta */}
+          <div className="text-xs text-slate-400">
             <p>{t("workspace.recordId", { id: String(record.id ?? "") })}</p>
             <p>{t("workspace.createdAt", { time: String(record.created_at ?? "") })}</p>
             <p>{t("workspace.updatedAt", { time: String(record.updated_at ?? "") })}</p>

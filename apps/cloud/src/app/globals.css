@@ -148,6 +148,23 @@ button, a { -webkit-tap-highlight-color: transparent; }
 @keyframes enter { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 .page-enter { animation: enter .32s ease-out both; }
 
+/* ── Skeleton loading (v0.4 UX) ── */
+.app-skeleton {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--radius-md);
+  background: #e9edf5;
+}
+.app-skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .65), transparent);
+  animation: app-shimmer 1.4s infinite;
+}
+@keyframes app-shimmer { 100% { transform: translateX(100%); } }
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; transition-duration: .01ms !important; }
 }

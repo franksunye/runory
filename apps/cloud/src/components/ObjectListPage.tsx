@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import { Plus, Search, Inbox } from "lucide-react";
 import SchemaTable from "./SchemaTable";
 import type { FieldDefinition } from "@runory/platform-core";
 import {
@@ -117,7 +118,24 @@ export default function ObjectListPage({
   };
 
   if (loading) {
-    return <p className="text-sm text-slate-400">{t("workspace.loading")}</p>;
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div className="space-y-2">
+            <div className="app-skeleton h-3 w-28" />
+            <div className="app-skeleton h-8 w-56" />
+          </div>
+          <div className="app-skeleton h-10 w-32 rounded-lg" />
+        </div>
+        <div className="app-card overflow-hidden p-0">
+          <div className="space-y-2 p-4">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="app-skeleton h-10 w-full" />
+            ))}
+          </div>
+        </div>
+      </div>
+    );
   }
 
   const totalCount = records.length;
@@ -126,32 +144,36 @@ export default function ObjectListPage({
   const isSearching = debouncedSearch.length > 0;
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-6 page-enter">
+      <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">{title}</h1>
-          {effectiveSubtitle && <p className="mt-1 text-sm text-slate-500">{effectiveSubtitle}</p>}
+          {packName && <p className="app-eyebrow">{packName}</p>}
+          <h1 className="mt-2 text-3xl font-bold tracking-[-.025em] text-slate-950">{title}</h1>
+          {effectiveSubtitle && <p className="mt-2 text-sm text-slate-500">{effectiveSubtitle}</p>}
         </div>
         {hasPack && (
-          <button
-            type="button"
-            onClick={() => router.push(`${basePath}/new`)}
-            className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
-          >
-            {effectiveCreateLabel}
-          </button>
+          <div className="flex items-center gap-2 self-start">
+            <button
+              type="button"
+              onClick={() => router.push(`${basePath}/new`)}
+              className="app-button-primary"
+            >
+              <Plus size={16} />{effectiveCreateLabel}
+            </button>
+          </div>
         )}
-      </div>
+      </header>
 
       {!hasPack ? (
-        <div className="rounded-lg border border-blue-200 bg-blue-50 p-8 text-center">
-          <p className="text-base font-semibold text-blue-800">{t("workspace.noPack")}</p>
-          <p className="mt-1 text-sm text-blue-700">
+        <div className="app-card flex flex-col items-center px-6 py-12 text-center">
+          <Inbox size={32} className="text-slate-300" />
+          <p className="mt-3 text-base font-semibold text-slate-800">{t("workspace.noPack")}</p>
+          <p className="mt-1 text-sm text-slate-500">
             {packName ? t("workspace.noPackHint", { packName }) : t("workspace.noPackHint", { packName: "" })}
           </p>
           <Link
             href={`/w/${workspaceId}/dashboard`}
-            className="mt-4 inline-block rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+            className="app-button-primary mt-4"
           >
             {t("workspace.goDashboard")}
           </Link>
@@ -182,17 +204,20 @@ export default function ObjectListPage({
           )}
 
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <input
-              type="search"
-              value={searchInput}
-              onChange={(e) => setSearchInput(e.target.value)}
-              placeholder={effectiveSearchPlaceholder}
-              className="w-full max-w-sm rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-            />
+            <div className="relative w-full max-w-sm">
+              <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                type="search"
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+                placeholder={effectiveSearchPlaceholder}
+                className="app-input pl-9"
+              />
+            </div>
             <select
               value={sortValue}
               onChange={(e) => setSortValue(e.target.value)}
-              className="rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="app-input max-w-[200px]"
             >
               {effectiveSortOptions.map((opt) => (
                 <option key={opt.value} value={opt.value}>
@@ -206,25 +231,27 @@ export default function ObjectListPage({
 
           {totalCount === 0 ? (
             isSearching ? (
-              <div className="rounded-lg border border-slate-200 bg-white p-8 text-center">
-                <p className="text-sm text-slate-500">{t("workspace.noResults")}</p>
+              <div className="app-card flex flex-col items-center px-6 py-12 text-center">
+                <Search size={28} className="text-slate-300" />
+                <p className="mt-3 text-sm text-slate-500">{t("workspace.noResults")}</p>
                 <button
                   type="button"
                   onClick={() => setSearchInput("")}
-                  className="mt-3 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                  className="app-button-secondary mt-4"
                 >
                   {t("workspace.clearSearch")}
                 </button>
               </div>
             ) : (
-              <div className="rounded-lg border border-slate-200 bg-white p-8 text-center">
-                <p className="text-sm text-slate-500">{t("workspace.noRecords", { title })}</p>
+              <div className="app-card flex flex-col items-center px-6 py-12 text-center">
+                <Inbox size={32} className="text-slate-300" />
+                <p className="mt-3 text-sm text-slate-500">{t("workspace.noRecords", { title })}</p>
                 <button
                   type="button"
                   onClick={() => router.push(`${basePath}/new`)}
-                  className="mt-3 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+                  className="app-button-primary mt-4"
                 >
-                  {t("workspace.addFirst", { title })}
+                  <Plus size={16} />{t("workspace.addFirst", { title })}
                 </button>
               </div>
             )
@@ -243,7 +270,7 @@ export default function ObjectListPage({
                   <button
                     type="button"
                     onClick={() => setVisibleCount((c) => c + pageSize)}
-                    className="rounded-md border border-slate-300 bg-white px-6 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                    className="app-button-secondary"
                   >
                     {t("workspace.loadMore")}
                   </button>
