@@ -99,11 +99,8 @@ export default function LoginPage() {
 
           {showDevHint && !sent && (
             <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-              <p className="font-semibold">Local development login</p>
-              <p className="mt-1">
-                Use <span className="font-mono font-semibold">admin@runory.local</span>,
-                then enter the 6-digit development code shown on this page.
-              </p>
+              <p className="font-semibold">{t("login.devHint")}</p>
+              <p className="mt-1">{t("login.devHintDesc")}</p>
             </div>
           )}
 
