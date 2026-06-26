@@ -9,6 +9,7 @@ import {
 import type { WorkflowDefinition, WorkflowTransition } from "@runory/contracts";
 import type { WorkflowInstance } from "@runory/platform-core";
 import { useI18n } from "@/i18n/locale-provider";
+import { useObjects, useRecords } from "@/lib/api-hooks";
 import type { MessageKey } from "@/i18n/messages";
 
 interface PendingApproval extends WorkflowInstance {
@@ -305,10 +306,10 @@ export default function WorkflowsPage() {
       </section>
 
       {showCreateModal && (
-        <CreateWorkflowModal submitting={submitting} onClose={() => setShowCreateModal(false)} onSubmit={handleCreateWorkflow} />
+        <CreateWorkflowModal workspaceId={workspaceId} submitting={submitting} onClose={() => setShowCreateModal(false)} onSubmit={handleCreateWorkflow} />
       )}
       {startFor && (
-        <StartInstanceModal definition={startFor} submitting={submitting} onClose={() => setStartFor(null)}
+        <StartInstanceModal workspaceId={workspaceId} definition={startFor} submitting={submitting} onClose={() => setStartFor(null)}
           onSubmit={(ot, rid) => handleStartInstance(startFor.id, ot, rid)} />
       )}
     </div>
@@ -406,13 +407,15 @@ function InstanceRow({
 // ── Create Workflow Modal (state machine editor) ──
 
 interface CreateWorkflowModalProps {
+  workspaceId: string;
   submitting: boolean;
   onClose: () => void;
   onSubmit: (def: WorkflowDefinition) => void;
 }
 
-function CreateWorkflowModal({ submitting, onClose, onSubmit }: CreateWorkflowModalProps) {
+function CreateWorkflowModal({ workspaceId, submitting, onClose, onSubmit }: CreateWorkflowModalProps) {
   const { t } = useI18n();
+  const { data: objects = [] } = useObjects(workspaceId);
   const [id, setId] = useState("");
   const [name, setName] = useState("");
   const [targetObject, setTargetObject] = useState("");
@@ -446,7 +449,7 @@ function CreateWorkflowModal({ submitting, onClose, onSubmit }: CreateWorkflowMo
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-900/40 p-4 sm:p-8">
+    <div className="fixed inset-0 z-[60] flex items-start justify-center overflow-y-auto bg-slate-900/40 p-4 sm:p-8">
       <div className="w-full max-w-2xl rounded-2xl bg-white shadow-xl">
         <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
           <h2 className="text-lg font-bold text-slate-900">{t("workflows.createWorkflowTitle")}</h2>
@@ -461,7 +464,10 @@ function CreateWorkflowModal({ submitting, onClose, onSubmit }: CreateWorkflowMo
               <input className="app-input" value={name} onChange={e => setName(e.target.value)} placeholder={t("workflows.placeholderName")} />
             </Field>
             <Field label={t("workflows.field.targetObject")}>
-              <input className="app-input" value={targetObject} onChange={e => setTargetObject(e.target.value)} placeholder={t("workflows.placeholderTargetObject")} />
+              <select className="app-input" value={targetObject} onChange={e => setTargetObject(e.target.value)}>
+                <option value="">{t("workflows.placeholderTargetObject")}</option>
+                {objects.map(obj => <option key={obj.objectKey} value={obj.objectKey}>{obj.label ?? obj.objectKey}</option>)}
+              </select>
             </Field>
             <Field label={t("workflows.field.initialState")}>
               <input className="app-input" value={initialState} onChange={e => setInitialState(e.target.value)} placeholder={t("workflows.placeholderInitialState")} />
@@ -536,19 +542,32 @@ function CreateWorkflowModal({ submitting, onClose, onSubmit }: CreateWorkflowMo
 // ── Start Instance Modal ──
 
 interface StartInstanceModalProps {
+  workspaceId: string;
   definition: WorkflowDefinition;
   submitting: boolean;
   onClose: () => void;
   onSubmit: (objectType: string, recordId: string) => void;
 }
 
-function StartInstanceModal({ definition, submitting, onClose, onSubmit }: StartInstanceModalProps) {
+function StartInstanceModal({ workspaceId, definition, submitting, onClose, onSubmit }: StartInstanceModalProps) {
   const { t } = useI18n();
   const [objectType, setObjectType] = useState(definition.targetObject);
   const [recordId, setRecordId] = useState("");
 
+  // Fetch records of the target object so the user can pick from a dropdown
+  const { data: records = [] } = useRecords(workspaceId, objectType, { limit: 100 });
+
+  // Build display label for each record (name > title > subject > summary > number > id)
+  const recordLabel = (r: Record<string, unknown>): string => {
+    for (const key of ["name", "title", "subject", "summary", "number", "code", "email"]) {
+      const v = r[key];
+      if (typeof v === "string" && v) return v;
+    }
+    return String(r.id ?? "");
+  };
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4">
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/40 p-4">
       <div className="w-full max-w-md rounded-2xl bg-white shadow-xl">
         <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
           <h2 className="text-lg font-bold text-slate-900">{t("workflows.startInstanceTitle", { name: definition.name })}</h2>
@@ -559,7 +578,12 @@ function StartInstanceModal({ definition, submitting, onClose, onSubmit }: Start
             <input className="app-input" value={objectType} onChange={e => setObjectType(e.target.value)} />
           </Field>
           <Field label={t("workflows.field.recordId")}>
-            <input className="app-input" value={recordId} onChange={e => setRecordId(e.target.value)} placeholder={t("workflows.placeholderRecordId")} />
+            <select className="app-input" value={recordId} onChange={e => setRecordId(e.target.value)}>
+              <option value="">{t("workflows.placeholderRecordId")}</option>
+              {records.map(r => (
+                <option key={String(r.id)} value={String(r.id)}>{recordLabel(r)}</option>
+              ))}
+            </select>
           </Field>
         </div>
         <div className="flex justify-end gap-2 border-t border-slate-100 px-6 py-4">

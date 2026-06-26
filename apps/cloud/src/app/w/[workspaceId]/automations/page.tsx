@@ -14,6 +14,7 @@ import type {
   AutomationDefinitionInfo, AutomationRun, DryRunResult,
 } from "@runory/platform-core";
 import { useI18n } from "@/i18n/locale-provider";
+import { useObjects, useFields } from "@/lib/api-hooks";
 import type { MessageKey } from "@/i18n/messages";
 
 interface Toast { type: "success" | "error"; message: string }
@@ -208,6 +209,7 @@ export default function AutomationsPage() {
 
       {showEditor && (
         <AutomationEditorModal
+          workspaceId={workspaceId}
           submitting={submitting}
           existing={editing}
           onClose={() => { setShowEditor(false); setEditing(null); }}
@@ -381,15 +383,17 @@ function AutomationCard({ auto, workspaceId, expanded, onToggleExpand, onToggle,
 // ── Create / Edit Automation Modal ──
 
 interface AutomationEditorModalProps {
+  workspaceId: string;
   submitting: boolean;
   existing: AutomationDefinitionInfo | null;
   onClose: () => void;
   onSubmit: (def: AutomationDefinition) => void;
 }
 
-function AutomationEditorModal({ submitting, existing, onClose, onSubmit }: AutomationEditorModalProps) {
+function AutomationEditorModal({ workspaceId, submitting, existing, onClose, onSubmit }: AutomationEditorModalProps) {
   const { t } = useI18n();
   const def = existing?.definition;
+  const { data: objects = [] } = useObjects(workspaceId);
   const [id, setId] = useState(def?.id ?? "");
   const [name, setName] = useState(def?.name ?? "");
   const [description, setDescription] = useState(def?.description ?? "");
@@ -402,6 +406,10 @@ function AutomationEditorModal({ submitting, existing, onClose, onSubmit }: Auto
   const [actions, setActions] = useState<AutomationAction[]>(
     def?.actions ?? [{ type: "create_task", title: t("automations.defaultTaskTitle") }]
   );
+
+  // Fetch fields for the selected target object (used for fieldKey + condition field dropdowns)
+  const { data: targetObjectDetail } = useFields(workspaceId, targetObject);
+  const targetFields = targetObjectDetail?.fields ?? [];
 
   const addCondition = () => setConditions(c => [...c, { field: "", operator: "eq", value: "" }]);
   const removeCondition = (i: number) => setConditions(c => c.filter((_, idx) => idx !== i));
@@ -436,7 +444,7 @@ function AutomationEditorModal({ submitting, existing, onClose, onSubmit }: Auto
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-900/40 p-4 sm:p-8">
+    <div className="fixed inset-0 z-[60] flex items-start justify-center overflow-y-auto bg-slate-900/40 p-4 sm:p-8">
       <div className="w-full max-w-2xl rounded-2xl bg-white shadow-xl">
         <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
           <h2 className="text-lg font-bold text-slate-900">{existing ? t("automations.editTitle") : t("automations.createTitle")}</h2>
@@ -465,11 +473,17 @@ function AutomationEditorModal({ submitting, existing, onClose, onSubmit }: Auto
                 </select>
               </Field>
               <Field label={t("automations.field.targetObject")}>
-                <input className="app-input" value={targetObject} onChange={e => setTargetObject(e.target.value)} placeholder={t("automations.placeholderTargetObject")} />
+                <select className="app-input" value={targetObject} onChange={e => { setTargetObject(e.target.value); setFieldKey(""); }}>
+                  <option value="">{t("automations.placeholderTargetObject")}</option>
+                  {objects.map(obj => <option key={obj.objectKey} value={obj.objectKey}>{obj.label ?? obj.objectKey}</option>)}
+                </select>
               </Field>
               {triggerType === "record_field_changed" && (
                 <Field label={t("automations.field.fieldKey")}>
-                  <input className="app-input" value={fieldKey} onChange={e => setFieldKey(e.target.value)} placeholder={t("automations.placeholderFieldKey")} />
+                  <select className="app-input" value={fieldKey} onChange={e => setFieldKey(e.target.value)}>
+                    <option value="">{t("automations.placeholderFieldKey")}</option>
+                    {targetFields.map(f => <option key={f.fieldKey} value={f.fieldKey}>{f.label ?? f.fieldKey}</option>)}
+                  </select>
                 </Field>
               )}
               {triggerType === "schedule" && (
@@ -490,7 +504,10 @@ function AutomationEditorModal({ submitting, existing, onClose, onSubmit }: Auto
               {conditions.length === 0 && <p className="text-xs text-slate-400">{t("automations.noConditions")}</p>}
               {conditions.map((c, i) => (
                 <div key={i} className="flex items-center gap-2">
-                  <input className="app-input h-9 flex-1" value={c.field} onChange={e => updateCondition(i, { field: e.target.value })} placeholder={t("automations.placeholderField")} />
+                  <select className="app-input h-9 flex-1" value={c.field} onChange={e => updateCondition(i, { field: e.target.value })}>
+                    <option value="">{t("automations.placeholderField")}</option>
+                    {targetFields.map(f => <option key={f.fieldKey} value={f.fieldKey}>{f.label ?? f.fieldKey}</option>)}
+                  </select>
                   <select className="app-input h-9 w-28" value={c.operator} onChange={e => updateCondition(i, { operator: e.target.value as Operator })}>
                     {OPERATORS.map(o => <option key={o} value={o}>{t(OPERATOR_LABEL_KEYS[o])}</option>)}
                   </select>
@@ -518,7 +535,10 @@ function AutomationEditorModal({ submitting, existing, onClose, onSubmit }: Auto
                   </div>
                   {(a.type === "create_task" || a.type === "update_record" || a.type === "set_field") && (
                     <Field label={t("automations.field.targetObject")}>
-                      <input className="app-input h-9" value={a.targetObject ?? ""} onChange={e => updateAction(i, { targetObject: e.target.value })} placeholder={t("automations.placeholderActionTargetObject")} />
+                      <select className="app-input h-9" value={a.targetObject ?? ""} onChange={e => updateAction(i, { targetObject: e.target.value })}>
+                        <option value="">{t("automations.placeholderActionTargetObject")}</option>
+                        {objects.map(obj => <option key={obj.objectKey} value={obj.objectKey}>{obj.label ?? obj.objectKey}</option>)}
+                      </select>
                     </Field>
                   )}
                   {a.type === "create_task" && (
