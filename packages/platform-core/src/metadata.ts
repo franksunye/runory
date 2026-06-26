@@ -11,12 +11,14 @@ async function fireAutomationTriggers(
   workspaceId: string,
   eventType: "record_created" | "record_updated",
   objectKey: string,
-  record: Record<string, unknown>
+  record: Record<string, unknown>,
+  changedFields?: string[]
 ): Promise<void> {
   // Skip if we're already inside an automation execution chain
   if (_automationSuppress.getStore()) return;
   try {
     const { findAutomationsForRecordEvent, runAutomation } = await import("./automation");
+    // Fire record_created / record_updated triggers
     const automations = await findAutomationsForRecordEvent(workspaceId, eventType, objectKey);
     for (const auto of automations) {
       try {
@@ -25,6 +27,24 @@ async function fireAutomationTriggers(
         );
       } catch {
         // Automation failures should not block record operations
+      }
+    }
+    // Fire record_field_changed triggers for each changed field (update only)
+    if (eventType === "record_updated" && changedFields && changedFields.length > 0) {
+      const fieldChangeAutomations = await findAutomationsForRecordEvent(
+        workspaceId, "record_field_changed", objectKey
+      );
+      for (const auto of fieldChangeAutomations) {
+        const watchedField = auto.definition.trigger.fieldKey;
+        // If the automation watches a specific field, only fire when that field changed
+        if (watchedField && !changedFields.includes(watchedField)) continue;
+        try {
+          await _automationSuppress.run(true, () =>
+            runAutomation(workspaceId, auto.id, "record_field_changed", { record }, { actorId: "record-lifecycle" })
+          );
+        } catch {
+          // Automation failures should not block record operations
+        }
       }
     }
   } catch {
@@ -771,7 +791,8 @@ export async function updateRecord(workspaceId: string, objectKey: string, recor
 
   // Fire automation triggers (v0.3.5: wire triggers into record lifecycle)
   if (updated) {
-    await fireAutomationTriggers(workspaceId, "record_updated", objectKey, updated);
+    const changedFields = Object.keys(data);
+    await fireAutomationTriggers(workspaceId, "record_updated", objectKey, updated, changedFields);
   }
 
   return updated;

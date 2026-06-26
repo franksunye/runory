@@ -428,5 +428,68 @@
         "deal_id": "$deal-quantum-research.id"
       }
     }
+  ],
+  "workflows": [
+    {
+      "id": "crm-deal-stage-workflow",
+      "name": "Deal Stage Workflow",
+      "targetObject": "deal",
+      "initialState": "new",
+      "states": [
+        { "name": "new", "label": "New", "type": "initial" },
+        { "name": "qualified", "label": "Qualified", "type": "intermediate" },
+        { "name": "proposal", "label": "Proposal", "type": "intermediate" },
+        { "name": "negotiation", "label": "Negotiation", "type": "intermediate" },
+        { "name": "won", "label": "Won", "type": "final" },
+        { "name": "lost", "label": "Lost", "type": "rejected" }
+      ],
+      "transitions": [
+        { "fromStatus": "new", "toStatus": "qualified", "label": "Qualify", "requiredRole": "member" },
+        { "fromStatus": "qualified", "toStatus": "proposal", "label": "Send Proposal", "requiredRole": "member" },
+        { "fromStatus": "proposal", "toStatus": "negotiation", "label": "Enter Negotiation", "requiredRole": "member" },
+        { "fromStatus": "negotiation", "toStatus": "won", "label": "Close Won", "requiredRole": "admin", "systemAction": { "type": "create_task", "title": "Onboard {{record.name}} customer", "description": "Deal won — kick off customer onboarding workflow." } },
+        { "fromStatus": "negotiation", "toStatus": "lost", "label": "Close Lost", "requiredRole": "member", "systemAction": { "type": "create_task", "title": "Post-mortem: {{record.name}}", "description": "Analyze why this deal was lost and capture lessons learned." } },
+        { "fromStatus": "qualified", "toStatus": "lost", "label": "Disqualify", "requiredRole": "member" },
+        { "fromStatus": "proposal", "toStatus": "lost", "label": "Withdraw Proposal", "requiredRole": "member" }
+      ]
+    }
+  ],
+  "automations": [
+    {
+      "id": "crm-high-value-deal-alert",
+      "name": "High-Value Deal Alert",
+      "description": "When a deal with amount >= 100,000 is created, create a follow-up task for the deal owner.",
+      "trigger": { "type": "record_created", "targetObject": "deal" },
+      "conditions": [
+        { "field": "amount", "operator": "gte", "value": 100000 }
+      ],
+      "actions": [
+        {
+          "type": "create_task",
+          "targetObject": "task",
+          "title": "Review high-value deal: {{record.name}}",
+          "description": "Deal amount is ${{record.amount}}. Schedule executive review and prepare proposal."
+        }
+      ],
+      "enabled": true
+    },
+    {
+      "id": "crm-won-deal-onboarding-task",
+      "name": "Won Deal Onboarding Task",
+      "description": "When a deal stage changes to 'won', create an onboarding task linked to the deal.",
+      "trigger": { "type": "record_field_changed", "targetObject": "deal", "fieldKey": "stage" },
+      "conditions": [
+        { "field": "stage", "operator": "eq", "value": "won" }
+      ],
+      "actions": [
+        {
+          "type": "create_task",
+          "targetObject": "task",
+          "title": "Onboard customer: {{record.name}}",
+          "description": "Deal won. Begin customer onboarding: send welcome email, schedule kickoff, and assign account manager."
+        }
+      ],
+      "enabled": true
+    }
   ]
 }

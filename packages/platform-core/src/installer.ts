@@ -5,14 +5,20 @@ import { queryOne, queryAll, execute, genId, now, db, validateIdentifier } from 
 import { TABLES, MODULES_DIR, PACKS_DIR, TEMPLATES_DIR, businessTable } from "./contracts";
 import { getDeploymentMode, renderSqlWithPrefix, getBusinessTablePrefix, getTablePrefix } from "./platform-config";
 import { createRecord, getRecords } from "./metadata";
+import { createAutomation, getAutomations } from "./automation";
+import { createWorkflowDefinition, getWorkflowDefinitions } from "./workflow";
 import {
   moduleManifestSchema,
   packManifestSchema,
   templateManifestSchema,
+  automationDefinitionSchema,
+  workflowDefinitionSchema,
   type ModuleManifest,
   type PackManifest,
   type TemplateManifest,
   type PackTerminologyEntry,
+  type AutomationDefinition,
+  type WorkflowDefinition,
 } from "@runory/contracts";
 
 export function loadModuleManifest(moduleId: string): ModuleManifest {
@@ -42,13 +48,19 @@ interface DemoRecord {
 
 interface PackDemoData {
   records: DemoRecord[];
+  automations?: unknown[];
+  workflows?: unknown[];
 }
 
 function readPackDemoDataFile(packId: string): PackDemoData | null {
   const demoPath = resolve(PACKS_DIR, packId, "demo-data.json");
   if (!existsSync(demoPath)) return null;
   const raw = JSON.parse(readFileSync(demoPath, "utf-8")) as PackDemoData;
-  return { records: Array.isArray(raw.records) ? raw.records : [] };
+  return {
+    records: Array.isArray(raw.records) ? raw.records : [],
+    automations: Array.isArray(raw.automations) ? raw.automations : [],
+    workflows: Array.isArray(raw.workflows) ? raw.workflows : [],
+  };
 }
 
 /**
@@ -195,6 +207,30 @@ async function seedPackDemoData(workspaceId: string, packId: string): Promise<nu
     const row = existing ?? (await createRecord(workspaceId, record.object, data));
     if (!existing) created++;
     if (record.alias) aliases.set(record.alias, row);
+  }
+
+  // Seed demo automations (idempotent — skip if automation_id already exists)
+  if (demo.automations && demo.automations.length > 0) {
+    const existingAutomations = await getAutomations(workspaceId);
+    const existingIds = new Set(existingAutomations.map((a) => a.automationId));
+    for (const raw of demo.automations) {
+      const def = automationDefinitionSchema.parse(raw);
+      if (existingIds.has(def.id)) continue;
+      await createAutomation(workspaceId, def, "system");
+      created++;
+    }
+  }
+
+  // Seed demo workflow definitions (idempotent — skip if workflow_id already exists)
+  if (demo.workflows && demo.workflows.length > 0) {
+    const existingWorkflows = await getWorkflowDefinitions(workspaceId);
+    const existingIds = new Set(existingWorkflows.map((w) => w.id));
+    for (const raw of demo.workflows) {
+      const def = workflowDefinitionSchema.parse(raw);
+      if (existingIds.has(def.id)) continue;
+      await createWorkflowDefinition(workspaceId, def);
+      created++;
+    }
   }
 
   return created;

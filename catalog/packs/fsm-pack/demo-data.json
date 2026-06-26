@@ -378,5 +378,69 @@
         "completed_at": "2026-06-18"
       }
     }
+  ],
+  "workflows": [
+    {
+      "id": "fsm-work-order-lifecycle",
+      "name": "Work Order Lifecycle",
+      "targetObject": "work_order",
+      "initialState": "new",
+      "states": [
+        { "name": "new", "label": "New", "type": "initial" },
+        { "name": "scheduled", "label": "Scheduled", "type": "intermediate" },
+        { "name": "in_progress", "label": "In Progress", "type": "intermediate" },
+        { "name": "blocked", "label": "Blocked", "type": "intermediate" },
+        { "name": "completed", "label": "Completed", "type": "final" },
+        { "name": "cancelled", "label": "Cancelled", "type": "rejected" }
+      ],
+      "transitions": [
+        { "fromStatus": "new", "toStatus": "scheduled", "label": "Schedule", "requiredRole": "member", "systemAction": { "type": "create_task", "title": "Prepare for: {{record.title}}", "description": "Work order scheduled. Review asset history and prepare required parts." } },
+        { "fromStatus": "scheduled", "toStatus": "in_progress", "label": "Start Work", "requiredRole": "member" },
+        { "fromStatus": "in_progress", "toStatus": "blocked", "label": "Mark Blocked", "requiredRole": "member", "systemAction": { "type": "create_task", "title": "Resolve blocker: {{record.title}}", "description": "Work order is blocked. Identify root cause and unblock." } },
+        { "fromStatus": "blocked", "toStatus": "in_progress", "label": "Resume", "requiredRole": "member" },
+        { "fromStatus": "in_progress", "toStatus": "completed", "label": "Complete", "requiredRole": "member", "systemAction": { "type": "create_task", "title": "Close out: {{record.title}}", "description": "Work order completed. File service report and notify customer." } },
+        { "fromStatus": "new", "toStatus": "cancelled", "label": "Cancel", "requiredRole": "admin" },
+        { "fromStatus": "scheduled", "toStatus": "cancelled", "label": "Cancel", "requiredRole": "admin" },
+        { "fromStatus": "blocked", "toStatus": "cancelled", "label": "Cancel", "requiredRole": "admin" }
+      ]
+    }
+  ],
+  "automations": [
+    {
+      "id": "fsm-urgent-work-order-alert",
+      "name": "Urgent Work Order Alert",
+      "description": "When an urgent work order is created, create a task to assign a technician immediately.",
+      "trigger": { "type": "record_created", "targetObject": "work_order" },
+      "conditions": [
+        { "field": "priority", "operator": "eq", "value": "urgent" }
+      ],
+      "actions": [
+        {
+          "type": "create_task",
+          "targetObject": "task",
+          "title": "Assign technician for urgent: {{record.title}}",
+          "description": "Urgent work order created. Assign available technician and confirm SLA deadline."
+        }
+      ],
+      "enabled": true
+    },
+    {
+      "id": "fsm-blocked-work-order-escalation",
+      "name": "Blocked Work Order Escalation",
+      "description": "When a work order status changes to 'blocked', create an escalation task.",
+      "trigger": { "type": "record_field_changed", "targetObject": "work_order", "fieldKey": "status" },
+      "conditions": [
+        { "field": "status", "operator": "eq", "value": "blocked" }
+      ],
+      "actions": [
+        {
+          "type": "create_task",
+          "targetObject": "task",
+          "title": "Escalate blocked work order: {{record.title}}",
+          "description": "Work order is blocked. Review blocker reason, contact supplier/customer, and expedite resolution."
+        }
+      ],
+      "enabled": true
+    }
   ]
 }
