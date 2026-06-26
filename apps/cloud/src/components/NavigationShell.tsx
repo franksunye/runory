@@ -145,6 +145,59 @@ function getCategoryLabel(category: string, t: TFunc): string | undefined {
   return key ? t(key) : undefined;
 }
 
+// ── Object navigation label resolution ──
+// Maps canonical routes to i18n keys so that navigation labels are always
+// locale-aware, regardless of what raw string was persisted in the DB at
+// install time. For FSM-installed workspaces, variant keys are used for
+// objects that the FSM pack relabels (company → customer, task → service task).
+const ROUTE_LABEL_KEY: Record<string, { defaultKey: MessageKey; fsmKey?: MessageKey }> = {
+  "/companies": { defaultKey: "workspace.nav.objectCompany", fsmKey: "workspace.nav.objectCustomer" },
+  "/contacts": { defaultKey: "workspace.nav.objectContact" },
+  "/deals": { defaultKey: "workspace.nav.objectDeal" },
+  "/tasks": { defaultKey: "workspace.nav.objectTask", fsmKey: "workspace.nav.objectServiceTask" },
+  "/assets": { defaultKey: "workspace.nav.objectAsset" },
+  "/work-orders": { defaultKey: "workspace.nav.objectWorkOrder" },
+  "/service-sites": { defaultKey: "workspace.nav.objectServiceSite" },
+  "/technicians": { defaultKey: "workspace.nav.objectTechnician" },
+  "/service-reports": { defaultKey: "workspace.nav.objectServiceReport" },
+  "/service-visits": { defaultKey: "workspace.nav.objectServiceVisit" },
+  "/campaigns": { defaultKey: "workspace.nav.objectCampaign" },
+  "/landing-pages": { defaultKey: "workspace.nav.objectLandingPage" },
+  "/forms": { defaultKey: "workspace.nav.objectForm" },
+  "/submissions": { defaultKey: "workspace.nav.objectSubmission" },
+  "/tickets": { defaultKey: "workspace.nav.objectTicket" },
+  "/conversations": { defaultKey: "workspace.nav.objectConversation" },
+  "/knowledge": { defaultKey: "workspace.nav.objectKnowledge" },
+  "/product-services": { defaultKey: "workspace.nav.objectProductService" },
+  "/price-books": { defaultKey: "workspace.nav.objectPriceBook" },
+  "/quotes": { defaultKey: "workspace.nav.objectQuote" },
+  "/quote-approvals": { defaultKey: "workspace.nav.objectQuoteApproval" },
+  "/entity-profiles": { defaultKey: "workspace.nav.objectEntityProfile" },
+  "/citation-sources": { defaultKey: "workspace.nav.objectCitationSource" },
+  "/answer-blocks": { defaultKey: "workspace.nav.objectAnswerBlock" },
+  "/question-maps": { defaultKey: "workspace.nav.objectQuestionMap" },
+  "/ai-visibility-checks": { defaultKey: "workspace.nav.objectAiVisibilityCheck" },
+  "/return-requests": { defaultKey: "workspace.nav.objectReturnRequest" },
+  "/repair-requests": { defaultKey: "workspace.nav.objectRepairRequest" },
+  "/warranties": { defaultKey: "workspace.nav.objectWarranty" },
+  "/maintenance-plans": { defaultKey: "workspace.nav.objectMaintenancePlan" },
+  "/customer-successes": { defaultKey: "workspace.nav.objectCustomerSuccess" },
+  "/support-slas": { defaultKey: "workspace.nav.objectSupportSla" },
+  "/consents": { defaultKey: "workspace.nav.objectConsent" },
+};
+
+function resolveNavLabel(
+  route: string,
+  rawLabel: string,
+  hasFsm: boolean,
+  t: TFunc
+): string {
+  const entry = ROUTE_LABEL_KEY[route];
+  if (!entry) return rawLabel;
+  const key = hasFsm && entry.fsmKey ? entry.fsmKey : entry.defaultKey;
+  return t(key);
+}
+
 // ── Component ──
 
 export default function NavigationShell({
@@ -163,6 +216,7 @@ export default function NavigationShell({
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const [groupsInitialized, setGroupsInitialized] = useState(false);
   const canManage = role === "owner" || role === "admin";
+  const hasFsm = packs.some((p) => p.category === "field_service");
 
   const isActiveRoute = (route: string) => {
     const href = `/w/${workspaceId}${route}`;
@@ -260,18 +314,19 @@ export default function NavigationShell({
     const Icon = typeof item.icon === "string"
       ? resolveIcon(item.icon, packCategory)
       : item.icon;
+    const resolvedLabel = resolveNavLabel(item.route, item.label, hasFsm, t);
     return (
       <Link
         key={key ?? item.id}
         href={href}
         onClick={() => setMobileOpen(false)}
         className={`sidebar-nav-item relative ${active ? "sidebar-nav-item-active" : "sidebar-nav-item-default"} ${collapsed ? "justify-center px-0" : ""}`}
-        title={collapsed ? item.label : undefined}
+        title={collapsed ? resolvedLabel : undefined}
       >
         <Icon size={18} strokeWidth={active ? 2.3 : 1.9} />
-        {!collapsed && <span className="truncate">{item.label}</span>}
+        {!collapsed && <span className="truncate">{resolvedLabel}</span>}
         {collapsed && (
-          <span className="sidebar-collapsed-tooltip group-hover:opacity-100">{item.label}</span>
+          <span className="sidebar-collapsed-tooltip group-hover:opacity-100">{resolvedLabel}</span>
         )}
       </Link>
     );
@@ -335,7 +390,7 @@ export default function NavigationShell({
               <div key={pack.packId} className="pt-1">
                 <button
                   onClick={() => toggleGroup(pack.packId)}
-                  className="flex w-full items-center gap-1.5 rounded-md px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-400 transition hover:text-slate-600"
+                  className="sidebar-group-label flex w-full items-center gap-1.5 rounded-md px-3 py-1.5 transition hover:text-slate-600"
                 >
                   {isExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
                   <span>{groupLabel}</span>

@@ -3,20 +3,20 @@ name: CRM Lite Pack
 version: 2.0.0
 coreCompatibility: ">=0.1.0"
 
-description: "轻量级客户关系管理 — 管理公司、联系人、商机和任务"
+description: "Lightweight CRM — manage companies, contacts, deals, and tasks"
 recommended: true
 onboardingChecklist:
   - id: create-company
-    label: "创建第一个公司"
+    label: "Create your first company"
     route: "/companies/new"
   - id: create-contact
-    label: "添加联系人"
+    label: "Add a contact"
     route: "/contacts/new"
   - id: create-deal
-    label: "创建商机"
+    label: "Create a deal"
     route: "/deals/new"
   - id: load-demo
-    label: "加载示例数据体验"
+    label: "Load sample data to explore"
     route: "/modules"
 
 modules:
@@ -59,8 +59,8 @@ marketplace:
 # v0.3.6 — Pack-aware permission groups
 permissionGroups:
   - key: sales_admin
-    label: "销售管理员"
-    description: "管理公司、联系人、商机和任务的完整权限"
+    label: "Sales Admin"
+    description: "Full permissions to manage companies, contacts, deals, and tasks"
     permissions:
       - company.read
       - company.create
@@ -79,8 +79,8 @@ permissionGroups:
       - task.update
       - task.delete
   - key: sales_agent
-    label: "销售专员"
-    description: "可查看和创建公司、联系人、商机，管理自己的任务"
+    label: "Sales Agent"
+    description: "Can view and create companies, contacts, and deals; manage own tasks"
     permissions:
       - company.read
       - company.create
@@ -95,8 +95,8 @@ permissionGroups:
       - task.create
       - task.update
   - key: sales_viewer
-    label: "销售只读"
-    description: "仅可查看 CRM 数据，不可编辑"
+    label: "Sales Viewer"
+    description: "View CRM data only; no editing"
     permissions:
       - company.read
       - contact.read

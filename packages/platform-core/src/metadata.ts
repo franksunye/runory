@@ -277,12 +277,37 @@ export async function getFields(workspaceId: string, objectKey: string): Promise
     `SELECT * FROM ${TABLES.fieldDefinitions} WHERE workspace_id = ? AND object_key = ? ORDER BY created_at`,
     [workspaceId, objectKey]
   );
-  return rows.map(r => ({
-    id: r.id, workspaceId: r.workspace_id, objectKey: r.object_key, fieldKey: r.field_key,
-    label: r.label, type: r.type, ownership: r.ownership, required: r.required === 1,
-    defaultValue: r.default_value, validation: r.validation_json ? JSON.parse(r.validation_json) : null,
-    moduleId: r.module_id, extensionId: r.extension_id,
-  }));
+
+  // ── Relation FK enrichment (v0.4) ──
+  // Load outgoing relations and enrich any field whose fieldKey matches a
+  // relation's foreignKey. This sets validation.targetObject and upgrades the
+  // field type to "lookup" so the UI renders a searchable dropdown instead of
+  // a plain text input showing raw record IDs.
+  const relations = await getRelations(workspaceId, objectKey);
+  const fkMap = new Map<string, string>();
+  for (const rel of relations) {
+    if (rel.relationType === "many_to_one") {
+      fkMap.set(rel.foreignKey, rel.targetObjectKey);
+    }
+  }
+
+  return rows.map(r => {
+    const targetObject = fkMap.get(r.field_key) ?? null;
+    const isLookup = targetObject !== null;
+    const validation = r.validation_json ? JSON.parse(r.validation_json) as Record<string, unknown> : {};
+    if (isLookup) {
+      validation.targetObject = targetObject;
+    }
+    return {
+      id: r.id, workspaceId: r.workspace_id, objectKey: r.object_key, fieldKey: r.field_key,
+      label: r.label,
+      type: isLookup ? "lookup" : r.type,
+      ownership: r.ownership, required: r.required === 1,
+      defaultValue: r.default_value,
+      validation: Object.keys(validation).length > 0 ? validation : null,
+      moduleId: r.module_id, extensionId: r.extension_id,
+    };
+  });
 }
 
 // ── Views ──

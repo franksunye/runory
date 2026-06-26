@@ -3,16 +3,16 @@ name: Sales Quote Pack
 version: 1.0.0
 coreCompatibility: ">=0.1.0"
 
-description: "销售报价 — 产品服务、价格簿和报价单管理"
+description: "Sales Quote — product/services, price books, and quote management"
 onboardingChecklist:
   - id: create-product
-    label: "创建产品或服务"
+    label: "Create a product or service"
     route: "/products-services/new"
   - id: create-price-book
-    label: "设置价格簿"
+    label: "Set up a price book"
     route: "/price-books/new"
   - id: create-quote
-    label: "创建报价单"
+    label: "Create a quote"
     route: "/quotes/new"
 
 # Sales Quote Pack composes shared business modules (company, contact, deal)

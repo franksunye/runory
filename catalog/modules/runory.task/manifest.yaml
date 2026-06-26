@@ -8,16 +8,16 @@ objects:
     label: Task
     fields:
       - key: title
-        label: 任务标题
+        label: Task Title
         type: text
         ownership: module_owned
         required: true
       - key: description
-        label: 描述
+        label: Description
         type: text
         ownership: module_owned
       - key: status
-        label: 状态
+        label: Status
         type: select
         ownership: module_owned
         required: true
@@ -25,30 +25,30 @@ objects:
         validation:
           options: ["todo", "in_progress", "done", "cancelled"]
       - key: priority
-        label: 优先级
+        label: Priority
         type: select
         ownership: module_owned
         default_value: "medium"
         validation:
           options: ["low", "medium", "high", "urgent"]
       - key: due_date
-        label: 截止日期
+        label: Due Date
         type: date
         ownership: module_owned
       - key: assignee
-        label: 负责人
+        label: Owner
         type: text
         ownership: module_owned
       - key: company_id
-        label: 关联公司
+        label: Related Company
         type: text
         ownership: module_owned
       - key: contact_id
-        label: 关联联系人
+        label: Related Contact
         type: text
         ownership: module_owned
       - key: deal_id
-        label: 关联商机
+        label: Related Deal
         type: text
         ownership: module_owned
 
@@ -56,19 +56,19 @@ views:
   - object: task
     key: task_list
     type: list
-    label: 任务列表
+    label: Task List
     config:
       columns:
         - field: title
-          label: 任务标题
+          label: Task Title
         - field: status
-          label: 状态
+          label: Status
         - field: priority
-          label: 优先级
+          label: Priority
         - field: due_date
-          label: 截止日期
+          label: Due Date
         - field: assignee
-          label: 负责人
+          label: Owner
       actions:
         - create
         - view
@@ -77,10 +77,10 @@ views:
   - object: task
     key: task_form
     type: form
-    label: 任务表单
+    label: Task Form
     config:
       sections:
-        - title: 基本信息
+        - title: Basic Info
           fields:
             - field: title
               required: true
@@ -88,7 +88,7 @@ views:
             - field: status
               required: true
             - field: priority
-        - title: 关联信息
+        - title: Related Info
           fields:
             - field: due_date
             - field: assignee
@@ -111,19 +111,19 @@ relations:
     targetModule: runory.company
     type: many_to_one
     foreignKey: company_id
-    label: 关联公司
+    label: Related Company
   - object: task
     targetObject: contact
     targetModule: runory.contact
     type: many_to_one
     foreignKey: contact_id
-    label: 关联联系人
+    label: Related Contact
   - object: task
     targetObject: deal
     targetModule: runory.deal
     type: many_to_one
     foreignKey: deal_id
-    label: 关联商机
+    label: Related Deal
 
 migrations:
   install: migrations/install.sql
@@ -131,7 +131,7 @@ migrations:
 
 ui:
   navigation:
-    - label: 任务
+    - label: Task
       route: /tasks
       icon: check-square
       sortOrder: 30
@@ -169,7 +169,7 @@ dashboard:
   widgets:
     - key: open_tasks_metric
       type: metric_card
-      label: 待办任务
+      label: Open Tasks
       icon: list-checks
       tone: amber
       data:
@@ -180,12 +180,12 @@ dashboard:
         kind: count
         object: task
         where: "status in ('todo', 'in_progress') and due_date < today"
-        template: "{count} 个已逾期"
+        template: "{count} overdue"
       link: /tasks
 
     - key: done_tasks_metric
       type: metric_card
-      label: 已完成任务
+      label: Completed Tasks
       icon: check-circle
       tone: green
       data:
@@ -196,7 +196,7 @@ dashboard:
 
     - key: task_status_breakdown
       type: breakdown
-      label: 任务状态分布
+      label: Task Status Distribution
       icon: pie-chart
       tone: slate
       data:
@@ -205,13 +205,13 @@ dashboard:
         groupBy: status
       configurable:
         - path: data.groupBy
-          label: 分组字段
+          label: Group By
           type: select
           options: [status, priority, assignee]
 
     - key: open_tasks_list
       type: list
-      label: 待办任务
+      label: Open Tasks
       icon: check-square
       tone: amber
       data:
@@ -224,14 +224,14 @@ dashboard:
       link: /tasks
       configurable:
         - path: data.limit
-          label: 显示条数
+          label: Display Count
           type: number
           min: 1
           max: 20
 
     - key: new_tasks_trend
       type: trend_chart
-      label: 任务新增趋势
+      label: New Tasks Trend
       icon: trending-up
       tone: amber
       data:
@@ -240,7 +240,7 @@ dashboard:
         range: 14d
       configurable:
         - path: data.range
-          label: 时间范围
+          label: Time Range
           type: select
           options: ["7d", "14d", "30d"]
 

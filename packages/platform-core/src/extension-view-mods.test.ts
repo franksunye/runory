@@ -474,7 +474,7 @@ describe("applyExtension — viewModifications", () => {
           addSection: {
             title: "Inserted Section",
             fields: [{ field: "name" }],
-            afterSection: "基本信息",
+            afterSection: "Basic Info",
           },
         },
       },
@@ -484,7 +484,7 @@ describe("applyExtension — viewModifications", () => {
     const view = await getView(workspaceId, "company", "company_form");
     const sections = (view!.config as { sections: Array<{ title: string }> }).sections;
     expect(sections).toHaveLength(4);
-    expect(sections[0].title).toBe("基本信息");
+    expect(sections[0].title).toBe("Basic Info");
     expect(sections[1].title).toBe("Inserted Section");
   });
 
@@ -691,7 +691,7 @@ describe("rollbackExtension — viewModifications", () => {
     view = await getView(workspaceId, "company", "company_form");
     const sections = (view!.config as { sections: Array<{ title: string }> }).sections;
     expect(sections).toHaveLength(3);
-    expect(sections[0].title).toBe("基本信息");
+    expect(sections[0].title).toBe("Basic Info");
   });
 
   it("reverses addAction", async () => {
@@ -789,7 +789,7 @@ describe("rollbackExtension — viewModifications", () => {
     formView = await getView(workspaceId, "company", "company_form");
     const sections = (formView!.config as { sections: Array<{ title: string }> }).sections;
     expect(sections).toHaveLength(3);
-    expect(sections[0].title).toBe("基本信息");
+    expect(sections[0].title).toBe("Basic Info");
 
     const actions = (formView!.config as { actions?: string[] }).actions ?? [];
     expect(actions).not.toContain("export");

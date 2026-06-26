@@ -3,20 +3,20 @@ name: Field Service Management Pack
 version: 1.0.0
 coreCompatibility: ">=0.1.0"
 
-description: "现场服务管理 — 工单、技师、服务地点和资产"
+description: "Field Service Management — work orders, technicians, service sites, and assets"
 recommended: true
 onboardingChecklist:
   - id: create-work-order
-    label: "创建第一个工单"
+    label: "Create your first work order"
     route: "/work-orders/new"
   - id: create-technician
-    label: "添加技师"
+    label: "Add a technician"
     route: "/technicians/new"
   - id: create-service-site
-    label: "添加服务地点"
+    label: "Add a service site"
     route: "/service-sites/new"
   - id: load-demo
-    label: "加载示例数据体验"
+    label: "Load sample data to explore"
     route: "/modules"
 
 # FSM Pack composes shared business modules (company, contact, task) with
@@ -39,12 +39,12 @@ defaultTemplate: small-business-field-service
 # context, without forking the underlying object definition.
 terminology:
   - object: company
-    label: 客户
-    navigationLabel: 客户
+    label: Customer
+    navigationLabel: Customer
     route: /companies
   - object: task
-    label: 服务任务
-    navigationLabel: 服务任务
+    label: Service Task
+    navigationLabel: Service Task
     route: /tasks
 
 # FSM operational workbench — focuses on dispatch, schedule, and completion.

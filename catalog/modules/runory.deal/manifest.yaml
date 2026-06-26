@@ -11,12 +11,12 @@ objects:
     label: Deal
     fields:
       - key: name
-        label: 商机名称
+        label: Deal Name
         type: text
         ownership: module_owned
         required: true
       - key: stage
-        label: 阶段
+        label: Stage
         type: select
         ownership: module_owned
         required: true
@@ -24,40 +24,40 @@ objects:
         validation:
           options: ["new", "qualified", "proposal", "negotiation", "won", "lost"]
       - key: amount
-        label: 金额
+        label: Amount
         type: number
         ownership: module_owned
       - key: currency
-        label: 币种
+        label: Currency
         type: text
         ownership: module_owned
         default_value: "CNY"
       - key: expected_close_date
-        label: 预计成交日期
+        label: Expected Close Date
         type: date
         ownership: module_owned
       - key: probability
-        label: 成交概率
+        label: Win Probability
         type: number
         ownership: module_owned
       - key: company_id
-        label: 关联公司
+        label: Related Company
         type: text
         ownership: module_owned
       - key: primary_contact_id
-        label: 主要联系人
+        label: Primary Contact
         type: text
         ownership: module_owned
       - key: owner
-        label: 负责人
+        label: Owner
         type: text
         ownership: module_owned
       - key: source
-        label: 来源
+        label: Source
         type: text
         ownership: module_owned
       - key: notes
-        label: 备注
+        label: Notes
         type: text
         ownership: module_owned
 
@@ -65,19 +65,19 @@ views:
   - object: deal
     key: deal_list
     type: list
-    label: 商机列表
+    label: Deal List
     config:
       columns:
         - field: name
-          label: 商机名称
+          label: Deal Name
         - field: stage
-          label: 阶段
+          label: Stage
         - field: amount
-          label: 金额
+          label: Amount
         - field: expected_close_date
-          label: 预计成交
+          label: Expected Close
         - field: owner
-          label: 负责人
+          label: Owner
       actions:
         - create
         - view
@@ -86,10 +86,10 @@ views:
   - object: deal
     key: deal_form
     type: form
-    label: 商机表单
+    label: Deal Form
     config:
       sections:
-        - title: 基本信息
+        - title: Basic Info
           fields:
             - field: name
               required: true
@@ -97,11 +97,11 @@ views:
               required: true
             - field: amount
             - field: currency
-        - title: 关联信息
+        - title: Related Info
           fields:
             - field: company_id
             - field: primary_contact_id
-        - title: 跟进信息
+        - title: Follow-up Info
           fields:
             - field: expected_close_date
             - field: probability
@@ -121,13 +121,13 @@ relations:
     targetModule: runory.company
     type: many_to_one
     foreignKey: company_id
-    label: 关联公司
+    label: Related Company
   - object: deal
     targetObject: contact
     targetModule: runory.contact
     type: many_to_one
     foreignKey: primary_contact_id
-    label: 主要联系人
+    label: Primary Contact
 
 migrations:
   install: migrations/install.sql
@@ -135,7 +135,7 @@ migrations:
 
 ui:
   navigation:
-    - label: 商机
+    - label: Deal
       route: /deals
       icon: target
       sortOrder: 25
@@ -173,7 +173,7 @@ dashboard:
   widgets:
     - key: open_deals_metric
       type: metric_card
-      label: 待处理商机
+      label: Open Deals
       icon: target
       tone: blue
       data:
@@ -184,12 +184,12 @@ dashboard:
         kind: count
         object: deal
         where: "stage = 'won'"
-        template: "已赢单 {count} 个"
+        template: "Won: {count}"
       link: /deals
 
     - key: deal_stage_breakdown
       type: breakdown
-      label: 商机阶段分布
+      label: Deal Stage Distribution
       icon: pie-chart
       tone: blue
       data:
@@ -199,7 +199,7 @@ dashboard:
 
     - key: open_deals_list
       type: list
-      label: 待处理商机
+      label: Open Deals
       icon: target
       tone: blue
       data:
@@ -212,14 +212,14 @@ dashboard:
       link: /deals
       configurable:
         - path: data.limit
-          label: 显示条数
+          label: Display Count
           type: number
           min: 1
           max: 20
 
     - key: new_deals_trend
       type: trend_chart
-      label: 商机新增趋势
+      label: New Deals Trend
       icon: trending-up
       tone: blue
       data:
@@ -228,7 +228,7 @@ dashboard:
         range: 14d
       configurable:
         - path: data.range
-          label: 时间范围
+          label: Time Range
           type: select
           options: ["7d", "14d", "30d"]
 

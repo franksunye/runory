@@ -3,16 +3,16 @@ name: Shared Business Consumer Pack
 version: 1.0.0
 coreCompatibility: ">=0.1.0"
 
-description: "共享业务模块 — 客户、同意和营销活动基础"
+description: "Shared Business — customer, consent, and campaign foundations"
 onboardingChecklist:
   - id: create-customer
-    label: "创建客户档案"
+    label: "Create customer profile"
     route: "/customers/new"
   - id: setup-consent
-    label: "配置同意偏好"
+    label: "Configure consent preferences"
     route: "/consents/new"
   - id: create-campaign
-    label: "创建营销活动"
+    label: "Create a campaign"
     route: "/campaigns/new"
 
 # Shares runory.company and runory.task with crm-lite-pack.

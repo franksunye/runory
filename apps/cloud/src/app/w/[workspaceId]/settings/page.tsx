@@ -28,10 +28,10 @@ interface WorkspaceInfo {
   organizationRole?: OrgRole;
 }
 
-function formatDate(iso: string): string {
+function formatDate(iso: string, locale?: string): string {
   if (!iso) return "—";
   try {
-    return new Date(iso).toLocaleString("zh-CN");
+    return new Date(iso).toLocaleString(locale ?? undefined);
   } catch {
     return iso;
   }
@@ -40,7 +40,7 @@ function formatDate(iso: string): string {
 export default function SettingsPage() {
   const params = useParams();
   const workspaceId = params.workspaceId as string;
-  const { t } = useI18n();
+  const { t, locale, setLocale } = useI18n();
 
   const [workspace, setWorkspace] = useState<WorkspaceInfo | null>(null);
   const [loading, setLoading] = useState(true);
@@ -263,15 +263,41 @@ export default function SettingsPage() {
           {/* Created date */}
           <div className="py-3.5">
             <dt className="text-xs font-semibold text-slate-500">{t("settings.createdAtLabel")}</dt>
-            <dd className="mt-1.5 text-sm text-slate-700">{formatDate(workspace?.created_at ?? "")}</dd>
+            <dd className="mt-1.5 text-sm text-slate-700">{formatDate(workspace?.created_at ?? "", locale)}</dd>
           </div>
 
           {/* Updated date */}
           <div className="py-3.5">
             <dt className="text-xs font-semibold text-slate-500">{t("settings.updatedAtLabel")}</dt>
-            <dd className="mt-1.5 text-sm text-slate-700">{formatDate(workspace?.updated_at ?? "")}</dd>
+            <dd className="mt-1.5 text-sm text-slate-700">{formatDate(workspace?.updated_at ?? "", locale)}</dd>
           </div>
         </dl>
+      </section>
+
+      {/* Language */}
+      <section className="app-card p-5 sm:p-6">
+        <div className="mb-4 flex items-center gap-2">
+          <Settings size={18} className="text-indigo-600" />
+          <h2 className="text-sm font-bold text-slate-900">{t("settings.languageTitle")}</h2>
+        </div>
+        <p className="mb-3 text-xs text-slate-500">{t("settings.languageHint")}</p>
+        <div className="flex items-center gap-2">
+          {(["en", "zh"] as const).map((item) => (
+            <button
+              key={item}
+              type="button"
+              onClick={() => setLocale(item)}
+              className={`rounded-lg px-4 py-2 text-sm font-bold transition ${
+                locale === item
+                  ? "bg-slate-950 text-white"
+                  : "border border-slate-300 bg-white text-slate-600 hover:bg-slate-50"
+              }`}
+              aria-pressed={locale === item}
+            >
+              {item === "en" ? "English" : "中文"}
+            </button>
+          ))}
+        </div>
       </section>
 
       {/* Danger zone */}

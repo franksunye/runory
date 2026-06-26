@@ -197,7 +197,7 @@ describe("shared module dedupe with CRM Lite Pack", () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Acceptance 3: Pack-specific terminology overlay — FSM labels company as 客户
+// Acceptance 3: Pack-specific terminology overlay — FSM labels company as Customer
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe("FSM pack terminology overlay", () => {
@@ -207,11 +207,11 @@ describe("FSM pack terminology overlay", () => {
 
     const nav = await getNavigation(workspaceId);
 
-    // FSM pack (installed last) relabels company → 客户, task → 服务任务
+    // FSM pack (installed last) relabels company → Customer, task → Service Task
     const companyNav = nav.find((n) => n.route === "/companies");
     const taskNav = nav.find((n) => n.route === "/tasks");
-    expect(companyNav?.label).toBe("客户");
-    expect(taskNav?.label).toBe("服务任务");
+    expect(companyNav?.label).toBe("Customer");
+    expect(taskNav?.label).toBe("Service Task");
   });
 
   it("does not fork the underlying object definitions", async () => {
@@ -700,9 +700,9 @@ describe("FSM pack installation tracking", () => {
     const terminology = JSON.parse(packInstalls[0].terminology_json!);
     expect(terminology).toHaveLength(2);
     expect(terminology[0].object).toBe("company");
-    expect(terminology[0].navigationLabel).toBe("客户");
+    expect(terminology[0].navigationLabel).toBe("Customer");
     expect(terminology[1].object).toBe("task");
-    expect(terminology[1].navigationLabel).toBe("服务任务");
+    expect(terminology[1].navigationLabel).toBe("Service Task");
   });
 
   it("updates FSM pack installation on re-install (idempotent)", async () => {

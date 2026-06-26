@@ -11,46 +11,46 @@ objects:
     label: Contact
     fields:
       - key: name
-        label: 联系人姓名
+        label: Contact Name
         type: text
         ownership: module_owned
         required: true
       - key: email
-        label: 邮箱
+        label: Email
         type: email
         ownership: module_owned
       - key: phone
-        label: 电话
+        label: Phone
         type: phone
         ownership: module_owned
       - key: title
-        label: 职位
+        label: Job Title
         type: text
         ownership: module_owned
       - key: role
-        label: 角色
+        label: Role
         type: text
         ownership: module_owned
       - key: primary_company_id
-        label: 关联公司
+        label: Related Company
         type: text
         ownership: module_owned
       - key: source
-        label: 来源
+        label: Source
         type: text
         ownership: module_owned
       - key: owner
-        label: 负责人
+        label: Owner
         type: text
         ownership: module_owned
       - key: lifecycle_stage
-        label: 生命周期阶段
+        label: Lifecycle Stage
         type: select
         ownership: module_owned
         validation:
           options: ["lead", "marketing_qualified", "sales_qualified", "opportunity", "customer", "inactive"]
       - key: notes
-        label: 备注
+        label: Notes
         type: text
         ownership: module_owned
 
@@ -58,17 +58,17 @@ views:
   - object: contact
     key: contact_list
     type: list
-    label: 联系人列表
+    label: Contact List
     config:
       columns:
         - field: name
-          label: 联系人姓名
+          label: Contact Name
         - field: email
-          label: 邮箱
+          label: Email
         - field: phone
-          label: 电话
+          label: Phone
         - field: primary_company_id
-          label: 关联公司
+          label: Related Company
       actions:
         - create
         - view
@@ -77,21 +77,21 @@ views:
   - object: contact
     key: contact_form
     type: form
-    label: 联系人表单
+    label: Contact Form
     config:
       sections:
-        - title: 基本信息
+        - title: Basic Info
           fields:
             - field: name
               required: true
             - field: email
             - field: phone
-        - title: 职业信息
+        - title: Professional Info
           fields:
             - field: title
             - field: role
             - field: primary_company_id
-        - title: 跟进信息
+        - title: Follow-up Info
           fields:
             - field: source
             - field: owner
@@ -110,7 +110,7 @@ relations:
     targetModule: runory.company
     type: many_to_one
     foreignKey: primary_company_id
-    label: 关联公司
+    label: Related Company
 
 migrations:
   install: migrations/install.sql
@@ -118,7 +118,7 @@ migrations:
 
 ui:
   navigation:
-    - label: 联系人
+    - label: Contact
       route: /contacts
       icon: users
       sortOrder: 20
@@ -156,7 +156,7 @@ dashboard:
   widgets:
     - key: contact_total_metric
       type: metric_card
-      label: 联系人总数
+      label: Total Contacts
       icon: user-plus
       tone: emerald
       data:
@@ -166,7 +166,7 @@ dashboard:
         kind: count
         object: contact
         where: "created_at >= now"
-        template: "本周新增 {count}"
+        template: "New this week: {count}"
       link: /contacts
 
 upgradePolicy:

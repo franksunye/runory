@@ -18,6 +18,53 @@ import {
 import { notifyWorkspaceDataChanged } from "@/lib/workspace-events";
 import { useI18n } from "@/i18n/locale-provider";
 import { objectKeyToRouteSegment } from "@/lib/dynamic-object";
+import type { MessageKey } from "@/i18n/messages";
+
+// Maps object keys to i18n label keys for backlink panel labels.
+// Without this, backlink panels show the relation's child→parent label
+// (e.g. "Related Company") instead of the correct parent→child label
+// (e.g. "Related Deals").
+const OBJECT_KEY_LABEL: Record<string, MessageKey> = {
+  company: "workspace.nav.objectCompany",
+  contact: "workspace.nav.objectContact",
+  deal: "workspace.nav.objectDeal",
+  task: "workspace.nav.objectTask",
+  customer: "workspace.nav.objectCustomer",
+  asset: "workspace.nav.objectAsset",
+  "work-order": "workspace.nav.objectWorkOrder",
+  "service-site": "workspace.nav.objectServiceSite",
+  technician: "workspace.nav.objectTechnician",
+  "service-report": "workspace.nav.objectServiceReport",
+  "service-visit": "workspace.nav.objectServiceVisit",
+  campaign: "workspace.nav.objectCampaign",
+  "landing-page": "workspace.nav.objectLandingPage",
+  form: "workspace.nav.objectForm",
+  submission: "workspace.nav.objectSubmission",
+  ticket: "workspace.nav.objectTicket",
+  conversation: "workspace.nav.objectConversation",
+  knowledge: "workspace.nav.objectKnowledge",
+  "product-service": "workspace.nav.objectProductService",
+  "price-book": "workspace.nav.objectPriceBook",
+  quote: "workspace.nav.objectQuote",
+  "quote-approval": "workspace.nav.objectQuoteApproval",
+  "entity-profile": "workspace.nav.objectEntityProfile",
+  "citation-source": "workspace.nav.objectCitationSource",
+  "answer-block": "workspace.nav.objectAnswerBlock",
+  "question-map": "workspace.nav.objectQuestionMap",
+  "ai-visibility-check": "workspace.nav.objectAiVisibilityCheck",
+  "return-request": "workspace.nav.objectReturnRequest",
+  "repair-request": "workspace.nav.objectRepairRequest",
+  warranty: "workspace.nav.objectWarranty",
+  "maintenance-plan": "workspace.nav.objectMaintenancePlan",
+  "customer-success": "workspace.nav.objectCustomerSuccess",
+  "support-sla": "workspace.nav.objectSupportSla",
+  consent: "workspace.nav.objectConsent",
+};
+
+function getObjectLabel(objectKey: string, t: (key: MessageKey) => string): string {
+  const key = OBJECT_KEY_LABEL[objectKey];
+  return key ? t(key) : objectKey;
+}
 
 export interface ParentLinkConfig {
   /** Field on this record that holds the parent record's id */
@@ -222,11 +269,24 @@ export default function ObjectDetailPage({
       .map((r) => ({
         objectKey: r.objectKey,
         foreignKey: r.foreignKey,
-        label: r.label ?? t("workspace.relatedRecords", { target: r.objectKey }),
+        // Use the child object's localized name, not the relation's label
+        // (which is the child→parent perspective, e.g. "Related Company").
+        label: t("workspace.relatedRecords", { target: getObjectLabel(r.objectKey, t) }),
         routeBase: `/w/{workspaceId}/${objectKeyToRouteSegment(r.objectKey)}`,
       }));
     return [...manualRelated, ...derived];
-  }, [manualRelated, metadataBacklinks]);
+  }, [manualRelated, metadataBacklinks, t]);
+
+  // Build a set of FK field keys to skip in the main <dl> — these are already
+  // shown as proper links in the ParentLinkPanel below, so showing raw IDs in
+  // the info section is redundant and confusing.
+  const fkFieldKeys = useMemo(() => {
+    const keys = new Set<string>();
+    for (const link of parentLinks) {
+      keys.add(link.foreignKey);
+    }
+    return keys;
+  }, [parentLinks]);
 
   const handleUpdate = async (data: Record<string, any>) => {
     setSubmitting(true);
@@ -354,7 +414,7 @@ export default function ObjectDetailPage({
       ) : (
         <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
           <dl className="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2">
-            {fields.map((field) => {
+            {fields.filter((field) => !fkFieldKeys.has(field.fieldKey)).map((field) => {
               const value = record[field.fieldKey];
               const isExtension =
                 field.ownership === "workspace_extension";
