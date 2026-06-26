@@ -568,9 +568,9 @@ async function sendOtpEmail(email: string, code: string): Promise<void> {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       to: email,
-      subject: "Runory 登录验证码",
-      text: `您的验证码是：${code}\n\n验证码将在 ${OTP_TTL_MINUTES} 分钟后过期。\n\n如果不是您本人操作，请忽略此邮件。`,
-      html: `<div style="font-family: sans-serif; max-width: 400px; margin: 0 auto;"><h2>Runory 登录验证码</h2><p style="font-size: 32px; font-weight: bold; letter-spacing: 4px; color: #2563eb;">${code}</p><p style="color: #64748b;">验证码将在 ${OTP_TTL_MINUTES} 分钟后过期。</p><p style="color: #94a3b8; font-size: 12px;">如果不是您本人操作，请忽略此邮件。</p></div>`,
+      subject: "Runory — your verification code",
+      text: `Your verification code is: ${code}\n\nThis code expires in ${OTP_TTL_MINUTES} minutes.\n\nIf you did not request this code, you can safely ignore this email.`,
+      html: `<div style="font-family: sans-serif; max-width: 400px; margin: 0 auto;"><h2 style="margin-bottom: 24px;">Runory verification code</h2><p style="font-size: 32px; font-weight: bold; letter-spacing: 4px; color: #2563eb;">${code}</p><p style="color: #64748b;">This code expires in ${OTP_TTL_MINUTES} minutes.</p><p style="color: #94a3b8; font-size: 12px; margin-top: 24px;">If you did not request this code, you can safely ignore this email.</p></div>`,
     }),
   });
 

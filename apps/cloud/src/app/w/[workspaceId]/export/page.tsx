@@ -44,10 +44,10 @@ const STATUS_META: Record<ExportStatus, { labelKey: MessageKey; className: strin
   failed: { labelKey: "exportPage.statusFailed", className: "bg-red-50 text-red-700", icon: XCircle },
 };
 
-function formatDate(iso: string | null): string {
+function formatDate(iso: string | null, locale?: string): string {
   if (!iso) return "—";
   try {
-    return new Date(iso).toLocaleString("zh-CN");
+    return new Date(iso).toLocaleString(locale ?? undefined);
   } catch {
     return iso;
   }
@@ -65,7 +65,7 @@ function buildCsvSummary(manifest: Record<string, unknown>): string {
 export default function ExportPage() {
   const params = useParams();
   const workspaceId = params.workspaceId as string;
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
 
   const [jobs, setJobs] = useState<ExportJob[]>([]);
   const [objects, setObjects] = useState<ObjectDef[]>([]);
@@ -368,8 +368,8 @@ export default function ExportPage() {
                         <span className="ml-2 font-mono text-xs font-normal text-slate-400">{job.id.slice(-8)}</span>
                       </p>
                       <p className="text-xs text-slate-500">
-                        {t("exportPage.jobMetaCreated", { time: formatDate(job.createdAt) })}
-                        {job.completedAt && t("exportPage.jobMetaCompleted", { time: formatDate(job.completedAt) })}
+                        {t("exportPage.jobMetaCreated", { time: formatDate(job.createdAt, locale) })}
+                        {job.completedAt && t("exportPage.jobMetaCompleted", { time: formatDate(job.completedAt, locale) })}
                         {job.errorMessage && t("exportPage.jobMetaError", { message: job.errorMessage })}
                       </p>
                     </div>

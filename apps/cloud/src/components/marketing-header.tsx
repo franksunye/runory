@@ -25,7 +25,7 @@ export function MarketingHeader({ authenticated = false }: { authenticated?: boo
         <Link href="/" className="flex items-center" aria-label="Runory home">
           <span className="grid size-9 place-items-center rounded-[10px] bg-slate-950 font-bold text-white">R</span>
           <span className="ml-3 text-lg font-bold tracking-tight">Runory</span>
-          <span className="ml-3 hidden rounded-full border border-indigo-100 bg-indigo-50 px-2.5 py-1 text-[11px] font-semibold text-indigo-700 sm:block">0.1 Preview</span>
+          <span className="ml-3 hidden rounded-full border border-indigo-100 bg-indigo-50 px-2.5 py-1 text-[11px] font-semibold text-indigo-700 sm:block">v0.4 Preview</span>
         </Link>
 
         <nav className="hidden items-center gap-7 md:flex" aria-label={t("common.mainNavigation")}>

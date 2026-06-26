@@ -32,7 +32,6 @@ export default function LandingPage() {
   const handleRequestOtp = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!email.trim()) return setError(t("home.form.emailRequired"));
-    if (!name.trim()) return setError(t("home.form.workspaceRequired"));
     setLoading(true);
     setError(null);
     setDevCode(null);
@@ -169,16 +168,6 @@ export default function LandingPage() {
                       autoFocus
                     />
                   </div>
-                </div>
-                <div>
-                  <label htmlFor="landing-workspace-name" className="mb-2 block text-sm font-semibold text-slate-200">{t("home.form.workspace")}</label>
-                  <input
-                    id="landing-workspace-name"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder={t("home.form.workspacePlaceholder")}
-                    className="app-input border-slate-700 bg-slate-900 text-white placeholder:text-slate-500 focus:border-indigo-400"
-                  />
                 </div>
                 {error && <p role="alert" className="text-xs text-red-300">{error}</p>}
                 <button type="submit" disabled={loading} className="app-button-primary w-full">
