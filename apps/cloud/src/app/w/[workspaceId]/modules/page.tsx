@@ -78,7 +78,8 @@ export default function ModulesPage() {
       );
       const json = await response.json();
       if (!json.success) {
-        throw new Error(json.error?.message ?? t("modules.installFailed"));
+        setError({ message: json.error?.message ?? t("modules.installFailed"), requestId: json.error?.requestId });
+        return;
       }
       await loadData();
       notifyWorkspaceNavigationChanged();
@@ -103,7 +104,8 @@ export default function ModulesPage() {
       );
       const json = await response.json();
       if (!json.success) {
-        throw new Error(json.error?.message ?? t("modules.loadDemoFailed"));
+        setError({ message: json.error?.message ?? t("modules.loadDemoFailed"), requestId: json.error?.requestId });
+        return;
       }
       await loadData();
     } catch (cause) {

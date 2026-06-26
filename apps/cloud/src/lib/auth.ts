@@ -141,10 +141,17 @@ export async function requirePlatformAdmin(
 ): Promise<{ principal: Principal; requestId: string }> {
   const requestId = getOrCreateRequestId(request.headers.get("x-request-id"));
   const principal = await getCurrentPrincipal(request);
-  if (!principal || !isPlatformAdmin(principal.email)) {
-    throw new AuthorizationError("Platform admin access required");
+  if (principal && isPlatformAdmin(principal.email)) {
+    return { principal, requestId };
   }
-  return { principal, requestId };
+  // Dev bootstrap: allow the local dev owner to act as platform admin so the
+  // catalog seed and admin surfaces work without a real admin session. Gated
+  // on the explicit PLATFORM_DEV_BOOTSTRAP flag — never active in production.
+  if (isDevBootstrapEnabled()) {
+    const devPrincipal = await requirePrincipal(request);
+    return { principal: devPrincipal, requestId };
+  }
+  throw new AuthorizationError("Platform admin access required");
 }
 
 // ── Organization Membership Resolution ──
@@ -153,14 +160,20 @@ async function authorizeOrganization(
   organizationId: string,
   userId: string
 ): Promise<OrganizationMembership | null> {
+  // Resolve membership by both saas_users.id and external_id. The dev bootstrap
+  // principal carries external_id ("dev-local-owner") as userId, while membership
+  // rows store the resolved saas_users.id. Joining users (mirroring authorizeWorkspace)
+  // makes both session and dev-bootstrap principals resolve consistently.
   const row = await queryOne<{
     organization_id: string;
     user_id: string;
     role: "owner" | "admin" | "member";
   }>(
-    `SELECT organization_id, user_id, role FROM ${TABLES.organizationMemberships}
-     WHERE organization_id = ? AND user_id = ? AND status = 'active'`,
-    [organizationId, userId]
+    `SELECT om.organization_id, om.user_id, om.role
+     FROM ${TABLES.organizationMemberships} om
+     JOIN ${TABLES.users} u ON u.id = om.user_id AND u.status = 'active'
+     WHERE om.organization_id = ? AND (u.id = ? OR u.external_id = ?) AND om.status = 'active'`,
+    [organizationId, userId, userId]
   );
   if (!row) return null;
   return {

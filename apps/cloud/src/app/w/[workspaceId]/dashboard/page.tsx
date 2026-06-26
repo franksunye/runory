@@ -4,7 +4,7 @@ import { useState, useCallback, useEffect } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import {
-  Database, PackagePlus, Plus, RefreshCw, Settings2, X,
+  Database, PackagePlus, Plus, RefreshCw, Settings2, Sparkles, X,
 } from "lucide-react";
 import type { WidgetDeclaration, DashboardZone } from "@runory/contracts";
 import { notifyWorkspaceNavigationChanged, notifyWorkspaceDataChanged } from "@/lib/workspace-events";
@@ -196,6 +196,24 @@ export default function DashboardPage() {
               </Link>
             </div>
           </div>
+          <div className="mt-8 border-t border-slate-100 pt-6">
+            <h3 className="text-sm font-bold text-slate-900">{t("onboarding.packInstalledTitle")}</h3>
+            <p className="mt-1 text-xs text-slate-500">{t("onboarding.packInstalledBody")}</p>
+            <div className="mt-4 grid gap-3 sm:grid-cols-3">
+              <Link href={`/w/${workspaceId}/companies`} className="group rounded-xl border border-slate-200 bg-white p-4 transition hover:border-indigo-200">
+                <p className="text-sm font-semibold text-slate-800">{t("onboarding.stepExploreObjects")}</p>
+                <p className="mt-1 text-xs text-slate-500">{t("onboarding.stepExploreObjectsDesc")}</p>
+              </Link>
+              <Link href={`/w/${workspaceId}/modules`} className="group rounded-xl border border-slate-200 bg-white p-4 transition hover:border-indigo-200">
+                <p className="text-sm font-semibold text-slate-800">{t("onboarding.stepGoToModules")}</p>
+                <p className="mt-1 text-xs text-slate-500">{t("onboarding.stepGoToModulesDesc")}</p>
+              </Link>
+              <Link href={`/w/${workspaceId}/customize`} className="group rounded-xl border border-slate-200 bg-white p-4 transition hover:border-indigo-200">
+                <p className="text-sm font-semibold text-slate-800">{t("onboarding.stepSafeCustomize")}</p>
+                <p className="mt-1 text-xs text-slate-500">{t("onboarding.stepSafeCustomizeDesc")}</p>
+              </Link>
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -233,6 +251,28 @@ export default function DashboardPage() {
           )}
         </div>
       </header>
+
+      {/* First-time onboarding hint */}
+      <div className="rounded-xl border border-indigo-100 bg-indigo-50/50 p-4">
+        <div className="flex items-start gap-3">
+          <Sparkles size={18} className="mt-0.5 shrink-0 text-indigo-600" />
+          <div className="flex-1">
+            <p className="text-sm font-bold text-slate-900">{t("onboarding.demoLoadedTitle")}</p>
+            <p className="mt-1 text-xs text-slate-600">{t("onboarding.demoLoadedBody")}</p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Link href={`/w/${workspaceId}/companies`} className="inline-flex items-center gap-1 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50">
+                {t("onboarding.stepInspectRecords")}
+              </Link>
+              <Link href={`/w/${workspaceId}/customize`} className="inline-flex items-center gap-1 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50">
+                {t("onboarding.stepSafeCustomize")}
+              </Link>
+              <Link href={`/w/${workspaceId}/audit`} className="inline-flex items-center gap-1 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50">
+                {t("onboarding.stepViewAudit")}
+              </Link>
+            </div>
+          </div>
+        </div>
+      </div>
 
       {error && <div role="alert" className="app-error">{error}</div>}
 

@@ -43,6 +43,17 @@ async function main() {
     process.exit(1);
   }
 
+  // Step 0: Seed the dev catalog so packs appear on the modules page.
+  // Idempotent — skips items already imported. Required on a fresh database.
+  console.log("Seeding dev catalog...");
+  const seedRes = await fetchJson(`${BASE}/api/platform/catalog/seed`, { method: "POST" });
+  if (seedRes.ok && seedRes.json.success) {
+    const r = seedRes.json.data;
+    console.log(`  ✓ Imported ${r.imported.length}, published ${r.published.length}, skipped ${r.skipped.length}`);
+  } else {
+    console.log(`  ⚠ Catalog seed skipped: ${seedRes.json.error?.message ?? "unknown"}`);
+  }
+
   // Step 1: Create workspace
   console.log(`Creating workspace: "${WORKSPACE_NAME}"...`);
   const createRes = await fetchJson(`${BASE}/api/workspaces`, {

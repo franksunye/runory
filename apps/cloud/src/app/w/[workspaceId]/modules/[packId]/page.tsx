@@ -80,7 +80,10 @@ export default function PackDetailPage() {
         }
       );
       const json = await res.json();
-      if (!json.success) throw new Error(json.error?.message ?? t("modules.installFailed"));
+      if (!json.success) {
+        setError({ message: json.error?.message ?? t("modules.installFailed"), requestId: json.error?.requestId });
+        return;
+      }
       await loadData();
       notifyWorkspaceNavigationChanged();
     } catch (cause) {
@@ -102,7 +105,10 @@ export default function PackDetailPage() {
         }
       );
       const json = await res.json();
-      if (!json.success) throw new Error(json.error?.message ?? t("modules.loadDemoFailed"));
+      if (!json.success) {
+        setError({ message: json.error?.message ?? t("modules.loadDemoFailed"), requestId: json.error?.requestId });
+        return;
+      }
       await loadData();
     } catch (cause) {
       setError({ message: cause instanceof Error ? cause.message : t("modules.loadDemoFailed") });

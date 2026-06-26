@@ -5,6 +5,7 @@ import {
   loadPackManifest,
   getInstalledPacks,
   hasPackDemoData,
+  seedDevCatalog,
   type CatalogItem,
   type CatalogRelease,
   type CatalogVersion,
@@ -13,6 +14,34 @@ import { requireWorkspaceContext } from "@/lib/auth";
 import { successResponse, handleError, getOrCreateRequestId } from "@/lib/http";
 
 export const dynamic = "force-dynamic";
+
+// Dev-only lazy catalog seed (v0.4.3). On a fresh database the catalog_items
+// table is empty, so the modules page would show no installable packs. When dev
+// bootstrap is enabled, seed the catalog from the repo manifests on first access
+// so the canonical journey works without a manual seed step. Idempotent —
+// seedDevCatalog skips items that are already imported. The in-process flag
+// avoids re-checking on every request after the first successful seed.
+let devCatalogSeeded = false;
+async function ensureDevCatalogSeeded(): Promise<void> {
+  if (devCatalogSeeded) return;
+  if (process.env.PLATFORM_DEV_BOOTSTRAP !== "true") return;
+  const existing = await listCatalogItems({ status: "active", itemType: "pack" });
+  if (existing.length > 0) {
+    devCatalogSeeded = true;
+    return;
+  }
+  try {
+    await seedDevCatalog({
+      userId: "dev-local-owner",
+      email: null,
+      displayName: "Local workspace owner",
+      authMethod: "dev_bootstrap",
+    });
+  } catch {
+    // Best-effort: surface whatever catalog state exists rather than failing.
+  }
+  devCatalogSeeded = true;
+}
 
 interface PackSummary {
   packId: string;
@@ -53,6 +82,9 @@ export async function GET(
   try {
     const { id } = await params;
     const { ctx, workspaceId } = await requireWorkspaceContext(request, id, "viewer");
+
+    // Dev-only: ensure the catalog is seeded so packs are visible on a fresh DB.
+    await ensureDevCatalogSeeded();
 
     // Fetch catalog packs and installed packs in parallel
     const [catalogItems, installedPacks] = await Promise.all([

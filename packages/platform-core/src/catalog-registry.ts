@@ -140,6 +140,13 @@ export function requirePlatformRole(principal: Principal, role: PlatformRole): v
   if (isPlatformAdmin(principal.email)) {
     return;
   }
+  // Dev bootstrap: grant all platform roles in local development only.
+  // Gated on the explicit PLATFORM_DEV_BOOTSTRAP flag (not NODE_ENV) so this
+  // never activates in staging or production. Lets the local dev owner seed
+  // the catalog and exercise the full publish pipeline without an admin session.
+  if (process.env.PLATFORM_DEV_BOOTSTRAP === "true" && principal.authMethod === "dev_bootstrap") {
+    return;
+  }
   throw new AuthorizationError(`Principal does not have platform role: ${role}`);
 }
 

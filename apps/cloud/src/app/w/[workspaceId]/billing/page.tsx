@@ -160,6 +160,47 @@ export default function BillingPage() {
         </div>
       </section>
 
+      {/* Free Plan Boundaries (v0.4.3) */}
+      <section className="app-card p-5 sm:p-6">
+        <div className="mb-5">
+          <h3 className="font-bold text-slate-900">{t("freeBoundaries.title")}</h3>
+          <p className="mt-1 text-xs text-slate-500">{t("freeBoundaries.subtitle")}</p>
+        </div>
+        <div className="overflow-hidden rounded-xl border border-slate-100">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-slate-100 bg-slate-50/50 text-left text-xs text-slate-500">
+                <th className="px-4 py-2.5 font-semibold">{t("freeBoundaries.boundary")}</th>
+                <th className="px-4 py-2.5 font-semibold">{t("freeBoundaries.value")}</th>
+                <th className="px-4 py-2.5 font-semibold">{t("freeBoundaries.status")}</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-50">
+              {[
+                { label: t("freeBoundaries.workspaceLimit"), value: t("freeBoundaries.workspaceValue"), enforced: true },
+                { label: t("freeBoundaries.memberLimit"), value: t("freeBoundaries.memberValue"), enforced: false },
+                { label: t("freeBoundaries.packAvailability"), value: t("freeBoundaries.packValue"), enforced: true },
+                { label: t("freeBoundaries.operationLimit"), value: t("freeBoundaries.operationValue"), enforced: false },
+                { label: t("freeBoundaries.apiAccess"), value: t("freeBoundaries.apiValue"), enforced: true },
+                { label: t("freeBoundaries.storage"), value: t("freeBoundaries.storageValue"), enforced: false },
+                { label: t("freeBoundaries.support"), value: t("freeBoundaries.supportValue"), enforced: false },
+              ].map((row) => (
+                <tr key={row.label}>
+                  <td className="px-4 py-2.5 font-medium text-slate-700">{row.label}</td>
+                  <td className="px-4 py-2.5 text-slate-600">{row.value}</td>
+                  <td className="px-4 py-2.5">
+                    <span className={`app-badge ${row.enforced ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>
+                      {row.enforced ? t("freeBoundaries.enforced") : t("freeBoundaries.notEnforced")}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <p className="mt-3 text-xs text-slate-400">{t("freeBoundaries.note")}</p>
+      </section>
+
       {/* Usage Metrics */}
       <section className="app-card p-5 sm:p-6">
         <div className="mb-5">
