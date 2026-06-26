@@ -9,6 +9,7 @@ dist
 .next/
 .next-dev/
 out/
+next-env.d.ts
 
 # OS
 .DS_Store
