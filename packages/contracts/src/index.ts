@@ -43,6 +43,13 @@ export const objectDefinitionSchema = z.object({
   key: z.string(),
   label: z.string(),
   fields: z.array(fieldDefinitionSchema),
+  /**
+   * Optional explicit display field for the object. When set, this field is
+   * used as the human-readable identifier when the object is referenced by a
+   * lookup/relation. When unset, the runtime falls back to a convention-based
+   * resolution (tries: name, title, subject, summary, number, code, email).
+   */
+  displayField: z.string().optional(),
 });
 
 export const extensionPointSchema = z.object({

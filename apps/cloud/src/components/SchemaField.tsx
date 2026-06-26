@@ -163,7 +163,10 @@ function LookupField({
           setOptions(
             json.data.map((r: Record<string, unknown>) => ({
               id: String(r.id),
-              label: String(r.name ?? r.title ?? r.id),
+              label: String(
+                r.name ?? r.title ?? r.subject ?? r.summary ??
+                r.number ?? r.code ?? r.email ?? r.label ?? r.id
+              ),
             }))
           );
         }

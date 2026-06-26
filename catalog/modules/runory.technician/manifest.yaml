@@ -8,28 +8,28 @@ objects:
     label: Technician
     fields:
       - key: name
-        label: 技师姓名
+        label: Technician Name
         type: text
         ownership: module_owned
         required: true
       - key: email
-        label: 邮箱
+        label: Email
         type: email
         ownership: module_owned
       - key: phone
-        label: 电话
+        label: Phone
         type: phone
         ownership: module_owned
       - key: skills
-        label: 技能
+        label: Skills
         type: text
         ownership: module_owned
       - key: region
-        label: 区域
+        label: Region
         type: text
         ownership: module_owned
       - key: availability_status
-        label: 可用状态
+        label: Availability Status
         type: select
         ownership: module_owned
         required: true
@@ -37,7 +37,7 @@ objects:
         validation:
           options: ["available", "busy", "off_duty"]
       - key: user_id
-        label: 关联用户
+        label: Related User
         type: text
         ownership: module_owned
 
@@ -45,19 +45,19 @@ views:
   - object: technician
     key: technician_list
     type: list
-    label: 技师列表
+    label: Technician List
     config:
       columns:
         - field: name
-          label: 技师姓名
+          label: Technician Name
         - field: phone
-          label: 电话
+          label: Phone
         - field: skills
-          label: 技能
+          label: Skills
         - field: region
-          label: 区域
+          label: Region
         - field: availability_status
-          label: 可用状态
+          label: Availability Status
       actions:
         - create
         - view
@@ -66,22 +66,22 @@ views:
   - object: technician
     key: technician_form
     type: form
-    label: 技师表单
+    label: Technician Form
     config:
       sections:
-        - title: 基本信息
+        - title: Basic Info
           fields:
             - field: name
               required: true
             - field: email
             - field: phone
-        - title: 专业信息
+        - title: Professional Info
           fields:
             - field: skills
             - field: region
             - field: availability_status
               required: true
-        - title: 关联信息
+        - title: Related Info
           fields:
             - field: user_id
 
@@ -97,7 +97,7 @@ migrations:
 
 ui:
   navigation:
-    - label: 技师
+    - label: Technician
       route: /technicians
       icon: wrench
       sortOrder: 60
@@ -135,7 +135,7 @@ dashboard:
   widgets:
     - key: available_technicians_metric
       type: metric_card
-      label: 可用技师
+      label: Available Technicians
       icon: wrench
       tone: amber
       data:
@@ -146,12 +146,12 @@ dashboard:
         kind: count
         object: technician
         where: "availability_status = 'busy'"
-        template: "{count} 人忙碌中"
+        template: "{count} busy"
       link: /technicians
 
     - key: technician_availability_breakdown
       type: breakdown
-      label: 技师可用状态分布
+      label: Technician Availability Distribution
       icon: pie-chart
       tone: amber
       data:

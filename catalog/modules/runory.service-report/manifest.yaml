@@ -12,37 +12,37 @@ objects:
     label: Service Report
     fields:
       - key: work_order_id
-        label: 关联工单
+        label: Related Work Order
         type: text
         ownership: module_owned
         required: true
       - key: service_visit_id
-        label: 关联行程
+        label: Related Visit
         type: text
         ownership: module_owned
       - key: summary
-        label: 服务摘要
+        label: Service Summary
         type: text
         ownership: module_owned
         required: true
       - key: resolution
-        label: 解决方案
+        label: Resolution
         type: text
         ownership: module_owned
       - key: customer_signature
-        label: 客户签字
+        label: Customer Signature
         type: text
         ownership: module_owned
       - key: photos
-        label: 照片
+        label: Photos
         type: text
         ownership: module_owned
       - key: created_by
-        label: 创建人
+        label: Created By
         type: text
         ownership: module_owned
       - key: completed_at
-        label: 完成时间
+        label: Completed At
         type: date
         ownership: module_owned
 
@@ -50,17 +50,17 @@ views:
   - object: service_report
     key: service_report_list
     type: list
-    label: 服务报告列表
+    label: Service Report List
     config:
       columns:
         - field: work_order_id
-          label: 关联工单
+          label: Related Work Order
         - field: summary
-          label: 服务摘要
+          label: Service Summary
         - field: created_by
-          label: 创建人
+          label: Created By
         - field: completed_at
-          label: 完成时间
+          label: Completed At
       actions:
         - create
         - view
@@ -69,22 +69,22 @@ views:
   - object: service_report
     key: service_report_form
     type: form
-    label: 服务报告表单
+    label: Service Report Form
     config:
       sections:
-        - title: 基本信息
+        - title: Basic Info
           fields:
             - field: work_order_id
               required: true
             - field: service_visit_id
             - field: summary
               required: true
-        - title: 服务详情
+        - title: Service Details
           fields:
             - field: resolution
             - field: customer_signature
             - field: photos
-        - title: 完成信息
+        - title: Completion Info
           fields:
             - field: created_by
             - field: completed_at
@@ -102,13 +102,13 @@ relations:
     targetModule: runory.work-order
     type: many_to_one
     foreignKey: work_order_id
-    label: 关联工单
+    label: Related Work Order
   - object: service_report
     targetObject: service_visit
     targetModule: runory.service-visit
     type: many_to_one
     foreignKey: service_visit_id
-    label: 关联行程
+    label: Related Visit
 
 migrations:
   install: migrations/install.sql
@@ -116,7 +116,7 @@ migrations:
 
 ui:
   navigation:
-    - label: 服务报告
+    - label: Service Report
       route: /service-reports
       icon: file-text
       sortOrder: 55
@@ -154,7 +154,7 @@ dashboard:
   widgets:
     - key: recent_service_reports_list
       type: list
-      label: 最近服务报告
+      label: Recent Service Reports
       icon: file-text
       tone: emerald
       data:
@@ -166,7 +166,7 @@ dashboard:
       link: /service-reports
       configurable:
         - path: data.limit
-          label: 显示条数
+          label: Display Count
           type: number
           min: 1
           max: 20

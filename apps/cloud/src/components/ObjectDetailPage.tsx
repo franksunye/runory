@@ -97,11 +97,12 @@ export interface RelatedRecordsConfig {
 const DISPLAY_FIELD_CANDIDATES = [
   "name",
   "title",
-  "summary",
   "subject",
+  "summary",
   "number",
   "code",
   "email",
+  "label",
 ];
 
 function getDisplayField(fields: FieldDefinition[], preferred?: string): string {

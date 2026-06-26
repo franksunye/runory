@@ -2,6 +2,7 @@
 CREATE TABLE IF NOT EXISTS {{BUSINESS_TABLE_PREFIX}}service_visit (
   id TEXT PRIMARY KEY,
   workspace_id TEXT NOT NULL,
+  title TEXT,
   work_order_id TEXT NOT NULL,
   technician_id TEXT,
   scheduled_start TEXT NOT NULL,

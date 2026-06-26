@@ -11,34 +11,38 @@ objects:
   - key: service_visit
     label: Service Visit
     fields:
+      - key: title
+        label: Title
+        type: text
+        ownership: module_owned
       - key: work_order_id
-        label: 关联工单
+        label: Related Work Order
         type: text
         ownership: module_owned
         required: true
       - key: technician_id
-        label: 分配技师
+        label: Assigned Technician
         type: text
         ownership: module_owned
       - key: scheduled_start
-        label: 计划开始
+        label: Scheduled Start
         type: date
         ownership: module_owned
         required: true
       - key: scheduled_end
-        label: 计划结束
+        label: Scheduled End
         type: date
         ownership: module_owned
       - key: actual_start
-        label: 实际开始
+        label: Actual Start
         type: date
         ownership: module_owned
       - key: actual_end
-        label: 实际结束
+        label: Actual End
         type: date
         ownership: module_owned
       - key: status
-        label: 状态
+        label: Status
         type: select
         ownership: module_owned
         required: true
@@ -46,7 +50,7 @@ objects:
         validation:
           options: ["scheduled", "en_route", "on_site", "completed", "cancelled"]
       - key: notes
-        label: 备注
+        label: Notes
         type: text
         ownership: module_owned
 
@@ -54,17 +58,19 @@ views:
   - object: service_visit
     key: service_visit_list
     type: list
-    label: 服务行程列表
+    label: Service Visit List
     config:
       columns:
+        - field: title
+          label: Title
         - field: work_order_id
-          label: 关联工单
+          label: Related Work Order
         - field: technician_id
-          label: 分配技师
+          label: Assigned Technician
         - field: scheduled_start
-          label: 计划开始
+          label: Scheduled Start
         - field: status
-          label: 状态
+          label: Status
       actions:
         - create
         - view
@@ -73,24 +79,25 @@ views:
   - object: service_visit
     key: service_visit_form
     type: form
-    label: 服务行程表单
+    label: Service Visit Form
     config:
       sections:
-        - title: 基本信息
+        - title: Basic Info
           fields:
+            - field: title
             - field: work_order_id
               required: true
             - field: technician_id
             - field: status
               required: true
-        - title: 排程信息
+        - title: Schedule Info
           fields:
             - field: scheduled_start
               required: true
             - field: scheduled_end
             - field: actual_start
             - field: actual_end
-        - title: 其他
+        - title: Other
           fields:
             - field: notes
 
@@ -107,13 +114,13 @@ relations:
     targetModule: runory.work-order
     type: many_to_one
     foreignKey: work_order_id
-    label: 关联工单
+    label: Related Work Order
   - object: service_visit
     targetObject: technician
     targetModule: runory.technician
     type: many_to_one
     foreignKey: technician_id
-    label: 分配技师
+    label: Assigned Technician
 
 migrations:
   install: migrations/install.sql
@@ -121,7 +128,7 @@ migrations:
 
 ui:
   navigation:
-    - label: 服务行程
+    - label: Service Visit
       route: /service-visits
       icon: calendar
       sortOrder: 45
@@ -133,7 +140,7 @@ extensionPoints:
         enabled: true
         allowedTypes: [text, number, date, select, boolean]
         maxFields: 20
-        reservedKeys: [id, work_order_id, technician_id, scheduled_start, scheduled_end, actual_start, actual_end, status, notes, created_at, updated_at]
+        reservedKeys: [id, title, work_order_id, technician_id, scheduled_start, scheduled_end, actual_start, actual_end, status, notes, created_at, updated_at]
       customRelations:
         enabled: false
   views:
@@ -159,7 +166,7 @@ dashboard:
   widgets:
     - key: scheduled_visits_today_metric
       type: metric_card
-      label: 今日行程
+      label: Today's Visits
       icon: calendar
       tone: blue
       data:
@@ -170,7 +177,7 @@ dashboard:
 
     - key: service_visit_status_breakdown
       type: breakdown
-      label: 行程状态分布
+      label: Visit Status Distribution
       icon: pie-chart
       tone: blue
       data:
@@ -180,7 +187,7 @@ dashboard:
 
     - key: today_schedule_list
       type: list
-      label: 今日行程
+      label: Today's Schedule
       icon: calendar
       tone: blue
       data:
@@ -193,7 +200,7 @@ dashboard:
       link: /service-visits
       configurable:
         - path: data.limit
-          label: 显示条数
+          label: Display Count
           type: number
           min: 1
           max: 20

@@ -4,6 +4,7 @@ import Link from "next/link";
 import type { FieldDefinition } from "@runory/platform-core";
 import { useI18n } from "@/i18n/locale-provider";
 import type { MessageKey } from "@/i18n/messages";
+import { objectKeyToRouteSegment } from "@/lib/dynamic-object";
 
 type RecordData = Record<string, string | number | boolean | null>;
 type ViewConfig = {
@@ -92,13 +93,14 @@ const PRIORITY_LABEL_KEY: Record<string, MessageKey> = {
 function formatValue(
   value: string | number | boolean | null,
   type: string,
-  t: TFunc
+  t: TFunc,
+  locale?: string
 ): string {
   if (value === null || value === undefined || value === "") return "—";
   if (type === "boolean") return value ? t("workspace.yes") : t("workspace.no");
   if (type === "date") {
     try {
-      return new Date(String(value)).toLocaleDateString("zh-CN");
+      return new Date(String(value)).toLocaleDateString(locale ?? undefined);
     } catch {
       return String(value);
     }
@@ -110,7 +112,11 @@ function renderCell(
   fieldKey: string,
   value: string | number | boolean | null,
   type: string,
-  t: TFunc
+  t: TFunc,
+  locale?: string,
+  displayValue?: string | null,
+  targetObject?: string,
+  workspaceId?: string
 ): React.ReactNode {
   if (value === null || value === undefined || value === "") return <span className="text-slate-400">—</span>;
 
@@ -130,7 +136,21 @@ function renderCell(
     return <span title={String(value)}>{formatRelativeTime(value, t)}</span>;
   }
 
-  return <>{formatValue(value, type, t)}</>;
+  // For lookup fields, render the display label as a link to the referenced record
+  if (type === "lookup" && displayValue) {
+    if (targetObject && workspaceId) {
+      const routeSegment = objectKeyToRouteSegment(targetObject);
+      const href = `/w/${workspaceId}/${routeSegment}/${value}`;
+      return (
+        <Link href={href} className="font-medium text-blue-600 hover:text-blue-800">
+          {displayValue}
+        </Link>
+      );
+    }
+    return <>{displayValue}</>;
+  }
+
+  return <>{formatValue(value, type, t, locale)}</>;
 }
 
 export default function SchemaTable({
@@ -141,7 +161,7 @@ export default function SchemaTable({
   objectKey,
   basePath,
 }: SchemaTableProps) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const fieldMap = new Map(fields.map((f) => [f.fieldKey, f]));
   const columns: ListColumn[] = viewConfig?.columns ?? [];
   const linkBase = basePath ?? `/w/${workspaceId}/${objectKey}s`;
@@ -195,12 +215,15 @@ export default function SchemaTable({
               {columns.map((col) => {
                 const fieldDef = fieldMap.get(col.field);
                 const type = fieldDef?.type ?? "text";
+                const displayKey = `${col.field}_display`;
+                const displayValue = (record as Record<string, unknown>)[displayKey] as string | null | undefined;
+                const targetObject = fieldDef?.validation?.targetObject as string | undefined;
                 return (
                   <td
                     key={col.field}
                     className="whitespace-nowrap px-4 py-3 text-sm text-slate-700"
                   >
-                    {renderCell(col.field, record[col.field], type, t)}
+                    {renderCell(col.field, record[col.field], type, t, locale, displayValue, targetObject, workspaceId)}
                   </td>
                 );
               })}

@@ -558,21 +558,107 @@ export async function getRecords(
 
   // Merge extension field values
   const extFields = fields.filter(f => f.ownership === "workspace_extension");
-  if (extFields.length === 0) return rows;
+  let resultRows: Record<string, unknown>[] = rows;
 
-  const merged: Record<string, unknown>[] = [];
-  for (const row of rows) {
-    const extValues = await queryAll<{ field_key: string; value_json: string }>(
-      `SELECT field_key, value_json FROM ${TABLES.extensionFieldValues} WHERE workspace_id = ? AND object_key = ? AND record_id = ?`,
-      [workspaceId, objectKey, row.id]
-    );
-    const m = { ...row };
-    for (const ev of extValues) {
-      m[ev.field_key] = JSON.parse(ev.value_json);
+  if (extFields.length > 0) {
+    const merged: Record<string, unknown>[] = [];
+    for (const row of rows) {
+      const extValues = await queryAll<{ field_key: string; value_json: string }>(
+        `SELECT field_key, value_json FROM ${TABLES.extensionFieldValues} WHERE workspace_id = ? AND object_key = ? AND record_id = ?`,
+        [workspaceId, objectKey, row.id]
+      );
+      const m = { ...row };
+      for (const ev of extValues) {
+        m[ev.field_key] = JSON.parse(ev.value_json);
+      }
+      merged.push(m);
     }
-    merged.push(m);
+    resultRows = merged;
   }
-  return merged;
+
+  // ── FK display enrichment (v0.4) ──
+  // For each lookup field (enriched by getFields with validation.targetObject),
+  // batch-resolve the referenced records' display values and merge them as
+  // `{fkField}_display` properties. This makes list views, detail pages, and
+  // API consumers show human-readable labels instead of raw record IDs.
+  const lookupFields = fields.filter(
+    (f) => f.type === "lookup" && f.validation?.targetObject
+  );
+
+  if (lookupFields.length > 0 && resultRows.length > 0) {
+    // Cache target object display fields to avoid redundant getFields calls
+    const displayFieldCache = new Map<string, string>();
+
+    for (const field of lookupFields) {
+      const targetObject = field.validation!.targetObject as string;
+
+      // Collect unique non-null FK values from the current result set
+      const fkValues = resultRows
+        .map((r) => r[field.fieldKey])
+        .filter((v): v is string => v !== null && v !== undefined && v !== "");
+      if (fkValues.length === 0) continue;
+
+      const uniqueIds = [...new Set(fkValues)];
+
+      // Resolve the display field for the target object (cached)
+      let displayField = displayFieldCache.get(targetObject);
+      if (displayField === undefined) {
+        const targetFields = await getFields(workspaceId, targetObject);
+        displayField = resolveDisplayField(targetFields);
+        displayFieldCache.set(targetObject, displayField);
+      }
+
+      // Batch-query the target table for display values
+      const targetTable = businessTable(targetObject);
+      const placeholders = uniqueIds.map(() => "?").join(", ");
+      const displayRows = await queryAll<{ id: string; display: string | null }>(
+        `SELECT id, ${validateIdentifier(displayField)} AS display FROM ${targetTable} WHERE id IN (${placeholders})`,
+        uniqueIds
+      );
+
+      // Build ID → display label map
+      const displayMap = new Map<string, string>();
+      for (const dr of displayRows) {
+        displayMap.set(dr.id, dr.display ?? dr.id);
+      }
+
+      // Merge display values into result rows
+      for (const row of resultRows) {
+        const fkValue = row[field.fieldKey];
+        if (typeof fkValue === "string" && fkValue !== "") {
+          row[`${field.fieldKey}_display`] = displayMap.get(fkValue) ?? fkValue;
+        } else {
+          row[`${field.fieldKey}_display`] = null;
+        }
+      }
+    }
+  }
+
+  return resultRows;
+}
+
+// ── Display field resolution ──
+// Convention-based resolution for the human-readable identifier of an object.
+// Tries common display field names in priority order, falling back to "id".
+// This mirrors the DISPLAY_FIELD_CANDIDATES pattern in ObjectDetailPage.tsx.
+const DISPLAY_FIELD_CANDIDATES = [
+  "name",
+  "title",
+  "subject",
+  "summary",
+  "number",
+  "code",
+  "email",
+  "label",
+];
+
+function resolveDisplayField(fields: FieldDefinition[]): string {
+  for (const candidate of DISPLAY_FIELD_CANDIDATES) {
+    if (fields.some((f) => f.fieldKey === candidate)) {
+      return candidate;
+    }
+  }
+  return "id";
 }
 
 export async function createRecord(workspaceId: string, objectKey: string, data: Record<string, unknown>): Promise<Record<string, unknown> & { id: string }> {

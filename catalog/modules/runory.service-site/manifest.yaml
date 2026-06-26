@@ -11,45 +11,45 @@ objects:
     label: Service Site
     fields:
       - key: name
-        label: 地点名称
+        label: Site Name
         type: text
         ownership: module_owned
         required: true
       - key: company_id
-        label: 关联公司
+        label: Related Company
         type: text
         ownership: module_owned
       - key: primary_contact_id
-        label: 主要联系人
+        label: Primary Contact
         type: text
         ownership: module_owned
       - key: address
-        label: 地址
+        label: Address
         type: text
         ownership: module_owned
         required: true
       - key: city
-        label: 城市
+        label: City
         type: text
         ownership: module_owned
       - key: region
-        label: 区域
+        label: Region
         type: text
         ownership: module_owned
       - key: postal_code
-        label: 邮编
+        label: Postal Code
         type: text
         ownership: module_owned
       - key: access_notes
-        label: 进入说明
+        label: Access Notes
         type: text
         ownership: module_owned
       - key: service_notes
-        label: 服务备注
+        label: Service Notes
         type: text
         ownership: module_owned
       - key: status
-        label: 状态
+        label: Status
         type: select
         ownership: module_owned
         required: true
@@ -61,17 +61,17 @@ views:
   - object: service_site
     key: service_site_list
     type: list
-    label: 服务地点列表
+    label: Service Site List
     config:
       columns:
         - field: name
-          label: 地点名称
+          label: Site Name
         - field: address
-          label: 地址
+          label: Address
         - field: city
-          label: 城市
+          label: City
         - field: status
-          label: 状态
+          label: Status
       actions:
         - create
         - view
@@ -80,10 +80,10 @@ views:
   - object: service_site
     key: service_site_form
     type: form
-    label: 服务地点表单
+    label: Service Site Form
     config:
       sections:
-        - title: 基本信息
+        - title: Basic Info
           fields:
             - field: name
               required: true
@@ -92,11 +92,11 @@ views:
             - field: city
             - field: region
             - field: postal_code
-        - title: 关联信息
+        - title: Related Info
           fields:
             - field: company_id
             - field: primary_contact_id
-        - title: 服务说明
+        - title: Service Info
           fields:
             - field: access_notes
             - field: service_notes
@@ -117,13 +117,13 @@ relations:
     targetModule: runory.company
     type: many_to_one
     foreignKey: company_id
-    label: 关联公司
+    label: Related Company
   - object: service_site
     targetObject: contact
     targetModule: runory.contact
     type: many_to_one
     foreignKey: primary_contact_id
-    label: 主要联系人
+    label: Primary Contact
 
 migrations:
   install: migrations/install.sql
@@ -131,7 +131,7 @@ migrations:
 
 ui:
   navigation:
-    - label: 服务地点
+    - label: Service Site
       route: /service-sites
       icon: map-pin
       sortOrder: 40
@@ -169,7 +169,7 @@ dashboard:
   widgets:
     - key: active_service_sites_metric
       type: metric_card
-      label: 活跃服务地点
+      label: Active Service Sites
       icon: map-pin
       tone: cyan
       data:
@@ -180,7 +180,7 @@ dashboard:
 
     - key: service_site_status_breakdown
       type: breakdown
-      label: 服务地点状态分布
+      label: Service Site Status Distribution
       icon: pie-chart
       tone: cyan
       data:
@@ -190,7 +190,7 @@ dashboard:
 
     - key: recent_service_sites_list
       type: list
-      label: 最近服务地点
+      label: Recent Service Sites
       icon: map-pin
       tone: cyan
       data:
@@ -202,7 +202,7 @@ dashboard:
       link: /service-sites
       configurable:
         - path: data.limit
-          label: 显示条数
+          label: Display Count
           type: number
           min: 1
           max: 20

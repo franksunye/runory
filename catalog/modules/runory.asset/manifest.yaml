@@ -12,36 +12,36 @@ objects:
     label: Asset
     fields:
       - key: name
-        label: 资产名称
+        label: Asset Name
         type: text
         ownership: module_owned
         required: true
       - key: serial_number
-        label: 序列号
+        label: Serial Number
         type: text
         ownership: module_owned
       - key: asset_type
-        label: 资产类型
+        label: Asset Type
         type: text
         ownership: module_owned
       - key: company_id
-        label: 关联公司
+        label: Related Company
         type: text
         ownership: module_owned
       - key: service_site_id
-        label: 所在服务地点
+        label: Service Site
         type: text
         ownership: module_owned
       - key: installed_at
-        label: 安装日期
+        label: Installed Date
         type: date
         ownership: module_owned
       - key: warranty_until
-        label: 保修截止
+        label: Warranty Until
         type: date
         ownership: module_owned
       - key: status
-        label: 状态
+        label: Status
         type: select
         ownership: module_owned
         required: true
@@ -49,7 +49,7 @@ objects:
         validation:
           options: ["active", "maintenance", "retired"]
       - key: notes
-        label: 备注
+        label: Notes
         type: text
         ownership: module_owned
 
@@ -57,19 +57,19 @@ views:
   - object: asset
     key: asset_list
     type: list
-    label: 资产列表
+    label: Asset List
     config:
       columns:
         - field: name
-          label: 资产名称
+          label: Asset Name
         - field: serial_number
-          label: 序列号
+          label: Serial Number
         - field: asset_type
-          label: 类型
+          label: Type
         - field: status
-          label: 状态
+          label: Status
         - field: service_site_id
-          label: 所在地点
+          label: Location
       actions:
         - create
         - view
@@ -78,10 +78,10 @@ views:
   - object: asset
     key: asset_form
     type: form
-    label: 资产表单
+    label: Asset Form
     config:
       sections:
-        - title: 基本信息
+        - title: Basic Info
           fields:
             - field: name
               required: true
@@ -89,11 +89,11 @@ views:
             - field: asset_type
             - field: status
               required: true
-        - title: 关联信息
+        - title: Related Info
           fields:
             - field: company_id
             - field: service_site_id
-        - title: 维保信息
+        - title: Maintenance Info
           fields:
             - field: installed_at
             - field: warranty_until
@@ -112,13 +112,13 @@ relations:
     targetModule: runory.company
     type: many_to_one
     foreignKey: company_id
-    label: 关联公司
+    label: Related Company
   - object: asset
     targetObject: service_site
     targetModule: runory.service-site
     type: many_to_one
     foreignKey: service_site_id
-    label: 所在服务地点
+    label: Service Site
 
 migrations:
   install: migrations/install.sql
@@ -126,7 +126,7 @@ migrations:
 
 ui:
   navigation:
-    - label: 资产
+    - label: Asset
       route: /assets
       icon: package
       sortOrder: 50
@@ -164,7 +164,7 @@ dashboard:
   widgets:
     - key: active_assets_metric
       type: metric_card
-      label: 活跃资产
+      label: Active Assets
       icon: package
       tone: violet
       data:
@@ -175,12 +175,12 @@ dashboard:
         kind: count
         object: asset
         where: "status = 'maintenance'"
-        template: "{count} 个维护中"
+        template: "{count} in maintenance"
       link: /assets
 
     - key: asset_status_breakdown
       type: breakdown
-      label: 资产状态分布
+      label: Asset Status Distribution
       icon: pie-chart
       tone: violet
       data:
