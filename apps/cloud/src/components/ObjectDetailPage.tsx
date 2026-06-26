@@ -152,6 +152,8 @@ function ParentLinkPanel({
         {parentRecord ? (
           <Link
             href={`${routeBase}/${parentId}`}
+            target="_blank"
+            rel="noopener noreferrer"
             className="font-medium text-indigo-600 hover:text-indigo-800"
           >
             {String(parentRecord[displayField] ?? parentId)}
@@ -195,6 +197,8 @@ function RelatedRecordsPanel({
           <li key={String(r.id)}>
             <Link
               href={`${routeBase}/${r.id}`}
+              target="_blank"
+              rel="noopener noreferrer"
               className="text-sm font-medium text-indigo-600 hover:text-indigo-800"
             >
               {String(r[displayField] ?? t("workspace.recordNotFound"))}
