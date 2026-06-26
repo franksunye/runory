@@ -117,7 +117,7 @@ migrations:
 ui:
   navigation:
     - label: Products/Services
-      route: /products-services
+      route: /product-services
       icon: package
       sortOrder: 70
 
@@ -161,7 +161,7 @@ dashboard:
         kind: count
         object: product_service
         where: "active = 1"
-      link: /products-services
+      link: /product-services
 
     - key: product_type_breakdown
       type: breakdown
@@ -184,7 +184,7 @@ dashboard:
         orderBy: "created_at desc"
         limit: 5
         columns: [name, type, default_price, currency]
-      link: /products-services
+      link: /product-services
       configurable:
         - path: data.limit
           label: Display Count

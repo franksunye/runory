@@ -5,17 +5,34 @@
  * so they can be unit-tested in a Node environment without React/SWR dependencies.
  *
  * Canonical mappings (v0.4.0):
- *   company        ↔ companies
- *   contact        ↔ contacts
- *   deal           ↔ deals
- *   task           ↔ tasks
- *   work_order     ↔ work-orders
- *   service_site   ↔ service-sites
- *   asset          ↔ assets
- *   service_visit  ↔ service-visits
- *   service_report ↔ service-reports
- *   technician     ↔ technicians
+ *   company         ↔ companies
+ *   contact         ↔ contacts
+ *   deal            ↔ deals
+ *   task            ↔ tasks
+ *   work_order      ↔ work-orders
+ *   service_site    ↔ service-sites
+ *   asset           ↔ assets
+ *   service_visit   ↔ service-visits
+ *   service_report  ↔ service-reports
+ *   technician      ↔ technicians
+ *   product_service ↔ product-services
+ *   price_book      ↔ price-books
+ *   knowledge       ↔ knowledge        (uncountable)
+ *   customer_success ↔ customer-success (uncountable "success")
  */
+
+/**
+ * Explicit overrides for object keys whose route segment doesn't follow
+ * the standard pluralize-last-token heuristic (uncountable nouns, etc.).
+ * Checked before the heuristic in both directions.
+ */
+const ROUTE_OVERRIDES: Record<string, string> = {
+  knowledge: "knowledge",
+  customer_success: "customer-success",
+};
+const ROUTE_OVERRIDES_REVERSE: Record<string, string> = Object.fromEntries(
+  Object.entries(ROUTE_OVERRIDES).map(([k, v]) => [v, k]),
+);
 
 /**
  * Pluralize the last token of an objectKey for URL display.
@@ -34,6 +51,7 @@ function pluralizeRouteToken(token: string): string {
  * "service-sites" → "service_site", "companies" → "company"
  */
 export function segmentToObjectKey(segment: string): string {
+  if (ROUTE_OVERRIDES_REVERSE[segment]) return ROUTE_OVERRIDES_REVERSE[segment];
   const parts = segment.split("-");
   const last = parts[parts.length - 1] ?? segment;
   let singular = last;
@@ -52,6 +70,7 @@ export function segmentToObjectKey(segment: string): string {
  * "service_site" → "service-sites", "company" → "companies"
  */
 export function objectKeyToRouteSegment(objectKey: string): string {
+  if (ROUTE_OVERRIDES[objectKey]) return ROUTE_OVERRIDES[objectKey];
   const parts = objectKey.split("_");
   const last = parts[parts.length - 1] ?? objectKey;
   return [...parts.slice(0, -1), pluralizeRouteToken(last)].join("-");

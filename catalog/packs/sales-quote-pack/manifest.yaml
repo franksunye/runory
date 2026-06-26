@@ -7,7 +7,7 @@ description: "Sales Quote — product/services, price books, and quote managemen
 onboardingChecklist:
   - id: create-product
     label: "Create a product or service"
-    route: "/products-services/new"
+    route: "/product-services/new"
   - id: create-price-book
     label: "Set up a price book"
     route: "/price-books/new"

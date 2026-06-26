@@ -22,6 +22,7 @@ describe("segmentToObjectKey", () => {
     ["tickets", "ticket"],
     ["quotes", "quote"],
     ["quote-lines", "quote_line"],
+    ["quote-approvals", "quote_approval"],
     ["warranties", "warranty"],
     ["repair-requests", "repair_request"],
     ["return-requests", "return_request"],
@@ -32,6 +33,19 @@ describe("segmentToObjectKey", () => {
     ["forms", "form"],
     ["conversations", "conversation"],
     ["consents", "consent"],
+    ["product-services", "product_service"],
+    ["price-books", "price_book"],
+    ["customers", "customer"],
+    ["entitlements", "entitlement"],
+    ["entity-profiles", "entity_profile"],
+    ["question-maps", "question_map"],
+    ["answer-blocks", "answer_block"],
+    ["citation-sources", "citation_source"],
+    ["ai-visibility-checks", "ai_visibility_check"],
+    ["support-slas", "support_sla"],
+    // Irregular: uncountable nouns (explicit overrides)
+    ["knowledge", "knowledge"],
+    ["customer-success", "customer_success"],
   ];
 
   it.each(cases)("segmentToObjectKey(%s) → %s", (segment, expected) => {
@@ -84,6 +98,7 @@ describe("objectKeyToRouteSegment", () => {
     ["ticket", "tickets"],
     ["quote", "quotes"],
     ["quote_line", "quote-lines"],
+    ["quote_approval", "quote-approvals"],
     ["warranty", "warranties"],
     ["repair_request", "repair-requests"],
     ["return_request", "return-requests"],
@@ -94,6 +109,19 @@ describe("objectKeyToRouteSegment", () => {
     ["form", "forms"],
     ["conversation", "conversations"],
     ["consent", "consents"],
+    ["product_service", "product-services"],
+    ["price_book", "price-books"],
+    ["customer", "customers"],
+    ["entitlement", "entitlements"],
+    ["entity_profile", "entity-profiles"],
+    ["question_map", "question-maps"],
+    ["answer_block", "answer-blocks"],
+    ["citation_source", "citation-sources"],
+    ["ai_visibility_check", "ai-visibility-checks"],
+    ["support_sla", "support-slas"],
+    // Irregular: uncountable nouns (explicit overrides)
+    ["knowledge", "knowledge"],
+    ["customer_success", "customer-success"],
   ];
 
   it.each(cases)("objectKeyToRouteSegment(%s) → %s", (objectKey, expected) => {
@@ -131,6 +159,7 @@ describe("bidirectional conversion (round-trip)", () => {
     "ticket",
     "quote",
     "quote_line",
+    "quote_approval",
     "warranty",
     "repair_request",
     "return_request",
@@ -141,6 +170,18 @@ describe("bidirectional conversion (round-trip)", () => {
     "form",
     "conversation",
     "consent",
+    "product_service",
+    "price_book",
+    "customer",
+    "entitlement",
+    "entity_profile",
+    "question_map",
+    "answer_block",
+    "citation_source",
+    "ai_visibility_check",
+    "support_sla",
+    "knowledge",
+    "customer_success",
   ];
 
   it.each(canonicalObjects)(
@@ -175,6 +216,10 @@ describe("objectKeyToTitle", () => {
     ["maintenance_plan", "Maintenance Plan"],
     ["landing_page", "Landing Page"],
     ["quote_line", "Quote Line"],
+    ["product_service", "Product Service"],
+    ["price_book", "Price Book"],
+    ["customer_success", "Customer Success"],
+    ["ai_visibility_check", "Ai Visibility Check"],
   ];
 
   it.each(cases)("objectKeyToTitle(%s) → %s", (objectKey, expected) => {

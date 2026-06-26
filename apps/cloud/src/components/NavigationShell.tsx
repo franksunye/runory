@@ -11,7 +11,7 @@ import {
   TrendingUp, MessageCircle, UserPlus, ShieldCheck, Inbox,
   MessageSquare, Tag, Target, Heart, AlertTriangle, Gift,
   Headphones, Briefcase, PanelLeftClose, PanelLeftOpen,
-  Building2, ClipboardList, MapPin,
+  Building2, ClipboardList, MapPin, GitBranch, Zap,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { NavigationItem } from "@runory/platform-core";
@@ -123,7 +123,7 @@ function getRoleDisplay(role: string, t: TFunc) {
 }
 
 const MANAGEMENT_ROUTES = [
-  "/manage", "/modules", "/customize", "/workflows", "/automations", "/members",
+  "/manage", "/modules", "/customize", "/members",
   "/audit", "/trash", "/export", "/api-keys", "/settings", "/billing",
 ];
 
@@ -417,6 +417,17 @@ export default function NavigationShell({
 
         {/* Activity */}
         {renderNavItem({ id: "activity", label: t("workspace.nav.activity"), route: "/activity", icon: Activity })}
+
+        {/* Platform capabilities (admin/owner only) */}
+        {canManage && (
+          <>
+            {!collapsed && <p className="sidebar-group-label mt-5">{t("workspace.nav.platform")}</p>}
+            <div className={collapsed ? "mt-4 space-y-1" : "space-y-1"}>
+              {renderNavItem({ id: "workflows", label: t("workspace.nav.workflows"), route: "/workflows", icon: GitBranch })}
+              {renderNavItem({ id: "automations", label: t("workspace.nav.automations"), route: "/automations", icon: Zap })}
+            </div>
+          </>
+        )}
 
         {/* Management */}
         {!collapsed && <p className="sidebar-group-label mt-5">{t("workspace.nav.management")}</p>}

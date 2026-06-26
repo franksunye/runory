@@ -97,7 +97,7 @@ describe("Sales Quote Pack installation", () => {
         "/quotes",
         "/quote-lines",
         "/quote-approvals",
-        "/products-services",
+        "/product-services",
         "/price-books",
         "/companies",
         "/contacts",
