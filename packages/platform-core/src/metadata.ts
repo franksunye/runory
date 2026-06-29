@@ -583,24 +583,42 @@ export async function getRecords(
     [...whereArgs, ...limitArgs]
   );
 
-  // Merge extension field values
+  // Merge extension field values (batched — single query for all rows,
+  // eliminates the N+1 where each row triggered its own SELECT).
   const extFields = fields.filter(f => f.ownership === "workspace_extension");
   let resultRows: Record<string, unknown>[] = rows;
 
-  if (extFields.length > 0) {
-    const merged: Record<string, unknown>[] = [];
-    for (const row of rows) {
-      const extValues = await queryAll<{ field_key: string; value_json: string }>(
-        `SELECT field_key, value_json FROM ${TABLES.extensionFieldValues} WHERE workspace_id = ? AND object_key = ? AND record_id = ?`,
-        [workspaceId, objectKey, row.id]
+  if (extFields.length > 0 && rows.length > 0) {
+    const recordIds = rows.map((r) => r.id as string).filter(Boolean);
+    const extByRecord = new Map<string, Record<string, unknown>>();
+
+    // SQLite variable limit guard — process in chunks of 500.
+    const CHUNK = 500;
+    for (let i = 0; i < recordIds.length; i += CHUNK) {
+      const chunk = recordIds.slice(i, i + CHUNK);
+      const placeholders = chunk.map(() => "?").join(", ");
+      const extRows = await queryAll<{ record_id: string; field_key: string; value_json: string }>(
+        `SELECT record_id, field_key, value_json FROM ${TABLES.extensionFieldValues} WHERE workspace_id = ? AND object_key = ? AND record_id IN (${placeholders})`,
+        [workspaceId, objectKey, ...chunk]
       );
-      const m = { ...row };
-      for (const ev of extValues) {
-        m[ev.field_key] = JSON.parse(ev.value_json);
+      for (const ev of extRows) {
+        let bucket = extByRecord.get(ev.record_id);
+        if (!bucket) {
+          bucket = {};
+          extByRecord.set(ev.record_id, bucket);
+        }
+        try {
+          bucket[ev.field_key] = JSON.parse(ev.value_json);
+        } catch {
+          bucket[ev.field_key] = ev.value_json;
+        }
       }
-      merged.push(m);
     }
-    resultRows = merged;
+
+    resultRows = rows.map((row) => {
+      const ext = extByRecord.get(row.id as string);
+      return ext ? { ...row, ...ext } : row;
+    });
   }
 
   // ── FK display enrichment (v0.4) ──
