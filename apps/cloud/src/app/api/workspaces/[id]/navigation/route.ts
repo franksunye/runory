@@ -7,7 +7,7 @@ import {
   type NavigationItem,
 } from "@runory/platform-core";
 import { requireWorkspaceContext } from "@/lib/auth";
-import { successResponse, handleError, getOrCreateRequestId } from "@/lib/http";
+import { successResponse, handleError, getOrCreateRequestId, METADATA_CACHE } from "@/lib/http";
 
 export const dynamic = "force-dynamic";
 
@@ -70,7 +70,7 @@ export async function GET(
     }
 
     const response: NavigationResponse = { items: navigation, packs, modulePackMap };
-    return successResponse(response, 200, ctx.requestId);
+    return successResponse(response, 200, ctx.requestId, METADATA_CACHE);
   } catch (e) {
     return handleError(e, requestId);
   }

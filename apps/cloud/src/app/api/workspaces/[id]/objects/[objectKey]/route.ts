@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { getObject, getFields } from "@runory/platform-core";
 import { requireWorkspaceContext } from "@/lib/auth";
-import { successResponse, handleError, notFound, getOrCreateRequestId } from "@/lib/http";
+import { successResponse, handleError, notFound, getOrCreateRequestId, METADATA_CACHE } from "@/lib/http";
 
 export const dynamic = "force-dynamic";
 
@@ -18,7 +18,7 @@ export async function GET(
       return notFound(`Object ${objectKey} not found`, ctx.requestId);
     }
     const fields = await getFields(workspaceId, objectKey);
-    return successResponse({ object, fields }, 200, ctx.requestId);
+    return successResponse({ object, fields }, 200, ctx.requestId, METADATA_CACHE);
   } catch (e) {
     return handleError(e, requestId);
   }

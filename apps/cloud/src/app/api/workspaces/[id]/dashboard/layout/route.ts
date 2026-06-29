@@ -10,7 +10,7 @@ import {
   type UpdateLayoutOverrideInput,
 } from "@runory/platform-core";
 import { requireWorkspaceContext } from "@/lib/auth";
-import { successResponse, handleError, getOrCreateRequestId } from "@/lib/http";
+import { successResponse, handleError, getOrCreateRequestId, METADATA_CACHE } from "@/lib/http";
 
 export const dynamic = "force-dynamic";
 
@@ -43,7 +43,8 @@ export async function GET(
         zones: DASHBOARD_ZONES,
       },
       200,
-      ctx.requestId
+      ctx.requestId,
+      METADATA_CACHE
     );
   } catch (e) {
     return handleError(e, requestId);

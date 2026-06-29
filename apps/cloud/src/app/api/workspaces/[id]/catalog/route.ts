@@ -11,6 +11,7 @@ import {
   successResponse,
   handleError,
   getOrCreateRequestId,
+  METADATA_CACHE,
 } from "@/lib/http";
 
 export const dynamic = "force-dynamic";
@@ -46,7 +47,7 @@ export async function GET(
       }
     }
 
-    return successResponse(available, 200, ctx.requestId);
+    return successResponse(available, 200, ctx.requestId, METADATA_CACHE);
   } catch (e) {
     return handleError(e, requestId);
   }

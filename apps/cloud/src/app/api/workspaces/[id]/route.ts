@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { z } from "zod";
 import { getWorkspace, updateWorkspaceName, writeAuditEvent, NotFoundError } from "@runory/platform-core";
 import { requireWorkspaceContext } from "@/lib/auth";
-import { successResponse, handleError, notFound, invalidInput, getOrCreateRequestId } from "@/lib/http";
+import { successResponse, handleError, notFound, invalidInput, getOrCreateRequestId, METADATA_CACHE } from "@/lib/http";
 
 export const dynamic = "force-dynamic";
 
@@ -25,7 +25,8 @@ export async function GET(
         organizationRole: ctx.organizationRole,
       },
       200,
-      ctx.requestId
+      ctx.requestId,
+      METADATA_CACHE
     );
   } catch (e) {
     return handleError(e, requestId);

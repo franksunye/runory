@@ -24,15 +24,27 @@ import {
 export function successResponse<T>(
   data: T,
   status: number = HTTP_STATUS.OK,
-  requestId?: string
+  requestId?: string,
+  cacheControl?: string
 ): NextResponse<ToolEnvelope<T>> {
   const body = ok(data);
   const response = NextResponse.json(body, { status });
   if (requestId) {
     response.headers.set("x-request-id", requestId);
   }
+  if (cacheControl) {
+    response.headers.set("Cache-Control", cacheControl);
+  }
   return response;
 }
+
+/**
+ * Cache-Control directive for near-static metadata endpoints (navigation,
+ * installations, fields, views, dashboard layout). Allows the browser to
+ * serve from cache for 30s while revalidating in the background for up to 5min.
+ * `private` prevents CDN caching (responses are user/workspace-scoped).
+ */
+export const METADATA_CACHE = "private, max-age=30, stale-while-revalidate=300";
 
 export function errorResponse(
   code: ErrorCode,
