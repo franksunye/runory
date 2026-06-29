@@ -3,7 +3,7 @@ import { resolve } from "node:path";
 import { parse as parseYaml } from "yaml";
 import { queryOne, queryAll, execute, genId, now, db, validateIdentifier } from "./db";
 import { TABLES, MODULES_DIR, PACKS_DIR, TEMPLATES_DIR, businessTable } from "./contracts";
-import { getDeploymentMode, renderSqlWithPrefix, getBusinessTablePrefix, getTablePrefix } from "./platform-config";
+import { renderSqlWithPrefix, getBusinessTablePrefix, getTablePrefix } from "./platform-config";
 import { createRecord, getRecords } from "./metadata";
 import { createAutomation, getAutomations } from "./automation";
 import { createWorkflowDefinition, getWorkflowDefinitions, getAutoStartWorkflowDefinitions, startWorkflow, getRecordWorkflow } from "./workflow";
@@ -442,7 +442,6 @@ export async function installModule(
   moduleId: string,
   packId: string = "standalone"
 ): Promise<InstallModuleResult> {
-  const deploymentMode = getDeploymentMode();
   const manifest = loadModuleManifest(moduleId);
 
   const objectsCreated: string[] = [];
@@ -476,16 +475,18 @@ export async function installModule(
     }
   }
 
-  // Run migration (multi-statement DDL, e.g. CREATE TABLE)
-  if (deploymentMode === "local") {
-    const migrationSql = loadModuleMigration(moduleId, manifest.migrations.install);
-    await db.executeMultiple(migrationSql);
-    ddlExecuted = true;
+  // Run migration (multi-statement DDL, e.g. CREATE TABLE IF NOT EXISTS).
+  // Always execute regardless of deployment mode — module migrations use
+  // CREATE TABLE IF NOT EXISTS so they are idempotent and safe to re-run.
+  // Previously cloud mode skipped this, but that caused business tables to be
+  // missing when migration 0008 only pre-created a subset of CRM tables.
+  const migrationSql = loadModuleMigration(moduleId, manifest.migrations.install);
+  await db.executeMultiple(migrationSql);
+  ddlExecuted = true;
 
-    // Ensure soft-delete columns exist on all business tables created by this module (v0.3.6)
-    for (const obj of manifest.objects) {
-      await ensureSoftDeleteColumns(businessTable(obj.key));
-    }
+  // Ensure soft-delete columns exist on all business tables created by this module (v0.3.6)
+  for (const obj of manifest.objects) {
+    await ensureSoftDeleteColumns(businessTable(obj.key));
   }
 
   // Register installation
