@@ -30,6 +30,10 @@ export function SWRProvider({ children }: { children: ReactNode }) {
         fetcher,
         dedupingInterval: 2000,
         refreshInterval: 0,
+        // Data refreshes are driven by manual refresh buttons, 30s polling on
+        // the dashboard, and workspace change events. Disabling focus
+        // revalidation avoids re-fetching every hook on every tab switch.
+        revalidateOnFocus: false,
       }}
     >
       {children}
