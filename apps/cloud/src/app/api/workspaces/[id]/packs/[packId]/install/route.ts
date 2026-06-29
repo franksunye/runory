@@ -4,6 +4,9 @@ import { requireWorkspaceContext } from "@/lib/auth";
 import { successResponse, handleError, getOrCreateRequestId } from "@/lib/http";
 
 export const dynamic = "force-dynamic";
+// Pack installation involves 300+ serial DB queries (metadata + demo data).
+// Allow up to 5 minutes to avoid Vercel function timeout.
+export const maxDuration = 300;
 
 export async function POST(
   request: NextRequest,

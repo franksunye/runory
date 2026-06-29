@@ -4,6 +4,8 @@ import { requireWorkspaceContext } from "@/lib/auth";
 import { successResponse, handleError, getOrCreateRequestId } from "@/lib/http";
 
 export const dynamic = "force-dynamic";
+// Demo data loading involves many serial DB queries (record creation + workflow auto-start).
+export const maxDuration = 300;
 
 // POST /api/workspaces/[id]/packs/[packId]/demo-data
 // Load demo data for an already-installed pack (v0.3.4).
