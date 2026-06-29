@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import {
@@ -30,7 +30,7 @@ interface PackDetail {
     installed: boolean;
     packVersion?: string;
     installedAt?: string;
-    demoDataStatus?: "none" | "loaded" | "error";
+    demoDataStatus?: "none" | "loading" | "loaded" | "error";
     demoDataLoadedAt?: string | null;
     installErrorMessage?: string | null;
     demoDataErrorMessage?: string | null;
@@ -51,10 +51,16 @@ export default function PackDetailPage() {
   const [uninstalling, setUninstalling] = useState(false);
   const [showUninstallConfirm, setShowUninstallConfirm] = useState(false);
   const [error, setError] = useState<{ message: string; requestId?: string } | null>(null);
+  const mountedRef = useRef(true);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; };
+  }, []);
 
   const loadData = useCallback(async () => {
     try {
-      const res = await fetch(`/api/workspaces/${workspaceId}/packs/${packId}`, { cache: "no-store" });
+      const res = await fetch(`/api/workspaces/${workspaceId}/packs/${packId}`);
       const json = await res.json();
       if (!json.success) throw new Error(json.error?.message ?? t("workspace.loadFailed"));
       setDetail(json.data);
@@ -72,51 +78,93 @@ export default function PackDetailPage() {
   const handleInstall = async (includeDemoData: boolean) => {
     setInstalling(true);
     setError(null);
-    try {
-      const res = await fetch(
-        `/api/workspaces/${workspaceId}/packs/${packId}/install`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "X-Requested-With": "XMLHttpRequest" },
-          body: JSON.stringify({ includeDemoData }),
-        }
-      );
-      const json = await res.json();
-      if (!json.success) {
-        setError({ message: json.error?.message ?? t("modules.installFailed"), requestId: json.error?.requestId });
-        return;
+
+    fetch(
+      `/api/workspaces/${workspaceId}/packs/${packId}/install`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Requested-With": "XMLHttpRequest" },
+        body: JSON.stringify({ includeDemoData }),
       }
-      await loadData();
-      notifyWorkspaceNavigationChanged();
-    } catch (cause) {
-      setError({ message: cause instanceof Error ? cause.message : t("modules.installFailed") });
-    } finally {
-      setInstalling(false);
-    }
+    ).catch(() => {});
+
+    let attempts = 0;
+    const maxAttempts = 100;
+    const poll = async () => {
+      if (!mountedRef.current) return;
+      attempts++;
+      try {
+        const res = await fetch(`/api/workspaces/${workspaceId}/packs/${packId}`);
+        const json = await res.json();
+        if (json.success) {
+          setDetail(json.data);
+          const inst = json.data?.installation;
+          if (inst) {
+            const demoStatus = inst.demoDataStatus;
+            const done =
+              (inst.installErrorMessage && !inst.installed) ||
+              (inst.installed && !includeDemoData) ||
+              (inst.installed && (demoStatus === "loaded" || demoStatus === "error"));
+            if (done || attempts >= maxAttempts) {
+              if (!mountedRef.current) return;
+              setInstalling(false);
+              if (inst.installErrorMessage && !inst.installed) {
+                setError({ message: inst.installErrorMessage });
+              } else if (demoStatus === "error") {
+                setError({ message: inst.demoDataErrorMessage ?? t("modules.installFailed") });
+              } else if (attempts >= maxAttempts) {
+                setError({ message: t("modules.installTimeout") });
+              } else {
+                notifyWorkspaceNavigationChanged();
+              }
+              return;
+            }
+          }
+        }
+      } catch {}
+      setTimeout(poll, 3000);
+    };
+    setTimeout(poll, 2000);
   };
 
   const handleLoadDemo = async () => {
     setLoadingDemo(true);
     setError(null);
-    try {
-      const res = await fetch(
-        `/api/workspaces/${workspaceId}/packs/${packId}/demo-data`,
-        {
-          method: "POST",
-          headers: { "X-Requested-With": "XMLHttpRequest" },
-        }
-      );
-      const json = await res.json();
-      if (!json.success) {
-        setError({ message: json.error?.message ?? t("modules.loadDemoFailed"), requestId: json.error?.requestId });
-        return;
+
+    fetch(
+      `/api/workspaces/${workspaceId}/packs/${packId}/demo-data`,
+      {
+        method: "POST",
+        headers: { "X-Requested-With": "XMLHttpRequest" },
       }
-      await loadData();
-    } catch (cause) {
-      setError({ message: cause instanceof Error ? cause.message : t("modules.loadDemoFailed") });
-    } finally {
-      setLoadingDemo(false);
-    }
+    ).catch(() => {});
+
+    let attempts = 0;
+    const maxAttempts = 100;
+    const poll = async () => {
+      if (!mountedRef.current) return;
+      attempts++;
+      try {
+        const res = await fetch(`/api/workspaces/${workspaceId}/packs/${packId}`);
+        const json = await res.json();
+        if (json.success) {
+          setDetail(json.data);
+          const demoStatus = json.data?.installation?.demoDataStatus;
+          if (demoStatus === "loaded" || demoStatus === "error" || attempts >= maxAttempts) {
+            if (!mountedRef.current) return;
+            setLoadingDemo(false);
+            if (demoStatus === "error") {
+              setError({ message: json.data?.installation?.demoDataErrorMessage ?? t("modules.loadDemoFailed") });
+            } else if (attempts >= maxAttempts) {
+              setError({ message: t("modules.installTimeout") });
+            }
+            return;
+          }
+        }
+      } catch {}
+      setTimeout(poll, 3000);
+    };
+    setTimeout(poll, 2000);
   };
 
   const handleUninstall = async () => {

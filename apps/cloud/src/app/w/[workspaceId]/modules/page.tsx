@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -29,7 +29,7 @@ interface PackSummary {
   installation?: {
     packVersion: string;
     installedAt: string;
-    demoDataStatus: "none" | "loaded" | "error";
+    demoDataStatus: "none" | "loading" | "loaded" | "error";
     demoDataLoadedAt: string | null;
     installErrorMessage: string | null;
     demoDataErrorMessage: string | null;
@@ -46,10 +46,16 @@ export default function ModulesPage() {
   const [installingId, setInstallingId] = useState<string | null>(null);
   const [loadingDemoId, setLoadingDemoId] = useState<string | null>(null);
   const [error, setError] = useState<{ message: string; requestId?: string } | null>(null);
+  const mountedRef = useRef(true);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; };
+  }, []);
 
   const loadData = useCallback(async () => {
     try {
-      const res = await fetch(`/api/workspaces/${workspaceId}/packs`, { cache: "no-store" });
+      const res = await fetch(`/api/workspaces/${workspaceId}/packs`);
       const json = await res.json();
       if (!json.success) throw new Error(json.error?.message ?? t("workspace.loadFailed"));
       setPacks(json.data);
@@ -67,52 +73,101 @@ export default function ModulesPage() {
   const handleInstall = async (pack: PackSummary, includeDemoData: boolean) => {
     setInstallingId(pack.packId);
     setError(null);
-    try {
-      const response = await fetch(
-        `/api/workspaces/${workspaceId}/packs/${pack.packId}/install`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "X-Requested-With": "XMLHttpRequest" },
-          body: JSON.stringify({ includeDemoData }),
-        }
-      );
-      const json = await response.json();
-      if (!json.success) {
-        setError({ message: json.error?.message ?? t("modules.installFailed"), requestId: json.error?.requestId });
-        return;
+
+    // Fire POST without awaiting — backend sets 'loading' status immediately.
+    // We poll for completion instead of blocking on the response, which may
+    // time out on Vercel if the install + demo data takes >60s.
+    fetch(
+      `/api/workspaces/${workspaceId}/packs/${pack.packId}/install`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Requested-With": "XMLHttpRequest" },
+        body: JSON.stringify({ includeDemoData }),
       }
-      await loadData();
-      notifyWorkspaceNavigationChanged();
-      router.refresh();
-    } catch (cause) {
-      setError({ message: cause instanceof Error ? cause.message : t("modules.installFailed") });
-    } finally {
-      setInstallingId(null);
-    }
+    ).catch(() => {});
+
+    let attempts = 0;
+    const maxAttempts = 100; // 5 minutes at 3s interval
+    const poll = async () => {
+      if (!mountedRef.current) return;
+      attempts++;
+      try {
+        const res = await fetch(`/api/workspaces/${workspaceId}/packs`);
+        const json = await res.json();
+        if (json.success) {
+          setPacks(json.data);
+          const updated: PackSummary | undefined = json.data.find((p: PackSummary) => p.packId === pack.packId);
+          if (updated) {
+            const demoStatus = updated.installation?.demoDataStatus;
+            const installError = updated.installation?.installErrorMessage;
+            const done =
+              (installError && !updated.installed) ||
+              (updated.installed && !includeDemoData) ||
+              (updated.installed && (demoStatus === "loaded" || demoStatus === "error"));
+            if (done || attempts >= maxAttempts) {
+              if (!mountedRef.current) return;
+              setInstallingId(null);
+              if (installError && !updated.installed) {
+                setError({ message: installError });
+              } else if (demoStatus === "error") {
+                setError({ message: updated.installation?.demoDataErrorMessage ?? t("modules.installFailed") });
+              } else if (attempts >= maxAttempts) {
+                setError({ message: t("modules.installTimeout") });
+              } else {
+                notifyWorkspaceNavigationChanged();
+                router.refresh();
+              }
+              return;
+            }
+          }
+        }
+      } catch {}
+      setTimeout(poll, 3000);
+    };
+    setTimeout(poll, 2000);
   };
 
   const handleLoadDemo = async (pack: PackSummary) => {
     setLoadingDemoId(pack.packId);
     setError(null);
-    try {
-      const response = await fetch(
-        `/api/workspaces/${workspaceId}/packs/${pack.packId}/demo-data`,
-        {
-          method: "POST",
-          headers: { "X-Requested-With": "XMLHttpRequest" },
-        }
-      );
-      const json = await response.json();
-      if (!json.success) {
-        setError({ message: json.error?.message ?? t("modules.loadDemoFailed"), requestId: json.error?.requestId });
-        return;
+
+    fetch(
+      `/api/workspaces/${workspaceId}/packs/${pack.packId}/demo-data`,
+      {
+        method: "POST",
+        headers: { "X-Requested-With": "XMLHttpRequest" },
       }
-      await loadData();
-    } catch (cause) {
-      setError({ message: cause instanceof Error ? cause.message : t("modules.loadDemoFailed") });
-    } finally {
-      setLoadingDemoId(null);
-    }
+    ).catch(() => {});
+
+    let attempts = 0;
+    const maxAttempts = 100;
+    const poll = async () => {
+      if (!mountedRef.current) return;
+      attempts++;
+      try {
+        const res = await fetch(`/api/workspaces/${workspaceId}/packs`);
+        const json = await res.json();
+        if (json.success) {
+          setPacks(json.data);
+          const updated: PackSummary | undefined = json.data.find((p: PackSummary) => p.packId === pack.packId);
+          if (updated) {
+            const demoStatus = updated.installation?.demoDataStatus;
+            if (demoStatus === "loaded" || demoStatus === "error" || attempts >= maxAttempts) {
+              if (!mountedRef.current) return;
+              setLoadingDemoId(null);
+              if (demoStatus === "error") {
+                setError({ message: updated.installation?.demoDataErrorMessage ?? t("modules.loadDemoFailed") });
+              } else if (attempts >= maxAttempts) {
+                setError({ message: t("modules.installTimeout") });
+              }
+              return;
+            }
+          }
+        }
+      } catch {}
+      setTimeout(poll, 3000);
+    };
+    setTimeout(poll, 2000);
   };
 
   const recommendedPacks = packs.filter((p) => p.recommended && !p.installed);

@@ -311,6 +311,7 @@ export async function loadPackDemoData(
   workspaceId: string,
   packId: string
 ): Promise<{ recordsCreated: number }> {
+  await updatePackDemoDataStatus(workspaceId, packId, "loading");
   const created = await seedPackDemoData(workspaceId, packId);
   await updatePackDemoDataStatus(workspaceId, packId, "loaded");
   return { recordsCreated: created };
@@ -322,7 +323,7 @@ export async function loadPackDemoData(
 export async function updatePackDemoDataStatus(
   workspaceId: string,
   packId: string,
-  status: "none" | "loaded" | "error",
+  status: "none" | "loading" | "loaded" | "error",
   errorMessage?: string
 ): Promise<void> {
   const loadedAt = status === "loaded" ? now() : null;
@@ -637,6 +638,8 @@ export async function installPack(
   // v0.3.4 — Track demo data status
   if (options.includeDemoData && demoRecordsCreated >= 0) {
     await updatePackDemoDataStatus(workspaceId, packId, "loaded");
+  } else if (options.includeDemoData) {
+    await updatePackDemoDataStatus(workspaceId, packId, "error", "Demo data seeding failed");
   }
 
   // v0.3.6 — Sync pack-aware permission groups

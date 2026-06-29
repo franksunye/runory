@@ -11,7 +11,7 @@ import {
   type CatalogVersion,
 } from "@runory/platform-core";
 import { requireWorkspaceContext } from "@/lib/auth";
-import { successResponse, handleError, getOrCreateRequestId } from "@/lib/http";
+import { successResponse, handleError, getOrCreateRequestId, METADATA_CACHE } from "@/lib/http";
 
 export const dynamic = "force-dynamic";
 
@@ -62,7 +62,7 @@ interface PackSummary {
   installation?: {
     packVersion: string;
     installedAt: string;
-    demoDataStatus: "none" | "loaded" | "error";
+    demoDataStatus: "none" | "loading" | "loaded" | "error";
     demoDataLoadedAt: string | null;
     installErrorMessage: string | null;
     demoDataErrorMessage: string | null;
@@ -134,7 +134,7 @@ export async function GET(
       });
     }
 
-    return successResponse(packs, 200, ctx.requestId);
+    return successResponse(packs, 200, ctx.requestId, METADATA_CACHE);
   } catch (e) {
     return handleError(e, requestId);
   }
