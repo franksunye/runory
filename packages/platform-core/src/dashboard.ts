@@ -433,6 +433,112 @@ export async function resolveActivityFeed(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Batch Widget Data Resolver
+// Resolves data for multiple widgets in a single call, sharing the expensive
+// lookups (getAvailableWidgets → getInstallations + manifest reads, and
+// getWorkspaceLayoutOverrides) across all widgets instead of repeating them
+// per widget. Eliminates the N+1 pattern where each WidgetRenderer fetched
+// its own data via a separate API round-trip.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface WidgetBatchRequestItem {
+  moduleId: string;
+  widgetKey: string;
+  instance: string;
+  zone: string;
+}
+
+export interface WidgetBatchResult {
+  /** Identity key: `${moduleId}:${widgetKey}:${instance}` */
+  key: string;
+  ok: boolean;
+  widget?: WidgetDeclaration;
+  data?: WidgetDataResult;
+  events?: Array<{
+    id: string; action: string; entityType: string; entityId: string;
+    createdAt: string; actorType: string; actorId: string;
+    afterJson: string | null;
+  }>;
+  sub?: { count: number; label: string } | null;
+  error?: string;
+}
+
+/**
+ * Resolve data for many widgets in one pass.
+ * Auth/workspace resolution is the caller's responsibility (API route runs
+ * requireWorkspaceContext once). This function shares the available-widget
+ * lookup and layout overrides across all items.
+ */
+export async function resolveWidgetsBatch(
+  workspaceId: string,
+  items: WidgetBatchRequestItem[]
+): Promise<WidgetBatchResult[]> {
+  if (items.length === 0) return [];
+
+  // Shared lookups — run once for the whole batch.
+  const [available, overrides] = await Promise.all([
+    getAvailableWidgets(workspaceId),
+    getWorkspaceLayoutOverrides(workspaceId),
+  ]);
+
+  const widgetLookup = new Map<string, AvailableWidget>();
+  for (const aw of available) {
+    widgetLookup.set(`${aw.moduleId}:${aw.widget.key}`, aw);
+  }
+
+  const overrideLookup = new Map<string, WorkspaceLayoutOverride>();
+  for (const ov of overrides) {
+    overrideLookup.set(`${ov.zone}:${ov.widgetModule}:${ov.widgetKey}:${ov.widgetInstance}`, ov);
+  }
+
+  // Resolve each widget in parallel — each only does its own data query now
+  // that the shared manifest/override lookups are already done.
+  return Promise.all(
+    items.map(async (item): Promise<WidgetBatchResult> => {
+      const key = `${item.moduleId}:${item.widgetKey}:${item.instance}`;
+      try {
+        const aw = widgetLookup.get(`${item.moduleId}:${item.widgetKey}`);
+        if (!aw) {
+          return { key, ok: false, error: `Widget not found: ${item.moduleId}/${item.widgetKey}` };
+        }
+
+        const override = overrideLookup.get(`${item.zone}:${item.moduleId}:${item.widgetKey}:${item.instance}`);
+        const effectiveWidget = mergeWidgetConfig(aw.widget, override?.configOverride ?? null);
+
+        // Activity feed is platform-owned, resolved from the audit log.
+        if (effectiveWidget.type === "activity_feed") {
+          const activity = await resolveActivityFeed(workspaceId, 10);
+          return {
+            key, ok: true, widget: effectiveWidget,
+            events: activity,
+          };
+        }
+
+        const data = await resolveWidgetData(workspaceId, effectiveWidget.data);
+
+        let subData: { count: number; label: string } | null = null;
+        if (effectiveWidget.type === "metric_card" && effectiveWidget.sub) {
+          const subResult = await resolveWidgetData(workspaceId, effectiveWidget.sub);
+          const subCount = subResult.count ?? 0;
+          const template = effectiveWidget.sub.template ?? "{count}";
+          subData = {
+            count: subCount,
+            label: template.replace("{count}", String(subCount)),
+          };
+        }
+
+        return { key, ok: true, widget: effectiveWidget, data, sub: subData };
+      } catch (e) {
+        return {
+          key, ok: false,
+          error: e instanceof Error ? e.message : "Failed to resolve widget data",
+        };
+      }
+    })
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Layout Resolution — merge available widgets + pack default + workspace overrides
 // ─────────────────────────────────────────────────────────────────────────────
 

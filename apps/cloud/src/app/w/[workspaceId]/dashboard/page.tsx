@@ -9,7 +9,7 @@ import {
 import type { WidgetDeclaration, DashboardZone } from "@runory/contracts";
 import { notifyWorkspaceNavigationChanged, notifyWorkspaceDataChanged } from "@/lib/workspace-events";
 import { useWorkspaceChangeEvent } from "@/lib/api-hooks";
-import WidgetRenderer from "@/components/widgets/WidgetRenderer";
+import WidgetRenderer, { type WidgetDataResponse } from "@/components/widgets/WidgetRenderer";
 import DashboardEditMode from "@/components/widgets/DashboardEditMode";
 import { useI18n } from "@/i18n/locale-provider";
 
@@ -52,6 +52,10 @@ export default function DashboardPage() {
   const [hasPack, setHasPack] = useState(false);
   const [hasData, setHasData] = useState(false);
   const [editMode, setEditMode] = useState(false);
+  // Batch widget data: keyed by `${moduleId}:${widgetKey}:${instance}`.
+  const [widgetDataMap, setWidgetDataMap] = useState<Record<string, WidgetDataResponse | null>>({});
+  const [widgetErrorMap, setWidgetErrorMap] = useState<Record<string, string | null>>({});
+  const [widgetsLoading, setWidgetsLoading] = useState(true);
 
   useWorkspaceChangeEvent(workspaceId);
 
@@ -66,13 +70,12 @@ export default function DashboardPage() {
         setHasPack(packInstalled);
         if (!packInstalled) {
           setHasData(false);
+          setWidgetsLoading(false);
         }
         return packInstalled;
       }
     } catch {
       // ignore
-    } finally {
-      setLoading(false);
     }
     return false;
   }, [workspaceId]);
@@ -90,17 +93,93 @@ export default function DashboardPage() {
     }
   }, [workspaceId]);
 
+  // Batch-fetch all widget data in a single request, sharing the expensive
+  // installations/manifest/override lookups on the backend (eliminates N+1).
+  const loadWidgetData = useCallback(async (items: LayoutItem[]) => {
+    if (items.length === 0) {
+      setWidgetDataMap({});
+      setWidgetErrorMap({});
+      setWidgetsLoading(false);
+      return;
+    }
+    setWidgetsLoading(true);
+    try {
+      const res = await fetch(`/api/workspaces/${workspaceId}/widgets/batch`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          items: items.map((i) => ({
+            moduleId: i.moduleId,
+            widgetKey: i.widgetKey,
+            instance: i.instance,
+            zone: i.zone,
+          })),
+        }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        const dataMap: Record<string, WidgetDataResponse | null> = {};
+        const errMap: Record<string, string | null> = {};
+        for (const r of json.data.results as Array<{
+          key: string;
+          ok: boolean;
+          widget?: WidgetDeclaration;
+          data?: { kind: string; count?: number; groups?: Array<{ key: string; count: number }>; records?: Array<Record<string, unknown>>; series?: Array<{ date: string; count: number }> };
+          events?: Array<Record<string, unknown>>;
+          sub?: { count: number; label: string } | null;
+          error?: string;
+        }>) {
+          if (r.ok && r.widget) {
+            dataMap[r.key] = r.events
+              ? { widget: r.widget, data: { kind: "activity_feed", events: r.events as WidgetDataResponse["data"]["events"] } }
+              : { widget: r.widget, data: r.data ?? { kind: "count" }, sub: r.sub ?? null };
+          } else {
+            dataMap[r.key] = null;
+            errMap[r.key] = r.error ?? "Failed to load widget";
+          }
+        }
+        setWidgetDataMap(dataMap);
+        setWidgetErrorMap(errMap);
+      }
+    } catch {
+      // ignore — widgets will keep showing skeleton via widgetsLoading
+    } finally {
+      setWidgetsLoading(false);
+    }
+  }, [workspaceId]);
+
+  // Initial load: fetch layout + hasData in parallel; only clear the page-level
+  // loading flag once BOTH resolve, so the empty-state never flashes.
   useEffect(() => {
+    let cancelled = false;
     void (async () => {
-      const packInstalled = await loadLayout();
-      if (packInstalled) await checkHasData();
+      try {
+        await Promise.all([loadLayout(), checkHasData()]);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
     })();
     const interval = setInterval(() => {
       void loadLayout();
     }, 30000);
-    return () => clearInterval(interval);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loadLayout, checkHasData]);
+
+  // When layout changes (initial load, 30s refresh, install, manual refresh),
+  // batch-fetch all widget data.
+  useEffect(() => {
+    if (!hasPack || layout.length === 0) {
+      setWidgetDataMap({});
+      setWidgetErrorMap({});
+      setWidgetsLoading(false);
+      return;
+    }
+    void loadWidgetData(layout);
+  }, [layout, hasPack, loadWidgetData]);
 
   const handleInstallPack = async () => {
     setInstalling(true); setError(null);
@@ -224,6 +303,7 @@ export default function DashboardPage() {
   const trendsWidgets = layout.filter((item) => item.zone === "trends");
   const listsWidgets = layout.filter((item) => item.zone === "lists");
   const activityWidgets = layout.filter((item) => item.zone === "activity");
+  const widgetKeyOf = (item: LayoutItem) => `${item.moduleId}:${item.widgetKey}:${item.instance}`;
 
   return (
     <div className="space-y-6">
@@ -297,7 +377,7 @@ export default function DashboardPage() {
             <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               {metricsWidgets.map((item) => (
                 <WidgetRenderer
-                  key={`${item.moduleId}:${item.widgetKey}:${item.instance}`}
+                  key={widgetKeyOf(item)}
                   workspaceId={workspaceId}
                   moduleId={item.moduleId}
                   widgetKey={item.widgetKey}
@@ -305,6 +385,10 @@ export default function DashboardPage() {
                   zone={item.zone}
                   widget={item.widget}
                   editMode={editMode}
+                  batchData={widgetDataMap[widgetKeyOf(item)] ?? null}
+                  batchError={widgetErrorMap[widgetKeyOf(item)] ?? null}
+                  batchLoading={widgetsLoading}
+                  onRefreshAll={() => void loadWidgetData(layout)}
                 />
               ))}
             </section>
@@ -315,7 +399,7 @@ export default function DashboardPage() {
             <section className="grid gap-4 lg:grid-cols-2">
               {trendsWidgets.map((item) => (
                 <WidgetRenderer
-                  key={`${item.moduleId}:${item.widgetKey}:${item.instance}`}
+                  key={widgetKeyOf(item)}
                   workspaceId={workspaceId}
                   moduleId={item.moduleId}
                   widgetKey={item.widgetKey}
@@ -323,6 +407,10 @@ export default function DashboardPage() {
                   zone={item.zone}
                   widget={item.widget}
                   editMode={editMode}
+                  batchData={widgetDataMap[widgetKeyOf(item)] ?? null}
+                  batchError={widgetErrorMap[widgetKeyOf(item)] ?? null}
+                  batchLoading={widgetsLoading}
+                  onRefreshAll={() => void loadWidgetData(layout)}
                 />
               ))}
             </section>
@@ -333,7 +421,7 @@ export default function DashboardPage() {
             <section className="grid gap-4 lg:grid-cols-2">
               {listsWidgets.map((item) => (
                 <WidgetRenderer
-                  key={`${item.moduleId}:${item.widgetKey}:${item.instance}`}
+                  key={widgetKeyOf(item)}
                   workspaceId={workspaceId}
                   moduleId={item.moduleId}
                   widgetKey={item.widgetKey}
@@ -341,6 +429,10 @@ export default function DashboardPage() {
                   zone={item.zone}
                   widget={item.widget}
                   editMode={editMode}
+                  batchData={widgetDataMap[widgetKeyOf(item)] ?? null}
+                  batchError={widgetErrorMap[widgetKeyOf(item)] ?? null}
+                  batchLoading={widgetsLoading}
+                  onRefreshAll={() => void loadWidgetData(layout)}
                 />
               ))}
             </section>
@@ -351,7 +443,7 @@ export default function DashboardPage() {
             <section>
               {activityWidgets.map((item) => (
                 <WidgetRenderer
-                  key={`${item.moduleId}:${item.widgetKey}:${item.instance}`}
+                  key={widgetKeyOf(item)}
                   workspaceId={workspaceId}
                   moduleId={item.moduleId}
                   widgetKey={item.widgetKey}
@@ -359,6 +451,10 @@ export default function DashboardPage() {
                   zone={item.zone}
                   widget={item.widget}
                   editMode={editMode}
+                  batchData={widgetDataMap[widgetKeyOf(item)] ?? null}
+                  batchError={widgetErrorMap[widgetKeyOf(item)] ?? null}
+                  batchLoading={widgetsLoading}
+                  onRefreshAll={() => void loadWidgetData(layout)}
                 />
               ))}
             </section>

@@ -56,18 +56,25 @@ async function fireAutomationTriggers(
 // Business tables may or may not have deleted_at/deleted_by columns
 // depending on when they were created (migration 0019 adds them to core
 // tables, and the installer adds them to pack-created tables). We
-// introspect the schema on each access — no caching, because tests
-// may drop and recreate tables between test cases.
+// introspect the schema and cache the result per table for the lifetime
+// of the process — table structure does not change at runtime in
+// production. Tests that drop/recreate tables call _clearSoftDeleteColumnCache().
+
+const softDeleteColumnCache = new Map<string, { deletedAt: boolean; deletedBy: boolean }>();
 
 async function checkSoftDeleteColumns(tableName: string): Promise<{ deletedAt: boolean; deletedBy: boolean }> {
+  const cached = softDeleteColumnCache.get(tableName);
+  if (cached) return cached;
   const rows = await queryAll<{ name: string }>(`PRAGMA table_info(${tableName})`);
   const columns = new Set(rows.map(r => r.name));
-  return { deletedAt: columns.has("deleted_at"), deletedBy: columns.has("deleted_by") };
+  const result = { deletedAt: columns.has("deleted_at"), deletedBy: columns.has("deleted_by") };
+  softDeleteColumnCache.set(tableName, result);
+  return result;
 }
 
 /** Clear the soft-delete column cache (kept for test compatibility). */
 export function _clearSoftDeleteColumnCache(): void {
-  // No-op — schema is introspected on each call (v0.3.6).
+  softDeleteColumnCache.clear();
 }
 
 // ── Types ──

@@ -21,22 +21,46 @@ import {
   type WorkflowDefinition,
 } from "@runory/contracts";
 
+// ── Manifest in-memory cache ──
+// Manifest YAML files are static at runtime (they ship with the deploy and do
+// not change between requests). Reading from disk + parsing YAML + running
+// zod validation on every call is expensive — especially on serverless cold
+// starts where getAvailableWidgets is invoked once per widget in addition to
+// the layout/navigation routes. Cache by id for the lifetime of the process.
+
+const moduleManifestCache = new Map<string, ModuleManifest>();
+const packManifestCache = new Map<string, PackManifest>();
+
+/** Clear the manifest cache. Intended for tests that swap manifest files. */
+export function _clearManifestCache(): void {
+  moduleManifestCache.clear();
+  packManifestCache.clear();
+}
+
 export function loadModuleManifest(moduleId: string): ModuleManifest {
+  const cached = moduleManifestCache.get(moduleId);
+  if (cached) return cached;
   const manifestPath = resolve(MODULES_DIR, moduleId, "manifest.yaml");
   if (!existsSync(manifestPath)) {
     throw new Error(`Module manifest not found: ${manifestPath}`);
   }
   const raw = parseYaml(readFileSync(manifestPath, "utf-8"));
-  return moduleManifestSchema.parse(raw);
+  const manifest = moduleManifestSchema.parse(raw);
+  moduleManifestCache.set(moduleId, manifest);
+  return manifest;
 }
 
 export function loadPackManifest(packId: string): PackManifest {
+  const cached = packManifestCache.get(packId);
+  if (cached) return cached;
   const manifestPath = resolve(PACKS_DIR, packId, "manifest.yaml");
   if (!existsSync(manifestPath)) {
     throw new Error(`Pack manifest not found: ${manifestPath}`);
   }
   const raw = parseYaml(readFileSync(manifestPath, "utf-8"));
-  return packManifestSchema.parse(raw);
+  const manifest = packManifestSchema.parse(raw);
+  packManifestCache.set(packId, manifest);
+  return manifest;
 }
 
 interface DemoRecord {

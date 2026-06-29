@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import Link from "next/link";
 import {
   Activity, AlertCircle, CheckCircle2, Clock, ListChecks,
@@ -39,6 +39,14 @@ interface WidgetRendererProps {
   widget: WidgetDeclaration;
   editMode?: boolean;
   onRefresh?: () => void;
+  /** When provided, the widget runs in batch mode and uses pre-fetched data. */
+  batchData?: WidgetDataResponse | null;
+  /** Error message from a batch fetch. */
+  batchError?: string | null;
+  /** Whether a batch fetch is in progress. */
+  batchLoading?: boolean;
+  /** Refresh handler for batch mode (re-fetches all widgets). */
+  onRefreshAll?: () => void;
 }
 
 // ── Icon mapping ──
@@ -110,12 +118,18 @@ export default function WidgetRenderer({
   widget,
   editMode = false,
   onRefresh,
+  batchData,
+  batchError,
+  batchLoading,
+  onRefreshAll,
 }: WidgetRendererProps) {
   const { t } = useI18n();
+  const isBatchMode = batchLoading !== undefined;
   const [data, setData] = useState<WidgetDataResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<number | null>(null);
+  const prevBatchDataRef = useRef<WidgetDataResponse | null | undefined>(undefined);
 
   const loadData = useCallback(async () => {
     try {
@@ -136,15 +150,48 @@ export default function WidgetRenderer({
     }
   }, [workspaceId, moduleId, widgetKey, instance, zone, t]);
 
+  // Standalone mode: fetch on mount.
   useEffect(() => {
+    if (isBatchMode) return;
     void loadData();
-  }, [loadData]);
+  }, [loadData, isBatchMode]);
+
+  // Batch mode: track lastUpdated when data changes.
+  useEffect(() => {
+    if (!isBatchMode) return;
+    if (prevBatchDataRef.current !== batchData) {
+      prevBatchDataRef.current = batchData;
+      if (batchData) setLastUpdated(Date.now());
+    }
+  }, [batchData, isBatchMode]);
 
   const handleRefresh = () => {
+    if (isBatchMode) {
+      onRefreshAll?.();
+      return;
+    }
     setLoading(true);
     void loadData();
     onRefresh?.();
   };
+
+  if (isBatchMode) {
+    if (batchError && !batchData) return <WidgetError widget={widget} error={batchError} onRetry={handleRefresh} />;
+    if (batchLoading && !batchData) return <WidgetSkeleton widget={widget} />;
+    if (!batchData) return null;
+    return (
+      <div className="relative">
+        {editMode && <EditModeOverlay widget={widget} />}
+        {batchError && (
+          <div className="absolute right-2 top-2 z-10 rounded bg-red-50 px-2 py-0.5 text-[10px] font-medium text-red-600">
+            {batchError}
+          </div>
+        )}
+        <WidgetContent widget={batchData.widget} data={batchData} workspaceId={workspaceId} onRefresh={handleRefresh} />
+        <FreshnessIndicator lastUpdated={lastUpdated} onRefresh={handleRefresh} />
+      </div>
+    );
+  }
 
   if (loading) return <WidgetSkeleton widget={widget} />;
   if (error) return <WidgetError widget={widget} error={error} onRetry={handleRefresh} />;
