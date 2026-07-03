@@ -28,6 +28,7 @@ CREATE INDEX IF NOT EXISTS idx_cmd_exec_workspace
 CREATE TABLE IF NOT EXISTS {{RUNORY_RUNTIME_TABLE_PREFIX}}domain_events (
   id TEXT PRIMARY KEY,
   workspace_id TEXT NOT NULL,
+  -- Note: aggregate_type/aggregate_id serve as subject_type/subject_id per Spec §5.3
   aggregate_type TEXT NOT NULL,
   aggregate_id TEXT NOT NULL,
   event_type TEXT NOT NULL,
@@ -48,6 +49,7 @@ CREATE TABLE IF NOT EXISTS {{RUNORY_RUNTIME_TABLE_PREFIX}}outbox_messages (
   message_type TEXT NOT NULL,
   payload_json TEXT NOT NULL,
   status TEXT NOT NULL DEFAULT 'pending',
+  -- Note: attempts serves as retry_count per Spec §5.3
   attempts INTEGER NOT NULL DEFAULT 0,
   last_error TEXT,
   created_at TEXT NOT NULL,

@@ -45,7 +45,9 @@ import {
   returnWorkItem,
   cancelWorkItem,
   cancelWorkflow,
+  startWorkflowV2,
   type CommandActor,
+  type CommandHandlerResult,
 } from "@runory/platform-core";
 import { requireWorkspaceContext } from "@/lib/auth";
 import { successResponse, handleError, getOrCreateRequestId } from "@/lib/http";
@@ -105,6 +107,7 @@ const COMMAND_PERMISSIONS: Record<string, string> = {
 
   // Workflow / approval commands (§6.3)
   "approval.decide": "workflow.approval.decide",
+  "workflow.start": "workflow.manage",
   "workflow.cancel": "workflow.manage",
   "work_item.claim": "workflow.approval.decide",
   "work_item.release": "workflow.approval.decide",
@@ -121,6 +124,7 @@ const CREATE_COMMANDS = new Set([
   "form_submission.save_draft",
   "form_submission.submit",
   "quote.create_draft",
+  "workflow.start",
 ]);
 
 export async function POST(
@@ -488,6 +492,16 @@ export async function POST(
           (body.comment as string | null) ?? null,
           expectedVersion
         );
+        break;
+
+      case "workflow.start":
+        result = await startWorkflowV2(
+          workspaceId,
+          body.workflowKey as string,
+          body.subjectType as string,
+          body.subjectId as string,
+          actor
+        ) as unknown as CommandHandlerResult;
         break;
 
       case "workflow.cancel":

@@ -141,6 +141,7 @@ CREATE TABLE IF NOT EXISTS {{RUNORY_RUNTIME_TABLE_PREFIX}}workflow_timers (
   instance_id TEXT NOT NULL,
   work_item_id TEXT,
   timer_type TEXT NOT NULL,
+  -- Note: due_at serves as fire_at per Spec §5.1
   due_at TEXT NOT NULL,
   status TEXT NOT NULL DEFAULT 'scheduled',
   payload_json TEXT,
