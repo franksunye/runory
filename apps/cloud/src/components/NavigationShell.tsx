@@ -31,6 +31,7 @@ interface NavigationShellProps {
   navigation: NavigationItem[];
   packs: InstalledPackGroup[];
   modulePackMap: Record<string, string>;
+  modulePresentation?: Record<string, { visibility: string; surface?: string; audience?: string[] }>;
   workspaceId: string;
   workspaceName: string;
   role?: string;
@@ -204,6 +205,7 @@ export default function NavigationShell({
   navigation,
   packs,
   modulePackMap,
+  modulePresentation,
   workspaceId,
   workspaceName,
   role = "member",
@@ -275,11 +277,47 @@ export default function NavigationShell({
   };
 
   // ── Build navigation structure ──
+  // Filter navigation items based on presentation metadata before grouping.
+  // Items whose module declares a visibility other than "top_level" are
+  // hidden from the primary sidebar: "contextual" objects (service_visit,
+  // service_report) surface inside their parent record, "hidden" objects
+  // (quote-approval) never appear, and "management" objects are admin/owner
+  // only. When presentation data is missing (older installs) we fall back to
+  // showing everything for backward compatibility.
+  const isNavItemVisible = (item: NavigationItem): boolean => {
+    // If we don't have presentation data for this item's module, show it (backward compat)
+    if (!item.moduleId || !modulePresentation || !modulePresentation[item.moduleId]) {
+      return true;
+    }
+    const presentation = modulePresentation[item.moduleId];
+
+    // Hidden items never appear
+    if (presentation.visibility === "hidden") {
+      return false;
+    }
+
+    // Management items only for admin/owner
+    if (presentation.visibility === "management" && !canManage) {
+      return false;
+    }
+
+    // Contextual items don't appear in top-level navigation
+    if (presentation.visibility === "contextual") {
+      return false;
+    }
+
+    // top_level items are always visible (audience filtering is a future enhancement
+    // since we don't yet have permission group info in the client)
+    return true;
+  };
+
+  const visibleNavigation = navigation.filter(isNavItemVisible);
+
   // Group nav items by pack, preserving pack installation order.
   // Items without a pack mapping go into an "Other" group.
   const packGroups = packs.map((pack) => ({
     pack,
-    items: navigation
+    items: visibleNavigation
       .filter((item) => {
         const itemPackId = item.moduleId ? modulePackMap[item.moduleId] : undefined;
         return itemPackId === pack.packId;
@@ -288,7 +326,7 @@ export default function NavigationShell({
   }));
 
   // Items not associated with any installed pack
-  const ungroupedItems = navigation
+  const ungroupedItems = visibleNavigation
     .filter((item) => {
       const itemPackId = item.moduleId ? modulePackMap[item.moduleId] : undefined;
       return !itemPackId || !packs.some((p) => p.packId === itemPackId);

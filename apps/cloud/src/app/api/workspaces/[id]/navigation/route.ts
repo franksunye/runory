@@ -4,6 +4,7 @@ import {
   getInstallations,
   getInstalledPacks,
   loadPackManifest,
+  loadModuleManifest,
   type NavigationItem,
 } from "@runory/platform-core";
 import { requireWorkspaceContext } from "@/lib/auth";
@@ -22,6 +23,7 @@ interface NavigationResponse {
   items: NavigationItem[];
   packs: InstalledPackGroup[];
   modulePackMap: Record<string, string>;
+  modulePresentation: Record<string, { visibility: string; surface?: string; audience?: string[] }>;
 }
 
 export async function GET(
@@ -47,6 +49,24 @@ export async function GET(
       }
     }
 
+    // Build module → presentation map from module manifests so the client can
+    // filter navigation items by visibility / audience metadata (e.g. hide
+    // contextual objects like service_visit/report, and hidden objects like
+    // quote-approval, from the top-level sidebar).
+    const modulePresentation: Record<string, { visibility: string; surface?: string; audience?: string[] }> = {};
+    for (const inst of installations) {
+      if (inst.moduleId) {
+        try {
+          const manifest = loadModuleManifest(inst.moduleId);
+          if (manifest.presentation) {
+            modulePresentation[inst.moduleId] = manifest.presentation;
+          }
+        } catch {
+          // Manifest not found — skip
+        }
+      }
+    }
+
     // Enrich pack installations with display names from manifests
     const packs: InstalledPackGroup[] = [];
     for (const pi of packInstallations) {
@@ -69,7 +89,7 @@ export async function GET(
       }
     }
 
-    const response: NavigationResponse = { items: navigation, packs, modulePackMap };
+    const response: NavigationResponse = { items: navigation, packs, modulePackMap, modulePresentation };
     return successResponse(response, 200, ctx.requestId, METADATA_CACHE);
   } catch (e) {
     return handleError(e, requestId);

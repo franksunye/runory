@@ -19,6 +19,7 @@ interface NavigationApiResponse {
   items: NavigationItem[];
   packs: InstalledPackGroup[];
   modulePackMap: Record<string, string>;
+  modulePresentation?: Record<string, { visibility: string; surface?: string; audience?: string[] }>;
 }
 
 export default function WorkspaceLayout({
@@ -34,6 +35,7 @@ export default function WorkspaceLayout({
   const [navigation, setNavigation] = useState<NavigationItem[]>([]);
   const [packs, setPacks] = useState<InstalledPackGroup[]>([]);
   const [modulePackMap, setModulePackMap] = useState<Record<string, string>>({});
+  const [modulePresentation, setModulePresentation] = useState<Record<string, { visibility: string; surface?: string; audience?: string[] }>>({});
   const [workspaceName, setWorkspaceName] = useState("");
   const [organizationRole, setOrganizationRole] = useState<string | undefined>(undefined);
   const [loading, setLoading] = useState(true);
@@ -61,6 +63,7 @@ export default function WorkspaceLayout({
         setNavigation(data.items);
         setPacks(data.packs);
         setModulePackMap(data.modulePackMap);
+        setModulePresentation(data.modulePresentation ?? {});
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : t("workspace.loadFailed"));
@@ -107,6 +110,7 @@ export default function WorkspaceLayout({
       navigation={navigation}
       packs={packs}
       modulePackMap={modulePackMap}
+      modulePresentation={modulePresentation}
       workspaceId={workspaceRef}
       workspaceName={workspaceName}
       role={organizationRole}
