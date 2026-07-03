@@ -607,9 +607,9 @@ describe("Sales Quote demo journey (end-to-end trial flow)", () => {
       status: "draft",
       version: 1,
       currency: "CNY",
-      subtotal_amount: 25000,
-      tax_amount: 3000,
-      total_amount: 28000,
+      subtotal: 25000,
+      tax_total: 3000,
+      grand_total: 28000,
       valid_until: "2026-07-31",
       owner: "Alex",
       terms: "Payment terms: pay within 30 days",
@@ -647,7 +647,7 @@ describe("Sales Quote demo journey (end-to-end trial flow)", () => {
     const actor: CommandActor = { type: "user", id: "test-user" };
     const submitted = await submitForApproval(workspaceId, quote.id, actor, 1);
     expect(submitted.aggregate.status).toBe("in_review");
-    expect(submitted.aggregate.total_amount).toBe(28000);
+    expect(submitted.aggregate.grand_total).toBe(28000);
 
     // 6. Approve the quote (transitions status: in_review → approved)
     const approved = await approveQuote(workspaceId, quote.id, actor, 2);
@@ -676,12 +676,12 @@ describe("Sales Quote demo journey (end-to-end trial flow)", () => {
       where: "status = 'accepted'",
       orderBy: "created_at desc",
       limit: 5,
-      columns: ["quote_number", "title", "total_amount"],
+      columns: ["quote_number", "title", "grand_total"],
     });
     expect(recentAccepted.records).toBeDefined();
     expect(recentAccepted.records!.length).toBe(1);
     expect(recentAccepted.records![0].quote_number).toBe("Q-2026-NEW-001");
-    expect(recentAccepted.records![0].total_amount).toBe(28000);
+    expect(recentAccepted.records![0].grand_total).toBe(28000);
   });
 });
 

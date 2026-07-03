@@ -644,8 +644,9 @@ describe("FSM demo journey (end-to-end trial flow)", () => {
       {
         title: "Emergency visit",
         technicianId: tech.id,
-        scheduledStart: "2026-06-23",
-        scheduledEnd: "2026-06-23",
+        // Spec §5.5: schedule end_at MUST be after start_at (use a time window).
+        scheduledStart: "2026-06-23T09:00:00Z",
+        scheduledEnd: "2026-06-23T17:00:00Z",
         notes: "Emergency visit scheduled",
       }
     );

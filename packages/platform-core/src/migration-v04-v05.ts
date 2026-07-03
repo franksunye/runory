@@ -41,6 +41,16 @@ interface QuoteRow {
   aggregate_version: number;
 }
 
+// ── Migration Conflict (Spec §11) ──
+
+interface MigrationConflict {
+  quoteId: string;
+  type: "multiple_approvals" | "approval_state_conflict";
+  message: string;
+  approvalCount: number;
+  statuses?: string[];
+}
+
 // ── Quote-Approval Workflow Definition (matches quote-commands.ts) ──
 
 const QUOTE_APPROVAL_WORKFLOW_DEF = {
@@ -168,7 +178,8 @@ export async function inventoryWorkspace(workspaceId: string): Promise<{
  *   6. If the legacy approval was approved/rejected, create an approval
  *      decision via `approvalDecide` and update the quote status accordingly.
  *
- * Returns counts of migrated and skipped records plus any errors encountered.
+ * Returns counts of migrated and skipped records, any errors encountered, and a
+ * `conflicts` list for quotes with multiple legacy approvals (Spec §11).
  */
 export async function migrateQuoteApprovals(
   workspaceId: string,
@@ -177,11 +188,16 @@ export async function migrateQuoteApprovals(
   migrated: number;
   skipped: number;
   errors: string[];
+  conflicts: MigrationConflict[];
 }> {
   const errors: string[] = [];
   let migrated = 0;
   let skipped = 0;
+  const conflicts: MigrationConflict[] = [];
 
+  // Spec §11: missing user identity → map to the migration (legacy) actor.
+  // Legacy approvals whose requested_by/reviewed_by are null are migrated
+  // under this actor so the workflow history remains attributable.
   const actor: CommandActor = { id: actorId, type: "user" };
 
   // Query all quote_approval records (if the table exists)
@@ -193,7 +209,26 @@ export async function migrateQuoteApprovals(
     );
   } catch {
     // Table does not exist — nothing to migrate
-    return { migrated: 0, skipped: 0, errors: [] };
+    return { migrated: 0, skipped: 0, errors: [], conflicts: [] };
+  }
+
+  // Spec §11 mapping rules: pre-compute per-quote approval counts and statuses
+  // to detect (a) multiple approvals for one quote and (b) status disagreement.
+  const seenQuoteIds = new Set<string>();        // quotes already migrated this run
+  const conflictRecorded = new Set<string>();    // quotes already added to conflicts[]
+  const approvalCountByQuote = new Map<string, number>();
+  const statusesByQuote = new Map<string, Set<string>>();
+  for (const a of approvals) {
+    approvalCountByQuote.set(
+      a.quote_id,
+      (approvalCountByQuote.get(a.quote_id) ?? 0) + 1
+    );
+    let statuses = statusesByQuote.get(a.quote_id);
+    if (!statuses) {
+      statuses = new Set();
+      statusesByQuote.set(a.quote_id, statuses);
+    }
+    statuses.add(a.status);
   }
 
   for (const approval of approvals) {
@@ -212,6 +247,45 @@ export async function migrateQuoteApprovals(
         continue;
       }
 
+      // Spec §11: skip duplicate approvals for a quote already processed this run.
+      if (seenQuoteIds.has(approval.quote_id)) {
+        errors.push(
+          `Duplicate approval ${approval.id} for quote ${approval.quote_id} skipped (conflict flagged)`
+        );
+        skipped++;
+        continue;
+      }
+
+      // Spec §11: record conflicts once per quote with multiple approval records.
+      // Surfaced before the idempotency check so conflicts are still flagged when
+      // a workflow instance already exists from a prior migration run.
+      const approvalCount = approvalCountByQuote.get(approval.quote_id) ?? 1;
+      const statuses = statusesByQuote.get(approval.quote_id);
+      if (approvalCount > 1 && !conflictRecorded.has(approval.quote_id)) {
+        conflictRecorded.add(approval.quote_id);
+        if (statuses && statuses.size > 1) {
+          conflicts.push({
+            quoteId: approval.quote_id,
+            type: "approval_state_conflict",
+            message:
+              `APPROVAL_STATE_CONFLICT: Quote ${approval.quote_id} has ` +
+              `${approvalCount} approvals with conflicting statuses: ` +
+              `${[...statuses].join(", ")}`,
+            approvalCount,
+            statuses: [...statuses],
+          });
+        } else {
+          conflicts.push({
+            quoteId: approval.quote_id,
+            type: "multiple_approvals",
+            message:
+              `Quote ${approval.quote_id} has ${approvalCount} approval ` +
+              `records; migrating only the first, additional approvals skipped`,
+            approvalCount,
+          });
+        }
+      }
+
       // Idempotency: check if a workflow instance already exists for this quote
       const existingInstance = await queryOne<{ id: string }>(
         `SELECT id FROM ${TABLES.workflowInstancesV2}
@@ -220,6 +294,7 @@ export async function migrateQuoteApprovals(
       );
 
       if (existingInstance) {
+        seenQuoteIds.add(approval.quote_id);
         skipped++;
         continue;
       }
@@ -308,6 +383,7 @@ export async function migrateQuoteApprovals(
       // For 'cancelled' approvals, the workflow is started but no decision is made.
 
       migrated++;
+      seenQuoteIds.add(approval.quote_id);
     } catch (e) {
       errors.push(
         `Failed to migrate approval ${approval.id}: ${(e as Error).message}`
@@ -315,7 +391,7 @@ export async function migrateQuoteApprovals(
     }
   }
 
-  return { migrated, skipped, errors };
+  return { migrated, skipped, errors, conflicts };
 }
 
 // ── Enable Guards ──

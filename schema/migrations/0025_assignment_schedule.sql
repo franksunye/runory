@@ -64,7 +64,9 @@ CREATE TABLE IF NOT EXISTS {{RUNORY_RUNTIME_TABLE_PREFIX}}schedule_entries (
   version INTEGER NOT NULL DEFAULT 1,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL,
-  UNIQUE(workspace_id, id)
+  UNIQUE(workspace_id, id),
+  -- v0.5 Spec §5.5: end_at MUST be after start_at
+  CHECK(end_at > start_at)
 );
 CREATE INDEX IF NOT EXISTS idx_schedule_entries_workspace ON {{RUNORY_RUNTIME_TABLE_PREFIX}}schedule_entries(workspace_id);
 CREATE INDEX IF NOT EXISTS idx_schedule_entries_resource ON {{RUNORY_RUNTIME_TABLE_PREFIX}}schedule_entries(workspace_id, resource_id);

@@ -105,9 +105,9 @@ views:
 
 permissions:
   - form.read
-  - form.create
-  - form.update
-  - form.delete
+  - form.manage
+  - form.submit
+  - form.review
 
 # ── Cross-Pack Relations (v0.2.6) ──
 relations:

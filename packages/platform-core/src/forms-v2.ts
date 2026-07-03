@@ -486,6 +486,120 @@ export async function submitForm(
   return { submissionId, revisionNumber };
 }
 
+// ── saveFormDraft ──
+
+/**
+ * form_submission.save_draft — create or update a draft form submission.
+ *
+ * If a draft submission already exists for the same form definition + subject +
+ * submitter, its answers are updated in place (so the draft is reused rather
+ * than duplicated). Otherwise a new submission is created with status='draft'.
+ *
+ * Drafts are NOT validated against the form schema — they may be incomplete.
+ */
+export async function saveFormDraft(
+  workspaceId: string,
+  params: {
+    formDefinitionId: string;
+    subjectType?: string;
+    subjectId?: string;
+    workItemId?: string;
+    bindingId?: string;
+    answers: Record<string, unknown>;
+    submittedBy: string;
+  }
+): Promise<{ submissionId: string }> {
+  if (!params.formDefinitionId) {
+    throw new InvalidInputError("formDefinitionId is required");
+  }
+  if (!params.answers || typeof params.answers !== "object") {
+    throw new InvalidInputError("answers is required");
+  }
+
+  const ts = now();
+
+  // Look for an existing draft for the same form + subject + submitter.
+  // Uses NULL-safe `IS` comparison so a NULL subject_type/subject_id matches
+  // another NULL (the standard `=` operator would not match NULLs).
+  const existing = await queryOne<Pick<FormSubmissionRow, "id">>(
+    `SELECT id FROM ${TABLES.formSubmissions}
+     WHERE workspace_id = ? AND form_definition_id = ? AND status = 'draft'
+       AND submitted_by = ?
+       AND subject_type IS ?
+       AND subject_id IS ?
+     ORDER BY created_at DESC
+     LIMIT 1`,
+    [
+      workspaceId,
+      params.formDefinitionId,
+      params.submittedBy,
+      params.subjectType ?? null,
+      params.subjectId ?? null,
+    ]
+  );
+
+  if (existing) {
+    // Update the existing draft's answers in place
+    await execute(
+      `UPDATE ${TABLES.formSubmissions}
+       SET answers_json = ?, updated_at = ?
+       WHERE id = ? AND workspace_id = ?`,
+      [JSON.stringify(params.answers), ts, existing.id, workspaceId]
+    );
+    return { submissionId: existing.id };
+  }
+
+  // No existing draft — resolve the active form definition version
+  const def = await queryOne<
+    Pick<FormDefinitionRow, "id" | "active_version_id">
+  >(
+    `SELECT id, active_version_id FROM ${TABLES.formDefinitions}
+     WHERE workspace_id = ? AND id = ?`,
+    [workspaceId, params.formDefinitionId]
+  );
+  if (!def) {
+    throw new NotFoundError(
+      `Form definition not found: ${params.formDefinitionId}`
+    );
+  }
+  if (!def.active_version_id) {
+    throw new BusinessError(
+      ERROR_CODES.INVALID_INPUT,
+      `Form definition ${params.formDefinitionId} has no published version`,
+      400
+    );
+  }
+
+  // Create a new draft submission. submitted_at is NULL until the draft is
+  // formally submitted via submitForm.
+  const submissionId = genId("fsub");
+
+  await execute(
+    `INSERT INTO ${TABLES.formSubmissions}
+     (id, workspace_id, form_definition_id, form_version_id, binding_id,
+      subject_type, subject_id, work_item_id, revision_number, status,
+      answers_json, submitted_by, submitted_at, accepted_by, accepted_at,
+      return_reason, supersedes_submission_id, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, 'draft', ?, ?, NULL, NULL, NULL, NULL, NULL, ?, ?)`,
+    [
+      submissionId,
+      workspaceId,
+      params.formDefinitionId,
+      def.active_version_id,
+      params.bindingId ?? null,
+      params.subjectType ?? null,
+      params.subjectId ?? null,
+      params.workItemId ?? null,
+      JSON.stringify(params.answers),
+      params.submittedBy,
+      ts,
+      ts,
+    ]
+  );
+
+  return { submissionId };
+}
+
 // ── returnFormSubmission ──
 
 /**

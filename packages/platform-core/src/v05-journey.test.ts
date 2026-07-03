@@ -273,20 +273,20 @@ describe("v0.5 Commercial FSM Journey", () => {
     expect(quoteVersion).toBe(2);
 
     const updatedQuote = await queryOne<{
-      subtotal_amount: number | null;
-      discount_amount: number | null;
-      tax_amount: number | null;
-      total_amount: number | null;
+      subtotal: number | null;
+      discount_total: number | null;
+      tax_total: number | null;
+      grand_total: number | null;
     }>(
-      `SELECT subtotal_amount, discount_amount, tax_amount, total_amount
+      `SELECT subtotal, discount_total, tax_total, grand_total
        FROM ${businessTable("quote")}
        WHERE workspace_id = ? AND id = ?`,
       [workspaceId, quoteId],
     );
-    expect(updatedQuote!.subtotal_amount).toBe(8000);
-    expect(updatedQuote!.discount_amount).toBe(600);
-    expect(updatedQuote!.tax_amount).toBe(840);
-    expect(updatedQuote!.total_amount).toBe(8240);
+    expect(updatedQuote!.subtotal).toBe(8000);
+    expect(updatedQuote!.discount_total).toBe(600);
+    expect(updatedQuote!.tax_total).toBe(840);
+    expect(updatedQuote!.grand_total).toBe(8240);
   });
 
   // ── Test 3: Submit quote for approval ──

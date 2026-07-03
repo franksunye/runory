@@ -121,9 +121,7 @@ views:
 
 permissions:
   - service_visit.read
-  - service_visit.create
-  - service_visit.update
-  - service_visit.delete
+  - visit.execute
 
 # ── Cross-Pack Relations (v0.2.4) ──
 relations:

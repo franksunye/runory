@@ -21,6 +21,7 @@ import {
   type CommandEnvelope,
   type CommandActor,
   type CommandHandlerResult,
+  type CommandResult,
 } from "./command-runtime";
 import { startWorkflowV2, publishWorkflowDefinition } from "./workflow-v2";
 
@@ -43,10 +44,10 @@ export interface QuoteRecord {
   deal_id: string | null;
   work_order_id: string | null;
   currency: string;
-  subtotal_amount: number | null;
-  discount_amount: number | null;
-  tax_amount: number | null;
-  total_amount: number | null;
+  subtotal: number | null;
+  discount_total: number | null;
+  tax_total: number | null;
+  grand_total: number | null;
   valid_until: string | null;
   owner: string | null;
   terms: string | null;
@@ -86,7 +87,7 @@ function computeSnapshotHash(quote: QuoteRecord, lines: Array<Record<string, unk
     quote_number: quote.quote_number,
     status: quote.status,
     currency: quote.currency,
-    total_amount: quote.total_amount,
+    grand_total: quote.grand_total,
     lines: lines.map(l => ({
       description: l.description,
       quantity: l.quantity,
@@ -939,7 +940,7 @@ export async function createRevision(
           sql: `INSERT INTO ${businessTable("quote")}
                 (id, workspace_id, quote_number, title, status, version, aggregate_version,
                  company_id, contact_id, deal_id, work_order_id, service_site_id, asset_id,
-                 currency, subtotal_amount, discount_amount, tax_amount, total_amount,
+                 currency, subtotal, discount_total, tax_total, grand_total,
                  valid_until, owner, terms, notes,
                  root_quote_id, previous_version_id, revision_number,
                  price_book_id, approved_at, accepted_at, rejected_reason, withdrawn_at,
@@ -1168,6 +1169,106 @@ export async function convertToWorkOrder(
         newVersion: quote.aggregate_version + 1,
         workItemIds: [],
       } as CommandHandlerResult<QuoteRecord>;
+    }
+  );
+}
+
+/**
+ * quote.create_draft
+ * Create a new draft quote. Generates a quote_number and persists a quote record
+ * with status='draft', aggregate_version=1. Uses executeCommand for idempotency.
+ *
+ * Per v0.5 Spec §6.1 quote.create_draft.
+ */
+export async function createQuoteDraft(
+  workspaceId: string,
+  params: {
+    title?: string;
+    dealId?: string;
+    companyId?: string;
+    contactId?: string;
+    currency?: string;
+    priceBookId?: string;
+  },
+  actor: CommandActor,
+  commandId?: string
+): Promise<CommandResult<Partial<QuoteRecord>>> {
+  const quoteId = genId("quote");
+  const quoteNumber = `Q-${Date.now().toString(36).toUpperCase()}`;
+  const ts = now();
+
+  return executeCommand<Partial<QuoteRecord>>(
+    {
+      commandId: commandId ?? genId("cmd"),
+      workspaceId,
+      commandType: "quote.create_draft",
+      aggregateType: "quote",
+      aggregateId: quoteId,
+      expectedVersion: null, // create new aggregate
+      actor,
+      input: { ...params },
+      occurredAt: ts,
+    },
+    async () => {
+      const statements: Array<{ sql: string; args?: unknown[] }> = [
+        {
+          sql: `INSERT INTO ${businessTable("quote")}
+                (id, workspace_id, quote_number, title, status, version, aggregate_version,
+                 company_id, contact_id, deal_id, currency, price_book_id,
+                 revision_number, created_at, updated_at)
+                VALUES (?, ?, ?, ?, 'draft', 1, 1, ?, ?, ?, ?, ?, 1, ?, ?)`,
+          args: [
+            quoteId,
+            workspaceId,
+            quoteNumber,
+            params.title ?? "",
+            params.companyId ?? null,
+            params.contactId ?? null,
+            params.dealId ?? null,
+            params.currency ?? "CNY",
+            params.priceBookId ?? null,
+            ts,
+            ts,
+          ],
+        },
+      ];
+
+      const aggregate: Partial<QuoteRecord> = {
+        id: quoteId,
+        workspace_id: workspaceId,
+        quote_number: quoteNumber,
+        title: params.title ?? "",
+        status: "draft",
+        version: 1,
+        aggregate_version: 1,
+        company_id: params.companyId ?? null,
+        contact_id: params.contactId ?? null,
+        deal_id: params.dealId ?? null,
+        currency: params.currency ?? "CNY",
+        price_book_id: params.priceBookId ?? null,
+        revision_number: 1,
+        created_at: ts,
+        updated_at: ts,
+      };
+
+      return {
+        statements,
+        events: [{
+          aggregateType: "quote",
+          aggregateId: quoteId,
+          eventType: "quote.draft_created",
+          payload: { quoteId, quoteNumber },
+        }],
+        audit: {
+          action: "quote.create_draft",
+          entityType: "quote",
+          entityId: quoteId,
+          before: null,
+          after: { status: "draft", quoteNumber },
+        },
+        aggregate,
+        newVersion: 1,
+      } as CommandHandlerResult<Partial<QuoteRecord>>;
     }
   );
 }

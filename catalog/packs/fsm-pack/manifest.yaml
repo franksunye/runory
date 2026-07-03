@@ -37,7 +37,7 @@ permissionGroups:
   - key: dispatcher
     label: "Dispatcher"
     description: "Can triage work orders and manage assignments and schedules"
-    permissions: ["work_order.read", "work_order.triage", "assignment.manage", "schedule.manage"]
+    permissions: ["work_order.read", "work_order.triage", "assignment.manage", "schedule.manage", "schedule.conflict.override"]
   - key: field_technician
     label: "Field Technician"
     description: "Can execute assigned visits and submit forms"

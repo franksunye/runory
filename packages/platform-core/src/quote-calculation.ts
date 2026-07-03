@@ -2,7 +2,7 @@
 //
 // Per v0.5 Commercial FSM Technical Specification §5.6:
 // Quote totals are calculated server-side from quote lines and price/tax/discount policy.
-// The legacy editable subtotal_amount/discount_amount/tax_amount/total_amount are replaced
+// The legacy editable subtotal/discount_total/tax_total/grand_total are replaced
 // by governed fields that can only be set through quote.recalculate command.
 
 import { queryAll, queryOne, execute, now } from "./db";
@@ -75,7 +75,7 @@ export async function recalculateQuote(
   
   await execute(
     `UPDATE ${businessTable("quote")}
-     SET subtotal_amount = ?, discount_amount = ?, tax_amount = ?, total_amount = ?, updated_at = ?
+     SET subtotal = ?, discount_total = ?, tax_total = ?, grand_total = ?, updated_at = ?
      WHERE workspace_id = ? AND id = ?`,
     [totals.subtotal, totals.discountTotal, totals.taxTotal, totals.grandTotal, now(), workspaceId, quoteId]
   );

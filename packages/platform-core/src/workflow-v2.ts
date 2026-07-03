@@ -734,6 +734,304 @@ export async function claimWorkItem(
   }
 }
 
+// ── Release Work Item ──
+
+/**
+ * Release a claimed (active) work item back to the 'ready' pool so that
+ * another actor may claim it. Clears claimed_by / claimed_at.
+ *
+ * Per v0.5 Spec §6.3 work_item.release: the work item must currently be in
+ * the 'active' (claimed) state.
+ */
+export async function releaseWorkItem(
+  workspaceId: string,
+  workItemId: string,
+  actor: CommandActor,
+  expectedVersion: number
+): Promise<void> {
+  const ts = now();
+
+  const workItem = await queryOne<WorkItemRow>(
+    `SELECT * FROM ${TABLES.workItems} WHERE workspace_id = ? AND id = ?`,
+    [workspaceId, workItemId]
+  );
+
+  if (!workItem) {
+    throw new NotFoundError(`Work item not found: ${workItemId}`);
+  }
+
+  checkOptimisticLock(workItem.version, expectedVersion);
+
+  if (workItem.status !== "active") {
+    throw new BusinessError(
+      ERROR_CODES.WORK_ITEM_NOT_ACTIONABLE,
+      `WORK_ITEM_NOT_ACTIONABLE: Work item ${workItemId} is in status '${workItem.status}', expected 'active' (claimed)`,
+      409
+    );
+  }
+
+  const lastEvent = await queryOne<{ max_seq: number }>(
+    `SELECT MAX(sequence) as max_seq FROM ${TABLES.workflowEvents}
+     WHERE instance_id = ?`,
+    [workItem.instance_id]
+  );
+  const nextSeq = (lastEvent?.max_seq ?? 0) + 1;
+
+  await batch([
+    // Release back to ready, clear claim metadata
+    {
+      sql: `UPDATE ${TABLES.workItems}
+            SET status = 'ready', claimed_by = NULL, claimed_at = NULL,
+                version = version + 1, updated_at = ?
+            WHERE id = ? AND version = ?`,
+      args: [ts, workItemId, expectedVersion],
+    },
+    // Write workflow event
+    {
+      sql: `INSERT INTO ${TABLES.workflowEvents}
+            (id, workspace_id, instance_id, sequence, event_type, step_id,
+             actor_type, actor_id, payload_json, occurred_at)
+            VALUES (?, ?, ?, ?, 'workflow.work_released', ?, ?, ?, ?, ?)`,
+      args: [genId("wfe"), workspaceId, workItem.instance_id, nextSeq, workItem.step_id,
+             actor.type, actor.id, JSON.stringify({}), ts],
+    },
+  ]);
+}
+
+// ── Complete Work Item ──
+
+/**
+ * Complete a non-approval work item (kind 'human_task') and advance the
+ * workflow to the next step.
+ *
+ * Per v0.5 Spec §6.3 work_item.complete: the work item must be in 'active'
+ * (claimed) or 'ready' status. Approval work items must use approvalDecide
+ * instead. Optional `formData` is recorded on the completion event.
+ */
+export async function completeWorkItem(
+  workspaceId: string,
+  workItemId: string,
+  actor: CommandActor,
+  expectedVersion: number,
+  formData?: Record<string, unknown>
+): Promise<void> {
+  const ts = now();
+
+  const workItem = await queryOne<WorkItemRow>(
+    `SELECT * FROM ${TABLES.workItems} WHERE workspace_id = ? AND id = ?`,
+    [workspaceId, workItemId]
+  );
+
+  if (!workItem) {
+    throw new NotFoundError(`Work item not found: ${workItemId}`);
+  }
+
+  checkOptimisticLock(workItem.version, expectedVersion);
+
+  // Approval work items are completed via approvalDecide, not here
+  if (workItem.kind === "approval") {
+    throw new BusinessError(
+      ERROR_CODES.WORK_ITEM_NOT_ACTIONABLE,
+      `WORK_ITEM_NOT_ACTIONABLE: Work item ${workItemId} is of kind 'approval'; use approval.decide instead`,
+      409
+    );
+  }
+
+  if (workItem.status !== "active" && workItem.status !== "ready") {
+    throw new BusinessError(
+      ERROR_CODES.WORK_ITEM_NOT_ACTIONABLE,
+      `WORK_ITEM_NOT_ACTIONABLE: Work item ${workItemId} is in status '${workItem.status}', expected 'active' or 'ready'`,
+      409
+    );
+  }
+
+  // Read the instance to get the definition version
+  const instance = await queryOne<WorkflowInstanceRow>(
+    `SELECT * FROM ${TABLES.workflowInstancesV2} WHERE workspace_id = ? AND id = ?`,
+    [workspaceId, workItem.instance_id]
+  );
+
+  if (!instance) {
+    throw new NotFoundError(`Workflow instance not found: ${workItem.instance_id}`);
+  }
+
+  const versionRow = await queryOne<{ definition_json: string }>(
+    `SELECT definition_json FROM ${TABLES.workflowDefinitionVersions} WHERE id = ?`,
+    [instance.definition_version_id]
+  );
+
+  if (!versionRow) {
+    throw new NotFoundError(`Workflow definition version not found`);
+  }
+
+  const wfDef = JSON.parse(versionRow.definition_json) as WorkflowDefinition;
+  const currentStep = wfDef.steps.find(s => s.id === workItem.step_id);
+
+  if (!currentStep) {
+    throw new InvalidInputError(`Step ${workItem.step_id} not found in workflow definition`);
+  }
+
+  // Determine next step
+  const nextStepId = currentStep.next ?? null;
+
+  // Get current event sequence
+  const lastEvent = await queryOne<{ max_seq: number }>(
+    `SELECT MAX(sequence) as max_seq FROM ${TABLES.workflowEvents}
+     WHERE instance_id = ?`,
+    [workItem.instance_id]
+  );
+  const nextSeq = (lastEvent?.max_seq ?? 0) + 1;
+
+  const statements: Array<{ sql: string; args?: unknown[] }> = [
+    // Mark work item as completed
+    {
+      sql: `UPDATE ${TABLES.workItems}
+            SET status = 'completed', completed_at = ?, version = version + 1, updated_at = ?
+            WHERE id = ? AND version = ?`,
+      args: [ts, ts, workItemId, expectedVersion],
+    },
+    // Write workflow event
+    {
+      sql: `INSERT INTO ${TABLES.workflowEvents}
+            (id, workspace_id, instance_id, sequence, event_type, step_id,
+             actor_type, actor_id, payload_json, occurred_at)
+            VALUES (?, ?, ?, ?, 'workflow.work_completed', ?, ?, ?, ?, ?)`,
+      args: [genId("wfe"), workspaceId, workItem.instance_id, nextSeq, workItem.step_id,
+             actor.type, actor.id, JSON.stringify({ formData: formData ?? null }), ts],
+    },
+  ];
+
+  // Advance the workflow to the next step
+  if (nextStepId) {
+    const nextStep = wfDef.steps.find(s => s.id === nextStepId);
+    if (nextStep) {
+      statements.push({
+        sql: `UPDATE ${TABLES.workflowInstancesV2}
+              SET current_step_id = ?, version = version + 1, updated_at = ?
+              WHERE id = ?`,
+        args: [nextStepId, ts, instance.id],
+      });
+
+      // Create work item for next step if it's an approval or human_task
+      if (nextStep.kind === "approval" || nextStep.kind === "human_task") {
+        const newWorkItemId = genId("wi");
+        const assigneeRule = nextStep.assigneeRule;
+        const stepDueAt = resolveStepDueAt(nextStep, ts);
+        statements.push({
+          sql: `INSERT INTO ${TABLES.workItems}
+                (id, workspace_id, instance_id, step_id, kind, status,
+                 subject_type, subject_id, assignee_type, assignee_id,
+                 candidate_rule_json, form_binding_id, due_at, version, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, 'ready', ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`,
+          args: [newWorkItemId, workspaceId, workItem.instance_id, nextStepId, nextStep.kind,
+                 workItem.subject_type, workItem.subject_id,
+                 assigneeRule?.permissionGroup ? "permission_group" : (assigneeRule?.userId ? "user" : null),
+                 assigneeRule?.permissionGroup ?? assigneeRule?.userId ?? null,
+                 assigneeRule ? JSON.stringify(assigneeRule) : null,
+                 nextStep.formBindingId ?? null,
+                 stepDueAt,
+                 ts, ts],
+        });
+
+        // Create SLA timer if the next step declares a due_at / sla
+        if (stepDueAt) {
+          statements.push({
+            sql: `INSERT INTO ${TABLES.workflowTimers}
+                  (id, workspace_id, instance_id, work_item_id, timer_type,
+                   due_at, status, payload_json, created_at, updated_at)
+                  VALUES (?, ?, ?, ?, 'sla', ?, 'active', NULL, ?, ?)`,
+            args: [genId("wft"), workspaceId, workItem.instance_id, newWorkItemId, stepDueAt, ts, ts],
+          });
+        }
+      }
+
+      // If next step is 'end', complete the instance
+      if (nextStep.kind === "end") {
+        statements.push({
+          sql: `UPDATE ${TABLES.workflowInstancesV2}
+                SET status = 'completed', completed_at = ?, version = version + 1, updated_at = ?
+                WHERE id = ?`,
+          args: [ts, ts, instance.id],
+        });
+      }
+    }
+  } else if (currentStep.kind === "end") {
+    // No next step and current step is end — complete the instance
+    statements.push({
+      sql: `UPDATE ${TABLES.workflowInstancesV2}
+            SET status = 'completed', completed_at = ?, version = version + 1, updated_at = ?
+            WHERE id = ?`,
+      args: [ts, ts, instance.id],
+    });
+  }
+
+  await batch(statements);
+}
+
+// ── Cancel Work Item ──
+
+/**
+ * Cancel a work item that is not yet in a terminal state.
+ *
+ * Per v0.5 Spec §6.3 work_item.cancel: only actionable work items (those in
+ * 'ready', 'active', or 'returned' status) may be cancelled. An optional
+ * reason may be recorded on the workflow event.
+ */
+export async function cancelWorkItem(
+  workspaceId: string,
+  workItemId: string,
+  actor: CommandActor,
+  expectedVersion: number,
+  reason?: string
+): Promise<void> {
+  const ts = now();
+
+  const workItem = await queryOne<WorkItemRow>(
+    `SELECT * FROM ${TABLES.workItems} WHERE workspace_id = ? AND id = ?`,
+    [workspaceId, workItemId]
+  );
+
+  if (!workItem) {
+    throw new NotFoundError(`Work item not found: ${workItemId}`);
+  }
+
+  checkOptimisticLock(workItem.version, expectedVersion);
+
+  if (workItem.status === "completed" || workItem.status === "cancelled") {
+    throw new BusinessError(
+      ERROR_CODES.WORK_ITEM_NOT_ACTIONABLE,
+      `WORK_ITEM_NOT_ACTIONABLE: Work item ${workItemId} is in status '${workItem.status}' and cannot be cancelled`,
+      409
+    );
+  }
+
+  const lastEvent = await queryOne<{ max_seq: number }>(
+    `SELECT MAX(sequence) as max_seq FROM ${TABLES.workflowEvents}
+     WHERE instance_id = ?`,
+    [workItem.instance_id]
+  );
+  const nextSeq = (lastEvent?.max_seq ?? 0) + 1;
+
+  await batch([
+    // Mark work item as cancelled
+    {
+      sql: `UPDATE ${TABLES.workItems}
+            SET status = 'cancelled', version = version + 1, updated_at = ?
+            WHERE id = ? AND version = ?`,
+      args: [ts, workItemId, expectedVersion],
+    },
+    // Write workflow event
+    {
+      sql: `INSERT INTO ${TABLES.workflowEvents}
+            (id, workspace_id, instance_id, sequence, event_type, step_id,
+             actor_type, actor_id, payload_json, occurred_at)
+            VALUES (?, ?, ?, ?, 'workflow.work_cancelled', ?, ?, ?, ?, ?)`,
+      args: [genId("wfe"), workspaceId, workItem.instance_id, nextSeq, workItem.step_id,
+             actor.type, actor.id, JSON.stringify({ reason: reason ?? null }), ts],
+    },
+  ]);
+}
+
 // ── SLA Timers (v0.5 Phase 5) ──
 //
 // Per v0.5 Commercial FSM Technical Specification: work items may carry an SLA

@@ -100,6 +100,58 @@ export async function getPendingOutboxMessages(
 }
 
 /**
+ * Get outbox messages with optional status filter (for diagnostics).
+ *
+ * Unlike getPendingOutboxMessages (which only returns 'pending' messages),
+ * this function supports filtering by any status ('pending', 'delivered',
+ * 'failed') or returning all messages when no status is supplied. Results are
+ * ordered oldest-first. Per Spec §5.3, diagnostics MUST expose pending/failed
+ * outbox messages.
+ */
+export async function getOutboxMessages(
+  workspaceId: string,
+  filters?: { status?: string; limit?: number }
+): Promise<Record<string, unknown>[]> {
+  const limit = filters?.limit ?? 50;
+  const status = filters?.status;
+
+  const sql = status
+    ? `SELECT * FROM ${TABLES.outboxMessages}
+       WHERE workspace_id = ? AND status = ?
+       ORDER BY created_at ASC LIMIT ?`
+    : `SELECT * FROM ${TABLES.outboxMessages}
+       WHERE workspace_id = ?
+       ORDER BY created_at ASC LIMIT ?`;
+  const args: unknown[] = status
+    ? [workspaceId, status, limit]
+    : [workspaceId, limit];
+
+  const rows = await queryAll<{
+    id: string;
+    workspace_id: string;
+    message_type: string;
+    payload_json: string;
+    status: string;
+    attempts: number;
+    last_error: string | null;
+    created_at: string;
+    delivered_at: string | null;
+  }>(sql, args);
+
+  return rows.map(r => ({
+    id: r.id,
+    workspaceId: r.workspace_id,
+    messageType: r.message_type,
+    payload: JSON.parse(r.payload_json),
+    status: r.status,
+    attempts: r.attempts,
+    lastError: r.last_error,
+    createdAt: r.created_at,
+    deliveredAt: r.delivered_at,
+  }));
+}
+
+/**
  * Mark an outbox message as delivered.
  */
 export async function markOutboxDelivered(messageId: string): Promise<void> {

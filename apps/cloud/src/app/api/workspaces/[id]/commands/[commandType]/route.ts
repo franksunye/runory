@@ -12,6 +12,7 @@ import {
   recalculateQuoteCommand,
   createRevision,
   convertToWorkOrder,
+  createQuoteDraft,
   triageWorkOrder,
   createVisit,
   blockWorkOrder,
@@ -24,6 +25,26 @@ import {
   submitWork,
   completeVisit,
   cancelVisit,
+  proposeAssignment,
+  assignAssignment,
+  acceptAssignment,
+  rejectAssignment,
+  reassignAssignment,
+  releaseAssignment,
+  planSchedule,
+  rescheduleSchedule,
+  cancelSchedule,
+  submitForm,
+  saveFormDraft,
+  returnFormSubmission,
+  acceptFormSubmission,
+  approvalDecide,
+  claimWorkItem,
+  releaseWorkItem,
+  completeWorkItem,
+  returnWorkItem,
+  cancelWorkItem,
+  cancelWorkflow,
   type CommandActor,
 } from "@runory/platform-core";
 import { requireWorkspaceContext } from "@/lib/auth";
@@ -45,14 +66,15 @@ const COMMAND_PERMISSIONS: Record<string, string> = {
   "quote.recalculate": "quote.submit",
   "quote.create_revision": "quote.submit",
   "quote.convert_to_work_order": "quote.convert",
+  "quote.create_draft": "quote.create",
 
   // Work Order FSM commands
   "work_order.triage": "work_order.triage",
-  "work_order.create_visit": "work_order.update",
-  "work_order.block": "work_order.update",
-  "work_order.unblock": "work_order.update",
+  "work_order.create_visit": "work_order.triage",
+  "work_order.block": "work_order.triage",
+  "work_order.unblock": "work_order.triage",
   "work_order.complete": "work_order.complete",
-  "work_order.cancel": "work_order.update",
+  "work_order.cancel": "work_order.triage",
   "work_order.reopen": "work_order.reopen",
 
   // Service Visit FSM commands
@@ -61,7 +83,45 @@ const COMMAND_PERMISSIONS: Record<string, string> = {
   "visit.submit_work": "visit.execute",
   "visit.complete": "visit.execute",
   "visit.cancel": "visit.execute",
+
+  // Assignment commands (§6.2)
+  "assignment.propose": "assignment.manage",
+  "assignment.assign": "assignment.manage",
+  "assignment.accept": "assignment.respond",
+  "assignment.reject": "assignment.respond",
+  "assignment.reassign": "assignment.manage",
+  "assignment.release": "assignment.manage",
+
+  // Schedule commands (§6.2)
+  "schedule.plan": "schedule.manage",
+  "schedule.reschedule": "schedule.manage",
+  "schedule.cancel": "schedule.manage",
+
+  // Form submission commands (§6.2)
+  "form_submission.save_draft": "form.submit",
+  "form_submission.submit": "form.submit",
+  "form_submission.return": "form.review",
+  "form_submission.accept": "form.review",
+
+  // Workflow / approval commands (§6.3)
+  "approval.decide": "workflow.approval.decide",
+  "workflow.cancel": "workflow.manage",
+  "work_item.claim": "workflow.approval.decide",
+  "work_item.release": "workflow.approval.decide",
+  "work_item.complete": "workflow.approval.decide",
+  "work_item.return": "workflow.approval.decide",
+  "work_item.cancel": "workflow.approval.decide",
 };
+
+// Commands that create a brand-new aggregate and therefore do NOT require an
+// `aggregateId` in the request body (they take their inputs as body fields).
+const CREATE_COMMANDS = new Set([
+  "assignment.propose",
+  "schedule.plan",
+  "form_submission.save_draft",
+  "form_submission.submit",
+  "quote.create_draft",
+]);
 
 export async function POST(
   request: NextRequest,
@@ -85,7 +145,8 @@ export async function POST(
       [key: string]: unknown;
     };
 
-    if (!body?.aggregateId) {
+    // Create commands take their inputs as body fields, not an aggregateId.
+    if (!CREATE_COMMANDS.has(commandType) && !body?.aggregateId) {
       return handleError(new Error("aggregateId is required"), requestId);
     }
 
@@ -273,6 +334,216 @@ export async function POST(
           expectedVersion,
           body.reason as string,
           idempotencyKey
+        );
+        break;
+
+      // ── Quote Create Draft (§6.1) ──
+      case "quote.create_draft":
+        result = await createQuoteDraft(
+          workspaceId,
+          {
+            title: body.title as string | undefined,
+            dealId: body.dealId as string | undefined,
+            companyId: body.companyId as string | undefined,
+            contactId: body.contactId as string | undefined,
+            currency: body.currency as string | undefined,
+            priceBookId: body.priceBookId as string | undefined,
+          },
+          actor,
+          idempotencyKey
+        );
+        break;
+
+      // ── Assignment Commands (§6.2) ──
+      case "assignment.propose":
+        result = await proposeAssignment(workspaceId, {
+          subjectType: body.subjectType as string,
+          subjectId: body.subjectId as string,
+          resourceId: body.resourceId as string,
+          roleKey: body.roleKey as string | undefined,
+          proposedBy: actor.id,
+          effectiveFrom: body.effectiveFrom as string | undefined,
+        });
+        break;
+
+      case "assignment.assign":
+        result = await assignAssignment(workspaceId, body.aggregateId, actor.id);
+        break;
+
+      case "assignment.accept":
+        result = await acceptAssignment(workspaceId, body.aggregateId, actor.id);
+        break;
+
+      case "assignment.reject":
+        result = await rejectAssignment(
+          workspaceId,
+          body.aggregateId,
+          actor.id,
+          body.reason as string
+        );
+        break;
+
+      case "assignment.reassign":
+        result = await reassignAssignment(
+          workspaceId,
+          body.aggregateId,
+          body.resourceId as string,
+          actor.id
+        );
+        break;
+
+      case "assignment.release":
+        result = await releaseAssignment(
+          workspaceId,
+          body.aggregateId,
+          actor.id,
+          body.reason as string | undefined
+        );
+        break;
+
+      // ── Schedule Commands (§6.2) ──
+      case "schedule.plan":
+        result = await planSchedule(workspaceId, {
+          subjectType: body.subjectType as string,
+          subjectId: body.subjectId as string,
+          resourceId: body.resourceId as string,
+          startAt: body.startAt as string,
+          endAt: body.endAt as string,
+          timezone: body.timezone as string | undefined,
+          locationType: body.locationType as string | undefined,
+          locationId: body.locationId as string | undefined,
+          latitude: body.latitude as number | undefined,
+          longitude: body.longitude as number | undefined,
+        });
+        break;
+
+      case "schedule.reschedule":
+        result = await rescheduleSchedule(
+          workspaceId,
+          body.aggregateId,
+          body.startAt as string,
+          body.endAt as string,
+          actor.id
+        );
+        break;
+
+      case "schedule.cancel":
+        result = await cancelSchedule(
+          workspaceId,
+          body.aggregateId,
+          actor.id,
+          body.reason as string | undefined
+        );
+        break;
+
+      // ── Form Submission Commands (§6.2) ──
+      case "form_submission.save_draft":
+        result = await saveFormDraft(workspaceId, {
+          formDefinitionId: body.formDefinitionId as string,
+          subjectType: body.subjectType as string | undefined,
+          subjectId: body.subjectId as string | undefined,
+          workItemId: body.workItemId as string | undefined,
+          bindingId: body.bindingId as string | undefined,
+          answers: body.answers as Record<string, unknown>,
+          submittedBy: actor.id,
+        });
+        break;
+
+      case "form_submission.submit":
+        result = await submitForm(workspaceId, {
+          formDefinitionId: body.formDefinitionId as string,
+          subjectType: body.subjectType as string | undefined,
+          subjectId: body.subjectId as string | undefined,
+          workItemId: body.workItemId as string | undefined,
+          bindingId: body.bindingId as string | undefined,
+          answers: body.answers as Record<string, unknown>,
+          submittedBy: actor.id,
+        });
+        break;
+
+      case "form_submission.return":
+        result = await returnFormSubmission(
+          workspaceId,
+          body.aggregateId,
+          actor.id,
+          body.reason as string
+        );
+        break;
+
+      case "form_submission.accept":
+        result = await acceptFormSubmission(
+          workspaceId,
+          body.aggregateId,
+          actor.id
+        );
+        break;
+
+      // ── Workflow / Approval Commands (§6.3) ──
+      case "approval.decide":
+        result = await approvalDecide(
+          workspaceId,
+          body.aggregateId,
+          actor,
+          body.outcome as "approved" | "rejected" | "returned",
+          (body.comment as string | null) ?? null,
+          expectedVersion
+        );
+        break;
+
+      case "workflow.cancel":
+        result = await cancelWorkflow(
+          workspaceId,
+          body.aggregateId,
+          actor,
+          (body.reason as string) ?? "Cancelled"
+        );
+        break;
+
+      case "work_item.claim":
+        result = await claimWorkItem(
+          workspaceId,
+          body.aggregateId,
+          actor,
+          expectedVersion
+        );
+        break;
+
+      case "work_item.release":
+        result = await releaseWorkItem(
+          workspaceId,
+          body.aggregateId,
+          actor,
+          expectedVersion
+        );
+        break;
+
+      case "work_item.complete":
+        result = await completeWorkItem(
+          workspaceId,
+          body.aggregateId,
+          actor,
+          expectedVersion,
+          body.formData as Record<string, unknown> | undefined
+        );
+        break;
+
+      case "work_item.return":
+        result = await returnWorkItem(
+          workspaceId,
+          body.aggregateId,
+          actor,
+          (body.reason as string | null) ?? null,
+          expectedVersion
+        );
+        break;
+
+      case "work_item.cancel":
+        result = await cancelWorkItem(
+          workspaceId,
+          body.aggregateId,
+          actor,
+          expectedVersion,
+          body.reason as string | undefined
         );
         break;
 

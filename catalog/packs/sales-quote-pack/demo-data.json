@@ -3,7 +3,10 @@
     {
       "object": "product_service",
       "alias": "ps-inspection",
-      "match": { "field": "sku", "value": "SVC-INSP-001" },
+      "match": {
+        "field": "sku",
+        "value": "SVC-INSP-001"
+      },
       "data": {
         "name": "On-site inspection service",
         "type": "service",
@@ -20,7 +23,10 @@
     {
       "object": "product_service",
       "alias": "ps-hvac-repair",
-      "match": { "field": "sku", "value": "SVC-HVAC-001" },
+      "match": {
+        "field": "sku",
+        "value": "SVC-HVAC-001"
+      },
       "data": {
         "name": "HVAC Emergency Repair",
         "type": "service",
@@ -36,7 +42,10 @@
     {
       "object": "product_service",
       "alias": "ps-refrigerant",
-      "match": { "field": "sku", "value": "SVC-REFR-001" },
+      "match": {
+        "field": "sku",
+        "value": "SVC-REFR-001"
+      },
       "data": {
         "name": "Refrigerant Recharge Service",
         "type": "service",
@@ -51,7 +60,10 @@
     {
       "object": "product_service",
       "alias": "ps-calibration",
-      "match": { "field": "sku", "value": "SVC-CAL-001" },
+      "match": {
+        "field": "sku",
+        "value": "SVC-CAL-001"
+      },
       "data": {
         "name": "Equipment Calibration Service",
         "type": "service",
@@ -66,7 +78,10 @@
     {
       "object": "product_service",
       "alias": "ps-filter",
-      "match": { "field": "sku", "value": "PRT-FLT-001" },
+      "match": {
+        "field": "sku",
+        "value": "PRT-FLT-001"
+      },
       "data": {
         "name": "HVAC Filter (Standard)",
         "type": "product",
@@ -81,7 +96,10 @@
     {
       "object": "product_service",
       "alias": "ps-filter-premium",
-      "match": { "field": "sku", "value": "PRT-FLT-002" },
+      "match": {
+        "field": "sku",
+        "value": "PRT-FLT-002"
+      },
       "data": {
         "name": "HVAC Filter (High Efficiency)",
         "type": "product",
@@ -96,7 +114,10 @@
     {
       "object": "product_service",
       "alias": "ps-sensor",
-      "match": { "field": "sku", "value": "PRT-SNR-001" },
+      "match": {
+        "field": "sku",
+        "value": "PRT-SNR-001"
+      },
       "data": {
         "name": "Temperature Sensor",
         "type": "product",
@@ -111,7 +132,10 @@
     {
       "object": "product_service",
       "alias": "ps-maintenance-bundle",
-      "match": { "field": "sku", "value": "BND-MAINT-001" },
+      "match": {
+        "field": "sku",
+        "value": "BND-MAINT-001"
+      },
       "data": {
         "name": "Annual Maintenance Plan",
         "type": "bundle",
@@ -126,7 +150,10 @@
     {
       "object": "product_service",
       "alias": "ps-onsite-support",
-      "match": { "field": "sku", "value": "SVC-ONSITE-001" },
+      "match": {
+        "field": "sku",
+        "value": "SVC-ONSITE-001"
+      },
       "data": {
         "name": "Emergency On-site Support",
         "type": "service",
@@ -141,7 +168,10 @@
     {
       "object": "product_service",
       "alias": "ps-training",
-      "match": { "field": "sku", "value": "SVC-TRN-001" },
+      "match": {
+        "field": "sku",
+        "value": "SVC-TRN-001"
+      },
       "data": {
         "name": "Operation Training Service",
         "type": "service",
@@ -156,7 +186,10 @@
     {
       "object": "price_book",
       "alias": "pb-standard",
-      "match": { "field": "name", "value": "Standard Price Book 2026" },
+      "match": {
+        "field": "name",
+        "value": "Standard Price Book 2026"
+      },
       "data": {
         "name": "Standard Price Book 2026",
         "currency": "CNY",
@@ -169,7 +202,10 @@
     {
       "object": "price_book",
       "alias": "pb-premium",
-      "match": { "field": "name", "value": "VIP Customer Price Book 2026" },
+      "match": {
+        "field": "name",
+        "value": "VIP Customer Price Book 2026"
+      },
       "data": {
         "name": "VIP Customer Price Book 2026",
         "currency": "CNY",
@@ -182,30 +218,54 @@
     {
       "object": "quote",
       "alias": "q-acme-deal-v1",
-      "match": { "field": "quote_number", "value": "Q-2026-001" },
+      "match": {
+        "field": "quote_number",
+        "value": "Q-2026-001"
+      },
       "data": {
         "quote_number": "Q-2026-001",
         "title": "Acme Expansion Plan Quote",
         "status": "accepted",
         "version": 1,
-        "company_id": { "$lookup": { "object": "company", "field": "domain", "value": "acme.example" } },
-        "contact_id": { "$lookup": { "object": "contact", "field": "email", "value": "maya@acme.example" } },
-        "deal_id": { "$lookup": { "object": "deal", "field": "name", "value": "Acme Expansion Plan" } },
+        "company_id": {
+          "$lookup": {
+            "object": "company",
+            "field": "domain",
+            "value": "acme.example"
+          }
+        },
+        "contact_id": {
+          "$lookup": {
+            "object": "contact",
+            "field": "email",
+            "value": "maya@acme.example"
+          }
+        },
+        "deal_id": {
+          "$lookup": {
+            "object": "deal",
+            "field": "name",
+            "value": "Acme Expansion Plan"
+          }
+        },
         "currency": "CNY",
-        "subtotal_amount": 86000,
-        "discount_amount": 6000,
-        "tax_amount": 10400,
-        "total_amount": 90400,
         "valid_until": "2026-07-31",
         "owner": "Alex",
         "terms": "Payment terms: payment within 30 days. Includes 1 year free maintenance.",
-        "notes": "Acme Expansion Plan first version quote, accepted"
+        "notes": "Acme Expansion Plan first version quote, accepted",
+        "subtotal": 86000,
+        "discount_total": 6000,
+        "tax_total": 10400,
+        "grand_total": 90400
       }
     },
     {
       "object": "quote_line",
       "alias": "ql-acme-deal-v1-1",
-      "match": { "field": "description", "value": "Annual Maintenance Plan" },
+      "match": {
+        "field": "description",
+        "value": "Annual Maintenance Plan"
+      },
       "data": {
         "quote_id": "$q-acme-deal-v1.id",
         "product_service_id": "$ps-maintenance-bundle.id",
@@ -222,7 +282,10 @@
     {
       "object": "quote_line",
       "alias": "ql-acme-deal-v1-2",
-      "match": { "field": "description", "value": "On-site inspection service" },
+      "match": {
+        "field": "description",
+        "value": "On-site inspection service"
+      },
       "data": {
         "quote_id": "$q-acme-deal-v1.id",
         "product_service_id": "$ps-inspection.id",
@@ -238,7 +301,10 @@
     {
       "object": "quote_line",
       "alias": "ql-acme-deal-v1-3",
-      "match": { "field": "description", "value": "Emergency On-site Support" },
+      "match": {
+        "field": "description",
+        "value": "Emergency On-site Support"
+      },
       "data": {
         "quote_id": "$q-acme-deal-v1.id",
         "product_service_id": "$ps-onsite-support.id",
@@ -255,30 +321,54 @@
     {
       "object": "quote",
       "alias": "q-acme-deal-v2",
-      "match": { "field": "quote_number", "value": "Q-2026-001-V2" },
+      "match": {
+        "field": "quote_number",
+        "value": "Q-2026-001-V2"
+      },
       "data": {
         "quote_number": "Q-2026-001-V2",
         "title": "Acme Expansion Plan Quote (Revised)",
         "status": "sent",
         "version": 2,
-        "company_id": { "$lookup": { "object": "company", "field": "domain", "value": "acme.example" } },
-        "contact_id": { "$lookup": { "object": "contact", "field": "email", "value": "maya@acme.example" } },
-        "deal_id": { "$lookup": { "object": "deal", "field": "name", "value": "Acme Expansion Plan" } },
+        "company_id": {
+          "$lookup": {
+            "object": "company",
+            "field": "domain",
+            "value": "acme.example"
+          }
+        },
+        "contact_id": {
+          "$lookup": {
+            "object": "contact",
+            "field": "email",
+            "value": "maya@acme.example"
+          }
+        },
+        "deal_id": {
+          "$lookup": {
+            "object": "deal",
+            "field": "name",
+            "value": "Acme Expansion Plan"
+          }
+        },
         "currency": "CNY",
-        "subtotal_amount": 92000,
-        "discount_amount": 5000,
-        "tax_amount": 11040,
-        "total_amount": 98040,
         "valid_until": "2026-08-15",
         "owner": "Alex",
         "terms": "Payment terms: payment within 30 days. Includes 1 year free maintenance and training.",
-        "notes": "Revised quote adjusted based on customer feedback"
+        "notes": "Revised quote adjusted based on customer feedback",
+        "subtotal": 92000,
+        "discount_total": 5000,
+        "tax_total": 11040,
+        "grand_total": 98040
       }
     },
     {
       "object": "quote_line",
       "alias": "ql-acme-deal-v2-1",
-      "match": { "field": "description", "value": "Annual Maintenance Plan (Revised)" },
+      "match": {
+        "field": "description",
+        "value": "Annual Maintenance Plan (Revised)"
+      },
       "data": {
         "quote_id": "$q-acme-deal-v2.id",
         "product_service_id": "$ps-maintenance-bundle.id",
@@ -294,7 +384,10 @@
     {
       "object": "quote_line",
       "alias": "ql-acme-deal-v2-2",
-      "match": { "field": "description", "value": "Operation Training Service" },
+      "match": {
+        "field": "description",
+        "value": "Operation Training Service"
+      },
       "data": {
         "quote_id": "$q-acme-deal-v2.id",
         "product_service_id": "$ps-training.id",
@@ -310,32 +403,68 @@
     {
       "object": "quote",
       "alias": "q-acme-wo-urgent",
-      "match": { "field": "quote_number", "value": "Q-2026-002" },
+      "match": {
+        "field": "quote_number",
+        "value": "Q-2026-002"
+      },
       "data": {
         "quote_number": "Q-2026-002",
         "title": "Acme HVAC Emergency Repair Quote",
         "status": "in_review",
         "version": 1,
-        "company_id": { "$lookup": { "object": "company", "field": "domain", "value": "acme.example" } },
-        "contact_id": { "$lookup": { "object": "contact", "field": "email", "value": "maya@acme.example" } },
-        "work_order_id": { "$lookup": { "object": "work_order", "field": "title", "value": "Acme HVAC emergency repair" } },
-        "service_site_id": { "$lookup": { "object": "service_site", "field": "name", "value": "Acme HQ - San Francisco" } },
-        "asset_id": { "$lookup": { "object": "asset", "field": "serial_number", "value": "HVAC-ACME-001" } },
+        "company_id": {
+          "$lookup": {
+            "object": "company",
+            "field": "domain",
+            "value": "acme.example"
+          }
+        },
+        "contact_id": {
+          "$lookup": {
+            "object": "contact",
+            "field": "email",
+            "value": "maya@acme.example"
+          }
+        },
+        "work_order_id": {
+          "$lookup": {
+            "object": "work_order",
+            "field": "title",
+            "value": "Acme HVAC emergency repair"
+          }
+        },
+        "service_site_id": {
+          "$lookup": {
+            "object": "service_site",
+            "field": "name",
+            "value": "Acme HQ - San Francisco"
+          }
+        },
+        "asset_id": {
+          "$lookup": {
+            "object": "asset",
+            "field": "serial_number",
+            "value": "HVAC-ACME-001"
+          }
+        },
         "currency": "CNY",
-        "subtotal_amount": 4200,
-        "discount_amount": 0,
-        "tax_amount": 504,
-        "total_amount": 4704,
         "valid_until": "2026-07-15",
         "owner": "Alex",
         "terms": "Emergency repair quote, requires approval before execution",
-        "notes": "Emergency repair quote originating from FSM work order"
+        "notes": "Emergency repair quote originating from FSM work order",
+        "subtotal": 4200,
+        "discount_total": 0,
+        "tax_total": 504,
+        "grand_total": 4704
       }
     },
     {
       "object": "quote_line",
       "alias": "ql-acme-wo-1",
-      "match": { "field": "description", "value": "HVAC Emergency Repair Service" },
+      "match": {
+        "field": "description",
+        "value": "HVAC Emergency Repair Service"
+      },
       "data": {
         "quote_id": "$q-acme-wo-urgent.id",
         "product_service_id": "$ps-hvac-repair.id",
@@ -351,7 +480,10 @@
     {
       "object": "quote_line",
       "alias": "ql-acme-wo-2",
-      "match": { "field": "description", "value": "HVAC Filter (High Efficiency)" },
+      "match": {
+        "field": "description",
+        "value": "HVAC Filter (High Efficiency)"
+      },
       "data": {
         "quote_id": "$q-acme-wo-urgent.id",
         "product_service_id": "$ps-filter-premium.id",
@@ -367,7 +499,10 @@
     {
       "object": "quote_line",
       "alias": "ql-acme-wo-3",
-      "match": { "field": "description", "value": "Temperature Sensor" },
+      "match": {
+        "field": "description",
+        "value": "Temperature Sensor"
+      },
       "data": {
         "quote_id": "$q-acme-wo-urgent.id",
         "product_service_id": "$ps-sensor.id",
@@ -383,32 +518,68 @@
     {
       "object": "quote",
       "alias": "q-acme-wo-overdue",
-      "match": { "field": "quote_number", "value": "Q-2026-003" },
+      "match": {
+        "field": "quote_number",
+        "value": "Q-2026-003"
+      },
       "data": {
         "quote_number": "Q-2026-003",
         "title": "Acme Warehouse HVAC Refrigerant Recharge Quote",
         "status": "approved",
         "version": 1,
-        "company_id": { "$lookup": { "object": "company", "field": "domain", "value": "acme.example" } },
-        "contact_id": { "$lookup": { "object": "contact", "field": "email", "value": "maya@acme.example" } },
-        "work_order_id": { "$lookup": { "object": "work_order", "field": "title", "value": "Acme warehouse HVAC refrigerant recharge" } },
-        "service_site_id": { "$lookup": { "object": "service_site", "field": "name", "value": "Acme Warehouse - Oakland" } },
-        "asset_id": { "$lookup": { "object": "asset", "field": "serial_number", "value": "HVAC-ACME-002" } },
+        "company_id": {
+          "$lookup": {
+            "object": "company",
+            "field": "domain",
+            "value": "acme.example"
+          }
+        },
+        "contact_id": {
+          "$lookup": {
+            "object": "contact",
+            "field": "email",
+            "value": "maya@acme.example"
+          }
+        },
+        "work_order_id": {
+          "$lookup": {
+            "object": "work_order",
+            "field": "title",
+            "value": "Acme warehouse HVAC refrigerant recharge"
+          }
+        },
+        "service_site_id": {
+          "$lookup": {
+            "object": "service_site",
+            "field": "name",
+            "value": "Acme Warehouse - Oakland"
+          }
+        },
+        "asset_id": {
+          "$lookup": {
+            "object": "asset",
+            "field": "serial_number",
+            "value": "HVAC-ACME-002"
+          }
+        },
         "currency": "CNY",
-        "subtotal_amount": 2400,
-        "discount_amount": 0,
-        "tax_amount": 288,
-        "total_amount": 2688,
         "valid_until": "2026-07-10",
         "owner": "Alex",
         "terms": "Standard payment terms",
-        "notes": "Warehouse HVAC repair quote, approved"
+        "notes": "Warehouse HVAC repair quote, approved",
+        "subtotal": 2400,
+        "discount_total": 0,
+        "tax_total": 288,
+        "grand_total": 2688
       }
     },
     {
       "object": "quote_line",
       "alias": "ql-acme-wo-overdue-1",
-      "match": { "field": "description", "value": "Refrigerant Recharge Service" },
+      "match": {
+        "field": "description",
+        "value": "Refrigerant Recharge Service"
+      },
       "data": {
         "quote_id": "$q-acme-wo-overdue.id",
         "product_service_id": "$ps-refrigerant.id",
@@ -424,7 +595,10 @@
     {
       "object": "quote_line",
       "alias": "ql-acme-wo-overdue-2",
-      "match": { "field": "description", "value": "On-site inspection service" },
+      "match": {
+        "field": "description",
+        "value": "On-site inspection service"
+      },
       "data": {
         "quote_id": "$q-acme-wo-overdue.id",
         "product_service_id": "$ps-inspection.id",
@@ -440,30 +614,54 @@
     {
       "object": "quote",
       "alias": "q-nova-deal",
-      "match": { "field": "quote_number", "value": "Q-2026-004" },
+      "match": {
+        "field": "quote_number",
+        "value": "Q-2026-004"
+      },
       "data": {
         "quote_number": "Q-2026-004",
         "title": "Nova Store Promotion Quote",
         "status": "accepted",
         "version": 1,
-        "company_id": { "$lookup": { "object": "company", "field": "domain", "value": "novaretail.example" } },
-        "contact_id": { "$lookup": { "object": "contact", "field": "email", "value": "jon@novaretail.example" } },
-        "deal_id": { "$lookup": { "object": "deal", "field": "name", "value": "Nova Store Rollout" } },
+        "company_id": {
+          "$lookup": {
+            "object": "company",
+            "field": "domain",
+            "value": "novaretail.example"
+          }
+        },
+        "contact_id": {
+          "$lookup": {
+            "object": "contact",
+            "field": "email",
+            "value": "jon@novaretail.example"
+          }
+        },
+        "deal_id": {
+          "$lookup": {
+            "object": "deal",
+            "field": "name",
+            "value": "Nova Store Rollout"
+          }
+        },
         "currency": "CNY",
-        "subtotal_amount": 56000,
-        "discount_amount": 4000,
-        "tax_amount": 6240,
-        "total_amount": 58240,
         "valid_until": "2026-06-30",
         "owner": "Sam",
         "terms": "Payment terms: payment within 45 days",
-        "notes": "Nova Store Promotion accepted quote"
+        "notes": "Nova Store Promotion accepted quote",
+        "subtotal": 56000,
+        "discount_total": 4000,
+        "tax_total": 6240,
+        "grand_total": 58240
       }
     },
     {
       "object": "quote_line",
       "alias": "ql-nova-deal-1",
-      "match": { "field": "description", "value": "Annual Maintenance Plan (Nova)" },
+      "match": {
+        "field": "description",
+        "value": "Annual Maintenance Plan (Nova)"
+      },
       "data": {
         "quote_id": "$q-nova-deal.id",
         "product_service_id": "$ps-maintenance-bundle.id",
@@ -479,7 +677,10 @@
     {
       "object": "quote_line",
       "alias": "ql-nova-deal-2",
-      "match": { "field": "description", "value": "On-site inspection service (Nova)" },
+      "match": {
+        "field": "description",
+        "value": "On-site inspection service (Nova)"
+      },
       "data": {
         "quote_id": "$q-nova-deal.id",
         "product_service_id": "$ps-inspection.id",
@@ -496,7 +697,10 @@
     {
       "object": "quote_line",
       "alias": "ql-nova-deal-3",
-      "match": { "field": "description", "value": "Operation Training Service (Nova)" },
+      "match": {
+        "field": "description",
+        "value": "Operation Training Service (Nova)"
+      },
       "data": {
         "quote_id": "$q-nova-deal.id",
         "product_service_id": "$ps-training.id",
@@ -513,30 +717,54 @@
     {
       "object": "quote",
       "alias": "q-vertex-deal",
-      "match": { "field": "quote_number", "value": "Q-2026-005" },
+      "match": {
+        "field": "quote_number",
+        "value": "Q-2026-005"
+      },
       "data": {
         "quote_number": "Q-2026-005",
         "title": "Vertex Platform Upgrade Quote",
         "status": "draft",
         "version": 1,
-        "company_id": { "$lookup": { "object": "company", "field": "domain", "value": "vertexmfg.example" } },
-        "contact_id": { "$lookup": { "object": "contact", "field": "email", "value": "sara@vertexmfg.example" } },
-        "deal_id": { "$lookup": { "object": "deal", "field": "name", "value": "Vertex Platform Upgrade" } },
+        "company_id": {
+          "$lookup": {
+            "object": "company",
+            "field": "domain",
+            "value": "vertexmfg.example"
+          }
+        },
+        "contact_id": {
+          "$lookup": {
+            "object": "contact",
+            "field": "email",
+            "value": "sara@vertexmfg.example"
+          }
+        },
+        "deal_id": {
+          "$lookup": {
+            "object": "deal",
+            "field": "name",
+            "value": "Vertex Platform Upgrade"
+          }
+        },
         "currency": "CNY",
-        "subtotal_amount": 128000,
-        "discount_amount": 8000,
-        "tax_amount": 14400,
-        "total_amount": 134400,
         "valid_until": "2026-08-01",
         "owner": "Alex",
         "terms": "Payment terms: installment payment, 30% down payment",
-        "notes": "Vertex Platform Upgrade draft quote"
+        "notes": "Vertex Platform Upgrade draft quote",
+        "subtotal": 128000,
+        "discount_total": 8000,
+        "tax_total": 14400,
+        "grand_total": 134400
       }
     },
     {
       "object": "quote_line",
       "alias": "ql-vertex-deal-1",
-      "match": { "field": "description", "value": "Equipment Calibration Service (Vertex)" },
+      "match": {
+        "field": "description",
+        "value": "Equipment Calibration Service (Vertex)"
+      },
       "data": {
         "quote_id": "$q-vertex-deal.id",
         "product_service_id": "$ps-calibration.id",
@@ -552,7 +780,10 @@
     {
       "object": "quote_line",
       "alias": "ql-vertex-deal-2",
-      "match": { "field": "description", "value": "Annual Maintenance Plan (Vertex)" },
+      "match": {
+        "field": "description",
+        "value": "Annual Maintenance Plan (Vertex)"
+      },
       "data": {
         "quote_id": "$q-vertex-deal.id",
         "product_service_id": "$ps-maintenance-bundle.id",
@@ -569,7 +800,10 @@
     {
       "object": "quote_line",
       "alias": "ql-vertex-deal-3",
-      "match": { "field": "description", "value": "Emergency On-site Support (Vertex)" },
+      "match": {
+        "field": "description",
+        "value": "Emergency On-site Support (Vertex)"
+      },
       "data": {
         "quote_id": "$q-vertex-deal.id",
         "product_service_id": "$ps-onsite-support.id",
@@ -586,31 +820,67 @@
     {
       "object": "quote",
       "alias": "q-vertex-wo",
-      "match": { "field": "quote_number", "value": "Q-2026-006" },
+      "match": {
+        "field": "quote_number",
+        "value": "Q-2026-006"
+      },
       "data": {
         "quote_number": "Q-2026-006",
         "title": "Vertex CNC Calibration and Service Quote",
         "status": "draft",
         "version": 1,
-        "company_id": { "$lookup": { "object": "company", "field": "domain", "value": "vertexmfg.example" } },
-        "contact_id": { "$lookup": { "object": "contact", "field": "email", "value": "sara@vertexmfg.example" } },
-        "work_order_id": { "$lookup": { "object": "work_order", "field": "title", "value": "Vertex CNC calibration and service" } },
-        "service_site_id": { "$lookup": { "object": "service_site", "field": "name", "value": "Vertex Manufacturing Plant" } },
-        "asset_id": { "$lookup": { "object": "asset", "field": "serial_number", "value": "CNC-VTX-001" } },
+        "company_id": {
+          "$lookup": {
+            "object": "company",
+            "field": "domain",
+            "value": "vertexmfg.example"
+          }
+        },
+        "contact_id": {
+          "$lookup": {
+            "object": "contact",
+            "field": "email",
+            "value": "sara@vertexmfg.example"
+          }
+        },
+        "work_order_id": {
+          "$lookup": {
+            "object": "work_order",
+            "field": "title",
+            "value": "Vertex CNC calibration and service"
+          }
+        },
+        "service_site_id": {
+          "$lookup": {
+            "object": "service_site",
+            "field": "name",
+            "value": "Vertex Manufacturing Plant"
+          }
+        },
+        "asset_id": {
+          "$lookup": {
+            "object": "asset",
+            "field": "serial_number",
+            "value": "CNC-VTX-001"
+          }
+        },
         "currency": "CNY",
-        "subtotal_amount": 6800,
-        "discount_amount": 0,
-        "tax_amount": 816,
-        "total_amount": 7616,
         "valid_until": "2026-07-20",
         "owner": "Alex",
-        "notes": "CNC calibration quote draft originating from FSM work order"
+        "notes": "CNC calibration quote draft originating from FSM work order",
+        "subtotal": 6800,
+        "discount_total": 0,
+        "tax_total": 816,
+        "grand_total": 7616
       }
     },
     {
       "object": "quote_line",
       "alias": "ql-vertex-wo-1",
-      "match": { "field": "description", "value": "Equipment Calibration Service (Vertex CNC)" },
+      "match": {
+        "field": "description",
+        "value": "Equipment Calibration Service (Vertex CNC)"
+      },
       "data": {
         "quote_id": "$q-vertex-wo.id",
         "product_service_id": "$ps-calibration.id",
@@ -626,7 +896,10 @@
     {
       "object": "quote_line",
       "alias": "ql-vertex-wo-2",
-      "match": { "field": "description", "value": "On-site inspection service (Vertex CNC)" },
+      "match": {
+        "field": "description",
+        "value": "On-site inspection service (Vertex CNC)"
+      },
       "data": {
         "quote_id": "$q-vertex-wo.id",
         "product_service_id": "$ps-inspection.id",
@@ -642,7 +915,10 @@
     {
       "object": "quote_line",
       "alias": "ql-vertex-wo-3",
-      "match": { "field": "description", "value": "Temperature Sensor (Vertex)" },
+      "match": {
+        "field": "description",
+        "value": "Temperature Sensor (Vertex)"
+      },
       "data": {
         "quote_id": "$q-vertex-wo.id",
         "product_service_id": "$ps-sensor.id",
@@ -658,30 +934,54 @@
     {
       "object": "quote",
       "alias": "q-harbor-deal",
-      "match": { "field": "quote_number", "value": "Q-2026-007" },
+      "match": {
+        "field": "quote_number",
+        "value": "Q-2026-007"
+      },
       "data": {
         "quote_number": "Q-2026-007",
         "title": "Harbor Onboarding Service Quote",
         "status": "in_review",
         "version": 1,
-        "company_id": { "$lookup": { "object": "company", "field": "domain", "value": "harborlogistics.example" } },
-        "contact_id": { "$lookup": { "object": "contact", "field": "email", "value": "eric@harborlogistics.example" } },
-        "deal_id": { "$lookup": { "object": "deal", "field": "name", "value": "Harbor Onboarding Service" } },
+        "company_id": {
+          "$lookup": {
+            "object": "company",
+            "field": "domain",
+            "value": "harborlogistics.example"
+          }
+        },
+        "contact_id": {
+          "$lookup": {
+            "object": "contact",
+            "field": "email",
+            "value": "eric@harborlogistics.example"
+          }
+        },
+        "deal_id": {
+          "$lookup": {
+            "object": "deal",
+            "field": "name",
+            "value": "Harbor Onboarding Service"
+          }
+        },
         "currency": "CNY",
-        "subtotal_amount": 38000,
-        "discount_amount": 2000,
-        "tax_amount": 4320,
-        "total_amount": 40320,
         "valid_until": "2026-07-25",
         "owner": "Sam",
         "terms": "Payment terms: payment within 30 days",
-        "notes": "Harbor Onboarding Service quote, pending approval"
+        "notes": "Harbor Onboarding Service quote, pending approval",
+        "subtotal": 38000,
+        "discount_total": 2000,
+        "tax_total": 4320,
+        "grand_total": 40320
       }
     },
     {
       "object": "quote_line",
       "alias": "ql-harbor-deal-1",
-      "match": { "field": "description", "value": "Annual Maintenance Plan (Harbor)" },
+      "match": {
+        "field": "description",
+        "value": "Annual Maintenance Plan (Harbor)"
+      },
       "data": {
         "quote_id": "$q-harbor-deal.id",
         "product_service_id": "$ps-maintenance-bundle.id",
@@ -697,7 +997,10 @@
     {
       "object": "quote_line",
       "alias": "ql-harbor-deal-2",
-      "match": { "field": "description", "value": "Operation Training Service (Harbor)" },
+      "match": {
+        "field": "description",
+        "value": "Operation Training Service (Harbor)"
+      },
       "data": {
         "quote_id": "$q-harbor-deal.id",
         "product_service_id": "$ps-training.id",
@@ -714,29 +1017,53 @@
     {
       "object": "quote",
       "alias": "q-pine-deal",
-      "match": { "field": "quote_number", "value": "Q-2026-008" },
+      "match": {
+        "field": "quote_number",
+        "value": "Q-2026-008"
+      },
       "data": {
         "quote_number": "Q-2026-008",
         "title": "Pine Health Pilot Program Quote",
         "status": "expired",
         "version": 1,
-        "company_id": { "$lookup": { "object": "company", "field": "domain", "value": "pinehealth.example" } },
-        "contact_id": { "$lookup": { "object": "contact", "field": "email", "value": "anna@pinehealth.example" } },
-        "deal_id": { "$lookup": { "object": "deal", "field": "name", "value": "Pine Health Pilot Program" } },
+        "company_id": {
+          "$lookup": {
+            "object": "company",
+            "field": "domain",
+            "value": "pinehealth.example"
+          }
+        },
+        "contact_id": {
+          "$lookup": {
+            "object": "contact",
+            "field": "email",
+            "value": "anna@pinehealth.example"
+          }
+        },
+        "deal_id": {
+          "$lookup": {
+            "object": "deal",
+            "field": "name",
+            "value": "Pine Health Pilot Program"
+          }
+        },
         "currency": "CNY",
-        "subtotal_amount": 22000,
-        "discount_amount": 1000,
-        "tax_amount": 2520,
-        "total_amount": 23520,
         "valid_until": "2026-06-15",
         "owner": "Alex",
-        "notes": "Expired pilot program quote"
+        "notes": "Expired pilot program quote",
+        "subtotal": 22000,
+        "discount_total": 1000,
+        "tax_total": 2520,
+        "grand_total": 23520
       }
     },
     {
       "object": "quote_line",
       "alias": "ql-pine-deal-1",
-      "match": { "field": "description", "value": "On-site inspection service (Pine)" },
+      "match": {
+        "field": "description",
+        "value": "On-site inspection service (Pine)"
+      },
       "data": {
         "quote_id": "$q-pine-deal.id",
         "product_service_id": "$ps-inspection.id",
@@ -752,7 +1079,10 @@
     {
       "object": "quote_line",
       "alias": "ql-pine-deal-2",
-      "match": { "field": "description", "value": "Operation Training Service (Pine)" },
+      "match": {
+        "field": "description",
+        "value": "Operation Training Service (Pine)"
+      },
       "data": {
         "quote_id": "$q-pine-deal.id",
         "product_service_id": "$ps-training.id",
@@ -768,31 +1098,67 @@
     {
       "object": "quote",
       "alias": "q-nova-wo",
-      "match": { "field": "quote_number", "value": "Q-2026-009" },
+      "match": {
+        "field": "quote_number",
+        "value": "Q-2026-009"
+      },
       "data": {
         "quote_number": "Q-2026-009",
         "title": "Nova Refrigeration Inspection Quote",
         "status": "sent",
         "version": 1,
-        "company_id": { "$lookup": { "object": "company", "field": "domain", "value": "novaretail.example" } },
-        "contact_id": { "$lookup": { "object": "contact", "field": "email", "value": "jon@novaretail.example" } },
-        "work_order_id": { "$lookup": { "object": "work_order", "field": "title", "value": "Nova Retail refrigeration inspection" } },
-        "service_site_id": { "$lookup": { "object": "service_site", "field": "name", "value": "Nova Retail - Manhattan Flagship" } },
-        "asset_id": { "$lookup": { "object": "asset", "field": "serial_number", "value": "FRIDGE-NOVA-001" } },
+        "company_id": {
+          "$lookup": {
+            "object": "company",
+            "field": "domain",
+            "value": "novaretail.example"
+          }
+        },
+        "contact_id": {
+          "$lookup": {
+            "object": "contact",
+            "field": "email",
+            "value": "jon@novaretail.example"
+          }
+        },
+        "work_order_id": {
+          "$lookup": {
+            "object": "work_order",
+            "field": "title",
+            "value": "Nova Retail refrigeration inspection"
+          }
+        },
+        "service_site_id": {
+          "$lookup": {
+            "object": "service_site",
+            "field": "name",
+            "value": "Nova Retail - Manhattan Flagship"
+          }
+        },
+        "asset_id": {
+          "$lookup": {
+            "object": "asset",
+            "field": "serial_number",
+            "value": "FRIDGE-NOVA-001"
+          }
+        },
         "currency": "CNY",
-        "subtotal_amount": 3200,
-        "discount_amount": 0,
-        "tax_amount": 384,
-        "total_amount": 3584,
         "valid_until": "2026-07-05",
         "owner": "Sam",
-        "notes": "Nova refrigeration inspection quote, sent"
+        "notes": "Nova refrigeration inspection quote, sent",
+        "subtotal": 3200,
+        "discount_total": 0,
+        "tax_total": 384,
+        "grand_total": 3584
       }
     },
     {
       "object": "quote_line",
       "alias": "ql-nova-wo-1",
-      "match": { "field": "description", "value": "On-site inspection service (Nova Refrigeration)" },
+      "match": {
+        "field": "description",
+        "value": "On-site inspection service (Nova Refrigeration)"
+      },
       "data": {
         "quote_id": "$q-nova-wo.id",
         "product_service_id": "$ps-inspection.id",
@@ -808,7 +1174,10 @@
     {
       "object": "quote_line",
       "alias": "ql-nova-wo-2",
-      "match": { "field": "description", "value": "Refrigerant Recharge Service (Nova)" },
+      "match": {
+        "field": "description",
+        "value": "Refrigerant Recharge Service (Nova)"
+      },
       "data": {
         "quote_id": "$q-nova-wo.id",
         "product_service_id": "$ps-refrigerant.id",
@@ -824,7 +1193,10 @@
     {
       "object": "quote_line",
       "alias": "ql-nova-wo-3",
-      "match": { "field": "description", "value": "HVAC Filter (Standard)" },
+      "match": {
+        "field": "description",
+        "value": "HVAC Filter (Standard)"
+      },
       "data": {
         "quote_id": "$q-nova-wo.id",
         "product_service_id": "$ps-filter.id",
@@ -840,29 +1212,53 @@
     {
       "object": "quote",
       "alias": "q-quantum-deal",
-      "match": { "field": "quote_number", "value": "Q-2026-010" },
+      "match": {
+        "field": "quote_number",
+        "value": "Q-2026-010"
+      },
       "data": {
         "quote_number": "Q-2026-010",
         "title": "Quantum Research Contract Quote",
         "status": "rejected",
         "version": 1,
-        "company_id": { "$lookup": { "object": "company", "field": "domain", "value": "quantumlabs.example" } },
-        "contact_id": { "$lookup": { "object": "contact", "field": "email", "value": "kevin@quantumlabs.example" } },
-        "deal_id": { "$lookup": { "object": "deal", "field": "name", "value": "Quantum Research Contract" } },
+        "company_id": {
+          "$lookup": {
+            "object": "company",
+            "field": "domain",
+            "value": "quantumlabs.example"
+          }
+        },
+        "contact_id": {
+          "$lookup": {
+            "object": "contact",
+            "field": "email",
+            "value": "kevin@quantumlabs.example"
+          }
+        },
+        "deal_id": {
+          "$lookup": {
+            "object": "deal",
+            "field": "name",
+            "value": "Quantum Research Contract"
+          }
+        },
         "currency": "CNY",
-        "subtotal_amount": 185000,
-        "discount_amount": 15000,
-        "tax_amount": 20400,
-        "total_amount": 190400,
         "valid_until": "2026-05-15",
         "owner": "Sam",
-        "notes": "Research contract quote rejected by customer"
+        "notes": "Research contract quote rejected by customer",
+        "subtotal": 185000,
+        "discount_total": 15000,
+        "tax_total": 20400,
+        "grand_total": 190400
       }
     },
     {
       "object": "quote_line",
       "alias": "ql-quantum-deal-1",
-      "match": { "field": "description", "value": "Equipment Calibration Service (Quantum)" },
+      "match": {
+        "field": "description",
+        "value": "Equipment Calibration Service (Quantum)"
+      },
       "data": {
         "quote_id": "$q-quantum-deal.id",
         "product_service_id": "$ps-calibration.id",
@@ -878,7 +1274,10 @@
     {
       "object": "quote_line",
       "alias": "ql-quantum-deal-2",
-      "match": { "field": "description", "value": "Annual Maintenance Plan (Quantum)" },
+      "match": {
+        "field": "description",
+        "value": "Annual Maintenance Plan (Quantum)"
+      },
       "data": {
         "quote_id": "$q-quantum-deal.id",
         "product_service_id": "$ps-maintenance-bundle.id",

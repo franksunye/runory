@@ -94,6 +94,7 @@ permissions:
   - technician.create
   - technician.update
   - technician.delete
+  - assignment.respond
 
 migrations:
   install: migrations/install.sql

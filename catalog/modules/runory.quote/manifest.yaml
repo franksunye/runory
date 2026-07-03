@@ -68,19 +68,19 @@ objects:
         ownership: module_owned
         required: true
         default_value: "CNY"
-      - key: subtotal_amount
+      - key: subtotal
         label: Subtotal Amount
         type: number
         ownership: module_owned
-      - key: discount_amount
+      - key: discount_total
         label: Discount Amount
         type: number
         ownership: module_owned
-      - key: tax_amount
+      - key: tax_total
         label: Tax Amount
         type: number
         ownership: module_owned
-      - key: total_amount
+      - key: grand_total
         label: Total Amount
         type: number
         ownership: module_owned
@@ -199,7 +199,7 @@ views:
           label: Title
         - field: status
           label: Status
-        - field: total_amount
+        - field: grand_total
           label: Total Amount
         - field: currency
           label: Currency
@@ -238,10 +238,10 @@ views:
           fields:
             - field: currency
               required: true
-            - field: subtotal_amount
-            - field: discount_amount
-            - field: tax_amount
-            - field: total_amount
+            - field: subtotal
+            - field: discount_total
+            - field: tax_total
+            - field: grand_total
         - title: Other
           fields:
             - field: valid_until
@@ -300,8 +300,13 @@ views:
 permissions:
   - quote.read
   - quote.create
-  - quote.update
-  - quote.delete
+  - quote.edit_draft
+  - quote.submit
+  - quote.approve
+  - quote.reject
+  - quote.accept
+  - quote.convert
+  # Retain quote_line CRUD for line editing within draft scope
   - quote_line.read
   - quote_line.create
   - quote_line.update
@@ -388,7 +393,7 @@ extensionPoints:
         enabled: true
         allowedTypes: [text, number, date, select, boolean]
         maxFields: 40
-        reservedKeys: [id, quote_number, title, status, version, company_id, contact_id, deal_id, work_order_id, service_site_id, asset_id, currency, subtotal_amount, discount_amount, tax_amount, total_amount, valid_until, owner, terms, notes, created_at, updated_at]
+        reservedKeys: [id, quote_number, title, status, version, company_id, contact_id, deal_id, work_order_id, service_site_id, asset_id, currency, subtotal, discount_total, tax_total, grand_total, valid_until, owner, terms, notes, created_at, updated_at]
       customRelations:
         enabled: false
     - entity: quote_line
@@ -485,7 +490,7 @@ dashboard:
         where: "status = 'in_review'"
         orderBy: "created_at asc"
         limit: 8
-        columns: [quote_number, title, total_amount, currency, valid_until]
+        columns: [quote_number, title, grand_total, currency, valid_until]
       link: /quotes
       configurable:
         - path: data.limit
@@ -505,7 +510,7 @@ dashboard:
         where: "status = 'accepted'"
         orderBy: "created_at desc"
         limit: 5
-        columns: [quote_number, title, total_amount, currency]
+        columns: [quote_number, title, grand_total, currency]
       link: /quotes
       configurable:
         - path: data.limit
@@ -525,7 +530,7 @@ dashboard:
         where: "status in ('sent', 'approved') and valid_until < date('now', '+7 days')"
         orderBy: "valid_until asc"
         limit: 5
-        columns: [quote_number, title, total_amount, currency, valid_until]
+        columns: [quote_number, title, grand_total, currency, valid_until]
       link: /quotes
       configurable:
         - path: data.limit

@@ -137,6 +137,17 @@ export async function planSchedule(
   const scheduleEntryId = genId("sched");
   const ts = now();
 
+  // Spec §5.5: end_at MUST be after start_at. Validate early so invalid input
+  // yields a clean 400 (INVALID_INPUT) rather than a raw SQLITE_CONSTRAINT from
+  // the table CHECK. String comparison is consistent with SQLite's TEXT ordering.
+  if (params.endAt <= params.startAt) {
+    throw new BusinessError(
+      ERROR_CODES.INVALID_INPUT,
+      `INVALID_INPUT: Schedule end_at (${params.endAt}) must be strictly after start_at (${params.startAt}).`,
+      400
+    );
+  }
+
   // Detect conflicts against confirmed entries
   const conflicts = await detectConflicts(
     workspaceId,
