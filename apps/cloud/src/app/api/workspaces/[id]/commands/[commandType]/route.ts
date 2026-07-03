@@ -44,7 +44,7 @@ const COMMAND_PERMISSIONS: Record<string, string> = {
   "quote.expire": "quote.submit",
   "quote.recalculate": "quote.submit",
   "quote.create_revision": "quote.submit",
-  "quote.convert_to_work_order": "quote.accept",
+  "quote.convert_to_work_order": "quote.convert",
 
   // Work Order FSM commands
   "work_order.triage": "work_order.triage",

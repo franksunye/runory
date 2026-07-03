@@ -15,7 +15,7 @@
 // - ConflictError has no .code → use rejects.toThrow(/pattern/)
 // - BusinessError has .code → use rejects.toMatchObject({ code })
 // - createRecord does NOT enforce governed field checks (only updateRecord does)
-// - Work order scheduled -> in_progress transition has no FSM command → use direct SQL
+// - Work order planned -> in_progress transition has no FSM command → use direct SQL
 // - Form must be accepted before completeVisit (which checks for pending submissions)
 
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
@@ -438,7 +438,7 @@ describe("v0.5 Commercial FSM Journey", () => {
     );
     expect(visit).toBeDefined();
     visitId = visit!.id;
-    expect(visitResult.aggregate.status).toBe("scheduled");
+    expect(visitResult.aggregate.status).toBe("planned");
 
     // Propose assignment
     const proposeResult = await proposeAssignment(workspaceId, {
@@ -520,8 +520,8 @@ describe("v0.5 Commercial FSM Journey", () => {
       technician,
       3,
     );
-    expect(submitResult.newVersion).toBe(4);
-    expect(submitResult.aggregate.status).toBe("work_submitted");
+    expect(submitResult.newVersion).toBe(3);
+    expect(submitResult.aggregate.status).toBe("on_site");
   });
 
   // ── Test 13: Submit and accept a service report form ──
@@ -632,12 +632,12 @@ describe("v0.5 Commercial FSM Journey", () => {
       workspaceId,
       visitId,
       technician,
-      4,
+      3,
     );
-    expect(visitResult.newVersion).toBe(5);
+    expect(visitResult.newVersion).toBe(4);
     expect(visitResult.aggregate.status).toBe("completed");
 
-    // Work order scheduled -> in_progress has no FSM command; use direct SQL
+    // Work order planned -> in_progress has no FSM command; use direct SQL
     await execute(
       `UPDATE ${businessTable("work_order")} SET status = 'in_progress', updated_at = ? WHERE workspace_id = ? AND id = ?`,
       [now(), workspaceId, workOrderId],
@@ -752,7 +752,7 @@ describe("v0.5 Contract and Concurrency", () => {
     // Query the pending work item
     const workItem = await queryOne<{ id: string; version: number }>(
       `SELECT id, version FROM ${TABLES.workItems}
-       WHERE workspace_id = ? AND instance_id = ? AND status = 'pending'`,
+       WHERE workspace_id = ? AND instance_id = ? AND status = 'ready'`,
       [workspaceId, instanceId],
     );
     expect(workItem).toBeDefined();

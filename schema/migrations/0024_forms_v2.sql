@@ -10,7 +10,7 @@ CREATE TABLE IF NOT EXISTS {{RUNORY_RUNTIME_TABLE_PREFIX}}form_definitions (
   workspace_id TEXT NOT NULL,
   form_key TEXT NOT NULL,
   name TEXT NOT NULL,
-  status TEXT NOT NULL DEFAULT 'draft',  -- draft | published | archived
+  status TEXT NOT NULL DEFAULT 'draft',  -- draft | active | retired
   active_version_id TEXT,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL,
@@ -44,7 +44,7 @@ CREATE TABLE IF NOT EXISTS {{RUNORY_RUNTIME_TABLE_PREFIX}}form_bindings (
   id TEXT PRIMARY KEY,
   workspace_id TEXT NOT NULL,
   form_definition_id TEXT NOT NULL,
-  usage_type TEXT NOT NULL,    -- workflow_step | record_action | service_deliverable | marketing_capture
+  usage_type TEXT NOT NULL,    -- workflow_step | record_action | public_endpoint | service_deliverable | marketing_capture
   usage_key TEXT,              -- e.g. "visit.checklist" or "contact_us"
   label_override TEXT,
   timing_json TEXT,            -- when form should appear (before/after step, etc.)
@@ -72,7 +72,7 @@ CREATE TABLE IF NOT EXISTS {{RUNORY_RUNTIME_TABLE_PREFIX}}form_submissions (
   subject_id TEXT,
   work_item_id TEXT,
   revision_number INTEGER NOT NULL DEFAULT 1,
-  status TEXT NOT NULL DEFAULT 'draft',  -- draft | submitted | accepted | returned
+  status TEXT NOT NULL DEFAULT 'draft',  -- draft | submitted | accepted | returned | void
   answers_json TEXT NOT NULL,  -- the submitted answers
   submitted_by TEXT,
   submitted_at TEXT,
@@ -108,7 +108,8 @@ CREATE TABLE IF NOT EXISTS {{RUNORY_RUNTIME_TABLE_PREFIX}}attachments (
   byte_size INTEGER,
   sha256 TEXT,
   uploaded_by TEXT,
-  created_at TEXT NOT NULL
+  created_at TEXT NOT NULL,
+  deleted_at TEXT
 );
 
 CREATE INDEX IF NOT EXISTS idx_attachments_owner

@@ -283,7 +283,7 @@ describe("FSM demo data with cross-pack references", () => {
     const urgent = workOrders.find((w) => w.title === "Acme HVAC emergency repair");
     expect(urgent).toBeDefined();
     expect(urgent?.priority).toBe("urgent");
-    expect(urgent?.status).toBe("scheduled");
+    expect(urgent?.status).toBe("planned");
 
     // Verify $lookup resolved company_id
     const companies = await getRecords(workspaceId, "company");
@@ -460,7 +460,7 @@ describe("FSM workbench composition", () => {
 
     expect(widget.groups).toBeDefined();
     const statusMap = new Map(widget.groups!.map((g) => [g.key, g.count]));
-    expect(statusMap.get("scheduled")).toBe(2);
+    expect(statusMap.get("planned")).toBe(2);
     expect(statusMap.get("in_progress")).toBe(1);
     expect(statusMap.get("new")).toBe(1);
     expect(statusMap.get("completed")).toBe(1);
@@ -635,7 +635,7 @@ describe("FSM demo journey (end-to-end trial flow)", () => {
     expect(triageResult.status).toBe("succeeded");
     expect(triageResult.newVersion).toBe(2);
 
-    // 4c. Create a service visit (triaged → scheduled) via FSM command
+    // 4c. Create a service visit (triaged → planned) via FSM command
     const visitResult = await createVisit(
       workspaceId,
       wo.id,
@@ -664,7 +664,7 @@ describe("FSM demo journey (end-to-end trial flow)", () => {
     await startTravel(workspaceId, visit!.id, actor, 1);
     await arriveOnSite(workspaceId, visit!.id, actor, 2);
     await submitWork(workspaceId, visit!.id, actor, 3);
-    await completeVisit(workspaceId, visit!.id, actor, 4);
+    await completeVisit(workspaceId, visit!.id, actor, 3);
 
     // Verify visit is completed
     const completedVisitRow = await queryOne<{ status: string }>(

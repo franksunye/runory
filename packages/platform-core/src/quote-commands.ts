@@ -189,7 +189,7 @@ export async function submitForApproval(
       // Get the created work item IDs (the approval work item)
       const workItems = await queryAll<{ id: string }>(
         `SELECT id FROM ${TABLES.workItems}
-         WHERE workspace_id = ? AND instance_id = ? AND status = 'pending'`,
+         WHERE workspace_id = ? AND instance_id = ? AND status = 'ready'`,
         [workspaceId, instanceId]
       );
       const workItemIds = workItems.map(wi => wi.id);

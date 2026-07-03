@@ -6,14 +6,14 @@
 // locking, and atomic persistence.
 //
 // Work Order FSM:
-//   new → triaged → scheduled → in_progress → completed
+//   new → triaged → planned → in_progress → completed
 //                    ↕             ↕
 //                  blocked ← → (previous)
 //   any non-terminal → cancelled
 //   completed/cancelled → reopened
 //
 // Service Visit FSM:
-//   scheduled → en_route → on_site → work_submitted → completed
+//   scheduled → en_route → on_site → completed
 //   any non-terminal → cancelled
 
 import { genId, now, queryOne, queryAll, execute, batch as runBatch } from "./db";
@@ -235,7 +235,7 @@ export async function triageWorkOrder(
 }
 
 /**
- * work_order.create_visit: triaged/scheduled → (creates service_visit)
+ * work_order.create_visit: triaged/planned → (creates service_visit)
  * Creates a service visit linked to the work order. Optionally assigns a
  * technician and plans a schedule entry.
  */
@@ -269,7 +269,7 @@ export async function createVisit(
       const wo = await readWorkOrder(workspaceId, workOrderId);
       checkOptimisticLock(wo.aggregate_version, expectedVersion);
 
-      const allowedStatuses = ["triaged", "scheduled", "in_progress"];
+      const allowedStatuses = ["triaged", "planned", "in_progress"];
       if (!allowedStatuses.includes(wo.status)) {
         throw new BusinessError(
           ERROR_CODES.INVALID_TRANSITION,
@@ -307,7 +307,7 @@ export async function createVisit(
       }
 
       const newVersion = wo.aggregate_version + 1;
-      const newWoStatus = wo.status === "triaged" ? "scheduled" : wo.status;
+      const newWoStatus = wo.status === "triaged" ? "planned" : wo.status;
 
       const statements: Array<{ sql: string; args?: unknown[] }> = [
         // Create the service visit (v1.1 schema with aggregate_version, assignment_id, schedule_entry_id, outcome)
@@ -331,7 +331,7 @@ export async function createVisit(
             ts, ts,
           ],
         },
-        // Update work order (bump version, set to scheduled if was triaged)
+        // Update work order (bump version, set to planned if was triaged)
         {
           sql: `UPDATE ${businessTable("work_order")}
                 SET status = ?, aggregate_version = ?, updated_at = ?
@@ -583,17 +583,17 @@ export async function completeWorkOrder(
         );
       }
 
-      // Verify no pending work items
+      // Verify no open (ready) work items
       const pendingWorkItems = await queryOne<{ count: number }>(
         `SELECT COUNT(*) as count FROM ${TABLES.workItems}
          WHERE workspace_id = ? AND subject_type = 'work_order' AND subject_id = ?
-           AND status = 'pending'`,
+           AND status = 'ready'`,
         [workspaceId, workOrderId]
       );
       if (pendingWorkItems && pendingWorkItems.count > 0) {
         throw new BusinessError(
           ERROR_CODES.INVALID_TRANSITION,
-          `INVALID_TRANSITION: Cannot complete work order with ${pendingWorkItems.count} pending work item(s).`,
+          `INVALID_TRANSITION: Cannot complete work order with ${pendingWorkItems.count} ready work item(s).`,
           409
         );
       }
@@ -980,8 +980,11 @@ export async function arriveOnSite(
 }
 
 /**
- * visit.submit_work: on_site → work_submitted
- * Technician submits their work for review. Form submission happens separately.
+ * visit.submit_work: on_site (no status change)
+ * Per v0.5 spec, submitting work does not transition the visit status — the
+ * visit remains on_site. The service report form is submitted separately via
+ * the forms runtime. This command validates the visit is on_site and records
+ * the submission event without mutating visit status or version.
  */
 export async function submitWork(
   workspaceId: string,
@@ -1014,26 +1017,19 @@ export async function submitWork(
         );
       }
 
-      const ts = now();
-      const newVersion = visit.aggregate_version + 1;
-
-      const statements: Array<{ sql: string; args?: unknown[] }> = [
-        {
-          sql: `UPDATE ${businessTable("service_visit")}
-                SET status = 'work_submitted', aggregate_version = ?, updated_at = ?
-                WHERE workspace_id = ? AND id = ?`,
-          args: [newVersion, ts, workspaceId, visitId],
-        },
-      ];
+      // Per v0.5 spec: submit_work does not transition the visit status. The
+      // visit stays on_site and its aggregate version is not bumped. The
+      // service report form is submitted separately via the forms runtime.
+      const newVersion = visit.aggregate_version;
 
       const updatedVisit: Partial<ServiceVisitRecord> = {
         ...visit,
-        status: "work_submitted",
+        status: "on_site",
         aggregate_version: newVersion,
       };
 
       return {
-        statements,
+        statements: [],
         events: [{
           aggregateType: "service_visit",
           aggregateId: visitId,
@@ -1045,7 +1041,7 @@ export async function submitWork(
           entityType: "service_visit",
           entityId: visitId,
           before: { status: visit.status, aggregate_version: visit.aggregate_version },
-          after: { status: "work_submitted" },
+          after: { status: "on_site" },
         },
         aggregate: updatedVisit,
         newVersion,
@@ -1055,7 +1051,7 @@ export async function submitWork(
 }
 
 /**
- * visit.complete: work_submitted → completed
+ * visit.complete: on_site → completed
  * Verifies required forms are accepted before completing.
  */
 export async function completeVisit(
@@ -1081,10 +1077,10 @@ export async function completeVisit(
       const visit = await readServiceVisit(workspaceId, visitId);
       checkOptimisticLock(visit.aggregate_version, expectedVersion);
 
-      if (visit.status !== "work_submitted") {
+      if (visit.status !== "on_site") {
         throw new BusinessError(
           ERROR_CODES.INVALID_TRANSITION,
-          `INVALID_TRANSITION: Cannot complete visit in status '${visit.status}'. Only 'work_submitted' visits can be completed.`,
+          `INVALID_TRANSITION: Cannot complete visit in status '${visit.status}'. Only 'on_site' visits can be completed.`,
           409
         );
       }

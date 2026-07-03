@@ -178,7 +178,7 @@
       "data": {
         "title": "Acme HVAC emergency repair",
         "description": "Server room temperature rising. HVAC unit not cooling effectively. Urgent — risk of server overheating.",
-        "status": "scheduled",
+        "status": "planned",
         "priority": "urgent",
         "company_id": { "$lookup": { "object": "company", "field": "domain", "value": "acme.example" } },
         "contact_id": { "$lookup": { "object": "contact", "field": "email", "value": "maya@acme.example" } },
@@ -222,7 +222,7 @@
       "data": {
         "title": "Nova Retail refrigeration inspection",
         "description": "Quarterly inspection of walk-in refrigeration unit. Temperature log review.",
-        "status": "scheduled",
+        "status": "planned",
         "priority": "medium",
         "company_id": { "$lookup": { "object": "company", "field": "domain", "value": "novaretail.example" } },
         "contact_id": { "$lookup": { "object": "contact", "field": "email", "value": "jon@novaretail.example" } },
@@ -389,20 +389,20 @@
       "autoStart": true,
       "states": [
         { "name": "new", "label": "New", "type": "initial" },
-        { "name": "scheduled", "label": "Scheduled", "type": "intermediate" },
+        { "name": "planned", "label": "Planned", "type": "intermediate" },
         { "name": "in_progress", "label": "In Progress", "type": "intermediate" },
         { "name": "blocked", "label": "Blocked", "type": "intermediate" },
         { "name": "completed", "label": "Completed", "type": "final" },
         { "name": "cancelled", "label": "Cancelled", "type": "rejected" }
       ],
       "transitions": [
-        { "fromStatus": "new", "toStatus": "scheduled", "label": "Schedule", "requiredRole": "member", "systemAction": { "type": "create_task", "title": "Prepare for: {{record.title}}", "description": "Work order scheduled. Review asset history and prepare required parts." } },
-        { "fromStatus": "scheduled", "toStatus": "in_progress", "label": "Start Work", "requiredRole": "member" },
+        { "fromStatus": "new", "toStatus": "planned", "label": "Plan", "requiredRole": "member", "systemAction": { "type": "create_task", "title": "Prepare for: {{record.title}}", "description": "Work order planned. Review asset history and prepare required parts." } },
+        { "fromStatus": "planned", "toStatus": "in_progress", "label": "Start Work", "requiredRole": "member" },
         { "fromStatus": "in_progress", "toStatus": "blocked", "label": "Mark Blocked", "requiredRole": "member", "systemAction": { "type": "create_task", "title": "Resolve blocker: {{record.title}}", "description": "Work order is blocked. Identify root cause and unblock." } },
         { "fromStatus": "blocked", "toStatus": "in_progress", "label": "Resume", "requiredRole": "member" },
         { "fromStatus": "in_progress", "toStatus": "completed", "label": "Complete", "requiredRole": "member", "systemAction": { "type": "create_task", "title": "Close out: {{record.title}}", "description": "Work order completed. File service report and notify customer." } },
         { "fromStatus": "new", "toStatus": "cancelled", "label": "Cancel", "requiredRole": "admin" },
-        { "fromStatus": "scheduled", "toStatus": "cancelled", "label": "Cancel", "requiredRole": "admin" },
+        { "fromStatus": "planned", "toStatus": "cancelled", "label": "Cancel", "requiredRole": "admin" },
         { "fromStatus": "blocked", "toStatus": "cancelled", "label": "Cancel", "requiredRole": "admin" }
       ]
     }

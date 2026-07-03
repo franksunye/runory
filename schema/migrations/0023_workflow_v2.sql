@@ -89,7 +89,7 @@ CREATE TABLE IF NOT EXISTS {{RUNORY_RUNTIME_TABLE_PREFIX}}work_items (
   instance_id TEXT NOT NULL,
   step_id TEXT NOT NULL,
   kind TEXT NOT NULL,
-  status TEXT NOT NULL DEFAULT 'pending',
+  status TEXT NOT NULL DEFAULT 'ready',
   subject_type TEXT,
   subject_id TEXT,
   assignee_type TEXT,

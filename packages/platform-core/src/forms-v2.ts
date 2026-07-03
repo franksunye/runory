@@ -215,7 +215,7 @@ export function validateAnswers(
  * Create or bump the version of a form definition.
  *
  * If no form_definition exists for the given form_key, a new one is created
- * with status='published'. A new immutable form_definition_version is always
+ * with status='active'. A new immutable form_definition_version is always
  * inserted with an incremented version_number, and the definition's
  * active_version_id is updated to point at it.
  */
@@ -252,7 +252,7 @@ export async function publishFormDefinition(
     await execute(
       `INSERT INTO ${TABLES.formDefinitions}
        (id, workspace_id, form_key, name, status, active_version_id, created_at, updated_at)
-       VALUES (?, ?, ?, ?, 'published', NULL, ?, ?)`,
+       VALUES (?, ?, ?, ?, 'active', NULL, ?, ?)`,
       [definitionId, workspaceId, input.formKey, input.name, ts, ts]
     );
   } else {
@@ -289,7 +289,7 @@ export async function publishFormDefinition(
     },
     {
       sql: `UPDATE ${TABLES.formDefinitions}
-          SET active_version_id = ?, status = 'published', updated_at = ?
+          SET active_version_id = ?, status = 'active', updated_at = ?
           WHERE id = ?`,
       args: [versionId, ts, definitionId],
     },
@@ -862,7 +862,7 @@ async function completeWorkItem(
   await execute(
     `UPDATE ${TABLES.workItems}
      SET status = 'completed', completed_at = ?, version = version + 1, updated_at = ?
-     WHERE id = ? AND version = ? AND status IN ('pending', 'active')`,
+     WHERE id = ? AND version = ? AND status IN ('ready', 'active')`,
     [ts, ts, workItemId, workItem.version]
   );
 }

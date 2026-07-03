@@ -30,7 +30,7 @@ objects:
         required: true
         default_value: "new"
         validation:
-          options: ["new", "triaged", "scheduled", "in_progress", "blocked", "completed", "cancelled", "reopened"]
+          options: ["new", "triaged", "planned", "in_progress", "blocked", "completed", "cancelled", "reopened"]
       - key: priority
         label: Priority
         type: select

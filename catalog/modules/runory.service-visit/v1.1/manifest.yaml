@@ -46,9 +46,9 @@ objects:
         type: select
         ownership: module_owned
         required: true
-        default_value: "scheduled"
+        default_value: "unplanned"
         validation:
-          options: ["scheduled", "en_route", "on_site", "work_submitted", "completed", "cancelled"]
+          options: ["unplanned", "scheduled", "en_route", "on_site", "completed", "cancelled"]
       - key: notes
         label: Notes
         type: text

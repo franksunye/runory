@@ -265,7 +265,7 @@ async function seedPackDemoData(workspaceId: string, packId: string): Promise<nu
   // are properly integrated with the workflow lifecycle.
   //
   // For records that already have a stateField value (e.g. demo data with
-  // status "scheduled" or "in_progress"), we use that value as the workflow
+  // status "planned" or "in_progress"), we use that value as the workflow
   // instance's starting state via overrideState. This preserves the demo
   // data's intended state distribution instead of resetting everything to
   // the workflow's initialState.

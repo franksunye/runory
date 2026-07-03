@@ -7,7 +7,7 @@
 CREATE TABLE IF NOT EXISTS {{RUNORY_RUNTIME_TABLE_PREFIX}}resources (
   id TEXT PRIMARY KEY,
   workspace_id TEXT NOT NULL,
-  resource_type TEXT NOT NULL DEFAULT 'technician',
+  resource_type TEXT NOT NULL DEFAULT 'technician',  -- user | crew | equipment
   user_id TEXT,
   display_name TEXT NOT NULL,
   timezone TEXT DEFAULT 'UTC',
@@ -29,7 +29,7 @@ CREATE TABLE IF NOT EXISTS {{RUNORY_RUNTIME_TABLE_PREFIX}}assignments (
   subject_id TEXT NOT NULL,
   resource_id TEXT NOT NULL,
   role_key TEXT,                -- primary, backup, etc.
-  status TEXT NOT NULL DEFAULT 'proposed',  -- proposed | assigned | accepted | rejected | released
+  status TEXT NOT NULL DEFAULT 'proposed',  -- proposed | assigned | accepted | rejected | released | cancelled
   proposed_by TEXT,
   accepted_by TEXT,
   rejection_reason TEXT,

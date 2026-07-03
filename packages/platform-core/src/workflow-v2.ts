@@ -284,7 +284,7 @@ export async function startWorkflowV2(
               (id, workspace_id, instance_id, step_id, kind, status,
                subject_type, subject_id, assignee_type, assignee_id,
                candidate_rule_json, form_binding_id, due_at, version, created_at, updated_at)
-              VALUES (?, ?, ?, ?, ?, 'pending', ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`,
+              VALUES (?, ?, ?, ?, ?, 'ready', ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`,
         args: [workItemId, workspaceId, instanceId, nextStepId, nextStep.kind,
                objectType, recordId,
                assigneeRule?.permissionGroup ? "permission_group" : (assigneeRule?.userId ? "user" : null),
@@ -348,10 +348,10 @@ export async function approvalDecide(
   }
 
   // Check status
-  if (workItem.status !== "pending" && workItem.status !== "active") {
+  if (workItem.status !== "ready" && workItem.status !== "active") {
     throw new BusinessError(
       ERROR_CODES.WORK_ITEM_NOT_ACTIONABLE,
-      `WORK_ITEM_NOT_ACTIONABLE: Work item ${workItemId} is in status '${workItem.status}', expected 'pending' or 'active'`,
+      `WORK_ITEM_NOT_ACTIONABLE: Work item ${workItemId} is in status '${workItem.status}', expected 'ready' or 'active'`,
       409
     );
   }
@@ -461,7 +461,7 @@ export async function approvalDecide(
                 (id, workspace_id, instance_id, step_id, kind, status,
                  subject_type, subject_id, assignee_type, assignee_id,
                  candidate_rule_json, form_binding_id, version, created_at, updated_at)
-                VALUES (?, ?, ?, ?, ?, 'pending', ?, ?, ?, ?, ?, ?, 1, ?, ?)`,
+                VALUES (?, ?, ?, ?, ?, 'ready', ?, ?, ?, ?, ?, ?, 1, ?, ?)`,
           args: [newWorkItemId, workspaceId, workItem.instance_id, nextStepId, nextStep.kind,
                  workItem.subject_type, workItem.subject_id,
                  assigneeRule?.permissionGroup ? "permission_group" : (assigneeRule?.userId ? "user" : null),
@@ -580,11 +580,11 @@ export async function cancelWorkflow(
             WHERE id = ?`,
       args: [ts, ts, instanceId],
     },
-    // Cancel all pending work items
+    // Cancel all open work items
     {
       sql: `UPDATE ${TABLES.workItems}
             SET status = 'cancelled', updated_at = ?
-            WHERE instance_id = ? AND status IN ('pending', 'active')`,
+            WHERE instance_id = ? AND status IN ('ready', 'active')`,
       args: [ts, instanceId],
     },
     // Write workflow event
@@ -615,7 +615,7 @@ export async function getMyWork(
 ): Promise<{ items: WorkItemRow[]; total: number }> {
   const limit = filters.limit ?? 50;
   const offset = filters.offset ?? 0;
-  const conditions: string[] = ["workspace_id = ?", "status IN ('pending', 'active')"];
+  const conditions: string[] = ["workspace_id = ?", "status IN ('ready', 'active')"];
   const args: unknown[] = [workspaceId];
 
   // Assignee filter: assigned to user directly OR in a permission group the user belongs to.
@@ -714,7 +714,7 @@ export async function claimWorkItem(
       sql: `UPDATE ${TABLES.workItems}
             SET status = 'active', claimed_by = ?, claimed_at = ?,
                 version = version + 1, updated_at = ?
-            WHERE id = ? AND version = ? AND status = 'pending'`,
+            WHERE id = ? AND version = ? AND status = 'ready'`,
       args: [actor.id, ts, ts, workItemId, expectedVersion],
     },
   ]);
