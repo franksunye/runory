@@ -2,11 +2,20 @@ import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { existsSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 
-import { db, execute, genId, now, queryAll } from "./db";
+import { db, execute, genId, now, queryAll, queryOne } from "./db";
 import { runMigrations } from "./migrations";
 import { TABLES, businessTable } from "./contracts";
 import { installPack, installModule, loadModuleManifest, loadPackManifest } from "./installer";
 import { getRecords, getNavigation, getInstallations, getInstalledPacks, getRelations, getBacklinks, createRecord, updateRecord, getObject } from "./metadata";
+import {
+  triageWorkOrder,
+  createVisit,
+  startTravel,
+  arriveOnSite,
+  submitWork,
+  completeVisit,
+  completeWorkOrder,
+} from "./fsm-commands";
 import { moduleManifestSchema, packManifestSchema } from "@runory/contracts";
 import {
   resolveEffectiveLayout,
@@ -610,39 +619,64 @@ describe("FSM demo journey (end-to-end trial flow)", () => {
       availability_status: "available",
     });
 
-    // 4. Assign technician to work order (triage → scheduled)
+    // 4. Assign technician (non-governed fields via updateRecord)
     const updated = await updateRecord(workspaceId, "work_order", wo.id, {
-      status: "scheduled",
       assigned_to: tech.id,
       scheduled_start: "2026-06-23",
       scheduled_end: "2026-06-23",
     });
-    expect(updated?.status).toBe("scheduled");
     expect(updated?.assigned_to).toBe(tech.id);
 
-    // 5. Create a service visit
-    const visit = await createRecord(workspaceId, "service_visit", {
-      work_order_id: wo.id,
-      technician_id: tech.id,
-      scheduled_start: "2026-06-23",
-      scheduled_end: "2026-06-23",
-      status: "scheduled",
-      notes: "Emergency visit scheduled",
+    // 4b. Triage the work order (new → triaged) via FSM command
+    const actor = { type: "user" as const, id: "test-user" };
+    const triageResult = await triageWorkOrder(workspaceId, wo.id, actor, 1, {
+      priority: "urgent",
     });
-    expect(visit.id).toBeDefined();
+    expect(triageResult.status).toBe("succeeded");
+    expect(triageResult.newVersion).toBe(2);
 
-    // 6. Complete the service visit
-    const completedVisit = await updateRecord(workspaceId, "service_visit", visit.id, {
-      status: "completed",
-      actual_start: "2026-06-23",
-      actual_end: "2026-06-23",
-    });
-    expect(completedVisit?.status).toBe("completed");
+    // 4c. Create a service visit (triaged → scheduled) via FSM command
+    const visitResult = await createVisit(
+      workspaceId,
+      wo.id,
+      actor,
+      2, // expectedVersion after triage
+      {
+        title: "Emergency visit",
+        technicianId: tech.id,
+        scheduledStart: "2026-06-23",
+        scheduledEnd: "2026-06-23",
+        notes: "Emergency visit scheduled",
+      }
+    );
+    expect(visitResult.status).toBe("succeeded");
+    expect(visitResult.newVersion).toBe(3);
+
+    // 5. Query for the created service visit
+    const visit = await queryOne<{ id: string; status: string; work_order_id: string }>(
+      `SELECT id, status, work_order_id FROM ${businessTable("service_visit")} WHERE workspace_id = ? AND work_order_id = ?`,
+      [workspaceId, wo.id]
+    );
+    expect(visit).toBeDefined();
+    expect(visit!.status).toBe("scheduled");
+
+    // 6. Transition the service visit through its FSM lifecycle
+    await startTravel(workspaceId, visit!.id, actor, 1);
+    await arriveOnSite(workspaceId, visit!.id, actor, 2);
+    await submitWork(workspaceId, visit!.id, actor, 3);
+    await completeVisit(workspaceId, visit!.id, actor, 4);
+
+    // Verify visit is completed
+    const completedVisitRow = await queryOne<{ status: string }>(
+      `SELECT status FROM ${businessTable("service_visit")} WHERE workspace_id = ? AND id = ?`,
+      [workspaceId, visit!.id]
+    );
+    expect(completedVisitRow?.status).toBe("completed");
 
     // 7. Submit a service report
     const report = await createRecord(workspaceId, "service_report", {
       work_order_id: wo.id,
-      service_visit_id: visit.id,
+      service_visit_id: visit!.id,
       summary: "Boiler repaired successfully",
       resolution: "Replaced faulty thermocouple and cleaned burner assembly. System tested and operating normally.",
       customer_signature: "Building Manager",
@@ -651,12 +685,16 @@ describe("FSM demo journey (end-to-end trial flow)", () => {
     });
     expect(report.id).toBeDefined();
 
-    // 8. Mark work order as completed
-    const completedWo = await updateRecord(workspaceId, "work_order", wo.id, {
-      status: "completed",
-      completed_at: "2026-06-23",
-    });
-    expect(completedWo?.status).toBe("completed");
+    // 8. Transition work_order to in_progress (no FSM command for this transition)
+    //    then complete the work order via FSM command
+    await execute(
+      `UPDATE ${businessTable("work_order")} SET status = 'in_progress', updated_at = ? WHERE workspace_id = ? AND id = ?`,
+      [now(), workspaceId, wo.id]
+    );
+
+    const completeResult = await completeWorkOrder(workspaceId, wo.id, actor, 3, "Repair completed");
+    expect(completeResult.status).toBe("succeeded");
+    expect(completeResult.newVersion).toBe(4);
 
     // 9. Verify workbench reflects the completed state
     const openCount = await resolveWidgetData(workspaceId, {

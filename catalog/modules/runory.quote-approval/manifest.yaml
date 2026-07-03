@@ -2,6 +2,9 @@ id: runory.quote-approval
 name: Quote Approval Management
 version: 1.0.0
 coreCompatibility: ">=0.1.0"
+status: retired
+retiredIn: "v0.5"
+retirementNote: "Superseded by Workflow approval work items. See v0.5 Commercial FSM Technical Specification Section 10."
 
 dependencies:
   - runory.quote
@@ -107,6 +110,9 @@ relations:
 migrations:
   install: migrations/install.sql
   uninstallPolicy: retain_data
+
+presentation:
+  visibility: hidden
 
 ui:
   navigation:

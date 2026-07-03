@@ -133,6 +133,11 @@ migrations:
   install: migrations/install.sql
   uninstallPolicy: retain_data
 
+presentation:
+  visibility: top_level
+  surface: customers
+  audience: [sales_representative, sales_manager]
+
 ui:
   navigation:
     - label: Deal

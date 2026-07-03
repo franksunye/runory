@@ -35,6 +35,16 @@ const ROUTE_OVERRIDES_REVERSE: Record<string, string> = Object.fromEntries(
 );
 
 /**
+ * Explicit redirects for retired module routes (v0.4).
+ * Maps a legacy route segment to a new destination path. When a retired
+ * module's navigation route is accessed, the caller should redirect to the
+ * destination here instead of rendering the retired view.
+ */
+const ROUTE_REDIRECTS: Record<string, string> = {
+  "quote-approvals": "/my-work?kind=approval&subjectType=quote",
+};
+
+/**
  * Pluralize the last token of an objectKey for URL display.
  * - Ends in "y" → "ies"  (company → companies)
  * - Ends in "s" → "es"   (status → statuses)
@@ -85,4 +95,14 @@ export function objectKeyToTitle(objectKey: string): string {
     .split("_")
     .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
     .join(" ");
+}
+
+/**
+ * Look up a redirect destination for a retired route segment (v0.4).
+ * Returns the destination path if the segment has been retired and redirected,
+ * or null if no redirect applies. Callers should issue a client-side redirect
+ * to the returned path instead of rendering the retired view.
+ */
+export function getRouteRedirect(segment: string): string | null {
+  return ROUTE_REDIRECTS[segment] ?? null;
 }

@@ -246,6 +246,8 @@ sort_order          optional
 
 ### 5.5 Quote Approval
 
+> **v0.5 retirement note (2026-07-03):** the standalone `quote_approval` object below records an earlier pack-local simplification. It is superseded by the [v0.5 Commercial FSM Technical Specification](./v0.5-commercial-fsm-technical-spec.md). New workspaces MUST use Workflow approval work items and immutable decisions; Quote remains the only owner of quote commercial state. The legacy object is migration input, not the target architecture.
+
 Object key: `quote_approval`
 
 Chinese label: `报价审批`

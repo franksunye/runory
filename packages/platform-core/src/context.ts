@@ -145,3 +145,20 @@ export class InvalidInputError extends Error {
     this.name = "InvalidInputError";
   }
 }
+
+// ── Business Error (v0.5): carries a specific error code for domain rule violations ──
+//
+// Used by command runtime, governed fields, and workflow V2 to express
+// business-specific error conditions (e.g. VERSION_CONFLICT,
+// GOVERNED_FIELD_REQUIRES_COMMAND, SUBJECT_SNAPSHOT_CHANGED).
+
+export class BusinessError extends Error {
+  readonly code: string;
+  readonly httpStatus: number;
+  constructor(code: string, message: string, httpStatus = 409) {
+    super(message);
+    this.name = "BusinessError";
+    this.code = code;
+    this.httpStatus = httpStatus;
+  }
+}

@@ -2,9 +2,14 @@
 
 Status: Approved v1.0
 Date: 2026-06-22
+Updated: 2026-07-03 (advance current target to v0.5 and link later product milestones)
 Prerequisite: Cloud-first POC completed
 Detailed SaaS plan: [08-saas-core-implementation-plan.md](08-saas-core-implementation-plan.md)
 Next productization plan: [product/v0.2-productization-plan.md](product/v0.2-productization-plan.md)
+Current commercial FSM plan: [product/v0.5-commercial-fsm-execution-plan.md](product/v0.5-commercial-fsm-execution-plan.md)
+Post-v0.5 milestone roadmap: [product/post-v0.5-product-milestone-roadmap.md](product/post-v0.5-product-milestone-roadmap.md)
+Customer-demand benchmark: [research/commercial-fsm-customer-demand-benchmark.md](research/commercial-fsm-customer-demand-benchmark.md)
+Runory 1.0 GA goal: [product/v1.0-ga-release-goal.md](product/v1.0-ga-release-goal.md)
 
 ## 1. Current Position
 
@@ -19,9 +24,9 @@ Track B — Product Runtime：让 CRM Lite 与 Agent 配置形成持续业务价
 
 SaaS Core 边界以 [07-saas-core-boundaries.md](07-saas-core-boundaries.md) 为准。本文件只维护跨领域优先级，不重复具体安全与数据模型清单。
 
-当前正式发布目标是 `Runory Cloud v0.1.0 — Early Access`。范围、阻塞项、验收证据和签发流程以 [releases/v0.1.0-cloud-early-access.md](releases/v0.1.0-cloud-early-access.md) 为准。
+`v0.1–v0.3` 已建立 Cloud、SaaS、Catalog 和 Product Runtime 基础；`v0.4` 正在完成公开发布与线上性能收尾。当前下一产品目标是 [v0.5 Commercial FSM Execution And Planning](product/v0.5-commercial-fsm-execution-plan.md)：让 CRM、Quote 和 FSM 通过可审计执行与计划主干成为一套可承接商用试点的系统。
 
-`v0.1.0` 之后的下一阶段产品化目标以 [Runory Cloud 0.2 Productization Plan](product/v0.2-productization-plan.md) 为准：Workspace 层必须从技术/实施导航转向业务工作区，平台和管理能力进入 management surfaces。
+`v0.5.1` 的移动现场入口与表单/My Work 规格，以及 `v0.6+` 的持续服务、商业运营、外部连接、离线和 AI 里程碑，以本文件顶部链接的当前路线文档为准。下面第 2–4 节保留早期 SaaS 基础建设的优先级和历史债务，不再作为当前产品版本顺序。
 
 ## 2. Priority Order
 
@@ -134,6 +139,11 @@ SaaS Core 边界以 [07-saas-core-boundaries.md](07-saas-core-boundaries.md) 为
 - SDK product and developer experience: [10-runory-sdk-product.md](10-runory-sdk-product.md)
 - v0.1.0 release definition: [releases/v0.1.0-cloud-early-access.md](releases/v0.1.0-cloud-early-access.md)
 - v0.2 productization plan: [product/v0.2-productization-plan.md](product/v0.2-productization-plan.md)
+- v0.5 commercial FSM plan: [product/v0.5-commercial-fsm-execution-plan.md](product/v0.5-commercial-fsm-execution-plan.md)
+- v0.5.1 mobile field-work specification: [product/v0.5.1-mobile-field-work-spec.md](product/v0.5.1-mobile-field-work-spec.md)
+- post-v0.5 milestone roadmap: [product/post-v0.5-product-milestone-roadmap.md](product/post-v0.5-product-milestone-roadmap.md)
+- commercial FSM customer-demand benchmark: [research/commercial-fsm-customer-demand-benchmark.md](research/commercial-fsm-customer-demand-benchmark.md)
+- Runory 1.0 GA 90/10 release contract: [product/v1.0-ga-release-goal.md](product/v1.0-ga-release-goal.md)
 - Historical POC result: [05-cloud-first-poc-progress.md](05-cloud-first-poc-progress.md)
 
 不要在本文件重新定义 SaaS 数据模型或权限边界；决策变化必须先更新 SaaS Core decision baseline，并记录迁移影响。

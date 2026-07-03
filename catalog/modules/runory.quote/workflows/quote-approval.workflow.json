@@ -1,0 +1,14 @@
+{
+  "workflowKey": "quote-approval",
+  "name": "Quote Approval Process",
+  "targetObject": "quote",
+  "initialState": "start",
+  "steps": [
+    { "id": "start", "kind": "start", "next": "submit" },
+    { "id": "submit", "kind": "system_command", "command": "quote.submit_for_approval", "next": "approval" },
+    { "id": "approval", "kind": "approval", "assigneeRule": { "permissionGroup": "sales_manager" }, "onApprove": "approved", "onReject": "rejected" },
+    { "id": "approved", "kind": "system_command", "command": "quote.approve", "next": "end" },
+    { "id": "rejected", "kind": "system_command", "command": "quote.reject", "next": "end" },
+    { "id": "end", "kind": "end" }
+  ]
+}

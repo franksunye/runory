@@ -27,10 +27,29 @@ modules:
   - "runory.task:^2.0.0"
   - "runory.service-site:^1.0.0"
   - "runory.asset:^1.0.0"
-  - "runory.technician:^1.0.0"
-  - "runory.work-order:^1.0.0"
-  - "runory.service-visit:^1.0.0"
+  - "runory.technician:^1.1.0"
+  - "runory.work-order:^1.1.0"
+  - "runory.service-visit:^1.1.0"
   - "runory.service-report:^1.0.0"
+
+# v0.4 — Pack-aware permission groups.
+permissionGroups:
+  - key: dispatcher
+    label: "Dispatcher"
+    description: "Can triage work orders and manage assignments and schedules"
+    permissions: ["work_order.read", "work_order.triage", "assignment.manage", "schedule.manage"]
+  - key: field_technician
+    label: "Field Technician"
+    description: "Can execute assigned visits and submit forms"
+    permissions: ["work_order.read", "visit.execute", "form.submit"]
+  - key: service_supervisor
+    label: "Service Supervisor"
+    description: "Can complete work orders, review forms, and reopen work"
+    permissions: ["work_order.read", "work_order.complete", "work_order.reopen", "form.review", "workflow.approval.decide"]
+  - key: workspace_administrator
+    label: "Workspace Administrator"
+    description: "Full access to all FSM operations"
+    permissions: ["*"]
 
 defaultTemplate: small-business-field-service
 

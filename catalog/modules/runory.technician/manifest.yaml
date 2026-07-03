@@ -1,6 +1,6 @@
 id: runory.technician
 name: Technician Management
-version: 1.0.0
+version: 1.1.0
 coreCompatibility: ">=0.1.0"
 
 objects:
@@ -38,6 +38,10 @@ objects:
           options: ["available", "busy", "off_duty"]
       - key: user_id
         label: Related User
+        type: text
+        ownership: module_owned
+      - key: resource_id
+        label: Resource ID
         type: text
         ownership: module_owned
 
@@ -94,6 +98,16 @@ permissions:
 migrations:
   install: migrations/install.sql
   uninstallPolicy: retain_data
+  upgrade:
+    - from: "1.0.0"
+      to: "1.1.0"
+      script: v1.1/migrations/upgrade-from-1.0.sql
+      risk: low
+
+presentation:
+  visibility: management
+  surface: work_orders
+  audience: [dispatcher]
 
 ui:
   navigation:
@@ -109,7 +123,7 @@ extensionPoints:
         enabled: true
         allowedTypes: [text, number, date, select, boolean]
         maxFields: 20
-        reservedKeys: [id, name, email, phone, skills, region, availability_status, user_id, created_at, updated_at]
+        reservedKeys: [id, name, email, phone, skills, region, availability_status, user_id, resource_id, created_at, updated_at]
       customRelations:
         enabled: false
   views:

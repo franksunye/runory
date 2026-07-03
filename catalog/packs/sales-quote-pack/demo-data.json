@@ -314,7 +314,7 @@
       "data": {
         "quote_number": "Q-2026-002",
         "title": "Acme HVAC Emergency Repair Quote",
-        "status": "pending_approval",
+        "status": "in_review",
         "version": 1,
         "company_id": { "$lookup": { "object": "company", "field": "domain", "value": "acme.example" } },
         "contact_id": { "$lookup": { "object": "contact", "field": "email", "value": "maya@acme.example" } },
@@ -381,18 +381,6 @@
       }
     },
     {
-      "object": "quote_approval",
-      "alias": "qa-acme-wo",
-      "match": { "field": "decision_notes", "value": "Emergency repair quote, pending approval" },
-      "data": {
-        "quote_id": "$q-acme-wo-urgent.id",
-        "status": "pending",
-        "requested_by": "Alex",
-        "requested_at": "2026-06-22",
-        "decision_notes": "Emergency repair quote, pending approval"
-      }
-    },
-    {
       "object": "quote",
       "alias": "q-acme-wo-overdue",
       "match": { "field": "quote_number", "value": "Q-2026-003" },
@@ -447,20 +435,6 @@
         "tax_amount": 96,
         "line_total": 800,
         "sort_order": 2
-      }
-    },
-    {
-      "object": "quote_approval",
-      "alias": "qa-acme-wo-overdue",
-      "match": { "field": "decision_notes", "value": "Warehouse repair quote approved" },
-      "data": {
-        "quote_id": "$q-acme-wo-overdue.id",
-        "status": "approved",
-        "requested_by": "Alex",
-        "reviewed_by": "Sam",
-        "requested_at": "2026-06-12",
-        "reviewed_at": "2026-06-13",
-        "decision_notes": "Warehouse repair quote approved"
       }
     },
     {
@@ -688,7 +662,7 @@
       "data": {
         "quote_number": "Q-2026-007",
         "title": "Harbor Onboarding Service Quote",
-        "status": "pending_approval",
+        "status": "in_review",
         "version": 1,
         "company_id": { "$lookup": { "object": "company", "field": "domain", "value": "harborlogistics.example" } },
         "contact_id": { "$lookup": { "object": "contact", "field": "email", "value": "eric@harborlogistics.example" } },
@@ -735,18 +709,6 @@
         "tax_amount": 768,
         "line_total": 7200,
         "sort_order": 2
-      }
-    },
-    {
-      "object": "quote_approval",
-      "alias": "qa-harbor-deal",
-      "match": { "field": "decision_notes", "value": "Harbor Onboarding Service quote pending approval" },
-      "data": {
-        "quote_id": "$q-harbor-deal.id",
-        "status": "pending",
-        "requested_by": "Sam",
-        "requested_at": "2026-06-21",
-        "decision_notes": "Harbor Onboarding Service quote pending approval"
       }
     },
     {
@@ -928,34 +890,6 @@
         "tax_amount": 5292,
         "line_total": 44100,
         "sort_order": 2
-      }
-    },
-    {
-      "object": "quote_approval",
-      "alias": "qa-quantum-deal",
-      "match": { "field": "decision_notes", "value": "Quantum quote approved but rejected by customer" },
-      "data": {
-        "quote_id": "$q-quantum-deal.id",
-        "status": "approved",
-        "requested_by": "Sam",
-        "reviewed_by": "Alex",
-        "requested_at": "2026-04-20",
-        "reviewed_at": "2026-04-22",
-        "decision_notes": "Quantum quote approved but rejected by customer"
-      }
-    },
-    {
-      "object": "quote_approval",
-      "alias": "qa-acme-deal-v1",
-      "match": { "field": "decision_notes", "value": "Acme Expansion Plan quote approved" },
-      "data": {
-        "quote_id": "$q-acme-deal-v1.id",
-        "status": "approved",
-        "requested_by": "Alex",
-        "reviewed_by": "Sam",
-        "requested_at": "2026-06-10",
-        "reviewed_at": "2026-06-11",
-        "decision_notes": "Acme Expansion Plan quote approved"
       }
     }
   ]

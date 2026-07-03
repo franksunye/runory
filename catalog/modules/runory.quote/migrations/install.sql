@@ -21,6 +21,17 @@ CREATE TABLE IF NOT EXISTS {{BUSINESS_TABLE_PREFIX}}quote (
   owner TEXT,
   terms TEXT,
   notes TEXT,
+  aggregate_version INTEGER NOT NULL DEFAULT 1,
+  root_quote_id TEXT,
+  previous_version_id TEXT,
+  revision_number INTEGER NOT NULL DEFAULT 0,
+  price_book_id TEXT,
+  approved_at TEXT,
+  accepted_at TEXT,
+  rejected_reason TEXT,
+  withdrawn_at TEXT,
+  snapshot_hash TEXT,
+  locked_at TEXT,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL,
   UNIQUE(workspace_id, id)
@@ -32,6 +43,7 @@ CREATE INDEX IF NOT EXISTS idx_business_quote_company ON {{BUSINESS_TABLE_PREFIX
 CREATE INDEX IF NOT EXISTS idx_business_quote_deal ON {{BUSINESS_TABLE_PREFIX}}quote(workspace_id, deal_id);
 CREATE INDEX IF NOT EXISTS idx_business_quote_work_order ON {{BUSINESS_TABLE_PREFIX}}quote(workspace_id, work_order_id);
 CREATE INDEX IF NOT EXISTS idx_business_quote_valid_until ON {{BUSINESS_TABLE_PREFIX}}quote(workspace_id, valid_until);
+CREATE INDEX IF NOT EXISTS idx_business_quote_root_quote ON {{BUSINESS_TABLE_PREFIX}}quote(workspace_id, root_quote_id);
 
 CREATE TABLE IF NOT EXISTS {{BUSINESS_TABLE_PREFIX}}quote_line (
   id TEXT PRIMARY KEY,

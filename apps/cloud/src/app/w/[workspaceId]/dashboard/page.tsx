@@ -61,7 +61,7 @@ export default function DashboardPage() {
 
   const loadLayout = useCallback(async (): Promise<boolean> => {
     try {
-      const res = await fetch(`/api/workspaces/${workspaceId}/dashboard/layout`, { cache: "no-store" });
+      const res = await fetch(`/api/workspaces/${workspaceId}/dashboard/layout`);
       const json = await res.json();
       if (json.success) {
         setLayout(json.data.layout);

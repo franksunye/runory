@@ -124,6 +124,11 @@ migrations:
   install: migrations/install.sql
   uninstallPolicy: retain_data
 
+presentation:
+  visibility: management
+  surface: work_orders
+  audience: [dispatcher]
+
 ui:
   navigation:
     - label: Asset

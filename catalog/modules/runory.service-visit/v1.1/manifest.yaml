@@ -1,0 +1,233 @@
+id: runory.service-visit
+name: Service Visit Management
+version: 1.1.0
+coreCompatibility: ">=0.1.0"
+
+dependencies:
+  - runory.work-order
+  - runory.technician
+
+objects:
+  - key: service_visit
+    label: Service Visit
+    fields:
+      - key: title
+        label: Title
+        type: text
+        ownership: module_owned
+      - key: work_order_id
+        label: Related Work Order
+        type: text
+        ownership: module_owned
+        required: true
+      - key: technician_id
+        label: Assigned Technician
+        type: text
+        ownership: module_owned
+      - key: scheduled_start
+        label: Scheduled Start
+        type: date
+        ownership: module_owned
+        required: true
+      - key: scheduled_end
+        label: Scheduled End
+        type: date
+        ownership: module_owned
+      - key: actual_start
+        label: Actual Start
+        type: date
+        ownership: module_owned
+      - key: actual_end
+        label: Actual End
+        type: date
+        ownership: module_owned
+      - key: status
+        label: Status
+        type: select
+        ownership: module_owned
+        required: true
+        default_value: "scheduled"
+        validation:
+          options: ["scheduled", "en_route", "on_site", "work_submitted", "completed", "cancelled"]
+      - key: notes
+        label: Notes
+        type: text
+        ownership: module_owned
+      - key: aggregate_version
+        label: Aggregate Version
+        type: number
+        ownership: module_owned
+        required: true
+        default_value: "1"
+      - key: assignment_id
+        label: Assignment
+        type: text
+        ownership: module_owned
+      - key: schedule_entry_id
+        label: Schedule Entry
+        type: text
+        ownership: module_owned
+      - key: outcome
+        label: Outcome
+        type: text
+        ownership: module_owned
+
+views:
+  - object: service_visit
+    key: service_visit_list
+    type: list
+    label: Service Visit List
+    config:
+      columns:
+        - field: title
+          label: Title
+        - field: work_order_id
+          label: Related Work Order
+        - field: technician_id
+          label: Assigned Technician
+        - field: scheduled_start
+          label: Scheduled Start
+        - field: status
+          label: Status
+      actions:
+        - create
+        - view
+      pageSize: 20
+
+  - object: service_visit
+    key: service_visit_form
+    type: form
+    label: Service Visit Form
+    config:
+      sections:
+        - title: Basic Info
+          fields:
+            - field: title
+            - field: work_order_id
+              required: true
+            - field: technician_id
+            - field: status
+              required: true
+        - title: Schedule Info
+          fields:
+            - field: scheduled_start
+              required: true
+            - field: scheduled_end
+            - field: actual_start
+            - field: actual_end
+        - title: Other
+          fields:
+            - field: notes
+
+permissions:
+  - service_visit.read
+  - service_visit.create
+  - service_visit.update
+  - service_visit.delete
+
+# ── Cross-Pack Relations (v0.2.4) ──
+relations:
+  - object: service_visit
+    targetObject: work_order
+    targetModule: runory.work-order
+    type: many_to_one
+    foreignKey: work_order_id
+    label: Related Work Order
+  - object: service_visit
+    targetObject: technician
+    targetModule: runory.technician
+    type: many_to_one
+    foreignKey: technician_id
+    label: Assigned Technician
+
+migrations:
+  install: migrations/install.sql
+  uninstallPolicy: retain_data
+  upgrade:
+    - from: "1.0.0"
+      to: "1.1.0"
+      script: migrations/upgrade-from-1.0.sql
+      risk: low
+
+ui:
+  navigation:
+    - label: Service Visit
+      route: /service-visits
+      icon: calendar
+      sortOrder: 45
+
+extensionPoints:
+  entities:
+    - entity: service_visit
+      customFields:
+        enabled: true
+        allowedTypes: [text, number, date, select, boolean]
+        maxFields: 20
+        reservedKeys: [id, title, work_order_id, technician_id, scheduled_start, scheduled_end, actual_start, actual_end, status, notes, aggregate_version, assignment_id, schedule_entry_id, outcome, created_at, updated_at]
+      customRelations:
+        enabled: false
+  views:
+    - view: service_visit_list
+      slots:
+        - id: service_visit.list.columns
+          type: column_group
+          allowedExtensions: [customField]
+          risk: low
+      allowReorder: true
+      allowFilters: true
+      allowPageSizeChange: true
+    - view: service_visit_form
+      slots:
+        - id: service_visit.form.basic_fields.after
+          type: field_group
+          allowedExtensions: [customField]
+          risk: low
+      allowAddSection: true
+      allowAddAction: true
+
+dashboard:
+  widgets:
+    - key: scheduled_visits_today_metric
+      type: metric_card
+      label: Today's Visits
+      icon: calendar
+      tone: blue
+      data:
+        kind: count
+        object: service_visit
+        where: "scheduled_start = today and status not in ('completed', 'cancelled')"
+      link: /service-visits
+
+    - key: service_visit_status_breakdown
+      type: breakdown
+      label: Visit Status Distribution
+      icon: pie-chart
+      tone: blue
+      data:
+        kind: group_count
+        object: service_visit
+        groupBy: status
+
+    - key: today_schedule_list
+      type: list
+      label: Today's Schedule
+      icon: calendar
+      tone: blue
+      data:
+        kind: recent
+        object: service_visit
+        where: "scheduled_start = today"
+        orderBy: "scheduled_start asc"
+        limit: 10
+        columns: [work_order_id, technician_id, scheduled_start, status]
+      link: /service-visits
+      configurable:
+        - path: data.limit
+          label: Display Count
+          type: number
+          min: 1
+          max: 20
+
+upgradePolicy:
+  supportsWorkspaceExtensions: true
+  breakingChangePolicy: manual_review

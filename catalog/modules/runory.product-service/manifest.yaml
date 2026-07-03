@@ -114,6 +114,11 @@ migrations:
   install: migrations/install.sql
   uninstallPolicy: retain_data
 
+presentation:
+  visibility: management
+  surface: quotes
+  audience: [sales_manager]
+
 ui:
   navigation:
     - label: Products/Services

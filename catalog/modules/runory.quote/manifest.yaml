@@ -1,6 +1,6 @@
 id: runory.quote
 name: Quote Management
-version: 1.0.0
+version: 1.1.0
 coreCompatibility: ">=0.1.0"
 
 dependencies:
@@ -31,7 +31,7 @@ objects:
         required: true
         default_value: "draft"
         validation:
-          options: ["draft", "pending_approval", "approved", "sent", "accepted", "rejected", "expired", "withdrawn"]
+          options: ["draft", "in_review", "approved", "rejected", "sent", "accepted", "declined", "expired", "withdrawn"]
       - key: version
         label: Version
         type: number
@@ -100,6 +100,43 @@ objects:
         label: Notes
         type: text
         ownership: module_owned
+      - key: aggregate_version
+        label: Aggregate Version
+        type: number
+        required: true
+        default_value: "1"
+      - key: root_quote_id
+        label: Root Quote
+        type: text
+      - key: previous_version_id
+        label: Previous Version
+        type: text
+      - key: revision_number
+        label: Revision Number
+        type: number
+        required: true
+        default_value: "0"
+      - key: price_book_id
+        label: Price Book
+        type: text
+      - key: approved_at
+        label: Approved At
+        type: date
+      - key: accepted_at
+        label: Accepted At
+        type: date
+      - key: rejected_reason
+        label: Rejected Reason
+        type: text
+      - key: withdrawn_at
+        label: Withdrawn At
+        type: date
+      - key: snapshot_hash
+        label: Snapshot Hash
+        type: text
+      - key: locked_at
+        label: Locked At
+        type: date
 
   - key: quote_line
     label: Quote Line
@@ -328,6 +365,11 @@ migrations:
   install: migrations/install.sql
   uninstallPolicy: retain_data
 
+presentation:
+  visibility: top_level
+  surface: quotes
+  audience: [sales_representative, sales_manager]
+
 ui:
   navigation:
     - label: Quotes
@@ -419,7 +461,7 @@ dashboard:
       data:
         kind: count
         object: quote
-        where: "status = 'pending_approval'"
+        where: "status = 'in_review'"
       link: /quotes
 
     - key: quote_status_breakdown
@@ -434,13 +476,13 @@ dashboard:
 
     - key: quotes_needing_approval_list
       type: list
-      label: Pending Approval Quotes
+      label: Quotes In Review
       icon: clock
       tone: amber
       data:
         kind: recent
         object: quote
-        where: "status = 'pending_approval'"
+        where: "status = 'in_review'"
         orderBy: "created_at asc"
         limit: 8
         columns: [quote_number, title, total_amount, currency, valid_until]

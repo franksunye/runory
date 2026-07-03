@@ -5,6 +5,7 @@ import {
   ConflictError,
   RateLimitError,
   InvalidInputError,
+  BusinessError,
   generateRequestId,
 } from "./context";
 
@@ -43,6 +44,25 @@ export const ERROR_CODES = {
   // 400 Validation
   INVALID_INPUT: "INVALID_INPUT",
   INVALID_PLAN: "INVALID_PLAN",
+
+  // v0.5 Business Errors (409 Conflict unless noted)
+  VERSION_CONFLICT: "VERSION_CONFLICT",
+  INVALID_TRANSITION: "INVALID_TRANSITION",
+  GOVERNED_FIELD_REQUIRES_COMMAND: "GOVERNED_FIELD_REQUIRES_COMMAND",
+  IDEMPOTENCY_KEY_REUSED: "IDEMPOTENCY_KEY_REUSED",
+  WORK_ITEM_NOT_ACTIONABLE: "WORK_ITEM_NOT_ACTIONABLE",
+  SUBJECT_SNAPSHOT_CHANGED: "SUBJECT_SNAPSHOT_CHANGED",
+  SCHEDULE_CONFLICT: "SCHEDULE_CONFLICT",
+  IMMUTABLE_REVISION: "IMMUTABLE_REVISION",
+  ALREADY_CONVERTED: "ALREADY_CONVERTED",
+
+  // v0.5 Business Errors (403 Forbidden)
+  PERMISSION_DENIED: "PERMISSION_DENIED",
+  ASSIGNEE_NOT_ELIGIBLE: "ASSIGNEE_NOT_ELIGIBLE",
+  SELF_APPROVAL_NOT_ALLOWED: "SELF_APPROVAL_NOT_ALLOWED",
+
+  // v0.5 Business Errors (400 Validation)
+  REQUIRED_INPUT_MISSING: "REQUIRED_INPUT_MISSING",
 
   // 500 Server
   INTERNAL_ERROR: "INTERNAL_ERROR",
@@ -89,6 +109,7 @@ export function errorEnvelope(
 // ── Error-to-HTTP-Status Mapper ──
 
 export function errorToHttpStatus(error: unknown): number {
+  if (error instanceof BusinessError) return error.httpStatus;
   if (error instanceof AuthenticationError) return HTTP_STATUS.UNAUTHORIZED;
   if (error instanceof AuthorizationError) return HTTP_STATUS.FORBIDDEN;
   if (error instanceof NotFoundError) return HTTP_STATUS.NOT_FOUND;
@@ -99,6 +120,11 @@ export function errorToHttpStatus(error: unknown): number {
 }
 
 export function errorToCode(error: unknown): ErrorCode {
+  if (error instanceof BusinessError) {
+    // Map BusinessError.code string to ErrorCode if known, else fall back
+    const known = Object.values(ERROR_CODES).includes(error.code as ErrorCode);
+    return known ? (error.code as ErrorCode) : ERROR_CODES.CONFLICT;
+  }
   if (error instanceof AuthenticationError) return ERROR_CODES.AUTH_REQUIRED;
   if (error instanceof AuthorizationError) return ERROR_CODES.AUTH_FORBIDDEN;
   if (error instanceof NotFoundError) return ERROR_CODES.NOT_FOUND;
@@ -125,7 +151,8 @@ function isDomainError(error: unknown): boolean {
     error instanceof NotFoundError ||
     error instanceof ConflictError ||
     error instanceof RateLimitError ||
-    error instanceof InvalidInputError
+    error instanceof InvalidInputError ||
+    error instanceof BusinessError
   );
 }
 

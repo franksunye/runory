@@ -1,6 +1,6 @@
 id: runory.work-order
 name: Work Order Management
-version: 1.0.0
+version: 1.1.0
 coreCompatibility: ">=0.1.0"
 
 dependencies:
@@ -30,7 +30,7 @@ objects:
         required: true
         default_value: "new"
         validation:
-          options: ["new", "triaged", "scheduled", "in_progress", "blocked", "completed", "cancelled"]
+          options: ["new", "triaged", "scheduled", "in_progress", "blocked", "completed", "cancelled", "reopened"]
       - key: priority
         label: Priority
         type: select
@@ -84,6 +84,52 @@ objects:
         ownership: module_owned
       - key: notes
         label: Notes
+        type: text
+        ownership: module_owned
+      - key: work_order_number
+        label: Work Order Number
+        type: text
+        ownership: module_owned
+      - key: aggregate_version
+        label: Aggregate Version
+        type: number
+        ownership: module_owned
+        required: true
+        default_value: "1"
+      - key: source_type
+        label: Source Type
+        type: text
+        ownership: module_owned
+      - key: source_id
+        label: Source ID
+        type: text
+        ownership: module_owned
+      - key: source_snapshot_hash
+        label: Source Snapshot Hash
+        type: text
+        ownership: module_owned
+      - key: owner_resource_id
+        label: Owner Resource
+        type: text
+        ownership: module_owned
+      - key: cancelled_at
+        label: Cancelled At
+        type: date
+        ownership: module_owned
+      - key: reopened_at
+        label: Reopened At
+        type: date
+        ownership: module_owned
+      - key: completion_reason
+        label: Completion Reason
+        type: text
+        ownership: module_owned
+      - key: cancellation_reason
+        label: Cancellation Reason
+        type: text
+        ownership: module_owned
+      - key: reopen_reason
+        label: Reopen Reason
         type: text
         ownership: module_owned
 
@@ -186,6 +232,16 @@ relations:
 migrations:
   install: migrations/install.sql
   uninstallPolicy: retain_data
+  upgrade:
+    - from: "1.0.0"
+      to: "1.1.0"
+      script: v1.1/migrations/upgrade-from-1.0.sql
+      risk: low
+
+presentation:
+  visibility: top_level
+  surface: work_orders
+  audience: [dispatcher, service_supervisor]
 
 ui:
   navigation:

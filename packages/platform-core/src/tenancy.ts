@@ -139,12 +139,39 @@ export async function provisionWorkspaceTenant(
 //
 // Resolves the user's effective workspace role.
 // Organization owner/admin inherit workspace admin.
+//
+// Results are cached in-process for 30s to avoid redundant DB queries when
+// a single page load triggers multiple API calls to the same workspace.
+
+const ACCESS_CACHE_TTL_MS = 30_000; // 30 seconds
+
+interface CachedAccess {
+  access: WorkspaceAccess | null;
+  expiresAt: number;
+}
+
+const accessCache = new Map<string, CachedAccess>();
+
+export function _clearAccessCache(): void {
+  accessCache.clear();
+}
 
 export async function authorizeWorkspace(
   workspaceId: string,
   externalUserId: string,
   requiredRole: WorkspaceRole = "viewer"
 ): Promise<WorkspaceAccess | null> {
+  // Check cache — requiredRole doesn't affect the DB query result, only the
+  // roleAllows check, so we cache by workspace+user and re-check role on hit.
+  const cacheKey = `${workspaceId}:${externalUserId}`;
+  const cached = accessCache.get(cacheKey);
+  if (cached && cached.expiresAt > Date.now()) {
+    if (!cached.access) return null;
+    const effective = effectiveRole(cached.access.workspaceRole, cached.access.organizationRole);
+    if (!effective || !roleAllows(effective, requiredRole)) return null;
+    return { ...cached.access, role: effective };
+  }
+
   const access = await queryOne<{
     workspace_id: string;
     organization_id: string;
@@ -163,12 +190,15 @@ export async function authorizeWorkspace(
      WHERE wt.workspace_id = ?`,
     [externalUserId, externalUserId, workspaceId]
   );
-  if (!access) return null;
+  if (!access) {
+    accessCache.set(cacheKey, { access: null, expiresAt: Date.now() + ACCESS_CACHE_TTL_MS });
+    return null;
+  }
 
   const effective = effectiveRole(access.workspace_role, access.organization_role);
   if (!effective || !roleAllows(effective, requiredRole)) return null;
 
-  return {
+  const result: WorkspaceAccess = {
     workspaceId: access.workspace_id,
     organizationId: access.organization_id,
     userId: access.user_id,
@@ -176,6 +206,10 @@ export async function authorizeWorkspace(
     organizationRole: access.organization_role,
     role: effective,
   };
+
+  accessCache.set(cacheKey, { access: result, expiresAt: Date.now() + ACCESS_CACHE_TTL_MS });
+
+  return result;
 }
 
 export async function workspaceHasTenant(workspaceId: string): Promise<boolean> {

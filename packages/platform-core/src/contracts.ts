@@ -90,6 +90,32 @@ export const TABLES = {
   automationDefinitions: `${PREFIXES.runoryRuntime}automation_definitions`,
   automationRuns: `${PREFIXES.runoryRuntime}automation_runs`,
 
+  // v0.5 Command Runtime.
+  commandExecutions: `${PREFIXES.runoryRuntime}command_executions`,
+  domainEvents: `${PREFIXES.runoryRuntime}domain_events`,
+  outboxMessages: `${PREFIXES.runoryRuntime}outbox_messages`,
+
+  // v0.5 Workflow V2.
+  workflowDefinitionsV2: `${PREFIXES.runoryRuntime}workflow_definitions_v2`,
+  workflowDefinitionVersions: `${PREFIXES.runoryRuntime}workflow_definition_versions`,
+  workflowInstancesV2: `${PREFIXES.runoryRuntime}workflow_instances_v2`,
+  workflowEvents: `${PREFIXES.runoryRuntime}workflow_events`,
+  workItems: `${PREFIXES.runoryRuntime}work_items`,
+  approvalDecisions: `${PREFIXES.runoryRuntime}approval_decisions`,
+  workflowTimers: `${PREFIXES.runoryRuntime}workflow_timers`,
+
+  // v0.5 Forms 2.0.
+  formDefinitions: `${PREFIXES.runoryRuntime}form_definitions`,
+  formDefinitionVersions: `${PREFIXES.runoryRuntime}form_definition_versions`,
+  formBindings: `${PREFIXES.runoryRuntime}form_bindings`,
+  formSubmissions: `${PREFIXES.runoryRuntime}form_submissions`,
+  attachments: `${PREFIXES.runoryRuntime}attachments`,
+
+  // v0.5 Assignment & Schedule.
+  resources: `${PREFIXES.runoryRuntime}resources`,
+  assignments: `${PREFIXES.runoryRuntime}assignments`,
+  scheduleEntries: `${PREFIXES.runoryRuntime}schedule_entries`,
+
   // Runory Catalog & Release Control Plane.
   catalogItems: `${PREFIXES.runoryCatalog}items`,
   catalogVersions: `${PREFIXES.runoryCatalog}versions`,

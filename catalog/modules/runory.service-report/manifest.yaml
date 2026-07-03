@@ -114,6 +114,11 @@ migrations:
   install: migrations/install.sql
   uninstallPolicy: retain_data
 
+presentation:
+  visibility: contextual
+  surface: work_orders
+  audience: [service_supervisor]
+
 ui:
   navigation:
     - label: Service Report

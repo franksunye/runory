@@ -1,0 +1,302 @@
+id: runory.price-book
+name: Price Book Management
+version: 1.1.0
+coreCompatibility: ">=0.1.0"
+
+objects:
+  - key: price_book
+    label: Price Book
+    fields:
+      - key: name
+        label: Name
+        type: text
+        ownership: module_owned
+        required: true
+      - key: currency
+        label: Currency
+        type: text
+        ownership: module_owned
+        required: true
+        default_value: "CNY"
+      - key: active
+        label: Active
+        type: boolean
+        ownership: module_owned
+        default_value: "true"
+      - key: effective_from
+        label: Effective From
+        type: date
+        ownership: module_owned
+      - key: effective_to
+        label: Effective To
+        type: date
+        ownership: module_owned
+      - key: notes
+        label: Notes
+        type: text
+        ownership: module_owned
+
+  - key: price_book_item
+    label: Price Book Item
+    fields:
+      - key: price_book_id
+        label: Price Book
+        type: text
+        ownership: module_owned
+        required: true
+      - key: product_service_id
+        label: Product/Service
+        type: text
+        ownership: module_owned
+      - key: list_price
+        label: List Price
+        type: number
+        ownership: module_owned
+        required: true
+      - key: currency
+        label: Currency
+        type: text
+        ownership: module_owned
+        required: true
+        default_value: "CNY"
+      - key: effective_from
+        label: Effective From
+        type: date
+        ownership: module_owned
+      - key: effective_to
+        label: Effective To
+        type: date
+        ownership: module_owned
+      - key: active
+        label: Active
+        type: boolean
+        ownership: module_owned
+        default_value: "true"
+      - key: notes
+        label: Notes
+        type: text
+        ownership: module_owned
+
+views:
+  - object: price_book
+    key: price_book_list
+    type: list
+    label: Price Book List
+    config:
+      columns:
+        - field: name
+          label: Name
+        - field: currency
+          label: Currency
+        - field: effective_from
+          label: Effective From
+        - field: effective_to
+          label: Effective To
+        - field: active
+          label: Active
+      actions:
+        - create
+        - view
+      pageSize: 20
+
+  - object: price_book
+    key: price_book_form
+    type: form
+    label: Price Book Form
+    config:
+      sections:
+        - title: Basic Information
+          fields:
+            - field: name
+              required: true
+            - field: currency
+              required: true
+        - title: Effective Period
+          fields:
+            - field: effective_from
+            - field: effective_to
+        - title: Status
+          fields:
+            - field: active
+            - field: notes
+
+  - object: price_book_item
+    key: price_book_item_list
+    type: list
+    label: Price Book Item List
+    config:
+      columns:
+        - field: price_book_id
+          label: Price Book
+        - field: product_service_id
+          label: Product/Service
+        - field: list_price
+          label: List Price
+        - field: currency
+          label: Currency
+        - field: active
+          label: Active
+      actions:
+        - create
+        - view
+      pageSize: 20
+
+  - object: price_book_item
+    key: price_book_item_form
+    type: form
+    label: Price Book Item Form
+    config:
+      sections:
+        - title: Basic Information
+          fields:
+            - field: price_book_id
+              required: true
+            - field: product_service_id
+            - field: list_price
+              required: true
+            - field: currency
+              required: true
+        - title: Effective Period
+          fields:
+            - field: effective_from
+            - field: effective_to
+        - title: Status
+          fields:
+            - field: active
+            - field: notes
+
+permissions:
+  - price_book.read
+  - price_book.create
+  - price_book.update
+  - price_book.delete
+  - price_book_item.read
+  - price_book_item.create
+  - price_book_item.update
+  - price_book_item.delete
+
+# ── Cross-Pack Relations (v1.1.0) ──
+# price_book_item references price_book (same module) and product_service (same pack).
+relations:
+  - object: price_book_item
+    targetObject: price_book
+    targetModule: runory.price-book
+    type: many_to_one
+    foreignKey: price_book_id
+    label: Price Book
+  - object: price_book_item
+    targetObject: product_service
+    targetModule: runory.product-service
+    type: many_to_one
+    foreignKey: product_service_id
+    label: Product/Service
+
+migrations:
+  install: migrations/install.sql
+  uninstallPolicy: retain_data
+  upgrade:
+    - from: "1.0.0"
+      to: "1.1.0"
+      script: migrations/upgrade-from-1.0.sql
+      risk: low
+
+ui:
+  navigation:
+    - label: Price Books
+      route: /price-books
+      icon: tag
+      sortOrder: 75
+    - label: Price Book Items
+      route: /price-book-items
+      icon: list
+      sortOrder: 77
+
+extensionPoints:
+  entities:
+    - entity: price_book
+      customFields:
+        enabled: true
+        allowedTypes: [text, number, date, select, boolean]
+        maxFields: 20
+        reservedKeys: [id, name, currency, active, effective_from, effective_to, notes, created_at, updated_at]
+      customRelations:
+        enabled: false
+    - entity: price_book_item
+      customFields:
+        enabled: true
+        allowedTypes: [text, number, date, select, boolean]
+        maxFields: 20
+        reservedKeys: [id, price_book_id, product_service_id, list_price, currency, effective_from, effective_to, active, notes, created_at, updated_at]
+      customRelations:
+        enabled: false
+  views:
+    - view: price_book_list
+      slots:
+        - id: price_book.list.columns
+          type: column_group
+          allowedExtensions: [customField]
+          risk: low
+      allowReorder: true
+      allowFilters: true
+      allowPageSizeChange: true
+    - view: price_book_form
+      slots:
+        - id: price_book.form.basic_fields.after
+          type: field_group
+          allowedExtensions: [customField]
+          risk: low
+      allowAddSection: true
+      allowAddAction: true
+    - view: price_book_item_list
+      slots:
+        - id: price_book_item.list.columns
+          type: column_group
+          allowedExtensions: [customField]
+          risk: low
+      allowReorder: true
+      allowFilters: true
+      allowPageSizeChange: true
+    - view: price_book_item_form
+      slots:
+        - id: price_book_item.form.basic_fields.after
+          type: field_group
+          allowedExtensions: [customField]
+          risk: low
+      allowAddSection: true
+      allowAddAction: true
+
+dashboard:
+  widgets:
+    - key: active_price_books_metric
+      type: metric_card
+      label: Active Price Books
+      icon: tag
+      tone: indigo
+      data:
+        kind: count
+        object: price_book
+        where: "active = 1"
+      link: /price-books
+
+    - key: recent_price_books_list
+      type: list
+      label: Recent Price Books
+      icon: tag
+      tone: indigo
+      data:
+        kind: recent
+        object: price_book
+        orderBy: "created_at desc"
+        limit: 5
+        columns: [name, currency, effective_from, effective_to]
+      link: /price-books
+      configurable:
+        - path: data.limit
+          label: Display Count
+          type: number
+          min: 1
+          max: 20
+
+upgradePolicy:
+  supportsWorkspaceExtensions: true
+  breakingChangePolicy: manual_review

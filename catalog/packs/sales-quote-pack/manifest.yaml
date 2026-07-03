@@ -25,7 +25,24 @@ modules:
   - "runory.product-service:^1.0.0"
   - "runory.price-book:^1.0.0"
   - "runory.quote:^1.0.0"
-  - "runory.quote-approval:^1.0.0"
+
+# v0.4 — Pack-aware permission groups.
+# The standalone quote_approval module is retired (v0.5); quote approval is now
+# handled via Workflow approval work items. The sales_manager group includes the
+# workflow.approval.decide permission to approve/reject submitted quotes.
+permissionGroups:
+  - key: sales_representative
+    label: "Sales Representative"
+    description: "Can create and submit quotes for approval"
+    permissions: ["quote.read", "quote.create", "quote.edit_draft", "quote.submit"]
+  - key: sales_manager
+    label: "Sales Manager"
+    description: "Can approve or reject submitted quotes"
+    permissions: ["quote.read", "quote.create", "quote.edit_draft", "quote.submit", "quote.approve", "quote.reject", "quote.accept", "quote.convert", "workflow.approval.decide"]
+  - key: workspace_administrator
+    label: "Workspace Administrator"
+    description: "Full access to all sales operations"
+    permissions: ["*"]
 
 defaultTemplate: small-business-sales-quote
 
@@ -49,7 +66,6 @@ dashboard:
       widgets:
         - { module: runory.quote,            widget: open_quotes_metric,            instance: default }
         - { module: runory.quote,            widget: pending_approvals_metric,      instance: default }
-        - { module: runory.quote-approval,   widget: pending_quote_approvals_metric, instance: default }
         - { module: runory.product-service,  widget: active_products_metric,        instance: default }
 
     - zone: trends
@@ -61,7 +77,6 @@ dashboard:
         - { module: runory.quote,           widget: quotes_needing_approval_list,  instance: default }
         - { module: runory.quote,           widget: recently_accepted_quotes_list, instance: default }
         - { module: runory.quote,           widget: expiring_quotes_list,          instance: default }
-        - { module: runory.quote-approval,  widget: pending_quote_approvals_list,  instance: default }
 
     - zone: activity
       widgets:

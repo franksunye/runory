@@ -1,0 +1,559 @@
+id: runory.quote
+name: Quote Management
+version: 1.1.0
+coreCompatibility: ">=0.1.0"
+
+dependencies:
+  - runory.company
+  - runory.contact
+  - runory.deal
+  - runory.product-service
+  - runory.price-book
+
+objects:
+  - key: quote
+    label: Quote
+    fields:
+      - key: quote_number
+        label: Quote Number
+        type: text
+        ownership: module_owned
+        required: true
+      - key: title
+        label: Title
+        type: text
+        ownership: module_owned
+        required: true
+      - key: status
+        label: Status
+        type: select
+        ownership: module_owned
+        required: true
+        default_value: "draft"
+        validation:
+          options: ["draft", "in_review", "approved", "rejected", "sent", "accepted", "declined", "expired", "withdrawn"]
+      - key: version
+        label: Version
+        type: number
+        ownership: module_owned
+        required: true
+        default_value: "1"
+      - key: company_id
+        label: Associated Company
+        type: text
+        ownership: module_owned
+      - key: contact_id
+        label: Associated Contact
+        type: text
+        ownership: module_owned
+      - key: deal_id
+        label: Associated Deal
+        type: text
+        ownership: module_owned
+      - key: work_order_id
+        label: Associated Work Order
+        type: text
+        ownership: module_owned
+      - key: service_site_id
+        label: Service Site
+        type: text
+        ownership: module_owned
+      - key: asset_id
+        label: Associated Asset
+        type: text
+        ownership: module_owned
+      - key: currency
+        label: Currency
+        type: text
+        ownership: module_owned
+        required: true
+        default_value: "CNY"
+      - key: subtotal_amount
+        label: Subtotal Amount
+        type: number
+        ownership: module_owned
+      - key: discount_amount
+        label: Discount Amount
+        type: number
+        ownership: module_owned
+      - key: tax_amount
+        label: Tax Amount
+        type: number
+        ownership: module_owned
+      - key: total_amount
+        label: Total Amount
+        type: number
+        ownership: module_owned
+      - key: valid_until
+        label: Valid Until
+        type: date
+        ownership: module_owned
+      - key: owner
+        label: Owner
+        type: text
+        ownership: module_owned
+      - key: terms
+        label: Terms
+        type: text
+        ownership: module_owned
+      - key: notes
+        label: Notes
+        type: text
+        ownership: module_owned
+      - key: aggregate_version
+        label: Aggregate Version
+        type: number
+        required: true
+        default_value: "1"
+      - key: root_quote_id
+        label: Root Quote
+        type: text
+      - key: previous_version_id
+        label: Previous Version
+        type: text
+      - key: revision_number
+        label: Revision Number
+        type: number
+        required: true
+        default_value: "0"
+      - key: price_book_id
+        label: Price Book
+        type: text
+      - key: approved_at
+        label: Approved At
+        type: date
+      - key: accepted_at
+        label: Accepted At
+        type: date
+      - key: rejected_reason
+        label: Rejected Reason
+        type: text
+      - key: withdrawn_at
+        label: Withdrawn At
+        type: date
+      - key: snapshot_hash
+        label: Snapshot Hash
+        type: text
+      - key: locked_at
+        label: Locked At
+        type: date
+
+  - key: quote_line
+    label: Quote Line
+    fields:
+      - key: quote_id
+        label: Associated Quote
+        type: text
+        ownership: module_owned
+        required: true
+      - key: product_service_id
+        label: Product/Service
+        type: text
+        ownership: module_owned
+      - key: description
+        label: Description
+        type: text
+        ownership: module_owned
+        required: true
+      - key: quantity
+        label: Quantity
+        type: number
+        ownership: module_owned
+        required: true
+      - key: unit
+        label: Unit
+        type: text
+        ownership: module_owned
+      - key: unit_price
+        label: Unit Price
+        type: number
+        ownership: module_owned
+        required: true
+      - key: discount_amount
+        label: Discount Amount
+        type: number
+        ownership: module_owned
+      - key: tax_amount
+        label: Tax Amount
+        type: number
+        ownership: module_owned
+      - key: line_total
+        label: Line Total
+        type: number
+        ownership: module_owned
+      - key: sort_order
+        label: Sort Order
+        type: number
+        ownership: module_owned
+
+views:
+  - object: quote
+    key: quote_list
+    type: list
+    label: Quote List
+    config:
+      columns:
+        - field: quote_number
+          label: Quote Number
+        - field: title
+          label: Title
+        - field: status
+          label: Status
+        - field: total_amount
+          label: Total Amount
+        - field: currency
+          label: Currency
+        - field: valid_until
+          label: Valid Until
+      actions:
+        - create
+        - view
+      pageSize: 20
+
+  - object: quote
+    key: quote_form
+    type: form
+    label: Quote Form
+    config:
+      sections:
+        - title: Basic Information
+          fields:
+            - field: quote_number
+              required: true
+            - field: title
+              required: true
+            - field: status
+              required: true
+            - field: version
+              required: true
+        - title: Related Information
+          fields:
+            - field: company_id
+            - field: contact_id
+            - field: deal_id
+            - field: work_order_id
+            - field: service_site_id
+            - field: asset_id
+        - title: Amount
+          fields:
+            - field: currency
+              required: true
+            - field: subtotal_amount
+            - field: discount_amount
+            - field: tax_amount
+            - field: total_amount
+        - title: Other
+          fields:
+            - field: valid_until
+            - field: owner
+            - field: terms
+            - field: notes
+
+  - object: quote_line
+    key: quote_line_list
+    type: list
+    label: Quote Line List
+    config:
+      columns:
+        - field: quote_id
+          label: Associated Quote
+        - field: description
+          label: Description
+        - field: quantity
+          label: Quantity
+        - field: unit_price
+          label: Unit Price
+        - field: line_total
+          label: Line Total
+      actions:
+        - create
+        - view
+      pageSize: 50
+
+  - object: quote_line
+    key: quote_line_form
+    type: form
+    label: Quote Line Form
+    config:
+      sections:
+        - title: Basic Information
+          fields:
+            - field: quote_id
+              required: true
+            - field: product_service_id
+            - field: description
+              required: true
+        - title: Amount
+          fields:
+            - field: quantity
+              required: true
+            - field: unit
+            - field: unit_price
+              required: true
+            - field: discount_amount
+            - field: tax_amount
+            - field: line_total
+        - title: Other
+          fields:
+            - field: sort_order
+
+permissions:
+  - quote.read
+  - quote.create
+  - quote.update
+  - quote.delete
+  - quote_line.read
+  - quote_line.create
+  - quote_line.update
+  - quote_line.delete
+
+# ── Cross-Pack Relations (v0.2.5) ──
+# quote references objects owned by shared modules (company, contact, deal)
+# and FSM-owned modules (work_order, service_site, asset).
+# quote_line references quote (same module) and product_service (same pack).
+relations:
+  - object: quote
+    targetObject: company
+    targetModule: runory.company
+    type: many_to_one
+    foreignKey: company_id
+    label: Associated Company
+  - object: quote
+    targetObject: contact
+    targetModule: runory.contact
+    type: many_to_one
+    foreignKey: contact_id
+    label: Associated Contact
+  - object: quote
+    targetObject: deal
+    targetModule: runory.deal
+    type: many_to_one
+    foreignKey: deal_id
+    label: Associated Deal
+  - object: quote
+    targetObject: work_order
+    targetModule: runory.work-order
+    type: many_to_one
+    foreignKey: work_order_id
+    label: Associated Work Order
+  - object: quote
+    targetObject: service_site
+    targetModule: runory.service-site
+    type: many_to_one
+    foreignKey: service_site_id
+    label: Service Site
+  - object: quote
+    targetObject: asset
+    targetModule: runory.asset
+    type: many_to_one
+    foreignKey: asset_id
+    label: Associated Asset
+  - object: quote_line
+    targetObject: quote
+    targetModule: runory.quote
+    type: many_to_one
+    foreignKey: quote_id
+    label: Associated Quote
+  - object: quote_line
+    targetObject: product_service
+    targetModule: runory.product-service
+    type: many_to_one
+    foreignKey: product_service_id
+    label: Product/Service
+
+migrations:
+  install: migrations/install.sql
+  uninstallPolicy: retain_data
+  upgrade:
+    - from: "1.0.0"
+      to: "1.1.0"
+      script: migrations/upgrade-from-1.0.sql
+      risk: low
+
+presentation:
+  visibility: top_level
+  surface: quotes
+  audience: [sales_representative, sales_manager]
+
+ui:
+  navigation:
+    - label: Quotes
+      route: /quotes
+      icon: file-text
+      sortOrder: 30
+    - label: Quote Lines
+      route: /quote-lines
+      icon: list
+      sortOrder: 32
+
+extensionPoints:
+  entities:
+    - entity: quote
+      customFields:
+        enabled: true
+        allowedTypes: [text, number, date, select, boolean]
+        maxFields: 40
+        reservedKeys: [id, quote_number, title, status, version, company_id, contact_id, deal_id, work_order_id, service_site_id, asset_id, currency, subtotal_amount, discount_amount, tax_amount, total_amount, valid_until, owner, terms, notes, created_at, updated_at]
+      customRelations:
+        enabled: false
+    - entity: quote_line
+      customFields:
+        enabled: true
+        allowedTypes: [text, number, date, select, boolean]
+        maxFields: 20
+        reservedKeys: [id, quote_id, product_service_id, description, quantity, unit, unit_price, discount_amount, tax_amount, line_total, sort_order, created_at, updated_at]
+      customRelations:
+        enabled: false
+  views:
+    - view: quote_list
+      slots:
+        - id: quote.list.columns
+          type: column_group
+          allowedExtensions: [customField]
+          risk: low
+      allowReorder: true
+      allowFilters: true
+      allowPageSizeChange: true
+    - view: quote_form
+      slots:
+        - id: quote.form.basic_fields.after
+          type: field_group
+          allowedExtensions: [customField]
+          risk: low
+      allowAddSection: true
+      allowAddAction: true
+    - view: quote_line_list
+      slots:
+        - id: quote_line.list.columns
+          type: column_group
+          allowedExtensions: [customField]
+          risk: low
+      allowReorder: true
+      allowFilters: true
+      allowPageSizeChange: true
+    - view: quote_line_form
+      slots:
+        - id: quote_line.form.basic_fields.after
+          type: field_group
+          allowedExtensions: [customField]
+          risk: low
+      allowAddSection: true
+      allowAddAction: true
+
+dashboard:
+  widgets:
+    - key: open_quotes_metric
+      type: metric_card
+      label: Pending Quotes
+      icon: file-text
+      tone: indigo
+      data:
+        kind: count
+        object: quote
+        where: "status not in ('accepted', 'rejected', 'expired', 'withdrawn')"
+      sub:
+        kind: count
+        object: quote
+        where: "status = 'draft'"
+        template: "{count} in draft"
+      link: /quotes
+
+    - key: pending_approvals_metric
+      type: metric_card
+      label: Pending Approval Quotes
+      icon: clock
+      tone: amber
+      data:
+        kind: count
+        object: quote
+        where: "status = 'in_review'"
+      link: /quotes
+
+    - key: quote_status_breakdown
+      type: breakdown
+      label: Quote Status Breakdown
+      icon: pie-chart
+      tone: indigo
+      data:
+        kind: group_count
+        object: quote
+        groupBy: status
+
+    - key: quotes_needing_approval_list
+      type: list
+      label: Pending Approval Quotes
+      icon: clock
+      tone: amber
+      data:
+        kind: recent
+        object: quote
+        where: "status = 'in_review'"
+        orderBy: "created_at asc"
+        limit: 8
+        columns: [quote_number, title, total_amount, currency, valid_until]
+      link: /quotes
+      configurable:
+        - path: data.limit
+          label: Display Count
+          type: number
+          min: 1
+          max: 20
+
+    - key: recently_accepted_quotes_list
+      type: list
+      label: Recently Accepted Quotes
+      icon: check-circle
+      tone: emerald
+      data:
+        kind: recent
+        object: quote
+        where: "status = 'accepted'"
+        orderBy: "created_at desc"
+        limit: 5
+        columns: [quote_number, title, total_amount, currency]
+      link: /quotes
+      configurable:
+        - path: data.limit
+          label: Display Count
+          type: number
+          min: 1
+          max: 20
+
+    - key: expiring_quotes_list
+      type: list
+      label: Expiring Soon Quotes
+      icon: alert-circle
+      tone: red
+      data:
+        kind: recent
+        object: quote
+        where: "status in ('sent', 'approved') and valid_until < date('now', '+7 days')"
+        orderBy: "valid_until asc"
+        limit: 5
+        columns: [quote_number, title, total_amount, currency, valid_until]
+      link: /quotes
+      configurable:
+        - path: data.limit
+          label: Display Count
+          type: number
+          min: 1
+          max: 20
+
+    - key: new_quotes_trend
+      type: trend_chart
+      label: New Quote Trend
+      icon: trending-up
+      tone: indigo
+      data:
+        kind: timeseries
+        object: quote
+        range: 14d
+      configurable:
+        - path: data.range
+          label: Time Range
+          type: select
+          options: ["7d", "14d", "30d"]
+
+upgradePolicy:
+  supportsWorkspaceExtensions: true
+  breakingChangePolicy: manual_review

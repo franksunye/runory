@@ -431,11 +431,50 @@ async function resolveOrCreateUser(
 }
 
 // ── Session Resolution ──
+//
+// In-process cache for resolved sessions. Keyed by token hash (never the raw
+// token). A short TTL keeps revocation propagation within ~30s while avoiding
+// redundant DB queries on every API call — a single list page load triggers
+// 4+ API calls, each of which would otherwise re-resolve the same session.
+
+interface CachedSession {
+  principal: Principal | null;
+  expiresAt: number;
+  lastUsedUpdatedAt: number;
+  sessionId?: string;
+}
+
+const SESSION_CACHE_TTL_MS = 30_000; // 30 seconds
+const LAST_USED_AT_THROTTLE_MS = 300_000; // 5 minutes
+
+const sessionCache = new Map<string, CachedSession>();
+
+export function _clearSessionCache(): void {
+  sessionCache.clear();
+}
 
 export async function resolveSession(token: string): Promise<Principal | null> {
   if (!token || token.length < 16) return null;
 
   const tokenHash = hashToken(token);
+
+  // Check cache
+  const cached = sessionCache.get(tokenHash);
+  if (cached && cached.expiresAt > Date.now()) {
+    // Throttle last_used_at UPDATE to once per 5 minutes
+    if (
+      cached.sessionId &&
+      Date.now() - cached.lastUsedUpdatedAt > LAST_USED_AT_THROTTLE_MS
+    ) {
+      execute(
+        `UPDATE ${TABLES.sessions} SET last_used_at = ? WHERE id = ?`,
+        [now(), cached.sessionId]
+      ).catch(() => void 0); // fire-and-forget, non-critical
+      cached.lastUsedUpdatedAt = Date.now();
+    }
+    return cached.principal;
+  }
+
   const session = await queryOne<{
     id: string;
     user_id: string;
@@ -447,13 +486,32 @@ export async function resolveSession(token: string): Promise<Principal | null> {
     [tokenHash]
   );
 
-  if (!session) return null;
-  if (session.status !== "active" || session.revoked_at) return null;
+  if (!session) {
+    sessionCache.set(tokenHash, {
+      principal: null,
+      expiresAt: Date.now() + SESSION_CACHE_TTL_MS,
+      lastUsedUpdatedAt: 0,
+    });
+    return null;
+  }
+  if (session.status !== "active" || session.revoked_at) {
+    sessionCache.set(tokenHash, {
+      principal: null,
+      expiresAt: Date.now() + SESSION_CACHE_TTL_MS,
+      lastUsedUpdatedAt: 0,
+    });
+    return null;
+  }
   if (new Date(session.expires_at) < new Date()) {
     await execute(
       `UPDATE ${TABLES.sessions} SET status = 'expired' WHERE id = ?`,
       [session.id]
     );
+    sessionCache.set(tokenHash, {
+      principal: null,
+      expiresAt: Date.now() + SESSION_CACHE_TTL_MS,
+      lastUsedUpdatedAt: 0,
+    });
     return null;
   }
 
@@ -468,14 +526,30 @@ export async function resolveSession(token: string): Promise<Principal | null> {
     [session.user_id]
   );
 
-  if (!user || user.status !== "active") return null;
+  if (!user || user.status !== "active") {
+    sessionCache.set(tokenHash, {
+      principal: null,
+      expiresAt: Date.now() + SESSION_CACHE_TTL_MS,
+      lastUsedUpdatedAt: 0,
+    });
+    return null;
+  }
 
-  return {
+  const principal: Principal = {
     userId: user.id,
     email: user.email,
     displayName: user.display_name,
     authMethod: "session",
   };
+
+  sessionCache.set(tokenHash, {
+    principal,
+    expiresAt: Date.now() + SESSION_CACHE_TTL_MS,
+    lastUsedUpdatedAt: Date.now(),
+    sessionId: session.id,
+  });
+
+  return principal;
 }
 
 // ── Session Revocation ──
@@ -486,6 +560,7 @@ export async function revokeSession(token: string): Promise<void> {
     `UPDATE ${TABLES.sessions} SET status = 'revoked', revoked_at = ? WHERE token_hash = ? AND status = 'active'`,
     [now(), tokenHash]
   );
+  sessionCache.delete(tokenHash);
 }
 
 export async function revokeAllSessions(userId: string): Promise<number> {
@@ -499,6 +574,10 @@ export async function revokeAllSessions(userId: string): Promise<number> {
     `UPDATE ${TABLES.sessions} SET status = 'revoked', revoked_at = ? WHERE user_id = ? AND status = 'active'`,
     [now(), userId]
   );
+
+  // Invalidate all cached sessions (can't selectively clear by userId without
+  // tracking token hashes per user — a full clear is safe and rare)
+  sessionCache.clear();
 
   return result.length;
 }

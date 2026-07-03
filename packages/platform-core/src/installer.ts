@@ -1,5 +1,5 @@
-import { readFileSync, existsSync } from "node:fs";
-import { resolve } from "node:path";
+import { readFileSync, existsSync, readdirSync } from "node:fs";
+import { resolve, join } from "node:path";
 import { parse as parseYaml } from "yaml";
 import { queryOne, queryAll, execute, genId, now, db, validateIdentifier } from "./db";
 import { TABLES, MODULES_DIR, PACKS_DIR, TEMPLATES_DIR, businessTable } from "./contracts";
@@ -7,6 +7,7 @@ import { renderSqlWithPrefix, getBusinessTablePrefix, getTablePrefix } from "./p
 import { createRecord, getRecords } from "./metadata";
 import { createAutomation, getAutomations } from "./automation";
 import { createWorkflowDefinition, getWorkflowDefinitions, getAutoStartWorkflowDefinitions, startWorkflow, getRecordWorkflow } from "./workflow";
+import { publishWorkflowDefinition, type WorkflowDefinition as WorkflowV2Definition } from "./workflow-v2";
 import {
   moduleManifestSchema,
   packManifestSchema,
@@ -450,6 +451,20 @@ export async function installModule(
   let navigationItemsCreated = 0;
   let ddlExecuted = false;
 
+  // v0.4 — Skip retired modules.
+  // A module whose manifest declares status "retired" is no longer installed
+  // for new workspaces. If it was already installed in a previous version, its
+  // existing tables are left in place and treated as read-only — we neither
+  // re-run migrations nor alter/drop the data. This early return short-circuits
+  // before the idempotency check below, so neither DDL nor metadata is touched.
+  if (manifest.status === "retired") {
+    console.warn(
+      `[installer] Module "${moduleId}" is retired (retiredIn: ${manifest.retiredIn ?? "unknown"}). ` +
+      `Skipping installation; existing tables are left read-only.`
+    );
+    return { moduleId, objectsCreated, viewsCreated, navigationItemsCreated, ddlExecuted, skipped: true };
+  }
+
   // Check if already installed (idempotent — skip if present)
   const already = await queryOne<{ id: string }>(
     `SELECT id FROM ${TABLES.installations} WHERE workspace_id = ? AND module_id = ?`,
@@ -567,6 +582,25 @@ export async function installModule(
           now(),
         ]
       );
+    }
+  }
+
+  // ── Publish V2 workflow definitions (v0.5) ──
+  // Check if the module ships workflow definition files and publish them.
+  // Best-effort: failures are logged but do not fail module installation.
+  const workflowsDir = join(MODULES_DIR, moduleId, "workflows");
+  if (existsSync(workflowsDir)) {
+    const files = readdirSync(workflowsDir).filter(f => f.endsWith(".workflow.json"));
+    for (const file of files) {
+      const filePath = join(workflowsDir, file);
+      try {
+        const raw = readFileSync(filePath, "utf-8");
+        const def = JSON.parse(raw) as WorkflowV2Definition;
+        await publishWorkflowDefinition(workspaceId, def, "system");
+        console.log(`[installer] Published workflow "${def.workflowKey}" from module "${moduleId}"`);
+      } catch (err) {
+        console.warn(`[installer] Failed to publish workflow from "${file}" in module "${moduleId}":`, err);
+      }
     }
   }
 

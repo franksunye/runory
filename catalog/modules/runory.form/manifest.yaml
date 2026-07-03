@@ -122,6 +122,11 @@ migrations:
   install: migrations/install.sql
   uninstallPolicy: retain_data
 
+presentation:
+  visibility: management
+  surface: forms
+  audience: [workspace_administrator]
+
 ui:
   navigation:
     - label: Forms

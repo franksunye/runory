@@ -1,0 +1,353 @@
+id: runory.work-order
+name: Work Order Management
+version: 1.1.0
+coreCompatibility: ">=0.1.0"
+
+dependencies:
+  - runory.company
+  - runory.contact
+  - runory.service-site
+  - runory.asset
+  - runory.technician
+
+objects:
+  - key: work_order
+    label: Work Order
+    fields:
+      - key: title
+        label: Work Order Title
+        type: text
+        ownership: module_owned
+        required: true
+      - key: description
+        label: Description
+        type: text
+        ownership: module_owned
+      - key: status
+        label: Status
+        type: select
+        ownership: module_owned
+        required: true
+        default_value: "new"
+        validation:
+          options: ["new", "triaged", "scheduled", "in_progress", "blocked", "completed", "cancelled", "reopened"]
+      - key: priority
+        label: Priority
+        type: select
+        ownership: module_owned
+        default_value: "medium"
+        validation:
+          options: ["low", "medium", "high", "urgent"]
+      - key: company_id
+        label: Related Company
+        type: text
+        ownership: module_owned
+      - key: contact_id
+        label: Related Contact
+        type: text
+        ownership: module_owned
+      - key: service_site_id
+        label: Service Site
+        type: text
+        ownership: module_owned
+      - key: asset_id
+        label: Related Asset
+        type: text
+        ownership: module_owned
+      - key: assigned_to
+        label: Assigned Technician
+        type: text
+        ownership: module_owned
+      - key: requested_at
+        label: Requested At
+        type: date
+        ownership: module_owned
+      - key: scheduled_start
+        label: Scheduled Start
+        type: date
+        ownership: module_owned
+      - key: scheduled_end
+        label: Scheduled End
+        type: date
+        ownership: module_owned
+      - key: completed_at
+        label: Completed At
+        type: date
+        ownership: module_owned
+      - key: sla_due_at
+        label: SLA Due
+        type: date
+        ownership: module_owned
+      - key: source
+        label: Source
+        type: text
+        ownership: module_owned
+      - key: notes
+        label: Notes
+        type: text
+        ownership: module_owned
+      - key: work_order_number
+        label: Work Order Number
+        type: text
+        ownership: module_owned
+      - key: aggregate_version
+        label: Aggregate Version
+        type: number
+        ownership: module_owned
+        required: true
+        default_value: "1"
+      - key: source_type
+        label: Source Type
+        type: text
+        ownership: module_owned
+      - key: source_id
+        label: Source ID
+        type: text
+        ownership: module_owned
+      - key: source_snapshot_hash
+        label: Source Snapshot Hash
+        type: text
+        ownership: module_owned
+      - key: owner_resource_id
+        label: Owner Resource
+        type: text
+        ownership: module_owned
+      - key: cancelled_at
+        label: Cancelled At
+        type: date
+        ownership: module_owned
+      - key: reopened_at
+        label: Reopened At
+        type: date
+        ownership: module_owned
+      - key: completion_reason
+        label: Completion Reason
+        type: text
+        ownership: module_owned
+      - key: cancellation_reason
+        label: Cancellation Reason
+        type: text
+        ownership: module_owned
+      - key: reopen_reason
+        label: Reopen Reason
+        type: text
+        ownership: module_owned
+
+views:
+  - object: work_order
+    key: work_order_list
+    type: list
+    label: Work Order List
+    config:
+      columns:
+        - field: title
+          label: Work Order Title
+        - field: status
+          label: Status
+        - field: priority
+          label: Priority
+        - field: assigned_to
+          label: Assigned Technician
+        - field: scheduled_start
+          label: Scheduled Start
+      actions:
+        - create
+        - view
+      pageSize: 20
+
+  - object: work_order
+    key: work_order_form
+    type: form
+    label: Work Order Form
+    config:
+      sections:
+        - title: Basic Info
+          fields:
+            - field: title
+              required: true
+            - field: description
+            - field: status
+              required: true
+            - field: priority
+        - title: Related Info
+          fields:
+            - field: company_id
+            - field: contact_id
+            - field: service_site_id
+            - field: asset_id
+        - title: Assignment & Schedule
+          fields:
+            - field: assigned_to
+            - field: requested_at
+            - field: scheduled_start
+            - field: scheduled_end
+            - field: sla_due_at
+        - title: Other
+          fields:
+            - field: completed_at
+            - field: source
+            - field: notes
+
+permissions:
+  - work_order.read
+  - work_order.create
+  - work_order.update
+  - work_order.delete
+
+# ── Cross-Pack Relations (v0.2.4) ──
+# work_order references objects owned by shared modules (company, contact)
+# and FSM-owned modules (service_site, asset, technician).
+relations:
+  - object: work_order
+    targetObject: company
+    targetModule: runory.company
+    type: many_to_one
+    foreignKey: company_id
+    label: Related Company
+  - object: work_order
+    targetObject: contact
+    targetModule: runory.contact
+    type: many_to_one
+    foreignKey: contact_id
+    label: Related Contact
+  - object: work_order
+    targetObject: service_site
+    targetModule: runory.service-site
+    type: many_to_one
+    foreignKey: service_site_id
+    label: Service Site
+  - object: work_order
+    targetObject: asset
+    targetModule: runory.asset
+    type: many_to_one
+    foreignKey: asset_id
+    label: Related Asset
+  - object: work_order
+    targetObject: technician
+    targetModule: runory.technician
+    type: many_to_one
+    foreignKey: assigned_to
+    label: Assigned Technician
+
+migrations:
+  install: migrations/install.sql
+  uninstallPolicy: retain_data
+  upgrade:
+    - from: "1.0.0"
+      to: "1.1.0"
+      script: migrations/upgrade-from-1.0.sql
+      risk: low
+
+ui:
+  navigation:
+    - label: Work Order
+      route: /work-orders
+      icon: clipboard-list
+      sortOrder: 35
+
+extensionPoints:
+  entities:
+    - entity: work_order
+      customFields:
+        enabled: true
+        allowedTypes: [text, number, date, select, boolean]
+        maxFields: 40
+        reservedKeys: [id, title, description, status, priority, company_id, contact_id, service_site_id, asset_id, assigned_to, requested_at, scheduled_start, scheduled_end, completed_at, sla_due_at, source, notes, created_at, updated_at]
+      customRelations:
+        enabled: false
+  views:
+    - view: work_order_list
+      slots:
+        - id: work_order.list.columns
+          type: column_group
+          allowedExtensions: [customField]
+          risk: low
+      allowReorder: true
+      allowFilters: true
+      allowPageSizeChange: true
+    - view: work_order_form
+      slots:
+        - id: work_order.form.basic_fields.after
+          type: field_group
+          allowedExtensions: [customField]
+          risk: low
+      allowAddSection: true
+      allowAddAction: true
+
+dashboard:
+  widgets:
+    - key: open_work_orders_metric
+      type: metric_card
+      label: Open Work Orders
+      icon: clipboard-list
+      tone: red
+      data:
+        kind: count
+        object: work_order
+        where: "status not in ('completed', 'cancelled')"
+      sub:
+        kind: count
+        object: work_order
+        where: "status = 'blocked'"
+        template: "{count} blocked"
+      link: /work-orders
+
+    - key: overdue_work_orders_metric
+      type: metric_card
+      label: Overdue Work Orders
+      icon: alert-circle
+      tone: red
+      data:
+        kind: count
+        object: work_order
+        where: "status not in ('completed', 'cancelled') and sla_due_at < today"
+      link: /work-orders
+
+    - key: work_order_status_breakdown
+      type: breakdown
+      label: Work Order Status Distribution
+      icon: pie-chart
+      tone: red
+      data:
+        kind: group_count
+        object: work_order
+        groupBy: status
+
+    - key: work_orders_needing_dispatch_list
+      type: list
+      label: Unassigned Work Orders
+      icon: clipboard-list
+      tone: red
+      data:
+        kind: recent
+        object: work_order
+        where: "status in ('new', 'triaged')"
+        orderBy: "priority desc, requested_at asc"
+        limit: 8
+        columns: [title, status, priority, company_id, requested_at]
+      link: /work-orders
+      configurable:
+        - path: data.limit
+          label: Display Count
+          type: number
+          min: 1
+          max: 20
+
+    - key: new_work_orders_trend
+      type: trend_chart
+      label: New Work Orders Trend
+      icon: trending-up
+      tone: red
+      data:
+        kind: timeseries
+        object: work_order
+        range: 14d
+      configurable:
+        - path: data.range
+          label: Time Range
+          type: select
+          options: ["7d", "14d", "30d"]
+
+upgradePolicy:
+  supportsWorkspaceExtensions: true
+  breakingChangePolicy: manual_review

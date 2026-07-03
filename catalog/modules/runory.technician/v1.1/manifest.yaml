@@ -1,0 +1,173 @@
+id: runory.technician
+name: Technician Management
+version: 1.1.0
+coreCompatibility: ">=0.1.0"
+
+objects:
+  - key: technician
+    label: Technician
+    fields:
+      - key: name
+        label: Technician Name
+        type: text
+        ownership: module_owned
+        required: true
+      - key: email
+        label: Email
+        type: email
+        ownership: module_owned
+      - key: phone
+        label: Phone
+        type: phone
+        ownership: module_owned
+      - key: skills
+        label: Skills
+        type: text
+        ownership: module_owned
+      - key: region
+        label: Region
+        type: text
+        ownership: module_owned
+      - key: availability_status
+        label: Availability Status
+        type: select
+        ownership: module_owned
+        required: true
+        default_value: "available"
+        validation:
+          options: ["available", "busy", "off_duty"]
+      - key: user_id
+        label: Related User
+        type: text
+        ownership: module_owned
+      - key: resource_id
+        label: Resource ID
+        type: text
+        ownership: module_owned
+
+views:
+  - object: technician
+    key: technician_list
+    type: list
+    label: Technician List
+    config:
+      columns:
+        - field: name
+          label: Technician Name
+        - field: phone
+          label: Phone
+        - field: skills
+          label: Skills
+        - field: region
+          label: Region
+        - field: availability_status
+          label: Availability Status
+      actions:
+        - create
+        - view
+      pageSize: 20
+
+  - object: technician
+    key: technician_form
+    type: form
+    label: Technician Form
+    config:
+      sections:
+        - title: Basic Info
+          fields:
+            - field: name
+              required: true
+            - field: email
+            - field: phone
+        - title: Professional Info
+          fields:
+            - field: skills
+            - field: region
+            - field: availability_status
+              required: true
+        - title: Related Info
+          fields:
+            - field: user_id
+
+permissions:
+  - technician.read
+  - technician.create
+  - technician.update
+  - technician.delete
+
+migrations:
+  install: migrations/install.sql
+  uninstallPolicy: retain_data
+  upgrade:
+    - from: "1.0.0"
+      to: "1.1.0"
+      script: migrations/upgrade-from-1.0.sql
+      risk: low
+
+ui:
+  navigation:
+    - label: Technician
+      route: /technicians
+      icon: wrench
+      sortOrder: 60
+
+extensionPoints:
+  entities:
+    - entity: technician
+      customFields:
+        enabled: true
+        allowedTypes: [text, number, date, select, boolean]
+        maxFields: 20
+        reservedKeys: [id, name, email, phone, skills, region, availability_status, user_id, resource_id, created_at, updated_at]
+      customRelations:
+        enabled: false
+  views:
+    - view: technician_list
+      slots:
+        - id: technician.list.columns
+          type: column_group
+          allowedExtensions: [customField]
+          risk: low
+      allowReorder: true
+      allowFilters: true
+      allowPageSizeChange: true
+    - view: technician_form
+      slots:
+        - id: technician.form.basic_fields.after
+          type: field_group
+          allowedExtensions: [customField]
+          risk: low
+      allowAddSection: true
+      allowAddAction: true
+
+dashboard:
+  widgets:
+    - key: available_technicians_metric
+      type: metric_card
+      label: Available Technicians
+      icon: wrench
+      tone: amber
+      data:
+        kind: count
+        object: technician
+        where: "availability_status = 'available'"
+      sub:
+        kind: count
+        object: technician
+        where: "availability_status = 'busy'"
+        template: "{count} busy"
+      link: /technicians
+
+    - key: technician_availability_breakdown
+      type: breakdown
+      label: Technician Availability Distribution
+      icon: pie-chart
+      tone: amber
+      data:
+        kind: group_count
+        object: technician
+        groupBy: availability_status
+
+upgradePolicy:
+  supportsWorkspaceExtensions: true
+  breakingChangePolicy: manual_review

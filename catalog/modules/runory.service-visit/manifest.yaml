@@ -1,6 +1,6 @@
 id: runory.service-visit
 name: Service Visit Management
-version: 1.0.0
+version: 1.1.0
 coreCompatibility: ">=0.1.0"
 
 dependencies:
@@ -48,9 +48,27 @@ objects:
         required: true
         default_value: "scheduled"
         validation:
-          options: ["scheduled", "en_route", "on_site", "completed", "cancelled"]
+          options: ["scheduled", "en_route", "on_site", "work_submitted", "completed", "cancelled"]
       - key: notes
         label: Notes
+        type: text
+        ownership: module_owned
+      - key: aggregate_version
+        label: Aggregate Version
+        type: number
+        ownership: module_owned
+        required: true
+        default_value: "1"
+      - key: assignment_id
+        label: Assignment
+        type: text
+        ownership: module_owned
+      - key: schedule_entry_id
+        label: Schedule Entry
+        type: text
+        ownership: module_owned
+      - key: outcome
+        label: Outcome
         type: text
         ownership: module_owned
 
@@ -125,6 +143,16 @@ relations:
 migrations:
   install: migrations/install.sql
   uninstallPolicy: retain_data
+  upgrade:
+    - from: "1.0.0"
+      to: "1.1.0"
+      script: v1.1/migrations/upgrade-from-1.0.sql
+      risk: low
+
+presentation:
+  visibility: contextual
+  surface: work_orders
+  audience: [dispatcher, field_technician]
 
 ui:
   navigation:
@@ -140,7 +168,7 @@ extensionPoints:
         enabled: true
         allowedTypes: [text, number, date, select, boolean]
         maxFields: 20
-        reservedKeys: [id, title, work_order_id, technician_id, scheduled_start, scheduled_end, actual_start, actual_end, status, notes, created_at, updated_at]
+        reservedKeys: [id, title, work_order_id, technician_id, scheduled_start, scheduled_end, actual_start, actual_end, status, notes, aggregate_version, assignment_id, schedule_entry_id, outcome, created_at, updated_at]
       customRelations:
         enabled: false
   views:

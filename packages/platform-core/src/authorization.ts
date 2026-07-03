@@ -4,7 +4,10 @@ import {
   type RequestContext,
   AuthenticationError,
   AuthorizationError,
+  BusinessError,
 } from "./context";
+import { ERROR_CODES } from "./errors";
+import { getUserPermissionGroups } from "./permission-groups";
 
 // ── Role Hierarchy ──
 //
@@ -137,4 +140,77 @@ export function canAccessWorkspace(ctx: RequestContext, operation: WorkspaceOper
 export function canAccessOrganization(ctx: RequestContext, operation: OrganizationOperation): boolean {
   if (!ctx.principal || !ctx.organizationId || !ctx.organizationRole) return false;
   return orgRoleAllows(ctx.organizationRole, ORG_OP_REQUIRED[operation]);
+}
+
+// ── Business Permission Check (v0.5) ──
+//
+// Per v0.5 Commercial FSM Technical Specification §5.7:
+// Commands check business permissions before executing.
+// Permission groups are synced from pack manifests and assigned to users.
+// The `*` wildcard grants all permissions.
+// Workspace admins implicitly pass if no permission groups are configured yet
+// (bootstrap mode — before permission groups are set up).
+
+export async function requireBusinessPermission(
+  ctx: RequestContext,
+  permission: string
+): Promise<void> {
+  if (!ctx.principal || !ctx.workspaceId) {
+    throw new AuthenticationError("Authentication and workspace context required");
+  }
+
+  // Workspace admins implicitly pass (bootstrap / fallback)
+  const role = effectiveWorkspaceRole(ctx);
+  if (role === "admin") return;
+
+  // Check permission groups
+  const groups = await getUserPermissionGroups(
+    ctx.workspaceId,
+    ctx.principal.userId
+  );
+
+  // If no groups assigned, allow workspace members (transitional mode)
+  if (groups.length === 0 && role === "member") return;
+
+  // Check if any group grants the permission
+  for (const group of groups) {
+    if (group.permissions.includes("*") || group.permissions.includes(permission)) {
+      return;
+    }
+  }
+
+  throw new BusinessError(
+    ERROR_CODES.PERMISSION_DENIED,
+    `PERMISSION_DENIED: You do not have the required permission '${permission}'. ` +
+    `Contact your workspace administrator to assign the appropriate permission group.`,
+    403
+  );
+}
+
+/**
+ * Check business permission without throwing (for conditional logic).
+ */
+export async function hasBusinessPermission(
+  ctx: RequestContext,
+  permission: string
+): Promise<boolean> {
+  if (!ctx.principal || !ctx.workspaceId) return false;
+
+  const role = effectiveWorkspaceRole(ctx);
+  if (role === "admin") return true;
+
+  const groups = await getUserPermissionGroups(
+    ctx.workspaceId,
+    ctx.principal.userId
+  );
+
+  if (groups.length === 0 && role === "member") return true;
+
+  for (const group of groups) {
+    if (group.permissions.includes("*") || group.permissions.includes(permission)) {
+      return true;
+    }
+  }
+
+  return false;
 }

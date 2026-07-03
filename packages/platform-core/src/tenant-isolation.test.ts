@@ -17,6 +17,7 @@ import {
   listUserWorkspaces,
   effectiveRole,
   roleAllows,
+  _clearAccessCache,
 } from "./tenancy";
 import {
   createRequestContext,
@@ -224,6 +225,7 @@ beforeAll(async () => {
 
 // Clean up and rebuild fixture before each test
 beforeEach(async () => {
+  _clearAccessCache();
   const tables = [
     TABLES.extensionFieldValues,
     TABLES.auditLogs,

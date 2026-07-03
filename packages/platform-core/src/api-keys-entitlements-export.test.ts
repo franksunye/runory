@@ -21,6 +21,7 @@ import {
   VALID_SCOPES,
   type ApiKeyScope,
 } from "./api-keys";
+import { _clearAccessCache } from "./tenancy";
 import {
   writeAuditEvent,
   getAuditEvents,
@@ -77,6 +78,7 @@ beforeAll(async () => {
 });
 
 beforeEach(async () => {
+  _clearAccessCache();
   const tables = [
     TABLES.extensionFieldValues, TABLES.auditLogs, TABLES.navigationItems,
     TABLES.viewDefinitions, TABLES.fieldDefinitions, TABLES.objectDefinitions,
@@ -217,6 +219,7 @@ describe("Phase 4: API Keys", () => {
       `DELETE FROM ${TABLES.organizationMemberships} WHERE organization_id = ? AND user_id = ?`,
       [orgId, userId]
     );
+    _clearAccessCache(); // raw SQL bypasses app layer; clear cache to reflect DB state
 
     // API key should be invalidated
     const result = await resolveApiKey(key.token, workspaceId);

@@ -9,6 +9,7 @@ import {
   revokeAllSessions,
   listUserSessions,
   normalizeEmail,
+  _clearSessionCache,
 } from "./auth";
 import { db, queryOne, queryAll } from "./db";
 import { runMigrations } from "./migrations";
@@ -42,6 +43,7 @@ beforeAll(async () => {
 
 // Clean up auth-related tables between tests
 beforeEach(async () => {
+  _clearSessionCache();
   const tables = [
     TABLES.rateLimitBuckets,
     TABLES.sessions,

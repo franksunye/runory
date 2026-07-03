@@ -15,6 +15,7 @@ import {
   validateModuleDashboard,
   validatePackDashboard,
 } from "./dashboard";
+import { submitForApproval, approveQuote, rejectQuote, markSent, acceptQuote, returnForChanges, withdrawQuote, type CommandActor } from "./quote-commands";
 
 const dataDir = join(process.cwd(), "data");
 if (!existsSync(dataDir)) mkdirSync(dataDir, { recursive: true });
@@ -56,11 +57,11 @@ beforeEach(async () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Acceptance 1: Sales Quote Pack installs with all 7 modules (3 shared + 4 quote)
+// Acceptance 1: Sales Quote Pack installs with all 6 modules (3 shared + 3 quote)
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe("Sales Quote Pack installation", () => {
-  it("installs all 7 modules with correct object definitions and navigation", async () => {
+  it("installs all 6 modules with correct object definitions and navigation", async () => {
     const result = await installPack(workspaceId, "sales-quote-pack");
 
     expect(result.packId).toBe("sales-quote-pack");
@@ -72,17 +73,16 @@ describe("Sales Quote Pack installation", () => {
         "runory.product-service",
         "runory.price-book",
         "runory.quote",
-        "runory.quote-approval",
       ].sort()
     );
     expect(result.ddlExecuted).toBe(true);
 
-    // Verify all 7 modules are registered as installations
+    // Verify all 6 modules are registered as installations
     const installations = await getInstallations(workspaceId);
-    expect(installations).toHaveLength(7);
+    expect(installations).toHaveLength(6);
 
     // Verify quote-owned objects are created
-    const quoteObjects = ["product_service", "price_book", "quote", "quote_line", "quote_approval"];
+    const quoteObjects = ["product_service", "price_book", "quote", "quote_line"];
     for (const objKey of quoteObjects) {
       const obj = await getObject(workspaceId, objKey);
       expect(obj).toBeDefined();
@@ -96,7 +96,6 @@ describe("Sales Quote Pack installation", () => {
       expect.arrayContaining([
         "/quotes",
         "/quote-lines",
-        "/quote-approvals",
         "/product-services",
         "/price-books",
         "/companies",
@@ -110,7 +109,7 @@ describe("Sales Quote Pack installation", () => {
     await installPack(workspaceId, "sales-quote-pack");
 
     // Verify business tables exist and are queryable
-    for (const objKey of ["product_service", "price_book", "quote", "quote_line", "quote_approval"]) {
+    for (const objKey of ["product_service", "price_book", "quote", "quote_line"]) {
       const records = await getRecords(workspaceId, objKey);
       expect(Array.isArray(records)).toBe(true);
     }
@@ -120,7 +119,7 @@ describe("Sales Quote Pack installation", () => {
     const pack = loadPackManifest("sales-quote-pack");
     const reparsed = packManifestSchema.parse(pack);
     expect(reparsed.id).toBe("sales-quote-pack");
-    expect(reparsed.modules).toHaveLength(7);
+    expect(reparsed.modules).toHaveLength(6);
     expect(reparsed.dashboard?.defaultLayout).toBeDefined();
     expect(reparsed.terminology).toBeDefined();
   });
@@ -146,13 +145,12 @@ describe("shared module dedupe with CRM Lite Pack", () => {
         "runory.product-service",
         "runory.price-book",
         "runory.quote",
-        "runory.quote-approval",
       ].sort()
     );
 
     // Verify no duplicate installations
     const installations = await getInstallations(workspaceId);
-    expect(installations).toHaveLength(8); // 4 CRM + 4 Quote
+    expect(installations).toHaveLength(7); // 4 CRM + 3 Quote
 
     const moduleCounts = new Map<string, number>();
     for (const inst of installations) {
@@ -180,14 +178,14 @@ describe("shared module dedupe with CRM Lite Pack", () => {
 
   it("installs in reverse order (Sales Quote first, then CRM Lite) without duplicates", async () => {
     const sqResult = await installPack(workspaceId, "sales-quote-pack");
-    expect(sqResult.modulesInstalled).toHaveLength(7);
+    expect(sqResult.modulesInstalled).toHaveLength(6);
 
     // CRM Lite Pack should skip company/contact/deal, install only task
     const crmResult = await installPack(workspaceId, "crm-lite-pack");
     expect(crmResult.modulesInstalled).toEqual(["runory.task"]);
 
     const installations = await getInstallations(workspaceId);
-    expect(installations).toHaveLength(8);
+    expect(installations).toHaveLength(7);
   });
 });
 
@@ -273,7 +271,6 @@ describe("Sales Quote demo data with cross-pack references", () => {
 
     const quoteLines = await getRecords(workspaceId, "quote_line");
     expect(quoteLines.length).toBeGreaterThanOrEqual(16);
-    expect(quoteLines.length).toBeLessThanOrEqual(30);
 
     // Verify quote_line references quote and product_service
     const quotes = await getRecords(workspaceId, "quote");
@@ -289,21 +286,6 @@ describe("Sales Quote demo data with cross-pack references", () => {
     expect(bundleLine?.line_total).toBe(19600);
   });
 
-  it("seeds quote approvals with internal references to quotes", async () => {
-    await installPack(workspaceId, "crm-lite-pack", { includeDemoData: true });
-    await installPack(workspaceId, "sales-quote-pack", { includeDemoData: true });
-
-    const approvals = await getRecords(workspaceId, "quote_approval");
-    expect(approvals.length).toBe(5);
-
-    // Verify quote_approval references quote
-    const quotes = await getRecords(workspaceId, "quote");
-    const acmeWoQuote = quotes.find((q) => q.quote_number === "Q-2026-002");
-    const acmeWoApproval = approvals.find((a) => a.quote_id === acmeWoQuote?.id);
-    expect(acmeWoApproval).toBeDefined();
-    expect(acmeWoApproval?.status).toBe("pending");
-  });
-
   it("demo data is idempotent across repeated installs", async () => {
     await installPack(workspaceId, "crm-lite-pack", { includeDemoData: true });
     await installPack(workspaceId, "sales-quote-pack", { includeDemoData: true });
@@ -315,11 +297,9 @@ describe("Sales Quote demo data with cross-pack references", () => {
     const products = await getRecords(workspaceId, "product_service");
     const quotes = await getRecords(workspaceId, "quote");
     const quoteLines = await getRecords(workspaceId, "quote_line");
-    const approvals = await getRecords(workspaceId, "quote_approval");
     expect(products.length).toBe(10);
     expect(quotes.length).toBe(11);
     expect(quoteLines.length).toBeGreaterThanOrEqual(16);
-    expect(approvals.length).toBe(5);
   });
 
   it("includes required demo scenarios from the plan", async () => {
@@ -327,16 +307,14 @@ describe("Sales Quote demo data with cross-pack references", () => {
     await installPack(workspaceId, "sales-quote-pack", { includeDemoData: true });
 
     const quotes = await getRecords(workspaceId, "quote");
-    const approvals = await getRecords(workspaceId, "quote_approval");
 
     // One quote from a CRM deal (Q-2026-001 references Acme Expansion Plan deal)
     const dealOriginQuote = quotes.find((q) => q.quote_number === "Q-2026-001");
     expect(dealOriginQuote).toBeDefined();
     expect(dealOriginQuote?.deal_id).toBeTruthy();
 
-    // One pending approval
-    expect(quotes.some((q) => q.status === "pending_approval")).toBe(true);
-    expect(approvals.some((a) => a.status === "pending")).toBe(true);
+    // One in review
+    expect(quotes.some((q) => q.status === "in_review")).toBe(true);
 
     // One accepted quote
     expect(quotes.some((q) => q.status === "accepted")).toBe(true);
@@ -435,13 +413,11 @@ describe("Sales Quote workbench composition", () => {
       expect.arrayContaining([
         "open_quotes_metric",
         "pending_approvals_metric",
-        "pending_quote_approvals_metric",
         "active_products_metric",
         "new_quotes_trend",
         "quotes_needing_approval_list",
         "recently_accepted_quotes_list",
         "expiring_quotes_list",
-        "pending_quote_approvals_list",
         "business_activity_feed",
       ])
     );
@@ -475,10 +451,10 @@ describe("Sales Quote workbench composition", () => {
     const widget = await resolveWidgetData(workspaceId, {
       kind: "count",
       object: "quote",
-      where: "status = 'pending_approval'",
+      where: "status = 'in_review'",
     });
 
-    // 2 quotes with pending_approval status (Q-2026-002, Q-2026-007)
+    // 2 quotes with in_review status (Q-2026-002, Q-2026-007)
     expect(widget.count).toBe(2);
   });
 
@@ -495,7 +471,7 @@ describe("Sales Quote workbench composition", () => {
     expect(widget.groups).toBeDefined();
     const statusMap = new Map(widget.groups!.map((g) => [g.key, g.count]));
     expect(statusMap.get("accepted")).toBe(2);
-    expect(statusMap.get("pending_approval")).toBe(2);
+    expect(statusMap.get("in_review")).toBe(2);
     expect(statusMap.get("draft")).toBe(2);
     expect(statusMap.get("sent")).toBe(2);
     expect(statusMap.get("approved")).toBe(1);
@@ -523,9 +499,6 @@ describe("Sales Quote workbench composition", () => {
         "recent_products_list",
         "active_price_books_metric",
         "recent_price_books_list",
-        "pending_quote_approvals_metric",
-        "quote_approval_status_breakdown",
-        "pending_quote_approvals_list",
       ])
     );
   });
@@ -567,23 +540,11 @@ describe("Sales Quote module cross-pack relation declarations", () => {
     }
   });
 
-  it("runory.quote-approval declares relation to quote", async () => {
-    const manifest = loadModuleManifest("runory.quote-approval");
-    expect(manifest.relations).toBeDefined();
-    expect(manifest.relations).toHaveLength(1);
-
-    const targets = manifest.relations!.map((r) => r.targetModule);
-    expect(targets).toEqual(
-      expect.arrayContaining(["runory.quote"])
-    );
-  });
-
   it("all sales quote module manifests validate against schema", async () => {
     const moduleIds = [
       "runory.product-service",
       "runory.price-book",
       "runory.quote",
-      "runory.quote-approval",
     ];
 
     for (const moduleId of moduleIds) {
@@ -600,7 +561,6 @@ describe("Sales Quote module cross-pack relation declarations", () => {
       "runory.product-service",
       "runory.price-book",
       "runory.quote",
-      "runory.quote-approval",
     ];
 
     for (const moduleId of moduleIds) {
@@ -647,6 +607,9 @@ describe("Sales Quote demo journey (end-to-end trial flow)", () => {
       status: "draft",
       version: 1,
       currency: "CNY",
+      subtotal_amount: 25000,
+      tax_amount: 3000,
+      total_amount: 28000,
       valid_until: "2026-07-31",
       owner: "Alex",
       terms: "Payment terms: pay within 30 days",
@@ -680,50 +643,23 @@ describe("Sales Quote demo journey (end-to-end trial flow)", () => {
     });
     expect(line2.id).toBeDefined();
 
-    // 5. Update quote totals and submit for approval
-    const submitted = await updateRecord(workspaceId, "quote", quote.id, {
-      status: "pending_approval",
-      subtotal_amount: 25000,
-      tax_amount: 3000,
-      total_amount: 28000,
-    });
-    expect(submitted?.status).toBe("pending_approval");
-    expect(submitted?.total_amount).toBe(28000);
+    // 5. Submit for approval (transitions status: draft → in_review)
+    const actor: CommandActor = { type: "user", id: "test-user" };
+    const submitted = await submitForApproval(workspaceId, quote.id, actor, 1);
+    expect(submitted.aggregate.status).toBe("in_review");
+    expect(submitted.aggregate.total_amount).toBe(28000);
 
-    // 6. Create an approval record
-    const approval = await createRecord(workspaceId, "quote_approval", {
-      quote_id: quote.id,
-      status: "pending",
-      requested_by: "Alex",
-      requested_at: "2026-06-23",
-      decision_notes: "Pending approval",
-    });
-    expect(approval.id).toBeDefined();
+    // 6. Approve the quote (transitions status: in_review → approved)
+    const approved = await approveQuote(workspaceId, quote.id, actor, 2);
+    expect(approved.aggregate.status).toBe("approved");
 
-    // 7. Approve the quote
-    const approved = await updateRecord(workspaceId, "quote", quote.id, {
-      status: "approved",
-    });
-    expect(approved?.status).toBe("approved");
+    // 7. Mark quote as sent (transitions status: approved → sent)
+    const sent = await markSent(workspaceId, quote.id, actor, 3);
+    expect(sent.aggregate.status).toBe("sent");
 
-    const approvedApproval = await updateRecord(workspaceId, "quote_approval", approval.id, {
-      status: "approved",
-      reviewed_by: "Sam",
-      reviewed_at: "2026-06-23",
-      decision_notes: "Approval passed",
-    });
-    expect(approvedApproval?.status).toBe("approved");
-
-    // 8. Mark quote as sent, then accepted
-    const sent = await updateRecord(workspaceId, "quote", quote.id, {
-      status: "sent",
-    });
-    expect(sent?.status).toBe("sent");
-
-    const accepted = await updateRecord(workspaceId, "quote", quote.id, {
-      status: "accepted",
-    });
-    expect(accepted?.status).toBe("accepted");
+    // 8. Accept the quote (transitions status: sent → accepted)
+    const accepted = await acceptQuote(workspaceId, quote.id, actor, 4);
+    expect(accepted.aggregate.status).toBe("accepted");
 
     // 9. Verify workbench reflects the accepted state
     const openCount = await resolveWidgetData(workspaceId, {

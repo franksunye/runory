@@ -1,4 +1,4 @@
--- runory.work-order v1.0.0 install migration
+-- runory.work-order v1.1.0 install migration
 CREATE TABLE IF NOT EXISTS {{BUSINESS_TABLE_PREFIX}}work_order (
   id TEXT PRIMARY KEY,
   workspace_id TEXT NOT NULL,
@@ -18,6 +18,17 @@ CREATE TABLE IF NOT EXISTS {{BUSINESS_TABLE_PREFIX}}work_order (
   sla_due_at TEXT,
   source TEXT,
   notes TEXT,
+  work_order_number TEXT,
+  aggregate_version INTEGER NOT NULL DEFAULT 1,
+  source_type TEXT,
+  source_id TEXT,
+  source_snapshot_hash TEXT,
+  owner_resource_id TEXT,
+  cancelled_at TEXT,
+  reopened_at TEXT,
+  completion_reason TEXT,
+  cancellation_reason TEXT,
+  reopen_reason TEXT,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL,
   UNIQUE(workspace_id, id)

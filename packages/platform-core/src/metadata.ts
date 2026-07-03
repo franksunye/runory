@@ -1,6 +1,7 @@
 import { queryAll, queryOne, execute, genId, now, validateIdentifier } from "./db";
 import { TABLES, businessTable } from "./contracts";
 import { provisionWorkspaceTenant, type ActorIdentity } from "./tenancy";
+import { assertNotGovernedUpdate } from "./governed-fields";
 import { AsyncLocalStorage } from "node:async_hooks";
 
 // ── Automation trigger recursion guard (v0.3.5) ──
@@ -714,8 +715,24 @@ export async function createRecord(workspaceId: string, objectKey: string, data:
   const extFields = fields.filter(f => f.ownership === "workspace_extension");
 
   // Insert into business table (module-owned fields only)
+  // For fields not in data, use default_value if available, else null
   const moduleColumns = ["id", "workspace_id", ...moduleFields.map(f => validateIdentifier(f.fieldKey)), "created_at", "updated_at"];
-  const moduleValues: unknown[] = [id, workspaceId, ...moduleFields.map(f => data[f.fieldKey] ?? null), ts, ts];
+  const moduleValues: unknown[] = [
+    id,
+    workspaceId,
+    ...moduleFields.map(f => {
+      if (data[f.fieldKey] !== undefined) return data[f.fieldKey];
+      if (f.defaultValue) {
+        // Parse default value based on field type
+        if (f.type === "number") return Number(f.defaultValue);
+        if (f.type === "boolean") return f.defaultValue === "true";
+        return f.defaultValue;
+      }
+      return null;
+    }),
+    ts,
+    ts,
+  ];
   const placeholders = moduleColumns.map(() => "?").join(", ");
   await execute(
     `INSERT INTO ${businessTable(objectKey)} (${moduleColumns.join(", ")}) VALUES (${placeholders})`,
@@ -784,6 +801,10 @@ export async function getRecord(
 }
 
 export async function updateRecord(workspaceId: string, objectKey: string, recordId: string, data: Record<string, unknown>): Promise<Record<string, unknown> | undefined> {
+  // v0.5 Guard: reject generic CRUD updates to governed fields.
+  // Governed fields can only be changed through named commands (e.g. quote.approve).
+  assertNotGovernedUpdate(objectKey, data);
+
   const ts = now();
   const fields = await getFields(workspaceId, objectKey);
   const moduleFields = fields.filter(f => f.ownership === "module_owned");

@@ -116,6 +116,11 @@ migrations:
   install: migrations/install.sql
   uninstallPolicy: retain_data
 
+presentation:
+  visibility: contextual
+  surface: customers
+  audience: [sales_representative, sales_manager, dispatcher]
+
 ui:
   navigation:
     - label: Contact

@@ -207,6 +207,23 @@ export const relationDeclarationSchema = z.object({
 
 export type RelationDeclaration = z.infer<typeof relationDeclarationSchema>;
 
+// ── Module Presentation (v0.5 Phase 5 — Navigation Strategy) ──
+// Controls how a module appears in navigation surfaces.
+export const modulePresentationSchema = z.object({
+  visibility: z.enum(["top_level", "contextual", "management", "hidden"]),
+  surface: z.enum([
+    "quotes",
+    "work_orders",
+    "planning",
+    "forms",
+    "my_work",
+    "customers",
+  ]).optional(),
+  audience: z.array(z.string()).optional(),
+});
+
+export type ModulePresentation = z.infer<typeof modulePresentationSchema>;
+
 export const moduleManifestSchema = z.object({
   id: z.string(),
   name: z.string(),
@@ -214,6 +231,12 @@ export const moduleManifestSchema = z.object({
   manifestSchemaVersion: z.string().default("1.0.0"),
   publisher: z.string().optional(),
   coreCompatibility: z.string(),
+  // v0.4 — Module retirement metadata (e.g. quote_approval retired in v0.5).
+  // When status is "retired", the installer skips installing the module for
+  // new workspaces while leaving any existing tables read-only.
+  status: z.string().optional(),
+  retiredIn: z.string().optional(),
+  retirementNote: z.string().optional(),
   releaseCompatibility: releaseCompatibilitySchema.optional(),
   dependencies: z.array(z.string()).optional(),
   objects: z.array(objectDefinitionSchema),
@@ -234,6 +257,7 @@ export const moduleManifestSchema = z.object({
       sortOrder: z.number().default(100),
     })).optional(),
   }).optional(),
+  presentation: modulePresentationSchema.optional(),
   extensionPoints: extensionPointSchema.optional(),
   dashboard: moduleDashboardSchema.optional(),
   upgradePolicy: z.object({
