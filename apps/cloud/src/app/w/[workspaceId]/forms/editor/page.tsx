@@ -121,9 +121,9 @@ function FormEditor() {
         setFormKey(def.form_key as string);
         setName(def.name as string);
 
-        // Load full definition to get schema
+        // Load full definition to get schema (API uses formKey as path param)
         const detailRes = await fetch(
-          `/api/workspaces/${workspaceId}/forms/definitions/${def.id}`,
+          `/api/workspaces/${workspaceId}/forms/definitions/${def.form_key}`,
           { cache: "no-store" }
         );
         const detailJson = await detailRes.json();
