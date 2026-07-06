@@ -133,13 +133,19 @@ export const widgetConfigurableFieldSchema = z.object({
 // Widget data intent — declarative, platform resolves to safe SQL
 export const widgetDataIntentSchema = z.object({
   kind: z.enum(WIDGET_DATA_KINDS),
-  object: z.string(),                            // must be a declared object of this module
+  object: z.string(),                            // a declared object of this module, OR a platform runtime object (see PLATFORM_OBJECT_*)
   where: z.string().optional(),                  // restricted expression, platform-parsed
   orderBy: z.string().optional(),                // "field asc|desc, ..."
   limit: z.number().optional(),                  // for recent
   groupBy: z.string().optional(),                // for group_count / timeseries
   range: z.enum(["7d", "14d", "30d"]).optional(), // for timeseries
   columns: z.array(z.string()).optional(),       // for recent
+  join: z.object({
+    object: z.string(),                          // platform runtime object to join to (e.g. "resources")
+    on: z.string(),                              // foreign-key field on the base object (e.g. "resource_id")
+    select: z.string(),                          // field to pull from the joined object (e.g. "display_name")
+    as: z.string(),                              // alias for the selected column (e.g. "resource_name")
+  }).optional(),                                 // for recent — enriches rows with a joined display field
 });
 
 // Sub-label intent for metric_card (optional secondary metric)
@@ -526,6 +532,187 @@ export type AutomationTrigger = z.infer<typeof automationTriggerSchema>;
 export type AutomationCondition = z.infer<typeof automationConditionSchema>;
 export type AutomationAction = z.infer<typeof automationActionSchema>;
 export type AutomationDefinition = z.infer<typeof automationDefinitionSchema>;
+
+// ── V2 Workflow Types (v0.5) ──
+
+export const workflowStepKindSchema = z.enum([
+  "start", "human_task", "approval", "system_command", "wait", "end",
+]);
+export type WorkflowStepKind = z.infer<typeof workflowStepKindSchema>;
+
+export const workflowStepSchema = z.object({
+  id: z.string(),
+  kind: workflowStepKindSchema,
+  next: z.string().optional(),
+  command: z.string().optional(),
+  assigneeRule: z.object({
+    permissionGroup: z.string().optional(),
+    userId: z.string().optional(),
+  }).optional(),
+  formBindingId: z.string().optional(),
+  onApprove: z.string().optional(),
+  onReject: z.string().optional(),
+  policy: z.object({
+    allowSelfApproval: z.boolean().optional(),
+  }).optional(),
+  sla: z.string().optional(),
+  dueAt: z.string().optional(),
+});
+export type WorkflowStep = z.infer<typeof workflowStepSchema>;
+
+export const workflowDefinitionV2Schema = z.object({
+  workflowKey: z.string(),
+  name: z.string(),
+  targetObject: z.string(),
+  initialState: z.string(),
+  steps: z.array(workflowStepSchema),
+});
+export type WorkflowDefinitionV2 = z.infer<typeof workflowDefinitionV2Schema>;
+
+export interface WorkflowDefinitionVersion {
+  id: string;
+  workspaceId: string;
+  workflowDefinitionId: string;
+  versionNumber: number;
+  definitionJson: string;
+  schemaVersion: string;
+  publishedBy: string | null;
+  publishedAt: string | null;
+  createdAt: string;
+}
+
+export interface WorkflowInstanceV2 {
+  id: string;
+  workspaceId: string;
+  workflowDefinitionId: string;
+  definitionVersionId: string;
+  objectType: string;
+  recordId: string;
+  status: string;
+  currentStepId: string | null;
+  version: number;
+  startedBy: string | null;
+  startedAt: string;
+  completedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface WorkItem {
+  id: string;
+  workspaceId: string;
+  instanceId: string;
+  stepId: string;
+  kind: string;
+  status: string;
+  subjectType: string | null;
+  subjectId: string | null;
+  assigneeType: string | null;
+  assigneeId: string | null;
+  candidateRuleJson: string | null;
+  dueAt: string | null;
+  claimedBy: string | null;
+  claimedAt: string | null;
+  completedAt: string | null;
+  formBindingId: string | null;
+  inputSnapshotJson: string | null;
+  inputSnapshotHash: string | null;
+  version: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface WorkflowEvent {
+  id: string;
+  instanceId: string;
+  sequence: number;
+  eventType: string;
+  stepId: string | null;
+  actorType: string | null;
+  actorId: string | null;
+  payloadJson: string;
+  occurredAt: string;
+}
+
+export interface ApprovalDecision {
+  id: string;
+  workspaceId: string;
+  workItemId: string;
+  outcome: "approved" | "rejected";
+  decidedBy: string;
+  decidedAt: string;
+  comment: string | null;
+  commandId: string | null;
+}
+
+export interface CommandExecution {
+  id: string;
+  workspaceId: string;
+  commandId: string;
+  commandType: string;
+  aggregateType: string;
+  aggregateId: string;
+  actorType: string;
+  actorId: string;
+  inputHash: string;
+  status: "started" | "succeeded" | "failed";
+  resultJson: string | null;
+  errorCode: string | null;
+  errorMessage: string | null;
+  expectedVersion: number | null;
+  createdAt: string;
+  completedAt: string | null;
+}
+
+export interface OutboxMessage {
+  id: string;
+  workspaceId: string;
+  messageType: string;
+  payload: Record<string, unknown>;
+  status: "pending" | "delivered" | "failed";
+  attempts: number;
+  lastError: string | null;
+  createdAt: string;
+  deliveredAt: string | null;
+}
+
+// ── V2 Form Block Types (v0.5) ──
+
+export const formBlockTypeSchema = z.enum([
+  "header", "field", "checklist", "evidence", "signature",
+]);
+export type FormBlockType = z.infer<typeof formBlockTypeSchema>;
+
+export const formBlockSchema = z.object({
+  block_type: formBlockTypeSchema,
+  id: z.string(),
+  label: z.string().optional(),
+  field_key: z.string().optional(),
+  field_type: z.enum(["text", "number", "date", "select", "boolean"]).optional(),
+  required: z.boolean().optional(),
+  options: z.array(z.string()).optional(),
+  items: z.array(z.object({
+    id: z.string(),
+    label: z.string(),
+    required: z.boolean(),
+    pass_fail_na: z.boolean().optional(),
+  })).optional(),
+  required_count: z.number().optional(),
+  accepted_types: z.array(z.string()).optional(),
+  acknowledgment_text: z.string().optional(),
+});
+export type FormBlock = z.infer<typeof formBlockSchema>;
+
+export const formSchemaSchema = z.object({
+  blocks: z.array(formBlockSchema),
+});
+export type FormSchema = z.infer<typeof formSchemaSchema>;
+
+export const formUsageTypeSchema = z.enum([
+  "workflow_step", "record_action", "public_endpoint",
+  "marketing_capture", "service_deliverable",
+]);
+export type FormUsageType = z.infer<typeof formUsageTypeSchema>;
 
 // ── API Response Types ──
 export interface ToolEnvelope<T> {

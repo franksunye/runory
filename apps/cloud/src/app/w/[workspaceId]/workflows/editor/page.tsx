@@ -4,8 +4,12 @@ import { Suspense, useCallback, useEffect, useState, type ReactNode } from "reac
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import {
   ArrowLeft, Plus, Trash2, ArrowRight, Loader2, CheckCircle2,
+  Layers,
 } from "lucide-react";
-import type { WorkflowDefinition } from "@runory/contracts";
+import type {
+  WorkflowDefinition,
+  WorkflowDefinitionV2, WorkflowStep, WorkflowStepKind,
+} from "@runory/contracts";
 import { useI18n } from "@/i18n/locale-provider";
 import { useObjects } from "@/lib/api-hooks";
 import type { MessageKey } from "@/i18n/messages";
@@ -144,6 +148,9 @@ function WorkflowEditor() {
         onSave={handleSave}
         onCancel={() => router.push(`/w/${workspaceId}/workflows`)}
       />
+
+      {/* V2 Step Editor */}
+      <V2StepEditor workspaceId={workspaceId} />
     </div>
   );
 }
@@ -318,5 +325,302 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
       <span className="mb-1 block text-xs font-semibold text-slate-600">{label}</span>
       {children}
     </label>
+  );
+}
+
+// ── V2 Step Editor ──
+
+interface EditorV2Step {
+  id: string;
+  kind: WorkflowStepKind;
+  next: string;
+  command: string;
+  formBindingId: string;
+  permissionGroup: string;
+}
+
+const V2_STEP_KINDS: WorkflowStepKind[] = [
+  "start", "human_task", "approval", "system_command", "wait", "end",
+];
+
+const V2_STEP_KIND_LABEL_KEY: Record<WorkflowStepKind, MessageKey> = {
+  start: "workflowV2.stepKindStart",
+  human_task: "workflowV2.stepKindHumanTask",
+  approval: "workflowV2.stepKindApproval",
+  system_command: "workflowV2.stepKindSystemCommand",
+  wait: "workflowV2.stepKindWait",
+  end: "workflowV2.stepKindEnd",
+};
+
+interface V2StepEditorProps {
+  workspaceId: string;
+}
+
+function V2StepEditor({ workspaceId }: V2StepEditorProps) {
+  const { t } = useI18n();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const v2InstanceParam = searchParams.get("v2Instance");
+  const { data: objects = [] } = useObjects(workspaceId);
+
+  const [workflowKey, setWorkflowKey] = useState("");
+  const [name, setName] = useState("");
+  const [targetObject, setTargetObject] = useState("");
+  const [initialState, setInitialState] = useState("");
+  const [steps, setSteps] = useState<EditorV2Step[]>([
+    { id: "start", kind: "start", next: "", command: "", formBindingId: "", permissionGroup: "" },
+  ]);
+  const [submitting, setSubmitting] = useState(false);
+  const [loadingExisting, setLoadingExisting] = useState(!!v2InstanceParam);
+  const [toast, setToast] = useState<Toast | null>(null);
+
+  const showToast = useCallback((type: Toast["type"], message: string) => {
+    setToast({ type, message });
+    setTimeout(() => setToast(null), 3500);
+  }, []);
+
+  // Load existing V2 definition from an instance ID (if provided via ?v2Instance=...)
+  useEffect(() => {
+    if (!v2InstanceParam) return;
+    void (async () => {
+      try {
+        const res = await fetch(
+          `/api/workspaces/${workspaceId}/workflows/instances-v2/${v2InstanceParam}`,
+          { cache: "no-store" }
+        );
+        const json = await res.json();
+        if (json.success && json.data?.definition) {
+          const def = json.data.definition as WorkflowDefinitionV2;
+          setWorkflowKey(def.workflowKey ?? "");
+          setName(def.name ?? "");
+          setTargetObject(def.targetObject ?? "");
+          setInitialState(def.initialState ?? "");
+          const loadedSteps: EditorV2Step[] = (def.steps ?? []).map((s: WorkflowStep) => ({
+            id: s.id,
+            kind: s.kind,
+            next: s.next ?? "",
+            command: s.command ?? "",
+            formBindingId: s.formBindingId ?? "",
+            permissionGroup: s.assigneeRule?.permissionGroup ?? "",
+          }));
+          setSteps(loadedSteps.length > 0 ? loadedSteps : [
+            { id: "start", kind: "start", next: "", command: "", formBindingId: "", permissionGroup: "" },
+          ]);
+        }
+      } catch {
+        // Silently ignore — user can still create a fresh definition
+      } finally {
+        setLoadingExisting(false);
+      }
+    })();
+  }, [v2InstanceParam, workspaceId]);
+
+  const addStep = () => setSteps((prev) => [
+    ...prev,
+    { id: "", kind: "human_task", next: "", command: "", formBindingId: "", permissionGroup: "" },
+  ]);
+  const removeStep = (i: number) => setSteps((prev) => prev.filter((_, idx) => idx !== i));
+  const updateStep = (i: number, patch: Partial<EditorV2Step>) =>
+    setSteps((prev) => prev.map((s, idx) => (idx === i ? { ...s, ...patch } : s)));
+
+  const canSubmit = Boolean(workflowKey && name && targetObject && initialState)
+    && steps.every((s) => s.id && s.kind);
+
+  const handleSaveV2 = async () => {
+    if (!canSubmit) return;
+    setSubmitting(true);
+    try {
+      const v2Steps: WorkflowStep[] = steps.map((s) => {
+        const step: WorkflowStep = { id: s.id, kind: s.kind };
+        if (s.next) step.next = s.next;
+        if (s.command) step.command = s.command;
+        if (s.formBindingId) step.formBindingId = s.formBindingId;
+        if (s.permissionGroup) step.assigneeRule = { permissionGroup: s.permissionGroup };
+        return step;
+      });
+      const res = await fetch(`/api/workspaces/${workspaceId}/workflows`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          v2: true,
+          workflowKey,
+          name,
+          targetObject,
+          initialState,
+          steps: v2Steps,
+        }),
+      });
+      const json = await res.json();
+      if (!json.success) {
+        throw new Error(json.error?.message ?? t("workflowV2.saveFailed"));
+      }
+      showToast("success", t("workflowV2.saved"));
+      setTimeout(() => router.push(`/w/${workspaceId}/workflows`), 800);
+    } catch (e) {
+      showToast("error", e instanceof Error ? e.message : t("workflowV2.saveFailed"));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  if (loadingExisting) {
+    return (
+      <div className="flex items-center gap-2 text-sm text-slate-400">
+        <Loader2 size={16} className="animate-spin" />{t("workspace.loading")}
+      </div>
+    );
+  }
+
+  return (
+    <section className="app-card p-5 sm:p-6">
+      {/* Header */}
+      <div className="mb-4">
+        <h2 className="flex items-center gap-2 text-sm font-bold text-slate-900">
+          <Layers size={16} className="text-indigo-600" />
+          {t("workflowV2.stepEditorTitle")}
+        </h2>
+        <p className="mt-1 text-xs text-slate-500">{t("workflowV2.stepEditorHint")}</p>
+      </div>
+
+      {toast && (
+        <div className={`mb-4 rounded-lg px-4 py-3 text-sm ${toast.type === "success" ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"}`}>
+          {toast.message}
+        </div>
+      )}
+
+      {/* Basic Info */}
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field label={t("workflowV2.workflowKey")}>
+          <input
+            className="app-input"
+            value={workflowKey}
+            onChange={(e) => setWorkflowKey(e.target.value)}
+            placeholder={t("workflowV2.placeholderWorkflowKey")}
+          />
+        </Field>
+        <Field label={t("workflows.field.name")}>
+          <input
+            className="app-input"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder={t("workflows.placeholderName")}
+          />
+        </Field>
+        <Field label={t("workflows.field.targetObject")}>
+          <select
+            className="app-input"
+            value={targetObject}
+            onChange={(e) => setTargetObject(e.target.value)}
+          >
+            <option value="">{t("workflows.placeholderTargetObject")}</option>
+            {objects.map((obj) => (
+              <option key={obj.objectKey} value={obj.objectKey}>
+                {obj.label ?? obj.objectKey}
+              </option>
+            ))}
+          </select>
+        </Field>
+        <Field label={t("workflowV2.initialState")}>
+          <input
+            className="app-input"
+            value={initialState}
+            onChange={(e) => setInitialState(e.target.value)}
+            placeholder={t("workflowV2.placeholderInitialState")}
+          />
+        </Field>
+      </div>
+
+      {/* Steps */}
+      <div className="mt-5">
+        <div className="mb-3 flex items-center justify-between">
+          <h3 className="text-sm font-bold text-slate-900">{t("workflowV2.stepPipeline")}</h3>
+          <button onClick={addStep} className="app-button-secondary min-h-8">
+            <Plus size={14} />{t("workflowV2.addStep")}
+          </button>
+        </div>
+        <div className="space-y-3">
+          {steps.length === 0 && (
+            <p className="text-xs text-slate-400">{t("workflowV2.noSteps")}</p>
+          )}
+          {steps.map((step, i) => (
+            <div key={i} className="space-y-2 rounded-lg border border-slate-100 p-3">
+              {/* Row 1: id, kind, delete */}
+              <div className="flex flex-wrap items-center gap-2">
+                <input
+                  className="app-input h-9 w-32"
+                  value={step.id}
+                  onChange={(e) => updateStep(i, { id: e.target.value })}
+                  placeholder={t("workflowV2.placeholderStepId")}
+                />
+                <select
+                  className="app-input h-9 w-40"
+                  value={step.kind}
+                  onChange={(e) => updateStep(i, { kind: e.target.value as WorkflowStepKind })}
+                >
+                  {V2_STEP_KINDS.map((k) => (
+                    <option key={k} value={k}>
+                      {t(V2_STEP_KIND_LABEL_KEY[k])}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  onClick={() => removeStep(i)}
+                  className="text-slate-400 hover:text-red-600"
+                  title={t("workspace.delete")}
+                >
+                  <Trash2 size={16} />
+                </button>
+              </div>
+              {/* Row 2: next, command */}
+              <div className="flex flex-wrap items-center gap-2">
+                <input
+                  className="app-input h-9 min-w-[120px] flex-1"
+                  value={step.next}
+                  onChange={(e) => updateStep(i, { next: e.target.value })}
+                  placeholder={t("workflowV2.placeholderStepNext")}
+                />
+                <input
+                  className="app-input h-9 min-w-[120px] flex-1"
+                  value={step.command}
+                  onChange={(e) => updateStep(i, { command: e.target.value })}
+                  placeholder={t("workflowV2.placeholderStepCommand")}
+                />
+              </div>
+              {/* Row 3: formBindingId, permissionGroup */}
+              <div className="flex flex-wrap items-center gap-2">
+                <input
+                  className="app-input h-9 min-w-[120px] flex-1"
+                  value={step.formBindingId}
+                  onChange={(e) => updateStep(i, { formBindingId: e.target.value })}
+                  placeholder={t("workflowV2.formBinding")}
+                />
+                <input
+                  className="app-input h-9 min-w-[120px] flex-1"
+                  value={step.permissionGroup}
+                  onChange={(e) => updateStep(i, { permissionGroup: e.target.value })}
+                  placeholder={t("workflowV2.stepPermissionGroup")}
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Save */}
+      <div className="mt-5 flex justify-end">
+        <button
+          onClick={handleSaveV2}
+          className="app-button-primary"
+          disabled={submitting || !canSubmit}
+        >
+          {submitting ? (
+            <Loader2 size={14} className="animate-spin" />
+          ) : (
+            <CheckCircle2 size={14} />
+          )}
+          {t("workflowV2.saveV2")}
+        </button>
+      </div>
+    </section>
   );
 }

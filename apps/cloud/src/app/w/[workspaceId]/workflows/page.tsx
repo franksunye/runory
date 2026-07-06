@@ -5,10 +5,15 @@ import { useParams, useRouter } from "next/navigation";
 import {
   GitBranch, Plus, RefreshCw, CheckCircle2, XCircle, Clock3,
   Play, ArrowRight, X, Pencil, Trash2, AlertCircle, Loader2,
+  Layers, ListChecks, ExternalLink,
 } from "lucide-react";
-import type { WorkflowDefinition, WorkflowTransition } from "@runory/contracts";
+import type {
+  WorkflowDefinition, WorkflowTransition,
+  WorkflowDefinitionV2, WorkflowStep, WorkflowStepKind,
+} from "@runory/contracts";
 import type { WorkflowInstance } from "@runory/platform-core";
 import { useI18n } from "@/i18n/locale-provider";
+import type { MessageKey } from "@/i18n/messages";
 import { useRecords } from "@/lib/api-hooks";
 
 interface PendingApproval extends WorkflowInstance {
@@ -289,6 +294,9 @@ export default function WorkflowsPage() {
         <StartInstanceModal workspaceId={workspaceId} definition={startFor} submitting={submitting} onClose={() => setStartFor(null)}
           onSubmit={(ot, rid) => handleStartInstance(startFor.id, ot, rid)} />
       )}
+
+      {/* V2 Workflow Instances */}
+      <V2InstancesSection workspaceId={workspaceId} />
     </div>
   );
 }
@@ -449,3 +457,252 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
     </label>
   );
 }
+
+// ── V2 Workflow Instances Section ──
+
+/** API response shape for a V2 instance detail (DB rows are snake_case). */
+interface V2InstanceDetail {
+  id: string;
+  workflow_definition_id: string;
+  object_type: string;
+  record_id: string;
+  status: string;
+  current_step_id: string | null;
+  version: number;
+  started_at: string;
+  completed_at: string | null;
+  work_items: V2WorkItemRow[];
+  definition: WorkflowDefinitionV2 | null;
+}
+
+interface V2WorkItemRow {
+  id: string;
+  instance_id: string;
+  step_id: string;
+  kind: string;
+  status: string;
+  subject_type: string | null;
+  subject_id: string | null;
+}
+
+const V2_STEP_KIND_LABEL_KEY: Record<WorkflowStepKind, MessageKey> = {
+  start: "workflowV2.stepKindStart",
+  human_task: "workflowV2.stepKindHumanTask",
+  approval: "workflowV2.stepKindApproval",
+  system_command: "workflowV2.stepKindSystemCommand",
+  wait: "workflowV2.stepKindWait",
+  end: "workflowV2.stepKindEnd",
+};
+
+function v2StatusBadgeClass(status: string): string {
+  if (status === "completed") return "bg-emerald-50 text-emerald-700";
+  if (status === "cancelled") return "bg-red-50 text-red-700";
+  if (status === "running") return "bg-sky-50 text-sky-700";
+  return "bg-slate-100 text-slate-600";
+}
+
+function v2StepKindBadgeClass(kind: WorkflowStepKind): string {
+  switch (kind) {
+    case "start": return "bg-sky-50 text-sky-700";
+    case "end": return "bg-slate-200 text-slate-700";
+    case "approval": return "bg-amber-50 text-amber-700";
+    case "human_task": return "bg-indigo-50 text-indigo-700";
+    case "system_command": return "bg-violet-50 text-violet-700";
+    case "wait": return "bg-slate-100 text-slate-600";
+    default: return "bg-slate-100 text-slate-600";
+  }
+}
+
+function V2InstancesSection({ workspaceId }: { workspaceId: string }) {
+  const { t } = useI18n();
+  const router = useRouter();
+  const [instances, setInstances] = useState<V2InstanceDetail[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      // 1. Fetch my-work items to discover V2 instance IDs
+      const workRes = await fetch(
+        `/api/workspaces/${workspaceId}/my-work?limit=100`,
+        { cache: "no-store" }
+      );
+      const workJson = await workRes.json();
+      if (!workJson.success) {
+        throw new Error(workJson.error?.message ?? t("workflowV2.loadFailed"));
+      }
+      const items: V2WorkItemRow[] = workJson.data?.items ?? [];
+      // 2. Group by instance_id to get unique V2 instance IDs
+      const instanceIds = [...new Set(items.map((i) => i.instance_id))];
+      if (instanceIds.length === 0) {
+        setInstances([]);
+        return;
+      }
+      // 3. Fetch each V2 instance detail (cap at 10 to avoid excessive calls)
+      const details = await Promise.all(
+        instanceIds.slice(0, 10).map(async (instId) => {
+          try {
+            const res = await fetch(
+              `/api/workspaces/${workspaceId}/workflows/instances-v2/${instId}`,
+              { cache: "no-store" }
+            );
+            const json = await res.json();
+            return json.success ? (json.data as V2InstanceDetail) : null;
+          } catch {
+            return null;
+          }
+        })
+      );
+      setInstances(details.filter((d): d is V2InstanceDetail => d !== null));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t("workflowV2.loadFailed"));
+    } finally {
+      setLoading(false);
+    }
+  }, [workspaceId, t]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  return (
+    <section className="app-card p-5 sm:p-6">
+      <div className="mb-4 flex items-center justify-between">
+        <div>
+          <h3 className="flex items-center gap-2 font-bold text-slate-900">
+            <Layers size={16} className="text-indigo-600" />
+            {t("workflowV2.instancesTitle")}
+          </h3>
+          <p className="mt-1 text-xs text-slate-500">{t("workflowV2.instancesHint")}</p>
+        </div>
+        <button onClick={() => void load()} className="app-button-secondary" disabled={loading}>
+          {loading ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
+        </button>
+      </div>
+
+      {loading && instances.length === 0 ? (
+        <p className="text-sm text-slate-400">{t("workflowV2.loadingInstances")}</p>
+      ) : error ? (
+        <div className="app-error">
+          <div className="flex items-start gap-2">
+            <AlertCircle size={16} className="mt-0.5 shrink-0" />
+            <p>{error}</p>
+          </div>
+        </div>
+      ) : instances.length === 0 ? (
+        <p className="text-sm text-slate-400">{t("workflowV2.noInstances")}</p>
+      ) : (
+        <ul className="space-y-4">
+          {instances.map((inst) => (
+            <V2InstanceRow key={inst.id} instance={inst}
+              onOpenRecord={(ot, rid) => router.push(`/w/${workspaceId}/o/${ot}/${rid}`)} />
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+// ── V2 Instance Row ──
+
+interface V2InstanceRowProps {
+  instance: V2InstanceDetail;
+  onOpenRecord: (objectType: string, recordId: string) => void;
+}
+
+function V2InstanceRow({ instance, onOpenRecord }: V2InstanceRowProps) {
+  const { t } = useI18n();
+  const def = instance.definition;
+  const steps: WorkflowStep[] = def?.steps ?? [];
+  const currentStepId = instance.current_step_id;
+
+  // Work items kind breakdown
+  const breakdown = instance.work_items.reduce((acc, wi) => {
+    acc[wi.kind] = (acc[wi.kind] ?? 0) + 1;
+    return acc;
+  }, {} as Record<string, number>);
+
+  const hasRecord = Boolean(instance.object_type && instance.record_id);
+
+  return (
+    <li className="rounded-lg border border-slate-100 p-4">
+      {/* Header row: instance ID, definition key, status, current step, record link */}
+      <div className="flex flex-wrap items-center gap-3">
+        <span className="grid size-9 place-items-center rounded-lg bg-indigo-50 text-indigo-600">
+          <Layers size={17} />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-semibold text-slate-800">
+            {def?.name ?? def?.workflowKey ?? instance.workflow_definition_id}
+          </p>
+          <p className="truncate text-xs text-slate-500">
+            {t("workflowV2.instanceId")}: <span className="font-mono">{instance.id}</span>
+            {def && (
+              <> · {t("workflowV2.definitionKey")}: <span className="font-mono">{def.workflowKey}</span></>
+            )}
+          </p>
+        </div>
+        <span className={`app-badge ${v2StatusBadgeClass(instance.status)}`}>{instance.status}</span>
+        {currentStepId && (
+          <span className="app-badge bg-slate-100 text-slate-700">
+            {t("workflowV2.currentStep")}: <span className="font-mono">{currentStepId}</span>
+          </span>
+        )}
+        {hasRecord && (
+          <button
+            onClick={() => onOpenRecord(instance.object_type, instance.record_id)}
+            className="app-button-secondary min-h-8"
+            title={t("workflowV2.record")}
+          >
+            <ExternalLink size={14} />{t("workflowV2.record")}
+          </button>
+        )}
+      </div>
+
+      {/* Step pipeline (horizontal badges) */}
+      {steps.length > 0 && (
+        <div className="mt-3 pl-12">
+          <p className="mb-1.5 text-xs font-semibold text-slate-500">{t("workflowV2.stepPipeline")}</p>
+          <div className="flex flex-wrap items-center gap-1.5">
+            {steps.map((step, i) => {
+              const isCurrent = step.id === currentStepId;
+              return (
+                <span key={`${step.id}-${i}`} className="flex items-center gap-1.5">
+                  <span
+                    className={`app-badge ${v2StepKindBadgeClass(step.kind)} ${isCurrent ? "ring-2 ring-indigo-400" : ""}`}
+                  >
+                    {t(V2_STEP_KIND_LABEL_KEY[step.kind])}
+                    <span className="font-mono text-[10px] opacity-70">{step.id}</span>
+                  </span>
+                  {i < steps.length - 1 && <ArrowRight size={12} className="text-slate-300" />}
+                </span>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Work items count with kind breakdown */}
+      <div className="mt-3 pl-12">
+        <p className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold text-slate-500">
+          <ListChecks size={13} />
+          {t("workflowV2.workItemsBreakdown")}
+          <span className="app-badge bg-slate-100 text-slate-600">{instance.work_items.length}</span>
+        </p>
+        <div className="flex flex-wrap gap-1.5">
+          {Object.entries(breakdown).map(([kind, count]) => (
+            <span key={kind} className="app-badge bg-slate-50 text-slate-600">
+              {kind}: {count}
+            </span>
+          ))}
+          {Object.keys(breakdown).length === 0 && (
+            <span className="text-xs text-slate-400">{t("workflowV2.noInstances")}</span>
+          )}
+        </div>
+      </div>
+    </li>
+  );
+}
+

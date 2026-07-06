@@ -41,7 +41,8 @@ const ROUTE_OVERRIDES_REVERSE: Record<string, string> = Object.fromEntries(
  * destination here instead of rendering the retired view.
  */
 const ROUTE_REDIRECTS: Record<string, string> = {
-  "quote-approvals": "/my-work?kind=approval&subjectType=quote",
+  // quote-approvals route fully removed per Spec §10.
+  // All approval work is surfaced through /my-work.
 };
 
 /**

@@ -1,8 +1,17 @@
 import { notFound } from "next/navigation";
-import { queryAll, businessTable } from "@runory/platform-core";
+import {
+  queryAll,
+  businessTable,
+  TABLES,
+  getFormDefinition,
+} from "@runory/platform-core";
+import type { FormBlock } from "@runory/contracts";
 import { en } from "@/i18n/messages";
+import { FormBlockRenderer } from "./FormBlockRenderer";
 
 export const dynamic = "force-dynamic";
+
+const HONEYPOT_FIELD = "_company_website";
 
 interface LandingPageRecord {
   id: string;
@@ -48,6 +57,49 @@ async function getForm(formId: string): Promise<FormRecord | null> {
   return rows[0] ?? null;
 }
 
+// ── Forms 2.0 (V2) lookup ──
+//
+// A landing page's form_id may reference either a legacy V1 form record
+// (businessTable("form")) or a Forms 2.0 form definition
+// (TABLES.formDefinitions). Definition IDs are globally unique, so we resolve
+// without a workspace filter, then load the active published version's schema
+// via the official getFormDefinition API.
+interface V2FormDefinition {
+  definitionId: string;
+  name: string;
+  blocks: FormBlock[];
+}
+
+async function getV2FormDefinition(
+  formId: string
+): Promise<V2FormDefinition | null> {
+  const rows = await queryAll<{
+    id: string;
+    workspace_id: string;
+    form_key: string;
+    name: string;
+    status: string;
+    active_version_id: string | null;
+  }>(
+    `SELECT id, workspace_id, form_key, name, status, active_version_id
+     FROM ${TABLES.formDefinitions}
+     WHERE id = ? AND status = 'active'`,
+    [formId]
+  );
+  if (rows.length === 0) return null;
+  const def = rows[0];
+  if (!def.active_version_id) return null;
+
+  const active = await getFormDefinition(def.workspace_id, def.form_key);
+  if (!active) return null;
+
+  return {
+    definitionId: def.id,
+    name: def.name,
+    blocks: active.schema.blocks as FormBlock[],
+  };
+}
+
 interface FormField {
   key: string;
   label: string;
@@ -67,16 +119,22 @@ export default async function PublicLandingPage({
     notFound();
   }
 
-  // Fetch associated form if any
+  // Resolve the form attached to this landing page. Try Forms 2.0 first
+  // (definition-based blocks); fall back to the legacy V1 form table.
+  let v2Form: V2FormDefinition | null = null;
   let form: FormRecord | null = null;
   let formFields: FormField[] = [];
+
   if (landingPage.form_id) {
-    form = await getForm(landingPage.form_id);
-    if (form?.fields_json) {
-      try {
-        formFields = JSON.parse(form.fields_json);
-      } catch {
-        formFields = [];
+    v2Form = await getV2FormDefinition(landingPage.form_id);
+    if (!v2Form) {
+      form = await getForm(landingPage.form_id);
+      if (form?.fields_json) {
+        try {
+          formFields = JSON.parse(form.fields_json);
+        } catch {
+          formFields = [];
+        }
       }
     }
   }
@@ -110,7 +168,29 @@ export default async function PublicLandingPage({
         />
       )}
 
-      {/* Form section */}
+      {/* V2 Form section (Forms 2.0 block-based forms) */}
+      {v2Form && v2Form.blocks.length > 0 && (
+        <section className="mx-auto max-w-2xl px-6 py-12">
+          <div className="rounded-2xl border border-slate-200 bg-white p-8 shadow-lg">
+            <h2 className="mb-6 text-2xl font-bold text-slate-900">
+              {landingPage.cta_text ?? en["publicForm.defaultCta"]}
+            </h2>
+            <FormBlockRenderer
+              blocks={v2Form.blocks}
+              formId={v2Form.definitionId}
+              landingPageId={landingPage.id}
+              submitButtonLabel={en["publicForm.defaultSubmit"]}
+              successMessage={en["publicForm.defaultSuccess"]}
+              consentLabel={en["publicForm.consentLabel"]}
+              defaultError={en["publicForm.defaultError"]}
+              networkError={en["publicForm.networkError"]}
+              honeypotField={HONEYPOT_FIELD}
+            />
+          </div>
+        </section>
+      )}
+
+      {/* V1 Form section (legacy field-based forms) */}
       {form && formFields.length > 0 && (
         <section className="mx-auto max-w-2xl px-6 py-12">
           <div className="rounded-2xl border border-slate-200 bg-white p-8 shadow-lg">
@@ -265,4 +345,3 @@ export default async function PublicLandingPage({
   );
 }
 
-const HONEYPOT_FIELD = "_company_website";

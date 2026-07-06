@@ -349,6 +349,42 @@ dashboard:
           type: select
           options: ["7d", "14d", "30d"]
 
+    - key: schedule_today_count
+      type: metric_card
+      label: Today's Schedule
+      icon: calendar
+      tone: indigo
+      data:
+        kind: count
+        object: schedule_entries
+        where: "start_at = today and status not in ('completed', 'cancelled')"
+      link: /work-orders
+
+    - key: schedule_upcoming_list
+      type: list
+      label: Upcoming Schedule
+      icon: calendar
+      tone: indigo
+      data:
+        kind: recent
+        object: schedule_entries
+        where: "start_at > now and status not in ('completed', 'cancelled')"
+        orderBy: "start_at asc"
+        limit: 5
+        columns: [resource_name, subject_type, start_at]
+        join:
+          object: resources
+          on: resource_id
+          select: display_name
+          as: resource_name
+      link: /work-orders
+      configurable:
+        - path: data.limit
+          label: Display Count
+          type: number
+          min: 1
+          max: 20
+
 upgradePolicy:
   supportsWorkspaceExtensions: true
   breakingChangePolicy: manual_review

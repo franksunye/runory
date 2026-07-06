@@ -34,6 +34,53 @@ export function getPlatformWidget(widgetKey: string): WidgetDeclaration | undefi
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Platform Runtime Objects (v0.5 Assignment & Schedule)
+// ─────────────────────────────────────────────────────────────────────────────
+// Runtime tables owned by the platform (resources, assignments, schedule_entries)
+// are not declared as module objects, yet module-declared dashboard widgets may
+// need to query them. We expose a known, enumerated set of "platform runtime
+// objects" that the generic widget resolver can target safely. This mirrors the
+// existing `_audit` sentinel pattern (platform-owned data, resolved specially)
+// while staying within the declarative where/order/column grammar.
+
+export const PLATFORM_OBJECT_TABLES: Record<string, string> = {
+  schedule_entries: TABLES.scheduleEntries,
+  resources: TABLES.resources,
+  assignments: TABLES.assignments,
+};
+
+export const PLATFORM_OBJECT_FIELDS: Record<string, Set<string>> = {
+  schedule_entries: new Set([
+    "id", "workspace_id", "subject_type", "subject_id", "resource_id",
+    "start_at", "end_at", "timezone", "status", "location_type", "location_id",
+    "latitude", "longitude", "conflict_state", "version", "created_at", "updated_at",
+  ]),
+  resources: new Set([
+    "id", "workspace_id", "resource_type", "user_id", "display_name",
+    "timezone", "active", "metadata_json", "created_at", "updated_at",
+  ]),
+  assignments: new Set([
+    "id", "workspace_id", "subject_type", "subject_id", "resource_id",
+    "role_key", "status", "proposed_by", "accepted_by", "rejection_reason",
+    "effective_from", "effective_to", "version", "created_at", "updated_at",
+  ]),
+};
+
+/** True when `objectKey` names a platform runtime object (resources/assignments/schedule_entries). */
+export function isPlatformObject(objectKey: string): boolean {
+  return objectKey in PLATFORM_OBJECT_TABLES;
+}
+
+/**
+ * Resolve a widget data object to its physical table.
+ * Platform runtime objects map to their runtime table; everything else is
+ * treated as a module-owned business object via the business-table prefix.
+ */
+export function resolveWidgetTable(objectKey: string): string {
+  return PLATFORM_OBJECT_TABLES[objectKey] ?? businessTable(objectKey);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Available Widgets — collect from all installed modules + platform
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -328,7 +375,7 @@ export async function resolveWidgetData(
   workspaceId: string,
   intent: WidgetDataIntent
 ): Promise<WidgetDataResult> {
-  const table = businessTable(intent.object);
+  const table = resolveWidgetTable(intent.object);
   const whereClauses = parseWhereExpression(intent.where ?? "");
   const { sql: whereSql, args: whereArgs } = whereToSql(whereClauses);
 
@@ -359,6 +406,28 @@ export async function resolveWidgetData(
       const orderSql = orderByToSql(orderClauses) || "created_at DESC";
       const limit = Math.min(Math.max(intent.limit ?? 10, 1), 100);
       const columns = (intent.columns ?? ["id"]).map(validateIdentifier);
+
+      // Optional single LEFT JOIN to a platform runtime object (e.g.
+      // schedule_entries → resources.display_name). The base filtering runs
+      // inside a derived table so where/order clauses never need alias
+      // qualification and stay unambiguous.
+      if (intent.join) {
+        const joinTable = resolveWidgetTable(intent.join.object);
+        const joinOn = validateIdentifier(intent.join.on);
+        const joinSelect = validateIdentifier(intent.join.select);
+        const joinAs = validateIdentifier(intent.join.as);
+        const colSql = columns
+          .map((c) => (c === joinAs ? `j.${joinSelect} AS ${joinAs}` : `b.${c}`))
+          .join(", ");
+        const rows = await queryAll<Record<string, unknown>>(
+          `SELECT ${colSql}
+           FROM (SELECT * FROM ${table} ${whereFragment} ORDER BY ${orderSql} LIMIT ?) b
+           LEFT JOIN ${joinTable} j ON j.id = b.${joinOn}`,
+          [...baseArgs, limit]
+        );
+        return { kind: "recent", records: rows };
+      }
+
       const colSql = columns.join(", ");
       const rows = await queryAll<Record<string, unknown>>(
         `SELECT ${colSql} FROM ${table} ${whereFragment} ORDER BY ${orderSql} LIMIT ?`,
@@ -933,15 +1002,20 @@ export function validateModuleDashboard(
     widgetKeys.add(widget.key);
     widgetByKey.set(widget.key, widget);
 
-    // Validate data.object exists in this module
-    if (!objectKeys.has(widget.data.object)) {
+    // Validate data.object exists in this module OR is a platform runtime object
+    // (resources / assignments / schedule_entries — v0.5 runtime tables not
+    // owned by any module but queryable by module-declared widgets).
+    const isPlatformObj = isPlatformObject(widget.data.object);
+    if (!objectKeys.has(widget.data.object) && !isPlatformObj) {
       errors.push(
         `Widget "${widget.key}": data.object "${widget.data.object}" is not declared by module "${manifest.id}"`
       );
       continue; // Skip further field validation if object is invalid
     }
 
-    const fieldKeys = fieldKeysByObject.get(widget.data.object)!;
+    const fieldKeys = isPlatformObj
+      ? PLATFORM_OBJECT_FIELDS[widget.data.object]!
+      : fieldKeysByObject.get(widget.data.object)!;
 
     // Validate where expression references only declared fields
     if (widget.data.where) {
@@ -986,12 +1060,47 @@ export function validateModuleDashboard(
       );
     }
 
-    // Validate columns reference declared fields
+    // Validate columns reference declared fields (a declared join alias is also allowed)
     if (widget.data.columns) {
+      const joinAlias = widget.data.join?.as;
       for (const col of widget.data.columns) {
+        if (col === joinAlias) continue; // joined column alias is provided by the join
         if (!fieldKeys.has(col)) {
           errors.push(
             `Widget "${widget.key}": column "${col}" is not a declared field on object "${widget.data.object}"`
+          );
+        }
+      }
+    }
+
+    // Validate join (recent enrichment to a platform runtime object)
+    if (widget.data.join) {
+      const join = widget.data.join;
+      if (!isPlatformObject(join.object)) {
+        errors.push(
+          `Widget "${widget.key}": join.object "${join.object}" is not a known platform runtime object`
+        );
+      } else {
+        const joinFieldKeys = PLATFORM_OBJECT_FIELDS[join.object]!;
+        if (!joinFieldKeys.has(join.select)) {
+          errors.push(
+            `Widget "${widget.key}": join.select "${join.select}" is not a field on platform object "${join.object}"`
+          );
+        }
+      }
+      // join.on must be a field on the base object
+      if (!fieldKeys.has(join.on)) {
+        errors.push(
+          `Widget "${widget.key}": join.on "${join.on}" is not a field on object "${widget.data.object}"`
+        );
+      }
+      // Validate identifiers defensively (the resolver also validates at runtime)
+      for (const ident of [join.on, join.select, join.as]) {
+        try {
+          validateIdentifier(ident);
+        } catch (e) {
+          errors.push(
+            `Widget "${widget.key}": invalid join identifier "${ident}" — ${e instanceof Error ? e.message : String(e)}`
           );
         }
       }

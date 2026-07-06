@@ -172,7 +172,6 @@ const ROUTE_LABEL_KEY: Record<string, { defaultKey: MessageKey; fsmKey?: Message
   "/product-services": { defaultKey: "workspace.nav.objectProductService" },
   "/price-books": { defaultKey: "workspace.nav.objectPriceBook" },
   "/quotes": { defaultKey: "workspace.nav.objectQuote" },
-  "/quote-approvals": { defaultKey: "workspace.nav.objectQuoteApproval" },
   "/entity-profiles": { defaultKey: "workspace.nav.objectEntityProfile" },
   "/citation-sources": { defaultKey: "workspace.nav.objectCitationSource" },
   "/answer-blocks": { defaultKey: "workspace.nav.objectAnswerBlock" },
