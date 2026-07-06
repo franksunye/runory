@@ -369,10 +369,21 @@ export interface FormDefinitionV2 {
   updated_at: string;
 }
 
-export interface FormDefinitionDetail extends FormDefinitionV2 {
-  schema_json?: string;
-  layout_json?: string | null;
-  version_number?: number;
+export interface FormDefinitionDetail {
+  definition: {
+    id: string;
+    form_key: string;
+    name: string;
+    status: string;
+    active_version_id: string | null;
+    version_number?: number;
+    published_by?: string;
+    published_at?: string;
+    layout?: unknown;
+  };
+  schema: {
+    blocks?: unknown[];
+  };
 }
 
 export interface FormBindingV2 {

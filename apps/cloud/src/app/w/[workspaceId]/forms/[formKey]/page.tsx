@@ -151,7 +151,7 @@ export default function FormDefinitionDetailPage() {
       setDetail(detailJson.data ?? null);
 
       // Filter bindings + submissions to this form definition
-      const defId = detailJson.data?.id;
+      const defId = detailJson.data?.definition?.id;
       setBindings(
         (bindsJson.data ?? []).filter(
           (b: FormBindingV2) => b.form_definition_id === defId
@@ -224,25 +224,25 @@ export default function FormDefinitionDetailPage() {
               <div>
                 <div className="flex flex-wrap items-center gap-2">
                   <h1 className="text-2xl font-bold tracking-tight text-slate-950">
-                    {detail.name}
+                    {detail.definition.name}
                   </h1>
                   <span
                     className={`app-badge ${
-                      DEFINITION_STATUS_COLOR[detail.status] ??
+                      DEFINITION_STATUS_COLOR[detail.definition.status] ??
                       "bg-slate-100 text-slate-600"
                     }`}
                   >
-                    {DEFINITION_STATUS_KEY[detail.status]
-                      ? t(DEFINITION_STATUS_KEY[detail.status])
-                      : detail.status}
+                    {DEFINITION_STATUS_KEY[detail.definition.status]
+                      ? t(DEFINITION_STATUS_KEY[detail.definition.status])
+                      : detail.definition.status}
                   </span>
                 </div>
                 <p className="mt-1 font-mono text-xs text-slate-500">
-                  {detail.form_key}
+                  {detail.definition.form_key}
                 </p>
                 <p className="mt-1 text-xs text-slate-400">
-                  {t("forms.revision")} {detail.version_number ?? "—"} ·{" "}
-                  {formatDate(detail.created_at)}
+                  {t("forms.revision")} {detail.definition.version_number ?? "—"} ·{" "}
+                  {formatDate(detail.definition.published_at ?? "")}
                 </p>
               </div>
             </div>
@@ -270,12 +270,12 @@ export default function FormDefinitionDetailPage() {
             </div>
           </header>
 
-          {/* Schema JSON */}
+          {/* Schema */}
           <section className="app-card p-5 sm:p-6">
             <h3 className="mb-3 font-bold text-slate-900">Schema</h3>
             <pre className="overflow-x-auto rounded-md border border-slate-100 bg-slate-50 p-4 text-[12px] leading-relaxed text-slate-700">
               {JSON.stringify(
-                safeParseJson(detail.schema_json),
+                detail.schema,
                 null,
                 2
               )}
