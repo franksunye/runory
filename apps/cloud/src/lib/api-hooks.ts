@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import useSWR, { useSWRConfig } from "swr";
 import type {
   AuditLog,
@@ -10,11 +10,12 @@ import type {
   ObjectDefinition,
   RelationDefinition,
   ViewDefinition,
-  WorkflowInstance,
+  WorkflowInstanceRow,
 } from "@runory/platform-core";
 import type {
-  WorkflowDefinition,
-  WorkflowTransition,
+  WorkflowInstanceV2,
+  WorkItem,
+  WorkflowEvent,
 } from "@runory/contracts";
 import {
   WORKSPACE_NAVIGATION_CHANGED,
@@ -202,37 +203,101 @@ export function useWorkspaceChangeEvent(workspaceId: string): void {
   }, [workspaceId, mutate]);
 }
 
-// ── Workflow Hooks (v0.4) ──
+// ── V2 Record Workflow Hook ──
 
-export function useWorkflowDefinitions(workspaceId: string) {
-  const { data, error, isLoading, mutate } = useSWR<WorkflowDefinition[]>(
-    workspaceKey(workspaceId, "workflows")
-  );
-  return { data, error, isLoading, mutate };
+interface RecordWorkflowV2Raw extends WorkflowInstanceRow {
+  work_items: MyWorkItem[];
+  events: WorkflowEventV2[];
 }
 
-export interface RecordWorkflowData {
-  instance: WorkflowInstance;
-  definition: WorkflowDefinition;
-  availableTransitions: WorkflowTransition[];
-  isTerminal: boolean;
+export interface RecordWorkflowV2Data {
+  instance: WorkflowInstanceV2;
+  workItems: WorkItem[];
+  events: WorkflowEvent[];
+}
+
+function mapInstanceRow(row: WorkflowInstanceRow): WorkflowInstanceV2 {
+  return {
+    id: row.id,
+    workspaceId: row.workspace_id,
+    workflowDefinitionId: row.workflow_definition_id,
+    definitionVersionId: row.definition_version_id,
+    objectType: row.object_type,
+    recordId: row.record_id,
+    status: row.status,
+    currentStepId: row.current_step_id,
+    version: row.version,
+    startedBy: row.started_by,
+    startedAt: row.started_at,
+    completedAt: row.completed_at,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+function mapWorkItemRow(row: MyWorkItem): WorkItem {
+  return {
+    id: row.id,
+    workspaceId: row.workspace_id,
+    instanceId: row.instance_id,
+    stepId: row.step_id,
+    kind: row.kind,
+    status: row.status,
+    subjectType: row.subject_type,
+    subjectId: row.subject_id,
+    assigneeType: row.assignee_type,
+    assigneeId: row.assignee_id,
+    candidateRuleJson: row.candidate_rule_json,
+    dueAt: row.due_at,
+    claimedBy: row.claimed_by,
+    claimedAt: row.claimed_at,
+    completedAt: row.completed_at,
+    formBindingId: row.form_binding_id,
+    inputSnapshotJson: row.input_snapshot_json,
+    inputSnapshotHash: row.input_snapshot_hash,
+    version: row.version,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+function mapEventRow(row: WorkflowEventV2): WorkflowEvent {
+  return {
+    id: row.id,
+    instanceId: row.instance_id,
+    sequence: row.sequence,
+    eventType: row.event_type,
+    stepId: row.step_id,
+    actorType: row.actor_type,
+    actorId: row.actor_id,
+    payloadJson: row.payload_json,
+    occurredAt: row.occurred_at,
+  };
 }
 
 /**
- * Fetches the workflow instance bound to a specific record, along with
- * the definition and available transitions. Returns null when no workflow
- * is bound to the record.
+ * Fetches the V2 workflow instance bound to a specific record, together with
+ * its work items and event history. Returns null when no V2 workflow is bound
+ * to the record. Maps snake_case DB rows to camelCase contract types.
  */
-export function useRecordWorkflow(
+export function useRecordWorkflowV2(
   workspaceId: string,
   objectKey: string,
   recordId: string | undefined
 ) {
-  const { data, error, isLoading, mutate } = useSWR<RecordWorkflowData | null>(
+  const { data: raw, error, isLoading, mutate } = useSWR<RecordWorkflowV2Raw | null>(
     recordId
       ? workspaceKey(workspaceId, `objects/${objectKey}/records/${recordId}/workflow`)
       : null
   );
+  const data = useMemo<RecordWorkflowV2Data | null>(() => {
+    if (!raw) return null;
+    return {
+      instance: mapInstanceRow(raw),
+      workItems: raw.work_items.map(mapWorkItemRow),
+      events: raw.events.map(mapEventRow),
+    };
+  }, [raw]);
   return { data, error, isLoading, mutate };
 }
 
@@ -462,24 +527,7 @@ export function useOutboxMessages(workspaceId: string, status?: string) {
 
 // ── v0.5 Workflow Instance V2 Hooks ──
 
-export interface WorkflowInstanceV2 {
-  id: string;
-  workspace_id: string;
-  workflow_definition_id: string;
-  definition_version_id: string;
-  object_type: string;
-  record_id: string;
-  status: string;
-  current_step_id: string | null;
-  version: number;
-  started_by: string | null;
-  started_at: string;
-  completed_at: string | null;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface WorkflowInstanceDetailV2 extends WorkflowInstanceV2 {
+export interface WorkflowInstanceDetailV2 extends WorkflowInstanceRow {
   work_items: MyWorkItem[];
   events: WorkflowEventV2[];
   definition: {

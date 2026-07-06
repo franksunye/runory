@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { getRecords, createRecord, writeAuditEvent, enforceQuota, getAutoStartWorkflowDefinitions, startWorkflow, type GetRecordsOptions } from "@runory/platform-core";
+import { getRecords, createRecord, writeAuditEvent, enforceQuota, type GetRecordsOptions } from "@runory/platform-core";
 import { requireWorkspaceContext } from "@/lib/auth";
 import { successResponse, handleError, invalidInput, getOrCreateRequestId } from "@/lib/http";
 
@@ -65,23 +65,6 @@ export async function POST(
     }).catch((err) => {
       console.error("[audit] Failed to write audit event:", err);
     });
-
-    // Auto-start workflow instances (v0.4): when a record is created and a
-    // workflow definition with autoStart=true targets this object, automatically
-    // start a workflow instance bound to the new record.
-    try {
-      const autoStartDefs = await getAutoStartWorkflowDefinitions(workspaceId, objectKey);
-      for (const def of autoStartDefs) {
-        await startWorkflow(workspaceId, def.id, objectKey, record.id, {
-          id: ctx.principal?.userId ?? "record-lifecycle",
-          type: ctx.principal?.authMethod === "api_key" ? "api_key" : "user",
-          role: ctx.workspaceRole ?? "viewer",
-        });
-      }
-    } catch (err) {
-      // Best-effort: auto-start failures should not block record creation
-      console.error("[records] Auto-start workflow failed:", err);
-    }
 
     return successResponse(record, 201, ctx.requestId);
   } catch (e) {

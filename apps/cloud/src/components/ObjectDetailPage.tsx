@@ -14,7 +14,6 @@ import {
   useRecord,
   useRecords,
   useRelations,
-  useRecordWorkflow,
   useWorkspaceChangeEvent,
   type WorkspaceRecord,
 } from "@/lib/api-hooks";
@@ -239,7 +238,6 @@ export default function ObjectDetailPage({
   const { data: views = [], isLoading: loadingViews } = useViews(workspaceId, objectKey);
   const { data: record, error: recordError, isLoading: loadingRecord, mutate: mutateRecord } = useRecord(workspaceId, objectKey, recordId);
   const { data: relationsData } = useRelations(workspaceId, objectKey);
-  const { data: recordWorkflow, mutate: mutateWorkflow } = useRecordWorkflow(workspaceId, objectKey, recordId);
 
   useWorkspaceChangeEvent(workspaceId);
 
@@ -254,17 +252,6 @@ export default function ObjectDetailPage({
   const label = singularLabel ?? title;
   const fieldMap = useMemo(() => new Map(fields.map((f) => [f.fieldKey, f])), [fields]);
   const viewSections = (viewConfig?.sections as Array<{ title: string; fields: Array<{ field: string; required?: boolean }> }> | undefined) ?? [];
-
-  // Workflow-driven field locking: when a record has an active (non-terminal)
-  // workflow instance with a stateField, that field is locked as read-only
-  // in the edit form. The workflow is the single source of truth for that field.
-  const readOnlyFields = useMemo(() => {
-    const ro: Record<string, string> = {};
-    if (recordWorkflow && recordWorkflow.definition.stateField) {
-      ro[recordWorkflow.definition.stateField] = t("workspace.workflow.drivenByWorkflow");
-    }
-    return ro;
-  }, [recordWorkflow, t]);
 
   // Derive parentLinks and related from relation metadata (v0.3.2).
   // Manual props take precedence; metadata fills in the rest.
@@ -395,7 +382,6 @@ export default function ObjectDetailPage({
   const renderFieldRow = (field: FieldDefinition) => {
     const value = record[field.fieldKey];
     const isExtension = field.ownership === "workspace_extension";
-    const isWorkflowDriven = recordWorkflow?.definition.stateField === field.fieldKey;
     return (
       <div key={field.id}>
         <dt className="flex items-center gap-1 text-xs font-bold uppercase tracking-wider text-slate-500">
@@ -403,11 +389,6 @@ export default function ObjectDetailPage({
           {isExtension && (
             <span className="rounded bg-purple-100 px-1 text-[10px] font-medium text-purple-700">
               {t("workspace.extension")}
-            </span>
-          )}
-          {isWorkflowDriven && (
-            <span className="rounded bg-indigo-100 px-1 text-[10px] font-medium text-indigo-700">
-              {t("workspace.workflow.title")}
             </span>
           )}
         </dt>
@@ -470,7 +451,6 @@ export default function ObjectDetailPage({
           onCancel={() => setEditing(false)}
           submitLabel={submitting ? t("workspace.saving") : t("workspace.save")}
           workspaceId={workspaceId}
-          readOnlyFields={readOnlyFields}
         />
       ) : (
         <div className="space-y-6">
@@ -498,20 +478,12 @@ export default function ObjectDetailPage({
             </div>
           )}
 
-          {/* Workflow panel: show when record has a bound workflow instance */}
-          {recordWorkflow && (
-            <RecordWorkflowPanel
-              workspaceId={workspaceId}
-              instance={recordWorkflow.instance}
-              definition={recordWorkflow.definition}
-              availableTransitions={recordWorkflow.availableTransitions}
-              isTerminal={recordWorkflow.isTerminal}
-              onTransitionComplete={() => {
-                void mutateRecord();
-                void mutateWorkflow();
-              }}
-            />
-          )}
+          {/* Workflow panel: fetches its own V2 workflow data */}
+          <RecordWorkflowPanel
+            workspaceId={workspaceId}
+            objectKey={objectKey}
+            recordId={recordId}
+          />
 
           {/* Parent + related associations */}
           {(parentLinks.length > 0 || related.length > 0) && (

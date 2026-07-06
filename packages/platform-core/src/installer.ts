@@ -6,20 +6,17 @@ import { TABLES, MODULES_DIR, PACKS_DIR, TEMPLATES_DIR, businessTable } from "./
 import { renderSqlWithPrefix, getBusinessTablePrefix, getTablePrefix } from "./platform-config";
 import { createRecord, getRecords } from "./metadata";
 import { createAutomation, getAutomations } from "./automation";
-import { createWorkflowDefinition, getWorkflowDefinitions, getAutoStartWorkflowDefinitions, startWorkflow, getRecordWorkflow } from "./workflow";
-import { publishWorkflowDefinition, type WorkflowDefinition as WorkflowV2Definition } from "./workflow-v2";
+import { publishWorkflowDefinition } from "./workflow-v2";
 import {
   moduleManifestSchema,
   packManifestSchema,
   templateManifestSchema,
   automationDefinitionSchema,
-  workflowDefinitionSchema,
   type ModuleManifest,
   type PackManifest,
   type TemplateManifest,
   type PackTerminologyEntry,
   type AutomationDefinition,
-  type WorkflowDefinition,
 } from "@runory/contracts";
 import { publishFormDefinition, createFormBinding, submitForm, type FormSchema } from "./forms-v2";
 import { startWorkflowV2 } from "./workflow-v2";
@@ -123,7 +120,7 @@ interface DemoOutboxMessage {
 interface PackDemoData {
   records: DemoRecord[];
   automations?: unknown[];
-  workflows?: unknown[];
+  // V1 workflows field removed — V2 definitions are published from module JSON files
   // v0.5 demo data extensions
   resources?: DemoResource[];
   formDefinitions?: DemoFormDefinition[];
@@ -139,7 +136,6 @@ function readPackDemoDataFile(packId: string): PackDemoData | null {
   return {
     records: Array.isArray(raw.records) ? raw.records : [],
     automations: Array.isArray(raw.automations) ? raw.automations : [],
-    workflows: Array.isArray(raw.workflows) ? raw.workflows : [],
     // v0.5 extensions
     resources: Array.isArray(raw.resources) ? raw.resources : [],
     formDefinitions: Array.isArray(raw.formDefinitions) ? raw.formDefinitions : [],
@@ -307,17 +303,8 @@ async function seedPackDemoData(workspaceId: string, packId: string): Promise<nu
     }
   }
 
-  // Seed demo workflow definitions (idempotent — skip if workflow_id already exists)
-  if (demo.workflows && demo.workflows.length > 0) {
-    const existingWorkflows = await getWorkflowDefinitions(workspaceId);
-    const existingIds = new Set(existingWorkflows.map((w) => w.id));
-    for (const raw of demo.workflows) {
-      const def = workflowDefinitionSchema.parse(raw);
-      if (existingIds.has(def.id)) continue;
-      await createWorkflowDefinition(workspaceId, def);
-      created++;
-    }
-  }
+  // V1 workflow seeding removed — V2 workflow definitions are published
+  // from module `workflows/*.workflow.json` files during installModule().
 
   // ── v0.5: Seed resources ──
   if (demo.resources && demo.resources.length > 0) {
@@ -484,44 +471,9 @@ async function seedPackDemoData(workspaceId: string, packId: string): Promise<nu
 
   // Auto-start workflow instances for existing records (v0.4).
   // After workflow definitions are seeded, check for autoStart workflows and
-  // start instances for all existing records of the target object that don't
-  // already have a workflow instance bound. This ensures demo data records
-  // are properly integrated with the workflow lifecycle.
-  //
-  // For records that already have a stateField value (e.g. demo data with
-  // status "planned" or "in_progress"), we use that value as the workflow
-  // instance's starting state via overrideState. This preserves the demo
-  // data's intended state distribution instead of resetting everything to
-  // the workflow's initialState.
-  const allDefs = await getWorkflowDefinitions(workspaceId);
-  const autoStartDefs = allDefs.filter(d => d.autoStart && d.stateField);
-  for (const def of autoStartDefs) {
-    const records = await getRecords(workspaceId, def.targetObject, { limit: 1000 });
-    for (const rec of records) {
-      const recordId = String(rec.id);
-      // Skip if this record already has a workflow instance
-      const existing = await getRecordWorkflow(workspaceId, def.targetObject, recordId);
-      if (existing) continue;
-
-      // Use the record's existing stateField value as the starting state
-      // if it's a valid workflow state. Fall back to initialState otherwise.
-      const existingState = rec[def.stateField!] as string | undefined;
-      const stateNames = def.states.map(s => s.name);
-      const overrideState = existingState && stateNames.includes(existingState)
-        ? existingState
-        : undefined;
-
-      try {
-        await startWorkflow(workspaceId, def.id, def.targetObject, recordId, {
-          id: "demo-seed",
-          type: "system",
-          role: "admin",
-        }, { overrideState });
-      } catch (err) {
-        console.error(`[installer] Auto-start workflow "${def.id}" for record ${recordId} failed:`, err);
-      }
-    }
-  }
+  // V1 auto-start workflow logic removed.
+  // V2 workflows are started via command runtime when records are created
+  // through the API, or manually via the workflows UI.
 
   return created;
 }

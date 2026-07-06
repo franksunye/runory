@@ -1,262 +1,163 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useCallback, useMemo } from "react";
 import {
-  GitBranch, CheckCircle2, XCircle, Clock3, ChevronDown, ChevronUp,
-  Gavel, ListChecks, FileText, User, Loader2,
+  GitBranch, CheckCircle2, Clock3, ChevronDown, ChevronUp,
+  Gavel, ListChecks, FileText, User, Loader2, AlertCircle,
 } from "lucide-react";
-import type { WorkflowDefinition, WorkflowTransition } from "@runory/contracts";
-import type { WorkflowInstance } from "@runory/platform-core";
+import type { WorkflowInstanceV2, WorkItem, WorkflowEvent } from "@runory/contracts";
 import { useI18n } from "@/i18n/locale-provider";
 import type { MessageKey } from "@/i18n/messages";
 import { notifyWorkspaceDataChanged } from "@/lib/workspace-events";
-import { objectKeyToRouteSegment } from "@/lib/dynamic-object";
-import type { MyWorkItem } from "@/lib/api-hooks";
+import { useRecordWorkflowV2 } from "@/lib/api-hooks";
 
 interface RecordWorkflowPanelProps {
   workspaceId: string;
-  instance: WorkflowInstance;
-  definition: WorkflowDefinition;
-  availableTransitions: WorkflowTransition[];
-  isTerminal: boolean;
-  onTransitionComplete?: () => void;
+  objectKey: string;
+  recordId: string;
 }
 
-// State badge color mapping
-const STATE_COLORS: Record<string, string> = {
-  initial: "bg-blue-100 text-blue-700",
-  intermediate: "bg-purple-100 text-purple-700",
-  approved: "bg-green-100 text-green-700",
-  rejected: "bg-red-100 text-red-700",
-  final: "bg-slate-100 text-slate-700",
+const INSTANCE_STATUS_BADGE: Record<string, string> = {
+  running: "bg-blue-100 text-blue-700",
+  completed: "bg-green-100 text-green-700",
+  cancelled: "bg-red-100 text-red-700",
+  failed: "bg-red-100 text-red-700",
 };
-
-function getStateColor(definition: WorkflowDefinition, stateName: string): string {
-  const state = definition.states.find(s => s.name === stateName);
-  if (!state) return "bg-slate-100 text-slate-700";
-  return STATE_COLORS[state.type] ?? STATE_COLORS.intermediate;
-}
-
-function getStateLabel(definition: WorkflowDefinition, stateName: string): string {
-  const state = definition.states.find(s => s.name === stateName);
-  return state?.label ?? stateName;
-}
 
 export default function RecordWorkflowPanel({
   workspaceId,
-  instance,
-  definition,
-  availableTransitions,
-  isTerminal,
-  onTransitionComplete,
+  objectKey,
+  recordId,
 }: RecordWorkflowPanelProps) {
   const { t } = useI18n();
-  const [executingTransition, setExecutingTransition] = useState<string | null>(null);
-  const [comment, setComment] = useState("");
-  const [pendingTransition, setPendingTransition] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [showHistory, setShowHistory] = useState(false);
+  const { data, isLoading, mutate } = useRecordWorkflowV2(workspaceId, objectKey, recordId);
 
-  const handleExecute = async (transitionId: string) => {
-    setExecutingTransition(transitionId);
-    setError(null);
-    try {
-      const res = await fetch(
-        `/api/workspaces/${workspaceId}/workflows/instances/${instance.id}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "X-Requested-With": "XMLHttpRequest" },
-          body: JSON.stringify({ transitionId, comment: comment || undefined }),
-        }
-      );
-      const json = await res.json();
-      if (json.success) {
-        setPendingTransition(null);
-        setComment("");
-        notifyWorkspaceDataChanged();
-        onTransitionComplete?.();
-      } else {
-        setError(json.error?.message ?? t("workspace.updateFailed"));
+  const handleRefresh = useCallback(() => {
+    void mutate();
+  }, [mutate]);
+
+  // Build step pipeline from work items (distinct stepId in creation order).
+  // The API returns instance + work_items + events but no definition, so we
+  // derive the step list from the work items themselves.
+  const steps = useMemo(() => {
+    if (!data) return [];
+    const seen = new Set<string>();
+    const result: { stepId: string; kind: string }[] = [];
+    for (const item of data.workItems) {
+      if (!seen.has(item.stepId)) {
+        seen.add(item.stepId);
+        result.push({ stepId: item.stepId, kind: item.kind });
       }
-    } catch (e) {
-      setError(e instanceof Error ? e.message : t("workspace.updateFailed"));
-    } finally {
-      setExecutingTransition(null);
     }
-  };
+    return result;
+  }, [data]);
 
-  const currentStateLabel = getStateLabel(definition, instance.currentState);
-  const currentStateColor = getStateColor(definition, instance.currentState);
-
-  return (
-    <>
-    <div className="app-card p-5 sm:p-6">
-      <div className="flex items-center justify-between">
+  if (isLoading) {
+    return (
+      <div className="app-card p-5 sm:p-6">
         <div className="flex items-center gap-2">
           <GitBranch size={16} className="text-indigo-500" />
           <h3 className="text-sm font-bold text-slate-900">
             {t("workspace.workflow.title")}
           </h3>
         </div>
-        <span className="text-xs text-slate-400">{definition.name}</span>
+        <div className="mt-4 flex items-center gap-2 text-xs text-slate-400">
+          <Loader2 size={14} className="animate-spin" />
+          {t("workspace.loading")}
+        </div>
       </div>
+    );
+  }
 
-      {/* Current State */}
-      <div className="mt-4 flex items-center gap-3">
-        <span className="text-xs font-medium uppercase tracking-wider text-slate-500">
-          {t("workspace.workflow.currentState")}
-        </span>
-        <span className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-semibold ${currentStateColor}`}>
-          {isTerminal ? (
-            <CheckCircle2 size={12} />
-          ) : (
-            <Clock3 size={12} />
-          )}
-          {currentStateLabel}
-        </span>
+  if (!data) {
+    return (
+      <div className="app-card p-5 sm:p-6">
+        <div className="flex items-center gap-2">
+          <GitBranch size={16} className="text-indigo-500" />
+          <h3 className="text-sm font-bold text-slate-900">
+            {t("workspace.workflow.title")}
+          </h3>
+        </div>
+        <div className="mt-4 flex items-center gap-2 text-xs text-slate-400">
+          <AlertCircle size={14} />
+          {t("workflowV2.noWorkflow")}
+        </div>
       </div>
+    );
+  }
 
-      {/* State Pipeline */}
-      <div className="mt-3 flex flex-wrap items-center gap-1">
-        {definition.states.map((state, idx) => (
-          <div key={state.name} className="flex items-center gap-1">
-            {idx > 0 && <span className="text-slate-300">→</span>}
-            <span
-              className={`rounded px-2 py-0.5 text-[11px] font-medium ${
-                state.name === instance.currentState
-                  ? currentStateColor
-                  : "bg-slate-50 text-slate-400"
-              }`}
-            >
-              {state.label}
-            </span>
+  const { instance, workItems, events } = data;
+  const currentStepId = instance.currentStepId;
+  const isCompleted = instance.status === "completed";
+  const statusBadge = INSTANCE_STATUS_BADGE[instance.status] ?? "bg-slate-100 text-slate-700";
+
+  return (
+    <>
+      <div className="app-card p-5 sm:p-6">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <GitBranch size={16} className="text-indigo-500" />
+            <h3 className="text-sm font-bold text-slate-900">
+              {t("workspace.workflow.title")}
+            </h3>
           </div>
-        ))}
-      </div>
+          <span className={`app-badge ${statusBadge}`}>
+            {isCompleted ? <CheckCircle2 size={12} /> : <Clock3 size={12} />}
+            {instance.status}
+          </span>
+        </div>
 
-      {/* Error */}
-      {error && <div className="app-error mt-3">{error}</div>}
+        {/* Current Step */}
+        <div className="mt-4 flex items-center gap-3">
+          <span className="text-xs font-medium uppercase tracking-wider text-slate-500">
+            {t("workflowV2.currentStep")}
+          </span>
+          <span className="inline-flex items-center gap-1 rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-700">
+            {isCompleted ? <CheckCircle2 size={12} /> : <Clock3 size={12} />}
+            {currentStepId ?? "—"}
+          </span>
+        </div>
 
-      {/* Available Transitions */}
-      {!isTerminal && availableTransitions.length > 0 && (
-        <div className="mt-4 space-y-2">
-          <p className="text-xs font-medium uppercase tracking-wider text-slate-500">
-            {t("workspace.workflow.availableActions")}
-          </p>
-          <div className="flex flex-wrap gap-2">
-            {availableTransitions.map((tr) => {
-              const transId = `${tr.fromStatus}->${tr.toStatus}`;
-              const isExecuting = executingTransition === transId;
-              const isPending = pendingTransition === transId;
-              return (
-                <div key={transId}>
-                  {isPending ? (
-                    <div className="flex items-center gap-2 rounded-md border border-slate-200 bg-white p-2">
-                      <input
-                        type="text"
-                        className="app-input flex-1 text-xs"
-                        placeholder={t("workspace.workflow.commentPlaceholder")}
-                        value={comment}
-                        onChange={(e) => setComment(e.target.value)}
-                        autoFocus
-                      />
-                      <button
-                        type="button"
-                        onClick={() => handleExecute(transId)}
-                        disabled={isExecuting}
-                        className="app-button-primary px-3 py-1 text-xs"
-                      >
-                        {isExecuting ? t("workspace.saving") : t("workspace.workflow.confirm")}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => { setPendingTransition(null); setComment(""); }}
-                        className="app-button-secondary px-3 py-1 text-xs"
-                      >
-                        {t("workspace.cancel")}
-                      </button>
-                    </div>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => setPendingTransition(transId)}
-                      className="app-button-secondary px-3 py-1.5 text-xs"
-                    >
-                      {tr.label}
-                      {tr.requiresApproval && (
-                        <span className="ml-1 rounded bg-amber-100 px-1 text-[10px] text-amber-700">
-                          {t("workspace.workflow.approval")}
-                        </span>
-                      )}
-                    </button>
-                  )}
+        {/* Step Pipeline */}
+        {steps.length > 0 && (
+          <div className="mt-3">
+            <p className="text-xs font-medium uppercase tracking-wider text-slate-500">
+              {t("workflowV2.stepPipeline")}
+            </p>
+            <div className="mt-1 flex flex-wrap items-center gap-1">
+              {steps.map((step, idx) => (
+                <div key={step.stepId} className="flex items-center gap-1">
+                  {idx > 0 && <span className="text-slate-300">&rarr;</span>}
+                  <span
+                    className={`rounded px-2 py-0.5 text-[11px] font-medium ${
+                      step.stepId === currentStepId && !isCompleted
+                        ? "bg-blue-100 text-blue-700"
+                        : "bg-slate-50 text-slate-400"
+                    }`}
+                  >
+                    {step.stepId}
+                  </span>
                 </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* Terminal state indicator */}
-      {isTerminal && (
-        <div className="mt-4 flex items-center gap-2 text-sm text-slate-500">
-          {instance.currentState === definition.states.find(s => s.type === "rejected")?.name ? (
-            <XCircle size={16} className="text-red-400" />
-          ) : (
-            <CheckCircle2 size={16} className="text-green-400" />
-          )}
-          <span>{t("workspace.workflow.terminalState")}</span>
-        </div>
-      )}
-
-      {/* History (collapsible) */}
-      {instance.history.length > 0 && (
-        <div className="mt-4 border-t border-slate-100 pt-3">
-          <button
-            type="button"
-            onClick={() => setShowHistory(!showHistory)}
-            className="flex items-center gap-1 text-xs font-medium text-slate-500 hover:text-slate-700"
-          >
-            {showHistory ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-            {t("workspace.workflow.history")} ({instance.history.length})
-          </button>
-          {showHistory && (
-            <ol className="mt-2 space-y-2">
-              {instance.history.map((event, idx) => (
-                <li key={idx} className="flex items-start gap-2 text-xs text-slate-600">
-                  <span className="mt-0.5 font-mono text-slate-400">{idx + 1}.</span>
-                  <div>
-                    <span className="font-medium">{event.transitionLabel}</span>
-                    <span className="text-slate-400">
-                      {" "}: {getStateLabel(definition, event.fromStatus)} → {getStateLabel(definition, event.toStatus)}
-                    </span>
-                    <span className="block text-slate-400">
-                      {event.actorId} · {event.timestamp}
-                    </span>
-                    {event.comment && (
-                      <span className="block italic text-slate-500">"{event.comment}"</span>
-                    )}
-                  </div>
-                </li>
               ))}
-            </ol>
-          )}
-        </div>
-      )}
-    </div>
+            </div>
+          </div>
+        )}
+      </div>
 
-      {/* V2 Work Items */}
+      {/* Work Items */}
       <WorkItemsSection
         workspaceId={workspaceId}
-        objectType={instance.objectType}
-        recordId={instance.recordId}
+        workItems={workItems}
+        onRefresh={handleRefresh}
       />
+
+      {/* Recent Events */}
+      <EventsSection events={events} />
     </>
   );
 }
 
-// ── V2 Work Items Section ──
+// ── Work Items Section ──
 
 const KIND_ICON: Record<string, typeof Gavel> = {
   approval: Gavel,
@@ -305,43 +206,19 @@ function formatWorkDate(iso: string | null): string {
 
 interface WorkItemsSectionProps {
   workspaceId: string;
-  objectType: string;
-  recordId: string;
+  workItems: WorkItem[];
+  onRefresh: () => void;
 }
 
-function WorkItemsSection({ workspaceId, objectType, recordId }: WorkItemsSectionProps) {
+function WorkItemsSection({ workspaceId, workItems, onRefresh }: WorkItemsSectionProps) {
   const { t } = useI18n();
-  const router = useRouter();
-  const [items, setItems] = useState<MyWorkItem[]>([]);
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [executing, setExecuting] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      const res = await fetch(
-        `/api/workspaces/${workspaceId}/my-work?subjectType=${encodeURIComponent(objectType)}&status=ready,active`,
-        { cache: "no-store" }
-      );
-      const json = await res.json();
-      if (!json.success) throw new Error(json.error?.message ?? t("workspace.loadFailed"));
-      const all: MyWorkItem[] = json.data?.items ?? [];
-      // Scope to the current record
-      setItems(all.filter((i) => i.subject_id === recordId));
-    } catch (e) {
-      setError(e instanceof Error ? e.message : t("workspace.loadFailed"));
-    } finally {
-      setLoading(false);
-    }
-  }, [workspaceId, objectType, recordId, t]);
-
-  useEffect(() => { void load(); }, [load]);
-
-  const handleDecision = async (item: MyWorkItem, outcome: "approved" | "rejected") => {
+  const handleDecision = async (item: WorkItem, outcome: "approved" | "rejected") => {
     try {
       setExecuting(`decide-${item.id}`);
+      setError(null);
       const res = await fetch(
         `/api/workspaces/${workspaceId}/work-items/${item.id}/decisions`,
         {
@@ -356,7 +233,7 @@ function WorkItemsSection({ workspaceId, objectType, recordId }: WorkItemsSectio
       const json = await res.json();
       if (!json.success) throw new Error(json.error?.message ?? t("workspace.updateFailed"));
       notifyWorkspaceDataChanged();
-      await load();
+      onRefresh();
     } catch (e) {
       setError(e instanceof Error ? e.message : t("workspace.updateFailed"));
     } finally {
@@ -364,9 +241,10 @@ function WorkItemsSection({ workspaceId, objectType, recordId }: WorkItemsSectio
     }
   };
 
-  const handleComplete = async (item: MyWorkItem) => {
+  const handleComplete = async (item: WorkItem) => {
     try {
       setExecuting(`complete-${item.id}`);
+      setError(null);
       const res = await fetch(
         `/api/workspaces/${workspaceId}/commands/work_item.complete`,
         {
@@ -381,7 +259,7 @@ function WorkItemsSection({ workspaceId, objectType, recordId }: WorkItemsSectio
       const json = await res.json();
       if (!json.success) throw new Error(json.error?.message ?? t("workspace.updateFailed"));
       notifyWorkspaceDataChanged();
-      await load();
+      onRefresh();
     } catch (e) {
       setError(e instanceof Error ? e.message : t("workspace.updateFailed"));
     } finally {
@@ -389,8 +267,27 @@ function WorkItemsSection({ workspaceId, objectType, recordId }: WorkItemsSectio
     }
   };
 
-  const navigateToRecord = () => {
-    router.push(`/w/${workspaceId}/${objectKeyToRouteSegment(objectType)}/${recordId}`);
+  const handleClaim = async (item: WorkItem) => {
+    try {
+      setExecuting(`claim-${item.id}`);
+      setError(null);
+      const res = await fetch(
+        `/api/workspaces/${workspaceId}/work-items/${item.id}/claim`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "X-Requested-With": "XMLHttpRequest" },
+          body: JSON.stringify({ expectedVersion: item.version }),
+        }
+      );
+      const json = await res.json();
+      if (!json.success) throw new Error(json.error?.message ?? t("workspace.updateFailed"));
+      notifyWorkspaceDataChanged();
+      onRefresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t("workspace.updateFailed"));
+    } finally {
+      setExecuting(null);
+    }
   };
 
   return (
@@ -398,20 +295,19 @@ function WorkItemsSection({ workspaceId, objectType, recordId }: WorkItemsSectio
       <div className="flex items-center gap-2">
         <ListChecks size={16} className="text-indigo-500" />
         <h3 className="text-sm font-bold text-slate-900">{t("workflowV2.workItems")}</h3>
-        {loading && <Loader2 size={14} className="animate-spin text-slate-400" />}
       </div>
 
       {error && <div className="app-error mt-3">{error}</div>}
 
-      {!loading && items.length === 0 && !error && (
+      {workItems.length === 0 && !error && (
         <p className="mt-3 text-xs text-slate-400">{t("myWork.empty")}</p>
       )}
 
-      {items.length > 0 && (
+      {workItems.length > 0 && (
         <ul className="mt-3 space-y-3">
-          {items.map((item) => {
+          {workItems.map((item) => {
             const KindIcon = KIND_ICON[item.kind] ?? ListChecks;
-            const overdue = isWorkOverdue(item.due_at) && item.status !== "completed";
+            const overdue = isWorkOverdue(item.dueAt) && item.status !== "completed";
             const kindBadge = KIND_BADGE[item.kind] ?? "bg-slate-100 text-slate-600";
             const statusBadge = STATUS_BADGE[item.status] ?? "bg-slate-100 text-slate-600";
             const kindLabelKey = KIND_LABEL_KEY[item.kind] ?? "myWork.kindHumanTask";
@@ -431,32 +327,52 @@ function WorkItemsSection({ workspaceId, objectType, recordId }: WorkItemsSectio
                           ? t("myWork.statusOverdue")
                           : t(statusLabelKey)}
                       </span>
-                      {item.form_binding_id && (
+                      <span className="app-badge bg-slate-50 text-slate-500">
+                        {t("workflowV2.stepKind")}: {item.stepId}
+                      </span>
+                      {item.formBindingId && (
                         <span className="app-badge bg-purple-50 text-purple-700">
-                          {t("workflowV2.formBinding")}: {item.form_binding_id.slice(0, 8)}
+                          {t("workflowV2.formBinding")}: {item.formBindingId.slice(0, 8)}
                         </span>
                       )}
                     </div>
                     <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500">
-                      {item.assignee_id ? (
+                      {item.assigneeId ? (
                         <span className="flex items-center gap-1">
                           <User size={12} />
                           {t("workflowV2.assignee")}:{" "}
-                          {item.assignee_type === "permission_group"
-                            ? item.assignee_id.replace(/_/g, " ")
-                            : item.assignee_id}
+                          {item.assigneeType === "permission_group"
+                            ? item.assigneeId.replace(/_/g, " ")
+                            : item.assigneeId}
                         </span>
                       ) : null}
                       <span className={`flex items-center gap-1 ${overdue ? "font-semibold text-red-600" : ""}`}>
                         <Clock3 size={12} />
                         {t("workflowV2.dueDate")}:{" "}
-                        {item.due_at ? formatWorkDate(item.due_at) : t("myWork.noDueDate")}
+                        {item.dueAt ? formatWorkDate(item.dueAt) : t("myWork.noDueDate")}
                       </span>
                     </div>
                   </div>
 
                   {/* Right: actions */}
                   <div className="flex shrink-0 flex-wrap items-center gap-2">
+                    {/* Claim: available for items in ready status */}
+                    {item.status === "ready" && (
+                      <button
+                        type="button"
+                        onClick={() => void handleClaim(item)}
+                        disabled={executing === `claim-${item.id}`}
+                        className="app-button-secondary px-3 py-1 text-xs"
+                      >
+                        {executing === `claim-${item.id}` ? (
+                          <Loader2 size={12} className="animate-spin" />
+                        ) : (
+                          <User size={12} />
+                        )}
+                        {t("myWork.actionClaim")}
+                      </button>
+                    )}
+                    {/* Approve/Reject: for approval items not yet completed */}
                     {item.kind === "approval" && item.status !== "completed" && (
                       <>
                         <button
@@ -482,6 +398,7 @@ function WorkItemsSection({ workspaceId, objectType, recordId }: WorkItemsSectio
                         </button>
                       </>
                     )}
+                    {/* Complete: for human_task items not yet completed */}
                     {item.kind === "human_task" && item.status !== "completed" && (
                       <button
                         type="button"
@@ -497,22 +414,86 @@ function WorkItemsSection({ workspaceId, objectType, recordId }: WorkItemsSectio
                         {t("myWork.actionComplete")}
                       </button>
                     )}
-                    {item.kind === "form" && (
-                      <button
-                        type="button"
-                        onClick={navigateToRecord}
-                        className="app-button-secondary px-3 py-1 text-xs"
-                      >
-                        <FileText size={12} />
-                        {t("extension.viewDetails")}
-                      </button>
-                    )}
                   </div>
                 </div>
               </li>
             );
           })}
         </ul>
+      )}
+    </div>
+  );
+}
+
+// ── Events Section ──
+
+const EVENT_TYPE_ICON: Record<string, typeof GitBranch> = {
+  step_entered: GitBranch,
+  step_completed: CheckCircle2,
+  work_item_created: ListChecks,
+  work_item_completed: CheckCircle2,
+  work_item_claimed: User,
+  instance_started: Clock3,
+  instance_completed: CheckCircle2,
+  approval_decision: Gavel,
+};
+
+interface EventsSectionProps {
+  events: WorkflowEvent[];
+}
+
+function EventsSection({ events }: EventsSectionProps) {
+  const { t } = useI18n();
+  const [expanded, setExpanded] = useState(false);
+
+  // Show most recent first; default to last 5, expandable to all.
+  const sorted = useMemo(
+    () => [...events].sort((a, b) => b.sequence - a.sequence),
+    [events]
+  );
+  const visible = expanded ? sorted : sorted.slice(0, 5);
+
+  return (
+    <div className="app-card mt-4 p-5 sm:p-6">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Clock3 size={16} className="text-indigo-500" />
+          <h3 className="text-sm font-bold text-slate-900">{t("workflowV2.recentEvents")}</h3>
+        </div>
+        {sorted.length > 5 && (
+          <button
+            type="button"
+            onClick={() => setExpanded(!expanded)}
+            className="flex items-center gap-1 text-xs font-medium text-slate-500 hover:text-slate-700"
+          >
+            {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+            {sorted.length}
+          </button>
+        )}
+      </div>
+
+      {visible.length === 0 ? (
+        <p className="mt-3 text-xs text-slate-400">{t("workflowV2.noEvents")}</p>
+      ) : (
+        <ol className="mt-3 space-y-2">
+          {visible.map((event) => {
+            const EventIcon = EVENT_TYPE_ICON[event.eventType] ?? Clock3;
+            return (
+              <li key={event.id} className="flex items-start gap-2 text-xs text-slate-600">
+                <EventIcon size={12} className="mt-0.5 shrink-0 text-slate-400" />
+                <div className="min-w-0">
+                  <span className="font-medium">{event.eventType}</span>
+                  {event.stepId && (
+                    <span className="text-slate-400"> · {event.stepId}</span>
+                  )}
+                  <span className="block text-slate-400">
+                    {event.actorId ?? "system"} · {formatWorkDate(event.occurredAt)}
+                  </span>
+                </div>
+              </li>
+            );
+          })}
+        </ol>
       )}
     </div>
   );

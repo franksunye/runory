@@ -23,7 +23,6 @@ export * from "./catalog-release";
 export * from "./catalog-compatibility";
 export * from "./catalog-rollout";
 export * from "./catalog-seed";
-export * from "./workflow";
 export * from "./automation";
 export * from "./dashboard";
 export * from "./permission-groups";
