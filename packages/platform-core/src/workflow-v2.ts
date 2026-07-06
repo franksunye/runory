@@ -11,7 +11,13 @@ import { genId, now, queryOne, queryAll, batch, execute } from "./db";
 import { TABLES, businessTable } from "./contracts";
 import { BusinessError, NotFoundError, InvalidInputError, ConflictError } from "./context";
 import { ERROR_CODES } from "./errors";
-import { checkOptimisticLock, type CommandActor } from "./command-runtime";
+import {
+  checkOptimisticLock,
+  executeCommand,
+  type CommandActor,
+  type CommandHandlerResult,
+  type CommandResult,
+} from "./command-runtime";
 import { getUserPermissionGroups } from "./permission-groups";
 import { writeAuditEvent } from "./audit-service";
 
@@ -316,14 +322,19 @@ export async function startWorkflowV2(
 
 // ── Approval Decide ──
 
-export async function approvalDecide(
+export interface ApprovalDecideAggregate {
+  instanceId: string;
+  nextStepId: string | null;
+}
+
+export async function approvalDecideHandler(
   workspaceId: string,
   workItemId: string,
   actor: CommandActor,
   outcome: "approved" | "rejected" | "returned",
   comment: string | null,
   expectedVersion: number
-): Promise<{ instanceId: string; nextStepId: string | null }> {
+): Promise<CommandHandlerResult<ApprovalDecideAggregate>> {
   const ts = now();
 
   // Read the work item
@@ -447,6 +458,9 @@ export async function approvalDecide(
     },
   ];
 
+  // Track IDs of created work items for the next step
+  const workItemIds: string[] = [];
+
   // If there's a next step, update instance and create work item for it
   if (nextStepId) {
     const nextStep = wfDef.steps.find(s => s.id === nextStepId);
@@ -461,6 +475,7 @@ export async function approvalDecide(
       // Create work item for next step if it's an approval or human_task
       if (nextStep.kind === "approval" || nextStep.kind === "human_task") {
         const newWorkItemId = genId("wi");
+        workItemIds.push(newWorkItemId);
         const assigneeRule = nextStep.assigneeRule;
         statements.push({
           sql: `INSERT INTO ${TABLES.workItems}
@@ -490,35 +505,57 @@ export async function approvalDecide(
     }
   }
 
-  await batch(statements);
+  return {
+    statements,
+    audit: {
+      action: "work_item.approval_decide",
+      entityType: "work_item",
+      entityId: workItemId,
+      before: { status: workItem.status, kind: workItem.kind },
+      after: { status: "completed", outcome, comment },
+    },
+    aggregate: { instanceId: workItem.instance_id, nextStepId },
+    newVersion: expectedVersion + 1,
+    workItemIds,
+  };
+}
 
-  // Audit event
-  writeAuditEvent({
-    workspaceId,
-    actorType: actor.type,
-    actorId: actor.id,
-    action: "work_item.approval_decide",
-    entityType: "work_item",
-    entityId: workItemId,
-    before: { status: workItem.status, kind: workItem.kind },
-    after: { status: "completed", outcome, comment },
-    requestId: `approval-${workItemId}-${ts}`,
-  }).catch((err) => {
-    console.error("[audit] Failed to write work_item.approval_decide audit event:", err);
-  });
-
-  return { instanceId: workItem.instance_id, nextStepId };
+export async function approvalDecide(
+  workspaceId: string,
+  workItemId: string,
+  actor: CommandActor,
+  outcome: "approved" | "rejected" | "returned",
+  comment: string | null,
+  expectedVersion: number,
+  commandId?: string,
+  requestId?: string | null
+): Promise<CommandResult<ApprovalDecideAggregate>> {
+  return executeCommand<ApprovalDecideAggregate>(
+    {
+      commandId: commandId ?? genId("cmd"),
+      workspaceId,
+      commandType: "approval.decide",
+      aggregateType: "work_item",
+      aggregateId: workItemId,
+      expectedVersion,
+      actor,
+      input: { workItemId, outcome, comment, expectedVersion },
+      occurredAt: now(),
+      requestId: requestId ?? null,
+    },
+    async () => approvalDecideHandler(workspaceId, workItemId, actor, outcome, comment, expectedVersion)
+  );
 }
 
 // ── Return Work Item ──
 
-export async function returnWorkItem(
+export async function returnWorkItemHandler(
   workspaceId: string,
   workItemId: string,
   actor: CommandActor,
   comment: string | null,
   expectedVersion: number
-): Promise<void> {
+): Promise<CommandHandlerResult<Partial<WorkItemRow>>> {
   const ts = now();
 
   const workItem = await queryOne<WorkItemRow>(
@@ -545,28 +582,18 @@ export async function returnWorkItem(
     throw new NotFoundError(`Workflow instance not found: ${workItem.instance_id}`);
   }
 
-  const defVersion = await queryOne<WorkflowDefinitionVersionRow>(
-    `SELECT * FROM ${TABLES.formDefinitionVersions}
+  // Read the workflow definition version (fixed: was querying formDefinitionVersions)
+  const wfDefVersion = await queryOne<WorkflowDefinitionVersionRow>(
+    `SELECT * FROM ${TABLES.workflowDefinitionVersions}
      WHERE id = ?`,
     [instance.definition_version_id]
   );
-  // Fallback: definition version may be in workflow definition versions table
-  let definition: WorkflowDefinition;
-  if (defVersion) {
-    definition = JSON.parse(defVersion.definition_json) as WorkflowDefinition;
-  } else {
-    const wfDefVersion = await queryOne<WorkflowDefinitionVersionRow>(
-      `SELECT * FROM ${TABLES.workflowDefinitionVersions}
-       WHERE id = ?`,
-      [instance.definition_version_id]
+  if (!wfDefVersion) {
+    throw new NotFoundError(
+      `Workflow definition version not found: ${instance.definition_version_id}`
     );
-    if (!wfDefVersion) {
-      throw new NotFoundError(
-        `Workflow definition version not found: ${instance.definition_version_id}`
-      );
-    }
-    definition = JSON.parse(wfDefVersion.definition_json) as WorkflowDefinition;
   }
+  const definition = JSON.parse(wfDefVersion.definition_json) as WorkflowDefinition;
 
   // Find the current step definition to create a new work item for it
   const stepDef = definition.steps.find((s) => s.id === workItem.step_id);
@@ -588,7 +615,7 @@ export async function returnWorkItem(
   const newWorkItemId = genId("wi");
   const assigneeRule = stepDef.assigneeRule;
 
-  await batch([
+  const statements: Array<{ sql: string; args?: unknown[] }> = [
     // Mark current work item as returned
     {
       sql: `UPDATE ${TABLES.workItems}
@@ -620,22 +647,55 @@ export async function returnWorkItem(
              workItem.form_binding_id,
              ts, ts],
     },
-  ]);
+  ];
 
-  // Audit event
-  writeAuditEvent({
-    workspaceId,
-    actorType: actor.type,
-    actorId: actor.id,
-    action: "work_item.return",
-    entityType: "work_item",
-    entityId: workItemId,
-    before: { status: workItem.status, version: workItem.version },
-    after: { status: "returned", comment, new_work_item_id: newWorkItemId },
-    requestId: `return-${workItemId}-${ts}`,
-  }).catch((err) => {
-    console.error("[audit] Failed to write work_item.return audit event:", err);
-  });
+  const aggregate: Partial<WorkItemRow> = {
+    ...workItem,
+    status: "returned",
+    completed_at: ts,
+    version: expectedVersion + 1,
+    updated_at: ts,
+  };
+
+  return {
+    statements,
+    audit: {
+      action: "work_item.return",
+      entityType: "work_item",
+      entityId: workItemId,
+      before: { status: workItem.status, version: workItem.version },
+      after: { status: "returned", comment, new_work_item_id: newWorkItemId },
+    },
+    aggregate,
+    newVersion: expectedVersion + 1,
+    workItemIds: [newWorkItemId],
+  };
+}
+
+export async function returnWorkItem(
+  workspaceId: string,
+  workItemId: string,
+  actor: CommandActor,
+  comment: string | null,
+  expectedVersion: number,
+  commandId?: string,
+  requestId?: string | null
+): Promise<CommandResult<Partial<WorkItemRow>>> {
+  return executeCommand<Partial<WorkItemRow>>(
+    {
+      commandId: commandId ?? genId("cmd"),
+      workspaceId,
+      commandType: "work_item.return",
+      aggregateType: "work_item",
+      aggregateId: workItemId,
+      expectedVersion,
+      actor,
+      input: { workItemId, comment, expectedVersion },
+      occurredAt: now(),
+      requestId: requestId ?? null,
+    },
+    async () => returnWorkItemHandler(workspaceId, workItemId, actor, comment, expectedVersion)
+  );
 }
 
 // ── Cancel Workflow ──
@@ -895,12 +955,12 @@ async function checkCandidateEligibility(
 
 // ── Claim Work Item ──
 
-export async function claimWorkItem(
+export async function claimWorkItemHandler(
   workspaceId: string,
   workItemId: string,
   actor: CommandActor,
   expectedVersion: number
-): Promise<void> {
+): Promise<CommandHandlerResult<Partial<WorkItemRow>>> {
   // ── Candidate eligibility check (v0.5.1 P0) ──
   const workItem = await queryOne<WorkItemRow>(
     `SELECT * FROM ${TABLES.workItems} WHERE workspace_id = ? AND id = ?`,
@@ -920,7 +980,7 @@ export async function claimWorkItem(
   );
   const nextSeq = (lastEvent?.max_seq ?? 0) + 1;
 
-  await batch([
+  const statements: Array<{ sql: string; args?: unknown[] }> = [
     {
       sql: `UPDATE ${TABLES.workItems}
             SET status = 'active', claimed_by = ?, claimed_at = ?,
@@ -937,36 +997,54 @@ export async function claimWorkItem(
       args: [genId("wfe"), workspaceId, workItem.instance_id, nextSeq, workItem.step_id,
              actor.type, actor.id, JSON.stringify({}), ts],
     },
-  ]);
+  ];
 
-  // Check if the update affected any rows
-  // (If not, either version mismatch or already claimed)
-  const updated = await queryOne<WorkItemRow>(
-    `SELECT * FROM ${TABLES.workItems} WHERE workspace_id = ? AND id = ?`,
-    [workspaceId, workItemId]
+  const aggregate: Partial<WorkItemRow> = {
+    ...workItem,
+    status: "active",
+    claimed_by: actor.id,
+    claimed_at: ts,
+    version: expectedVersion + 1,
+    updated_at: ts,
+  };
+
+  return {
+    statements,
+    audit: {
+      action: "work_item.claim",
+      entityType: "work_item",
+      entityId: workItemId,
+      before: { status: "ready" },
+      after: { status: "active", claimed_by: actor.id },
+    },
+    aggregate,
+    newVersion: expectedVersion + 1,
+  };
+}
+
+export async function claimWorkItem(
+  workspaceId: string,
+  workItemId: string,
+  actor: CommandActor,
+  expectedVersion: number,
+  commandId?: string,
+  requestId?: string | null
+): Promise<CommandResult<Partial<WorkItemRow>>> {
+  return executeCommand<Partial<WorkItemRow>>(
+    {
+      commandId: commandId ?? genId("cmd"),
+      workspaceId,
+      commandType: "work_item.claim",
+      aggregateType: "work_item",
+      aggregateId: workItemId,
+      expectedVersion,
+      actor,
+      input: { workItemId, expectedVersion },
+      occurredAt: now(),
+      requestId: requestId ?? null,
+    },
+    async () => claimWorkItemHandler(workspaceId, workItemId, actor, expectedVersion)
   );
-  if (!updated || updated.version !== expectedVersion + 1) {
-    throw new BusinessError(
-      ERROR_CODES.VERSION_CONFLICT,
-      `Failed to claim work item. It may have been claimed by another user or the version has changed.`,
-      409
-    );
-  }
-
-  // Audit event
-  writeAuditEvent({
-    workspaceId,
-    actorType: actor.type,
-    actorId: actor.id,
-    action: "work_item.claim",
-    entityType: "work_item",
-    entityId: workItemId,
-    before: { status: "ready" },
-    after: { status: "active", claimed_by: actor.id },
-    requestId: `claim-${workItemId}-${ts}`,
-  }).catch((err) => {
-    console.error("[audit] Failed to write work_item.claim audit event:", err);
-  });
 }
 
 // ── Release Work Item ──
@@ -978,12 +1056,12 @@ export async function claimWorkItem(
  * Per v0.5 Spec §6.3 work_item.release: the work item must currently be in
  * the 'active' (claimed) state.
  */
-export async function releaseWorkItem(
+export async function releaseWorkItemHandler(
   workspaceId: string,
   workItemId: string,
   actor: CommandActor,
   expectedVersion: number
-): Promise<void> {
+): Promise<CommandHandlerResult<Partial<WorkItemRow>>> {
   const ts = now();
 
   const workItem = await queryOne<WorkItemRow>(
@@ -1012,7 +1090,7 @@ export async function releaseWorkItem(
   );
   const nextSeq = (lastEvent?.max_seq ?? 0) + 1;
 
-  await batch([
+  const statements: Array<{ sql: string; args?: unknown[] }> = [
     // Release back to ready, clear claim metadata
     {
       sql: `UPDATE ${TABLES.workItems}
@@ -1030,22 +1108,54 @@ export async function releaseWorkItem(
       args: [genId("wfe"), workspaceId, workItem.instance_id, nextSeq, workItem.step_id,
              actor.type, actor.id, JSON.stringify({}), ts],
     },
-  ]);
+  ];
 
-  // Audit event
-  writeAuditEvent({
-    workspaceId,
-    actorType: actor.type,
-    actorId: actor.id,
-    action: "work_item.release",
-    entityType: "work_item",
-    entityId: workItemId,
-    before: { status: "active", claimed_by: workItem.claimed_by },
-    after: { status: "ready" },
-    requestId: `release-${workItemId}-${ts}`,
-  }).catch((err) => {
-    console.error("[audit] Failed to write work_item.release audit event:", err);
-  });
+  const aggregate: Partial<WorkItemRow> = {
+    ...workItem,
+    status: "ready",
+    claimed_by: null,
+    claimed_at: null,
+    version: expectedVersion + 1,
+    updated_at: ts,
+  };
+
+  return {
+    statements,
+    audit: {
+      action: "work_item.release",
+      entityType: "work_item",
+      entityId: workItemId,
+      before: { status: "active", claimed_by: workItem.claimed_by },
+      after: { status: "ready" },
+    },
+    aggregate,
+    newVersion: expectedVersion + 1,
+  };
+}
+
+export async function releaseWorkItem(
+  workspaceId: string,
+  workItemId: string,
+  actor: CommandActor,
+  expectedVersion: number,
+  commandId?: string,
+  requestId?: string | null
+): Promise<CommandResult<Partial<WorkItemRow>>> {
+  return executeCommand<Partial<WorkItemRow>>(
+    {
+      commandId: commandId ?? genId("cmd"),
+      workspaceId,
+      commandType: "work_item.release",
+      aggregateType: "work_item",
+      aggregateId: workItemId,
+      expectedVersion,
+      actor,
+      input: { workItemId, expectedVersion },
+      occurredAt: now(),
+      requestId: requestId ?? null,
+    },
+    async () => releaseWorkItemHandler(workspaceId, workItemId, actor, expectedVersion)
+  );
 }
 
 // ── Complete Work Item ──
@@ -1058,13 +1168,13 @@ export async function releaseWorkItem(
  * (claimed) or 'ready' status. Approval work items must use approvalDecide
  * instead. Optional `formData` is recorded on the completion event.
  */
-export async function completeWorkItem(
+export async function completeWorkItemHandler(
   workspaceId: string,
   workItemId: string,
   actor: CommandActor,
   expectedVersion: number,
   formData?: Record<string, unknown>
-): Promise<void> {
+): Promise<CommandHandlerResult<Partial<WorkItemRow>>> {
   const ts = now();
 
   const workItem = await queryOne<WorkItemRow>(
@@ -1174,6 +1284,9 @@ export async function completeWorkItem(
     },
   ];
 
+  // Track IDs of created work items for the next step
+  const workItemIds: string[] = [];
+
   // Advance the workflow to the next step
   if (nextStepId) {
     const nextStep = wfDef.steps.find(s => s.id === nextStepId);
@@ -1188,6 +1301,7 @@ export async function completeWorkItem(
       // Create work item for next step if it's an approval or human_task
       if (nextStep.kind === "approval" || nextStep.kind === "human_task") {
         const newWorkItemId = genId("wi");
+        workItemIds.push(newWorkItemId);
         const assigneeRule = nextStep.assigneeRule;
         const stepDueAt = resolveStepDueAt(nextStep, ts);
         statements.push({
@@ -1238,22 +1352,53 @@ export async function completeWorkItem(
     });
   }
 
-  await batch(statements);
+  const aggregate: Partial<WorkItemRow> = {
+    ...workItem,
+    status: "completed",
+    completed_at: ts,
+    version: expectedVersion + 1,
+    updated_at: ts,
+  };
 
-  // Audit event
-  writeAuditEvent({
-    workspaceId,
-    actorType: actor.type,
-    actorId: actor.id,
-    action: "work_item.complete",
-    entityType: "work_item",
-    entityId: workItemId,
-    before: { status: workItem.status, version: workItem.version },
-    after: { status: "completed", formData: formData ?? null },
-    requestId: `complete-${workItemId}-${ts}`,
-  }).catch((err) => {
-    console.error("[audit] Failed to write work_item.complete audit event:", err);
-  });
+  return {
+    statements,
+    audit: {
+      action: "work_item.complete",
+      entityType: "work_item",
+      entityId: workItemId,
+      before: { status: workItem.status, version: workItem.version },
+      after: { status: "completed", formData: formData ?? null },
+    },
+    aggregate,
+    newVersion: expectedVersion + 1,
+    workItemIds,
+  };
+}
+
+export async function completeWorkItem(
+  workspaceId: string,
+  workItemId: string,
+  actor: CommandActor,
+  expectedVersion: number,
+  formData?: Record<string, unknown>,
+  commandId?: string,
+  requestId?: string | null
+): Promise<CommandResult<Partial<WorkItemRow>>> {
+  return executeCommand<Partial<WorkItemRow>>(
+    {
+      commandId: commandId ?? genId("cmd"),
+      workspaceId,
+      commandType: "work_item.complete",
+      aggregateType: "work_item",
+      aggregateId: workItemId,
+      expectedVersion,
+      actor,
+      input: { workItemId, formData: formData ?? null, expectedVersion },
+      occurredAt: now(),
+      requestId: requestId ?? null,
+    },
+    async () => completeWorkItemHandler(workspaceId, workItemId, actor, expectedVersion, formData)
+  );
 }
 
 // ── Cancel Work Item ──
@@ -1265,13 +1410,13 @@ export async function completeWorkItem(
  * 'ready', 'active', or 'returned' status) may be cancelled. An optional
  * reason may be recorded on the workflow event.
  */
-export async function cancelWorkItem(
+export async function cancelWorkItemHandler(
   workspaceId: string,
   workItemId: string,
   actor: CommandActor,
   expectedVersion: number,
   reason?: string
-): Promise<void> {
+): Promise<CommandHandlerResult<Partial<WorkItemRow>>> {
   const ts = now();
 
   const workItem = await queryOne<WorkItemRow>(
@@ -1300,7 +1445,7 @@ export async function cancelWorkItem(
   );
   const nextSeq = (lastEvent?.max_seq ?? 0) + 1;
 
-  await batch([
+  const statements: Array<{ sql: string; args?: unknown[] }> = [
     // Mark work item as cancelled
     {
       sql: `UPDATE ${TABLES.workItems}
@@ -1317,22 +1462,53 @@ export async function cancelWorkItem(
       args: [genId("wfe"), workspaceId, workItem.instance_id, nextSeq, workItem.step_id,
              actor.type, actor.id, JSON.stringify({ reason: reason ?? null }), ts],
     },
-  ]);
+  ];
 
-  // Audit event
-  writeAuditEvent({
-    workspaceId,
-    actorType: actor.type,
-    actorId: actor.id,
-    action: "work_item.cancel",
-    entityType: "work_item",
-    entityId: workItemId,
-    before: { status: workItem.status, version: workItem.version },
-    after: { status: "cancelled", reason: reason ?? null },
-    requestId: `cancel-${workItemId}-${ts}`,
-  }).catch((err) => {
-    console.error("[audit] Failed to write work_item.cancel audit event:", err);
-  });
+  const aggregate: Partial<WorkItemRow> = {
+    ...workItem,
+    status: "cancelled",
+    version: expectedVersion + 1,
+    updated_at: ts,
+  };
+
+  return {
+    statements,
+    audit: {
+      action: "work_item.cancel",
+      entityType: "work_item",
+      entityId: workItemId,
+      before: { status: workItem.status, version: workItem.version },
+      after: { status: "cancelled", reason: reason ?? null },
+    },
+    aggregate,
+    newVersion: expectedVersion + 1,
+  };
+}
+
+export async function cancelWorkItem(
+  workspaceId: string,
+  workItemId: string,
+  actor: CommandActor,
+  expectedVersion: number,
+  reason?: string,
+  commandId?: string,
+  requestId?: string | null
+): Promise<CommandResult<Partial<WorkItemRow>>> {
+  return executeCommand<Partial<WorkItemRow>>(
+    {
+      commandId: commandId ?? genId("cmd"),
+      workspaceId,
+      commandType: "work_item.cancel",
+      aggregateType: "work_item",
+      aggregateId: workItemId,
+      expectedVersion,
+      actor,
+      input: { workItemId, reason: reason ?? null, expectedVersion },
+      occurredAt: now(),
+      requestId: requestId ?? null,
+    },
+    async () => cancelWorkItemHandler(workspaceId, workItemId, actor, expectedVersion, reason)
+  );
 }
 
 // ── SLA Timers (v0.5 Phase 5) ──

@@ -1,7 +1,6 @@
 import { NextRequest } from "next/server";
 import { claimWorkItem, type CommandActor, InvalidInputError } from "@runory/platform-core";
 import { requireWorkspaceContext } from "@/lib/auth";
-import { checkIdempotency } from "@/lib/idempotency";
 import { successResponse, handleError, getOrCreateRequestId } from "@/lib/http";
 
 export const dynamic = "force-dynamic";
@@ -26,21 +25,21 @@ export async function POST(
       );
     }
 
-    // Idempotency check: if the same key was used before, return the stored result.
-    if (body.idempotencyKey) {
-      const existing = await checkIdempotency(workspaceId, body.idempotencyKey);
-      if (existing && existing.status === "succeeded") {
-        return successResponse({ success: true, idempotent: true }, 200, ctx.requestId);
-      }
-    }
-
     const actor: CommandActor = {
       id: ctx.principal?.userId ?? "unknown",
       type: ctx.principal?.authMethod === "api_key" ? "api_key" : "user",
     };
 
-    await claimWorkItem(workspaceId, workItemId, actor, body.expectedVersion);
-    return successResponse({ success: true }, 200, ctx.requestId);
+    // executeCommand() handles idempotency internally via commandId.
+    const result = await claimWorkItem(
+      workspaceId,
+      workItemId,
+      actor,
+      body.expectedVersion,
+      body.idempotencyKey,
+      ctx.requestId,
+    );
+    return successResponse(result, 200, ctx.requestId);
   } catch (e) {
     return handleError(e, requestId);
   }

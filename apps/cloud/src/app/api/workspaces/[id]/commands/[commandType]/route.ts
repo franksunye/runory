@@ -483,6 +483,8 @@ export async function POST(
         break;
 
       // ── Workflow / Approval Commands (§6.3) ──
+      // Work item commands now use executeCommand() internally, so the
+      // idempotencyKey header is passed as commandId for idempotency tracking.
       case "approval.decide":
         result = await approvalDecide(
           workspaceId,
@@ -490,7 +492,9 @@ export async function POST(
           actor,
           body.outcome as "approved" | "rejected" | "returned",
           (body.comment as string | null) ?? null,
-          expectedVersion
+          expectedVersion,
+          idempotencyKey,
+          ctx.requestId
         );
         break;
 
@@ -518,7 +522,9 @@ export async function POST(
           workspaceId,
           body.aggregateId,
           actor,
-          expectedVersion
+          expectedVersion,
+          idempotencyKey,
+          ctx.requestId
         );
         break;
 
@@ -527,7 +533,9 @@ export async function POST(
           workspaceId,
           body.aggregateId,
           actor,
-          expectedVersion
+          expectedVersion,
+          idempotencyKey,
+          ctx.requestId
         );
         break;
 
@@ -537,7 +545,9 @@ export async function POST(
           body.aggregateId,
           actor,
           expectedVersion,
-          body.formData as Record<string, unknown> | undefined
+          body.formData as Record<string, unknown> | undefined,
+          idempotencyKey,
+          ctx.requestId
         );
         break;
 
@@ -547,7 +557,9 @@ export async function POST(
           body.aggregateId,
           actor,
           (body.reason as string | null) ?? null,
-          expectedVersion
+          expectedVersion,
+          idempotencyKey,
+          ctx.requestId
         );
         break;
 
@@ -557,7 +569,9 @@ export async function POST(
           body.aggregateId,
           actor,
           expectedVersion,
-          body.reason as string | undefined
+          body.reason as string | undefined,
+          idempotencyKey,
+          ctx.requestId
         );
         break;
 

@@ -1,7 +1,6 @@
 import { NextRequest } from "next/server";
 import { approvalDecide, returnWorkItem, type CommandActor, InvalidInputError } from "@runory/platform-core";
 import { requireWorkspaceContext } from "@/lib/auth";
-import { checkIdempotency } from "@/lib/idempotency";
 import { successResponse, handleError, getOrCreateRequestId } from "@/lib/http";
 
 export const dynamic = "force-dynamic";
@@ -32,33 +31,37 @@ export async function POST(
       );
     }
 
-    // Idempotency check
-    if (body.idempotencyKey) {
-      const existing = await checkIdempotency(workspaceId, body.idempotencyKey);
-      if (existing && existing.status === "succeeded") {
-        return successResponse({ success: true, idempotent: true }, 200, ctx.requestId);
-      }
-    }
-
     const actor: CommandActor = {
       id: ctx.principal?.userId ?? "unknown",
       type: ctx.principal?.authMethod === "api_key" ? "api_key" : "user",
     };
 
+    // executeCommand() handles idempotency internally via commandId.
+    let result;
     if (body.outcome === "returned") {
-      await returnWorkItem(workspaceId, workItemId, actor, body.comment ?? null, body.expectedVersion);
+      result = await returnWorkItem(
+        workspaceId,
+        workItemId,
+        actor,
+        body.comment ?? null,
+        body.expectedVersion,
+        body.idempotencyKey,
+        ctx.requestId,
+      );
     } else {
-      await approvalDecide(
+      result = await approvalDecide(
         workspaceId,
         workItemId,
         actor,
         body.outcome,
         body.comment ?? null,
-        body.expectedVersion
+        body.expectedVersion,
+        body.idempotencyKey,
+        ctx.requestId,
       );
     }
 
-    return successResponse({ success: true }, 200, ctx.requestId);
+    return successResponse(result, 200, ctx.requestId);
   } catch (e) {
     return handleError(e, requestId);
   }
