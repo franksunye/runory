@@ -61,7 +61,9 @@ business permission enforcement
 
 ### v0.5.1 — Mobile Field Work, Forms And My Work
 
-Source: [v0.5.1 specification](./v0.5.1-mobile-field-work-spec.md)
+Master source: [v0.5.1 Commercial FSM Productization And Workflow V2 Cutover specification](./v0.5.1-commercial-fsm-productization-technical-spec.md)
+
+Mobile source: [v0.5.1 Mobile Field Work, Forms And My Work sub-specification](./v0.5.1-mobile-field-work-spec.md)
 
 ```text
 installable lightweight `/m` PWA in the existing Cloud app
