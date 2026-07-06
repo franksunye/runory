@@ -52,3 +52,4 @@ data
 
 # Misc
 *.pem
+.trae-html-share-packages/

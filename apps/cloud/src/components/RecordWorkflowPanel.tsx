@@ -1,11 +1,18 @@
 "use client";
 
-import { useState } from "react";
-import { GitBranch, CheckCircle2, XCircle, Clock3, ChevronDown, ChevronUp } from "lucide-react";
+import { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
+import {
+  GitBranch, CheckCircle2, XCircle, Clock3, ChevronDown, ChevronUp,
+  Gavel, ListChecks, FileText, User, Loader2,
+} from "lucide-react";
 import type { WorkflowDefinition, WorkflowTransition } from "@runory/contracts";
 import type { WorkflowInstance } from "@runory/platform-core";
 import { useI18n } from "@/i18n/locale-provider";
+import type { MessageKey } from "@/i18n/messages";
 import { notifyWorkspaceDataChanged } from "@/lib/workspace-events";
+import { objectKeyToRouteSegment } from "@/lib/dynamic-object";
+import type { MyWorkItem } from "@/lib/api-hooks";
 
 interface RecordWorkflowPanelProps {
   workspaceId: string;
@@ -83,6 +90,7 @@ export default function RecordWorkflowPanel({
   const currentStateColor = getStateColor(definition, instance.currentState);
 
   return (
+    <>
     <div className="app-card p-5 sm:p-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
@@ -235,6 +243,276 @@ export default function RecordWorkflowPanel({
             </ol>
           )}
         </div>
+      )}
+    </div>
+
+      {/* V2 Work Items */}
+      <WorkItemsSection
+        workspaceId={workspaceId}
+        objectType={instance.objectType}
+        recordId={instance.recordId}
+      />
+    </>
+  );
+}
+
+// ── V2 Work Items Section ──
+
+const KIND_ICON: Record<string, typeof Gavel> = {
+  approval: Gavel,
+  human_task: ListChecks,
+  form: FileText,
+};
+
+const KIND_BADGE: Record<string, string> = {
+  approval: "bg-amber-50 text-amber-700",
+  human_task: "bg-blue-50 text-blue-700",
+  form: "bg-purple-50 text-purple-700",
+};
+
+const STATUS_BADGE: Record<string, string> = {
+  ready: "bg-slate-100 text-slate-700",
+  active: "bg-green-50 text-green-700",
+  completed: "bg-slate-100 text-slate-500",
+  cancelled: "bg-red-50 text-red-600",
+};
+
+const KIND_LABEL_KEY: Record<string, MessageKey> = {
+  approval: "myWork.kindApproval",
+  human_task: "myWork.kindHumanTask",
+  form: "myWork.kindForm",
+};
+
+const STATUS_LABEL_KEY: Record<string, MessageKey> = {
+  ready: "myWork.statusReady",
+  active: "myWork.statusClaimed",
+  completed: "myWork.statusCompleted",
+  cancelled: "myWork.statusCompleted",
+};
+
+function isWorkOverdue(dueAt: string | null): boolean {
+  if (!dueAt) return false;
+  return new Date(dueAt).getTime() < Date.now();
+}
+
+function formatWorkDate(iso: string | null): string {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  return d.toLocaleString(undefined, {
+    month: "short", day: "numeric", hour: "2-digit", minute: "2-digit",
+  });
+}
+
+interface WorkItemsSectionProps {
+  workspaceId: string;
+  objectType: string;
+  recordId: string;
+}
+
+function WorkItemsSection({ workspaceId, objectType, recordId }: WorkItemsSectionProps) {
+  const { t } = useI18n();
+  const router = useRouter();
+  const [items, setItems] = useState<MyWorkItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [executing, setExecuting] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const res = await fetch(
+        `/api/workspaces/${workspaceId}/my-work?subjectType=${encodeURIComponent(objectType)}&status=ready,active`,
+        { cache: "no-store" }
+      );
+      const json = await res.json();
+      if (!json.success) throw new Error(json.error?.message ?? t("workspace.loadFailed"));
+      const all: MyWorkItem[] = json.data?.items ?? [];
+      // Scope to the current record
+      setItems(all.filter((i) => i.subject_id === recordId));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t("workspace.loadFailed"));
+    } finally {
+      setLoading(false);
+    }
+  }, [workspaceId, objectType, recordId, t]);
+
+  useEffect(() => { void load(); }, [load]);
+
+  const handleDecision = async (item: MyWorkItem, outcome: "approved" | "rejected") => {
+    try {
+      setExecuting(`decide-${item.id}`);
+      const res = await fetch(
+        `/api/workspaces/${workspaceId}/work-items/${item.id}/decisions`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "X-Requested-With": "XMLHttpRequest" },
+          body: JSON.stringify({
+            outcome,
+            expectedVersion: item.version,
+          }),
+        }
+      );
+      const json = await res.json();
+      if (!json.success) throw new Error(json.error?.message ?? t("workspace.updateFailed"));
+      notifyWorkspaceDataChanged();
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t("workspace.updateFailed"));
+    } finally {
+      setExecuting(null);
+    }
+  };
+
+  const handleComplete = async (item: MyWorkItem) => {
+    try {
+      setExecuting(`complete-${item.id}`);
+      const res = await fetch(
+        `/api/workspaces/${workspaceId}/commands/work_item.complete`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "X-Requested-With": "XMLHttpRequest" },
+          body: JSON.stringify({
+            workItemId: item.id,
+            expectedVersion: item.version,
+          }),
+        }
+      );
+      const json = await res.json();
+      if (!json.success) throw new Error(json.error?.message ?? t("workspace.updateFailed"));
+      notifyWorkspaceDataChanged();
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t("workspace.updateFailed"));
+    } finally {
+      setExecuting(null);
+    }
+  };
+
+  const navigateToRecord = () => {
+    router.push(`/w/${workspaceId}/${objectKeyToRouteSegment(objectType)}/${recordId}`);
+  };
+
+  return (
+    <div className="app-card mt-4 p-5 sm:p-6">
+      <div className="flex items-center gap-2">
+        <ListChecks size={16} className="text-indigo-500" />
+        <h3 className="text-sm font-bold text-slate-900">{t("workflowV2.workItems")}</h3>
+        {loading && <Loader2 size={14} className="animate-spin text-slate-400" />}
+      </div>
+
+      {error && <div className="app-error mt-3">{error}</div>}
+
+      {!loading && items.length === 0 && !error && (
+        <p className="mt-3 text-xs text-slate-400">{t("myWork.empty")}</p>
+      )}
+
+      {items.length > 0 && (
+        <ul className="mt-3 space-y-3">
+          {items.map((item) => {
+            const KindIcon = KIND_ICON[item.kind] ?? ListChecks;
+            const overdue = isWorkOverdue(item.due_at) && item.status !== "completed";
+            const kindBadge = KIND_BADGE[item.kind] ?? "bg-slate-100 text-slate-600";
+            const statusBadge = STATUS_BADGE[item.status] ?? "bg-slate-100 text-slate-600";
+            const kindLabelKey = KIND_LABEL_KEY[item.kind] ?? "myWork.kindHumanTask";
+            const statusLabelKey = STATUS_LABEL_KEY[item.status] ?? "myWork.statusReady";
+            return (
+              <li key={item.id} className={`rounded-lg border border-slate-200 p-3 ${overdue ? "border-red-200" : ""}`}>
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                  {/* Left: badges + meta */}
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className={`app-badge ${kindBadge}`}>
+                        <KindIcon size={12} />
+                        {t(kindLabelKey)}
+                      </span>
+                      <span className={`app-badge ${statusBadge}`}>
+                        {overdue && item.status !== "completed"
+                          ? t("myWork.statusOverdue")
+                          : t(statusLabelKey)}
+                      </span>
+                      {item.form_binding_id && (
+                        <span className="app-badge bg-purple-50 text-purple-700">
+                          {t("workflowV2.formBinding")}: {item.form_binding_id.slice(0, 8)}
+                        </span>
+                      )}
+                    </div>
+                    <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500">
+                      {item.assignee_id ? (
+                        <span className="flex items-center gap-1">
+                          <User size={12} />
+                          {t("workflowV2.assignee")}:{" "}
+                          {item.assignee_type === "permission_group"
+                            ? item.assignee_id.replace(/_/g, " ")
+                            : item.assignee_id}
+                        </span>
+                      ) : null}
+                      <span className={`flex items-center gap-1 ${overdue ? "font-semibold text-red-600" : ""}`}>
+                        <Clock3 size={12} />
+                        {t("workflowV2.dueDate")}:{" "}
+                        {item.due_at ? formatWorkDate(item.due_at) : t("myWork.noDueDate")}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Right: actions */}
+                  <div className="flex shrink-0 flex-wrap items-center gap-2">
+                    {item.kind === "approval" && item.status !== "completed" && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => void handleDecision(item, "approved")}
+                          disabled={executing === `decide-${item.id}`}
+                          className="app-button-primary px-3 py-1 text-xs"
+                        >
+                          {executing === `decide-${item.id}` ? (
+                            <Loader2 size={12} className="animate-spin" />
+                          ) : (
+                            <CheckCircle2 size={12} />
+                          )}
+                          {t("myWork.actionApprove")}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void handleDecision(item, "rejected")}
+                          disabled={executing === `decide-${item.id}`}
+                          className="app-button-secondary px-3 py-1 text-xs"
+                        >
+                          {t("myWork.actionReject")}
+                        </button>
+                      </>
+                    )}
+                    {item.kind === "human_task" && item.status !== "completed" && (
+                      <button
+                        type="button"
+                        onClick={() => void handleComplete(item)}
+                        disabled={executing === `complete-${item.id}`}
+                        className="app-button-primary px-3 py-1 text-xs"
+                      >
+                        {executing === `complete-${item.id}` ? (
+                          <Loader2 size={12} className="animate-spin" />
+                        ) : (
+                          <CheckCircle2 size={12} />
+                        )}
+                        {t("myWork.actionComplete")}
+                      </button>
+                    )}
+                    {item.kind === "form" && (
+                      <button
+                        type="button"
+                        onClick={navigateToRecord}
+                        className="app-button-secondary px-3 py-1 text-xs"
+                      >
+                        <FileText size={12} />
+                        {t("extension.viewDetails")}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
       )}
     </div>
   );

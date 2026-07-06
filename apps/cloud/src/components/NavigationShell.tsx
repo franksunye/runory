@@ -449,6 +449,10 @@ export default function NavigationShell({
           )}
         </div>
 
+        {/* v0.5 Personal surfaces — visible to all users */}
+        {renderNavItem({ id: "my-work", label: t("workspace.nav.myWork"), route: "/my-work", icon: CheckSquare })}
+        {renderNavItem({ id: "planning", label: t("workspace.nav.planning"), route: "/planning", icon: Calendar })}
+
         {/* Activity */}
         {renderNavItem({ id: "activity", label: t("workspace.nav.activity"), route: "/activity", icon: Activity })}
 
@@ -459,6 +463,9 @@ export default function NavigationShell({
             <div className={collapsed ? "mt-4 space-y-1" : "space-y-1"}>
               {renderNavItem({ id: "workflows", label: t("workspace.nav.workflows"), route: "/workflows", icon: GitBranch })}
               {renderNavItem({ id: "automations", label: t("workspace.nav.automations"), route: "/automations", icon: Zap })}
+              {renderNavItem({ id: "forms", label: t("workspace.nav.forms"), route: "/forms", icon: FileText })}
+              {renderNavItem({ id: "outbox", label: t("workspace.nav.outbox"), route: "/outbox", icon: Inbox })}
+              {renderNavItem({ id: "migration", label: t("workspace.nav.migration"), route: "/migration", icon: ArrowLeft })}
             </div>
           </>
         )}
