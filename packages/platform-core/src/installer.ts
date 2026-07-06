@@ -109,6 +109,17 @@ interface DemoResource {
   displayName: string;
   resourceType: string;
   email?: string;
+  userIdAlias?: string; // alias of a demo user to link this resource to
+}
+
+interface DemoUser {
+  alias: string;           // e.g. "user-sales-rep"
+  externalId: string;      // e.g. "persona:sales-rep"
+  email?: string;          // e.g. "sales.rep@runory.demo"
+  displayName: string;     // e.g. "Sarah Chen (Sales Rep)"
+  role?: "admin" | "member" | "viewer";  // workspace membership role, default "member"
+  permissionGroups?: Array<{ packId: string; groupKey: string }>;  // e.g. [{ packId: "sales-quote-pack", groupKey: "sales_representative" }]
+  resourceAlias?: string;  // link to a resource by alias (e.g., "res-david")
 }
 
 interface DemoOutboxMessage {
@@ -135,6 +146,8 @@ interface PackDemoData {
   scheduleEntries?: DemoScheduleEntry[];
   outboxMessages?: DemoOutboxMessage[];
   workflowInstances?: DemoWorkflowInstance[];
+  // Persona identity system — demo users linked to resources & permission groups
+  users?: DemoUser[];
 }
 
 function readPackDemoDataFile(packId: string): PackDemoData | null {
@@ -151,6 +164,7 @@ function readPackDemoDataFile(packId: string): PackDemoData | null {
     scheduleEntries: Array.isArray(raw.scheduleEntries) ? raw.scheduleEntries : [],
     outboxMessages: Array.isArray(raw.outboxMessages) ? raw.outboxMessages : [],
     workflowInstances: Array.isArray(raw.workflowInstances) ? raw.workflowInstances : [],
+    users: Array.isArray(raw.users) ? raw.users : [],
   };
 }
 
@@ -315,16 +329,115 @@ async function seedPackDemoData(workspaceId: string, packId: string): Promise<nu
   // V1 workflow seeding removed — V2 workflow definitions are published
   // from module `workflows/*.workflow.json` files during installModule().
 
+  // ── Persona identity: Seed demo users ──
+  // Creates users, workspace memberships, and permission group assignments.
+  // Must run BEFORE resource seeding so resources can reference user aliases.
+  if (demo.users && demo.users.length > 0) {
+    for (const du of demo.users) {
+      try {
+        const nowTs = now();
+
+        // Check if user already exists by external_id (idempotency)
+        const existing = await queryOne<{ id: string }>(
+          `SELECT id FROM ${TABLES.users} WHERE external_id = ?`,
+          [du.externalId]
+        );
+
+        let actualUserId: string;
+        if (existing) {
+          actualUserId = existing.id;
+        } else {
+          actualUserId = genId("usr");
+          await execute(
+            `INSERT INTO ${TABLES.users}
+             (id, external_id, email, display_name, status, created_at, updated_at)
+             VALUES (?, ?, ?, ?, 'active', ?, ?)`,
+            [actualUserId, du.externalId, du.email ?? null, du.displayName, nowTs, nowTs]
+          );
+          created++;
+        }
+
+        // Create workspace membership (idempotent)
+        const existingMembership = await queryOne<{ id: string }>(
+          `SELECT id FROM ${TABLES.workspaceMemberships}
+           WHERE workspace_id = ? AND user_id = ?`,
+          [workspaceId, actualUserId]
+        );
+        if (!existingMembership) {
+          await execute(
+            `INSERT INTO ${TABLES.workspaceMemberships}
+             (id, workspace_id, user_id, role, status, created_at, updated_at)
+             VALUES (?, ?, ?, ?, 'active', ?, ?)`,
+            [genId("wsmem"), workspaceId, actualUserId, du.role ?? "member", nowTs, nowTs]
+          );
+        }
+
+        // Store in aliases map for resource linking
+        aliases.set(du.alias, { id: actualUserId, objectKey: "user" });
+
+        // Assign permission groups
+        if (du.permissionGroups) {
+          for (const pg of du.permissionGroups) {
+            try {
+              const group = await queryOne<{ id: string }>(
+                `SELECT id FROM ${TABLES.packPermissionGroups}
+                 WHERE workspace_id = ? AND pack_id = ? AND group_key = ?`,
+                [workspaceId, pg.packId, pg.groupKey]
+              );
+              if (group) {
+                // Check if assignment already exists (idempotent)
+                const existingAssign = await queryOne<{ id: string }>(
+                  `SELECT id FROM ${TABLES.packPermissionAssignments}
+                   WHERE workspace_id = ? AND group_id = ? AND user_id = ?`,
+                  [workspaceId, group.id, actualUserId]
+                );
+                if (!existingAssign) {
+                  await execute(
+                    `INSERT INTO ${TABLES.packPermissionAssignments}
+                     (id, workspace_id, group_id, user_id, assigned_by, assigned_at)
+                     VALUES (?, ?, ?, ?, ?, ?)`,
+                    [genId("pa"), workspaceId, group.id, actualUserId, "demo-seed", nowTs]
+                  );
+                }
+              } else {
+                console.warn(`[installer] Permission group not found: pack=${pg.packId} key=${pg.groupKey} (may not be installed yet)`);
+              }
+            } catch (e) {
+              console.warn(`[installer] Failed to assign permission group ${pg.groupKey}: ${e instanceof Error ? e.message : String(e)}`);
+            }
+          }
+        }
+
+        console.log(`[installer] Seeded user ${du.alias} → ${actualUserId}`);
+      } catch (e) {
+        console.warn(`[installer] Failed to seed user ${du.alias}: ${e instanceof Error ? e.message : String(e)}`);
+      }
+    }
+  }
+
   // ── v0.5: Seed resources ──
   if (demo.resources && demo.resources.length > 0) {
     for (const res of demo.resources) {
+      // Resolve linked user (if userIdAlias references a seeded demo user)
+      let userId: string | null = null;
+      if (res.userIdAlias) {
+        userId = (aliases.get(res.userIdAlias)?.id as string) ?? null;
+      }
+
       // Check if resource already exists by display_name
-      const existing = await queryOne<{ id: string }>(
-        `SELECT id FROM ${TABLES.resources}
+      const existing = await queryOne<{ id: string; user_id: string | null }>(
+        `SELECT id, user_id FROM ${TABLES.resources}
          WHERE workspace_id = ? AND display_name = ?`,
         [workspaceId, res.displayName]
       );
       if (existing) {
+        // Link user to an existing resource if not yet linked (upgrade-safe)
+        if (userId && !existing.user_id) {
+          await execute(
+            `UPDATE ${TABLES.resources} SET user_id = ?, updated_at = ? WHERE id = ?`,
+            [userId, now(), existing.id]
+          );
+        }
         aliases.set(res.alias, { id: existing.id, ...res });
         continue;
       }
@@ -332,9 +445,9 @@ async function seedPackDemoData(workspaceId: string, packId: string): Promise<nu
       const ts = now();
       await execute(
         `INSERT INTO ${TABLES.resources}
-         (id, workspace_id, resource_type, display_name, active, created_at, updated_at)
-         VALUES (?, ?, ?, ?, 1, ?, ?)`,
-        [id, workspaceId, res.resourceType, res.displayName, ts, ts]
+         (id, workspace_id, resource_type, display_name, user_id, active, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, 1, ?, ?)`,
+        [id, workspaceId, res.resourceType, res.displayName, userId, ts, ts]
       );
       aliases.set(res.alias, { id, ...res });
       created++;
@@ -913,6 +1026,14 @@ export async function installPack(
     );
   }
 
+  // v0.3.6 — Sync pack-aware permission groups
+  // Must run BEFORE demo data seeding so that persona users can be assigned
+  // to this pack's permission groups during seedPackDemoData().
+  if (pack.permissionGroups && pack.permissionGroups.length > 0) {
+    const { syncPackPermissionGroups } = await import("./permission-groups");
+    await syncPackPermissionGroups(workspaceId, packId, pack.permissionGroups);
+  }
+
   const demoRecordsCreated = options.includeDemoData
     ? await seedPackDemoData(workspaceId, packId)
     : 0;
@@ -922,12 +1043,6 @@ export async function installPack(
     await updatePackDemoDataStatus(workspaceId, packId, "loaded");
   } else if (options.includeDemoData) {
     await updatePackDemoDataStatus(workspaceId, packId, "error", "Demo data seeding failed");
-  }
-
-  // v0.3.6 — Sync pack-aware permission groups
-  if (pack.permissionGroups && pack.permissionGroups.length > 0) {
-    const { syncPackPermissionGroups } = await import("./permission-groups");
-    await syncPackPermissionGroups(workspaceId, packId, pack.permissionGroups);
   }
 
   return {

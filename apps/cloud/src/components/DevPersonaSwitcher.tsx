@@ -1,0 +1,185 @@
+"use client";
+
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Users, Check, ChevronDown, Loader2 } from "lucide-react";
+import { useI18n } from "@/i18n/locale-provider";
+
+interface Persona {
+  id: string;
+  label: string;
+  externalId: string;
+  color: string;
+}
+
+interface PersonaApiResponse {
+  personas: Persona[];
+  current: string;
+}
+
+// Map persona colors to Tailwind classes for the badge dot
+const COLOR_CLASSES: Record<string, string> = {
+  slate: "bg-slate-400",
+  blue: "bg-blue-500",
+  indigo: "bg-indigo-500",
+  amber: "bg-amber-500",
+  emerald: "bg-emerald-500",
+  purple: "bg-purple-500",
+};
+
+const TEXT_COLOR_CLASSES: Record<string, string> = {
+  slate: "text-slate-600",
+  blue: "text-blue-600",
+  indigo: "text-indigo-600",
+  amber: "text-amber-600",
+  emerald: "text-emerald-600",
+  purple: "text-purple-600",
+};
+
+export default function DevPersonaSwitcher() {
+  const { t } = useI18n();
+  const [personas, setPersonas] = useState<Persona[]>([]);
+  const [current, setCurrent] = useState<string>("dev-local-owner");
+  const [open, setOpen] = useState(false);
+  const [switching, setSwitching] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  const fetchPersonas = useCallback(async () => {
+    try {
+      const res = await fetch("/api/dev/persona", { cache: "no-store" });
+      if (!res.ok) return;
+      const data: PersonaApiResponse = await res.json();
+      setPersonas(data.personas);
+      setCurrent(data.current);
+      setLoaded(true);
+    } catch {
+      // Dev endpoint not available — silently hide the switcher
+    }
+  }, []);
+
+  useEffect(() => {
+    void fetchPersonas();
+  }, [fetchPersonas]);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    if (!open) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [open]);
+
+  const handleSelect = useCallback(
+    async (personaId: string) => {
+      if (personaId === current || switching) return;
+      setSwitching(true);
+      try {
+        const res = await fetch("/api/dev/persona", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ personaId }),
+        });
+        if (res.ok) {
+          // Reload the page so all data is re-fetched with the new identity
+          window.location.reload();
+        }
+      } catch {
+        setSwitching(false);
+      }
+    },
+    [current, switching]
+  );
+
+  // Only render in dev mode
+  if (
+    process.env.NODE_ENV !== "development" &&
+    process.env.NEXT_PUBLIC_PLATFORM_DEV_BOOTSTRAP !== "true"
+  ) {
+    return null;
+  }
+
+  // Don't render until we've confirmed the dev endpoint is available
+  if (!loaded) return null;
+
+  const currentPersona = personas.find((p) => p.id === current) ?? personas[0];
+
+  return (
+    <div
+      ref={dropdownRef}
+      className="fixed bottom-4 right-4 z-[9999]"
+    >
+      {/* Dropdown panel */}
+      {open && (
+        <div className="mb-2 w-72 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl">
+          <div className="border-b border-slate-100 px-4 py-3">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+              {t("dev.persona.title")}
+            </p>
+          </div>
+          <ul className="max-h-80 overflow-y-auto py-1">
+            {personas.map((persona) => {
+              const isActive = persona.id === current;
+              return (
+                <li key={persona.id}>
+                  <button
+                    type="button"
+                    disabled={switching}
+                    onClick={() => void handleSelect(persona.id)}
+                    className={`flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 ${
+                      isActive ? "bg-slate-50" : ""
+                    }`}
+                  >
+                    <span
+                      className={`inline-block size-2.5 shrink-0 rounded-full ${
+                        COLOR_CLASSES[persona.color] ?? "bg-slate-400"
+                      }`}
+                    />
+                    <span className="flex-1 truncate font-medium text-slate-700">
+                      {persona.label}
+                    </span>
+                    {isActive && (
+                      <Check size={16} className={`shrink-0 ${TEXT_COLOR_CLASSES[persona.color] ?? "text-slate-500"}`} />
+                    )}
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
+
+      {/* Trigger button */}
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        disabled={switching}
+        className="flex items-center gap-2.5 rounded-full border border-slate-200 bg-white px-4 py-2.5 shadow-lg transition hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-60"
+        title={t("dev.persona.title")}
+      >
+        {switching ? (
+          <Loader2 size={18} className="animate-spin text-slate-500" />
+        ) : (
+          <Users size={18} className="text-slate-600" />
+        )}
+        <div className="flex items-center gap-2">
+          <span
+            className={`inline-block size-2.5 rounded-full ${
+              currentPersona ? COLOR_CLASSES[currentPersona.color] ?? "bg-slate-400" : "bg-slate-400"
+            }`}
+          />
+          <span className="text-sm font-semibold text-slate-700">
+            {currentPersona?.label ?? "Dev Persona"}
+          </span>
+        </div>
+        <ChevronDown
+          size={16}
+          className={`text-slate-400 transition-transform ${open ? "rotate-180" : ""}`}
+        />
+      </button>
+    </div>
+  );
+}

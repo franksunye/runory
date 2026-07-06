@@ -1571,6 +1571,10 @@ export const en = {
   "mobile.loading": "Loading...",
   "mobile.errorOccurred": "Something went wrong",
   "mobile.retry": "Retry",
+
+  // Dev persona switcher (dev-only)
+  "dev.persona.title": "Dev Persona",
+  "dev.persona.switching": "Switching persona...",
 } as const;
 
 export type MessageKey = keyof typeof en;
@@ -2128,6 +2132,10 @@ export const zh: Messages = {
   "mobile.loading": "加载中...",
   "mobile.errorOccurred": "发生错误",
   "mobile.retry": "重试",
+
+  // Dev persona switcher (dev-only)
+  "dev.persona.title": "开发角色",
+  "dev.persona.switching": "切换角色中...",
 };
 
 export const messages = { en, zh } as const;

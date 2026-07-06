@@ -8,6 +8,10 @@ const baseConfig: NextConfig = {
   // conditionally render the dev-code hint without a separate round-trip.
   env: {
     NEXT_PUBLIC_OTP_DEV_CODE_ENABLED: process.env.PLATFORM_OTP_RETURN_DEV_CODE ?? "false",
+    // Expose the dev bootstrap toggle to client bundles so the DevPersonaSwitcher
+    // can conditionally render without a separate round-trip. The value is
+    // resolved at build time from PLATFORM_DEV_BOOTSTRAP.
+    NEXT_PUBLIC_PLATFORM_DEV_BOOTSTRAP: process.env.PLATFORM_DEV_BOOTSTRAP ?? "false",
   },
 };
 

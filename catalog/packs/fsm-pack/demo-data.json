@@ -384,7 +384,8 @@
       "alias": "res-david",
       "displayName": "David Park",
       "resourceType": "technician",
-      "email": "david@runory.fsm"
+      "email": "david@runory.fsm",
+      "userIdAlias": "user-technician"
     },
     {
       "alias": "res-maria",
@@ -397,6 +398,60 @@
       "displayName": "James Wilson",
       "resourceType": "technician",
       "email": "james@runory.fsm"
+    }
+  ],
+  "users": [
+    {
+      "alias": "user-sales-rep",
+      "externalId": "persona:sales-rep",
+      "email": "sales.rep@runory.demo",
+      "displayName": "Sarah Chen",
+      "role": "member",
+      "permissionGroups": [
+        { "packId": "crm-lite-pack", "groupKey": "sales_admin" },
+        { "packId": "sales-quote-pack", "groupKey": "sales_representative" }
+      ]
+    },
+    {
+      "alias": "user-sales-manager",
+      "externalId": "persona:sales-manager",
+      "email": "sales.manager@runory.demo",
+      "displayName": "Michael Torres",
+      "role": "member",
+      "permissionGroups": [
+        { "packId": "sales-quote-pack", "groupKey": "sales_manager" }
+      ]
+    },
+    {
+      "alias": "user-dispatcher",
+      "externalId": "persona:dispatcher",
+      "email": "dispatcher@runory.demo",
+      "displayName": "Lisa Wang",
+      "role": "member",
+      "permissionGroups": [
+        { "packId": "fsm-pack", "groupKey": "dispatcher" }
+      ]
+    },
+    {
+      "alias": "user-technician",
+      "externalId": "persona:technician",
+      "email": "technician@runory.demo",
+      "displayName": "David Park",
+      "role": "member",
+      "permissionGroups": [
+        { "packId": "fsm-pack", "groupKey": "field_technician" }
+      ],
+      "resourceAlias": "res-david"
+    },
+    {
+      "alias": "user-supervisor",
+      "externalId": "persona:supervisor",
+      "email": "supervisor@runory.demo",
+      "displayName": "Robert Kim",
+      "role": "member",
+      "permissionGroups": [
+        { "packId": "fsm-pack", "groupKey": "service_supervisor" }
+      ]
     }
   ],
   "formDefinitions": [

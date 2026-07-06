@@ -27,6 +27,32 @@ const DEVELOPMENT_ACTOR: ActorIdentity = {
   displayName: "Local workspace owner",
 };
 
+// ── Dev persona switching ──
+//
+// In dev mode, developers can switch between Golden Demo personas via the
+// /api/dev/persona endpoint, which sets an httpOnly "dev-persona" cookie.
+// This function reads that cookie and returns the matching ActorIdentity so
+// that API calls are made as the selected persona (with their workspace
+// membership and permission groups) instead of the default dev-local-owner.
+//
+// The cookie is httpOnly so it cannot be tampered with from client JS. Only
+// known persona IDs are honored; anything else falls back to DEVELOPMENT_ACTOR.
+const DEV_PERSONAS: Record<string, ActorIdentity> = {
+  "persona:sales-rep": { externalId: "persona:sales-rep", displayName: "Sarah Chen" },
+  "persona:sales-manager": { externalId: "persona:sales-manager", displayName: "Michael Torres" },
+  "persona:dispatcher": { externalId: "persona:dispatcher", displayName: "Lisa Wang" },
+  "persona:technician": { externalId: "persona:technician", displayName: "David Park" },
+  "persona:supervisor": { externalId: "persona:supervisor", displayName: "Robert Kim" },
+};
+
+function getDevActor(request: NextRequest): ActorIdentity {
+  const personaId = request.cookies.get("dev-persona")?.value;
+  if (personaId && personaId !== "dev-local-owner") {
+    return DEV_PERSONAS[personaId] ?? DEVELOPMENT_ACTOR;
+  }
+  return DEVELOPMENT_ACTOR;
+}
+
 // ── Dev bootstrap flag ──
 //
 // The dev bootstrap fallback (auto-authenticating as a local owner) is gated on
@@ -95,7 +121,7 @@ export async function getRequestActor(request: NextRequest): Promise<ActorIdenti
     };
   }
 
-  if (isDevBootstrapEnabled()) return DEVELOPMENT_ACTOR;
+  if (isDevBootstrapEnabled()) return getDevActor(request);
   throw new AuthenticationError("Authentication is required");
 }
 
@@ -118,11 +144,12 @@ export async function requirePrincipal(request: NextRequest): Promise<Principal>
   }
 
   if (isDevBootstrapEnabled()) {
-    // Dev bootstrap fallback
+    // Dev bootstrap fallback — honor the dev-persona cookie if set
+    const devActor = getDevActor(request);
     const principal: Principal = {
-      userId: DEVELOPMENT_ACTOR.externalId,
+      userId: devActor.externalId,
       email: null,
-      displayName: DEVELOPMENT_ACTOR.displayName,
+      displayName: devActor.displayName,
       authMethod: "dev_bootstrap",
     };
     return principal;
@@ -317,10 +344,12 @@ export async function requireWorkspaceContext(
 
   // Dev bootstrap fallback
   if (!principal && isDevBootstrapEnabled()) {
+    // Honor the dev-persona cookie if set so requests act as the selected persona
+    const devActor = getDevActor(request);
     principal = {
-      userId: DEVELOPMENT_ACTOR.externalId,
+      userId: devActor.externalId,
       email: null,
-      displayName: DEVELOPMENT_ACTOR.displayName,
+      displayName: devActor.displayName,
       authMethod: "dev_bootstrap",
     };
   }

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useParams, usePathname, useRouter } from "next/navigation";
 import NavigationShell from "@/components/NavigationShell";
 import EarlyAccessBanner from "@/components/EarlyAccessBanner";
+import DevPersonaSwitcher from "@/components/DevPersonaSwitcher";
 import { WORKSPACE_NAVIGATION_CHANGED } from "@/lib/workspace-events";
 import { useI18n } from "@/i18n/locale-provider";
 import type { NavigationItem } from "@runory/platform-core";
@@ -117,6 +118,7 @@ export default function WorkspaceLayout({
     >
       <EarlyAccessBanner />
       {children}
+      <DevPersonaSwitcher />
     </NavigationShell>
   );
 }
