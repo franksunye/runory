@@ -14,12 +14,13 @@
 // inside a form answer (Spec §5.5).  Uploads report real progress via
 // XMLHttpRequest upload events and support explicit, idempotent retry.
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { FormBlock } from "@runory/contracts";
 import {
   AlertCircle,
   Camera,
   Check,
+  CheckCircle2,
   FileText,
   Film,
   Loader2,
@@ -27,6 +28,7 @@ import {
   Upload,
   X,
 } from "lucide-react";
+import { useI18n } from "@/i18n/locale-provider";
 
 // ── Internal answer value types ──
 
@@ -54,7 +56,13 @@ interface EvidenceEntry {
    * by the time the form is submitted (validation blocks submit otherwise).
    */
   id: string;
-  file: File;
+  /**
+   * The underlying File object. Undefined for entries restored from a saved
+   * draft (the original File is not retained server-side; only the attachment
+   * id survives). Such entries render without a preview but still contribute
+   * their attachment id on submit.
+   */
+  file?: File;
   /** Object URL for image previews; empty string for non-image types. */
   previewUrl: string;
   status: EvidenceStatus;
@@ -65,6 +73,24 @@ interface EvidenceEntry {
   errorMessage?: string;
 }
 
+// ── Draft auto-save (v0.5.1 Spec §5.4) ──
+//
+// When a `draftContext` is supplied, the renderer periodically (and shortly
+// after the user stops editing) persists the current answers server-side via
+// the `form_submission.save_draft` command. Saving is fully non-blocking: it
+// never awaits or prevents form submission. Failures surface only in the
+// subtle status indicator in the form header — never as a modal or toast.
+
+type DraftSaveStatus = "idle" | "saving" | "saved" | "error";
+
+export interface DraftContext {
+  formDefinitionId: string;
+  bindingId?: string;
+  subjectType?: string | null;
+  subjectId?: string | null;
+  workItemId?: string;
+}
+
 // ── Props ──
 
 export interface MobileFormRendererProps {
@@ -73,6 +99,15 @@ export interface MobileFormRendererProps {
   onSubmit: (answers: Record<string, unknown>) => void;
   submitting?: boolean;
   workspaceId?: string;
+  /**
+   * When provided, enables debounced auto-save of the current answers. The
+   * callback receives the renderer's raw internal answers and should persist
+   * them (e.g. transform + POST to the save_draft command). Resolves `true` on
+   * success and `false` (or rejects) on failure; the renderer handles status
+   * indicator transitions and never throws back to the caller.
+   */
+  draftContext?: DraftContext;
+  onSaveDraft?: (answers: Record<string, unknown>) => Promise<boolean>;
 }
 
 // ── Helpers ──
@@ -91,12 +126,12 @@ function formatFileSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-function isImageType(file: File): boolean {
-  return file.type.startsWith("image/");
+function isImageType(file?: File): boolean {
+  return !!file && file.type.startsWith("image/");
 }
 
-function isVideoType(file: File): boolean {
-  return file.type.startsWith("video/");
+function isVideoType(file?: File): boolean {
+  return !!file && file.type.startsWith("video/");
 }
 
 // Pass/Fail/N/A button styles
@@ -143,17 +178,91 @@ export function MobileFormRenderer({
   onSubmit,
   submitting = false,
   workspaceId,
+  draftContext,
+  onSaveDraft,
 }: MobileFormRendererProps) {
   const [answers, setAnswers] = useState<Record<string, unknown>>(
     initialAnswers ?? {}
   );
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const { t } = useI18n();
 
   // Hidden file input refs (one per evidence block for camera + gallery)
   const cameraInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const galleryInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
   // In-flight XHRs keyed by entry.localId, so removal/retry can abort them.
   const xhrRefs = useRef<Record<string, XMLHttpRequest | null>>({});
+
+  // ── Draft auto-save (v0.5.1 Spec §5.4) ──
+  const [draftStatus, setDraftStatus] = useState<DraftSaveStatus>("idle");
+  const draftEnabled = Boolean(draftContext && onSaveDraft);
+  // Latest answers/saver kept in refs so the save routine is stable and always
+  // operates on current state without re-creating on every keystroke.
+  const answersRef = useRef(answers);
+  answersRef.current = answers;
+  const onSaveDraftRef = useRef(onSaveDraft);
+  onSaveDraftRef.current = onSaveDraft;
+  // Tracks whether there are unsaved edits since the last successful save.
+  const dirtyRef = useRef(false);
+  // Debounce timer for change-triggered saves.
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Guards against immediately re-saving a just-restored draft on first mount.
+  const skipFirstChangeRef = useRef(draftEnabled);
+
+  const doSaveDraft = useCallback(async () => {
+    if (!draftContext || !onSaveDraftRef.current) return;
+    if (!dirtyRef.current) return;
+    setDraftStatus("saving");
+    try {
+      const ok = await onSaveDraftRef.current(answersRef.current);
+      if (ok) {
+        dirtyRef.current = false;
+        setDraftStatus("saved");
+      } else {
+        setDraftStatus("error");
+      }
+    } catch {
+      // Errors are surfaced only in the status indicator (Spec §5.4).
+      setDraftStatus("error");
+    }
+  }, [draftContext]);
+
+  // Change-triggered debounced save (a few seconds after the user stops
+  // editing). The first effect run after mount is skipped so a restored draft
+  // is not immediately re-written back to the server.
+  useEffect(() => {
+    if (!draftEnabled) return;
+    if (skipFirstChangeRef.current) {
+      skipFirstChangeRef.current = false;
+      return;
+    }
+    dirtyRef.current = true;
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      void doSaveDraft();
+    }, 4000);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [answers, draftEnabled, doSaveDraft]);
+
+  // Periodic save every 30s while there are unsaved edits (Spec §5.4:
+  // "every 30 seconds or when answers change").
+  useEffect(() => {
+    if (!draftEnabled) return;
+    const interval = setInterval(() => {
+      void doSaveDraft();
+    }, 30000);
+    return () => clearInterval(interval);
+  }, [draftEnabled, doSaveDraft]);
+
+  // Flush any pending debounced save + clear timers on unmount.
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current);
+        debounceRef.current = null;
+      }
+    };
+  }, []);
 
   // ── Generic answer setter ──
   const setAnswer = useCallback(
@@ -459,7 +568,7 @@ export function MobileFormRenderer({
 
       // Kick off uploads for each new entry (after state is queued).
       for (const entry of newEntries) {
-        uploadFile(block.id, entry.localId, entry.file);
+        if (entry.file) uploadFile(block.id, entry.localId, entry.file);
       }
     },
     [answers, setAnswer, uploadFile]
@@ -469,7 +578,7 @@ export function MobileFormRenderer({
     (block: FormBlock, localId: string) => {
       const current = (answers[block.id] as EvidenceEntry[]) ?? [];
       const entry = current.find((e) => e.localId === localId);
-      if (!entry) return;
+      if (!entry || !entry.file) return;
       // Idempotent retry: server dedups by sha256, so re-uploading the same
       // content either creates the attachment or returns the existing one.
       uploadFile(block.id, localId, entry.file);
@@ -838,6 +947,10 @@ export function MobileFormRenderer({
               const isImage = isImageType(entry.file);
               const isVideo = isVideoType(entry.file);
               const isFailed = entry.status === "error";
+              // Entries restored from a saved draft have no local File object —
+              // only the server attachment id survives. They render without a
+              // preview but still submit their attachment id.
+              const isRecovered = !entry.file;
 
               return (
                 <div
@@ -854,18 +967,22 @@ export function MobileFormRenderer({
                   {isImage && entry.previewUrl ? (
                     <img
                       src={entry.previewUrl}
-                      alt={entry.file.name}
+                      alt={entry.file?.name ?? "attachment"}
                       className="h-full w-full object-cover"
                     />
                   ) : (
                     <div className="flex flex-col items-center gap-1 px-1 text-center">
-                      {isVideo ? (
+                      {isRecovered ? (
+                        <CheckCircle2 size={20} className="text-green-500" />
+                      ) : isVideo ? (
                         <Film size={20} className="text-slate-500" />
                       ) : (
                         <FileText size={20} className="text-slate-500" />
                       )}
                       <span className="line-clamp-2 text-[9px] font-medium text-slate-600">
-                        {entry.file.name}
+                        {isRecovered
+                          ? (entry.attachmentId ?? entry.id).slice(0, 12)
+                          : entry.file?.name}
                       </span>
                     </div>
                   )}
@@ -927,7 +1044,7 @@ export function MobileFormRenderer({
                       <Check size={9} className="shrink-0 text-green-300" />
                     )}
                     <span className="truncate">
-                      {formatFileSize(entry.file.size)}
+                      {entry.file ? formatFileSize(entry.file.size) : "—"}
                     </span>
                   </p>
                 </div>
@@ -1044,10 +1161,47 @@ export function MobileFormRenderer({
     [schema.blocks, answers, errors]
   );
 
+  // ── Draft save status indicator (v0.5.1 Spec §5.4) ──
+  // Subtle, non-blocking status shown only while a draft is being persisted
+  // or after a save has settled. Hidden entirely when auto-save is disabled or
+  // before the first save so it never competes with form content for attention.
+  const renderDraftIndicator = () => {
+    if (!draftEnabled || draftStatus === "idle") return null;
+    let icon: React.ReactNode = null;
+    let text = "";
+    let className = "text-slate-400";
+    if (draftStatus === "saving") {
+      icon = <Loader2 size={12} className="animate-spin" />;
+      text = t("form.draftSaving");
+      className = "text-indigo-500";
+    } else if (draftStatus === "saved") {
+      icon = <CheckCircle2 size={12} />;
+      text = t("form.draftSaved");
+      className = "text-slate-400";
+    } else if (draftStatus === "error") {
+      icon = <AlertCircle size={12} />;
+      text = t("form.draftSaveFailed");
+      className = "text-red-500";
+    }
+    return (
+      <div className="flex items-center justify-end px-1 -mt-1 mb-1">
+        <span
+          role="status"
+          aria-live="polite"
+          className={`flex items-center gap-1 text-[11px] font-medium ${className}`}
+        >
+          {icon}
+          {text}
+        </span>
+      </div>
+    );
+  };
+
   return (
     <div className="flex min-h-[100dvh] flex-col">
       {/* Form body */}
       <div className="flex-1 space-y-4 px-4 py-4">
+        {renderDraftIndicator()}
         {renderedBlocks}
       </div>
 

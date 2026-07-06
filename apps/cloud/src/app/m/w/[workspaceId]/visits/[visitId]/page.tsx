@@ -18,11 +18,12 @@ import {
   ArrowLeft, Loader2, AlertTriangle, AlertCircle, RefreshCw,
   Clock, MapPin, User, Wrench, FileText, ClipboardList,
   ChevronRight, Calendar, Phone, Mail, Building2, History, PlayCircle,
-  CheckCircle2,
+  CheckCircle2, Navigation, MapPin as MapPinArrive, Truck,
 } from "lucide-react";
 import { useI18n } from "@/i18n/locale-provider";
 import type { MessageKey } from "@/i18n/messages";
 import type { MyWorkItem } from "@/lib/api-hooks";
+import { notifyWorkspaceDataChanged } from "@/lib/workspace-events";
 
 export const dynamic = "force-dynamic";
 
@@ -279,6 +280,57 @@ function MobileVisitDetailPage() {
     void loadWorkItem();
   }, [load, loadWorkItem]);
 
+  // ── Visit lifecycle commands (v0.5.1 Spec §4.2) ──
+  //
+  // The visit status field is governed by named commands:
+  //   scheduled → start_travel → en_route → arrive → on_site → complete → completed
+  //   (any state) → cancel → cancelled
+  //
+  // The mobile UI exposes these as contextual action buttons that call the
+  // unified command API at /api/workspaces/{id}/commands/{commandType}.
+
+  const [lifecycleExecuting, setLifecycleExecuting] = useState<string | null>(null);
+  const [lifecycleToast, setLifecycleToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
+
+  const executeVisitCommand = useCallback(
+    async (commandType: string) => {
+      if (!visit) return;
+      setLifecycleExecuting(commandType);
+      setLifecycleToast(null);
+      try {
+        const res = await fetch(
+          `/api/workspaces/${workspaceId}/commands/${commandType}`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "X-Requested-With": "XMLHttpRequest",
+            },
+            body: JSON.stringify({
+              recordId: visitId,
+              expectedVersion: visit.version ?? 1,
+            }),
+          }
+        );
+        const json = await res.json();
+        if (!json.success) {
+          throw new Error(json.error?.message ?? t("mobile.actionFailed"));
+        }
+        notifyWorkspaceDataChanged();
+        setLifecycleToast({ type: "success", message: t("mobile.actionSuccess") });
+        await load();
+      } catch (e) {
+        setLifecycleToast({
+          type: "error",
+          message: e instanceof Error ? e.message : t("mobile.actionFailed"),
+        });
+      } finally {
+        setLifecycleExecuting(null);
+      }
+    },
+    [visit, workspaceId, visitId, load, t]
+  );
+
   // ── Derived display values ──
 
   const title = visit ? str(visit.title) || t("mobile.visitTitleDefault") : "";
@@ -288,6 +340,43 @@ function MobileVisitDetailPage() {
   const scheduledStart = visit ? str(visit.scheduled_start) : "";
   const scheduledEnd = visit ? str(visit.scheduled_end) : "";
   const actualStart = visit ? str(visit.actual_start) : "";
+
+  // Determine which lifecycle buttons to show based on current status
+  const lifecycleButtons: { command: string; labelKey: MessageKey; icon: typeof Truck; style: string }[] = [];
+  if (visit) {
+    if (status === "scheduled") {
+      lifecycleButtons.push({
+        command: "visit.start_travel",
+        labelKey: "mobile.visitStartTravel",
+        icon: Truck,
+        style: "bg-amber-600 text-white active:bg-amber-700",
+      });
+    }
+    if (status === "en_route") {
+      lifecycleButtons.push({
+        command: "visit.arrive",
+        labelKey: "mobile.visitArrive",
+        icon: Navigation,
+        style: "bg-green-600 text-white active:bg-green-700",
+      });
+    }
+    if (status === "on_site") {
+      lifecycleButtons.push({
+        command: "visit.complete",
+        labelKey: "mobile.visitComplete",
+        icon: CheckCircle2,
+        style: "bg-indigo-600 text-white active:bg-indigo-700",
+      });
+    }
+    if (status !== "completed" && status !== "cancelled") {
+      lifecycleButtons.push({
+        command: "visit.cancel",
+        labelKey: "mobile.visitCancel",
+        icon: AlertCircle,
+        style: "border border-red-200 bg-white text-red-600 active:bg-red-50",
+      });
+    }
+  }
   const actualEnd = visit ? str(visit.actual_end) : "";
   const notes = visit ? str(visit.notes) : "";
   const workOrderId = visit ? str(visit.work_order_id) : "";
@@ -462,6 +551,44 @@ function MobileVisitDetailPage() {
                 </span>
                 <ChevronRight size={18} />
               </Link>
+            )}
+
+            {/* Visit lifecycle command buttons (v0.5.1 Spec §4.2) */}
+            {lifecycleButtons.length > 0 && (
+              <div className="space-y-2">
+                {lifecycleButtons.map((btn) => {
+                  const Icon = btn.icon;
+                  const isExecuting = lifecycleExecuting === btn.command;
+                  return (
+                    <button
+                      key={btn.command}
+                      onClick={() => void executeVisitCommand(btn.command)}
+                      disabled={!!lifecycleExecuting}
+                      className={`flex min-h-[48px] w-full items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold shadow-sm transition active:scale-[0.98] disabled:opacity-50 ${btn.style}`}
+                    >
+                      {isExecuting ? (
+                        <Loader2 size={18} className="animate-spin" />
+                      ) : (
+                        <Icon size={18} />
+                      )}
+                      {t(btn.labelKey)}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Lifecycle toast */}
+            {lifecycleToast && (
+              <div
+                className={`fixed left-1/2 top-4 z-[70] flex -translate-x-1/2 items-center gap-2 rounded-lg px-4 py-3 text-sm font-semibold text-white shadow-lg ${
+                  lifecycleToast.type === "success" ? "bg-green-600" : "bg-red-600"
+                }`}
+                style={{ top: "calc(env(safe-area-inset-top) + 16px)" }}
+              >
+                {lifecycleToast.type === "success" ? <CheckCircle2 size={16} /> : <AlertTriangle size={16} />}
+                {lifecycleToast.message}
+              </div>
             )}
 
             {/* Customer / contact context */}

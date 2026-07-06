@@ -4,7 +4,7 @@ import { Suspense, useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
   ArrowLeft, Loader2, AlertTriangle, CheckCircle2, Clock3,
-  Gavel, ListChecks, FileText, User, ChevronRight, AlertCircle,
+  Gavel, ListChecks, FileText, User, ChevronRight, AlertCircle, RefreshCw,
 } from "lucide-react";
 import { useI18n } from "@/i18n/locale-provider";
 import type { MessageKey } from "@/i18n/messages";
@@ -123,6 +123,7 @@ function MobileWorkItemPage() {
   const [executing, setExecuting] = useState<string | null>(null);
   const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const [decisionComment, setDecisionComment] = useState("");
+  const [staleState, setStaleState] = useState<{ visible: boolean; message: string } | null>(null);
 
   const showToast = useCallback((type: "success" | "error", message: string) => {
     setToast({ type, message });
@@ -153,6 +154,16 @@ function MobileWorkItemPage() {
     void load();
   }, [load]);
 
+  // Helper: detect stale state (VERSION_CONFLICT) from API error
+  const isStaleStateError = (e: unknown): boolean => {
+    if (e instanceof Error) {
+      const msg = e.message.toLowerCase();
+      return msg.includes("version_conflict") || msg.includes("version conflict") ||
+             msg.includes("expected version") || msg.includes("modified by another");
+    }
+    return false;
+  };
+
   // ── Actions ──
 
   const handleClaim = async () => {
@@ -173,7 +184,11 @@ function MobileWorkItemPage() {
       showToast("success", t("mobile.actionSuccess"));
       await load();
     } catch (e) {
-      showToast("error", e instanceof Error ? e.message : t("mobile.actionFailed"));
+      if (isStaleStateError(e)) {
+        setStaleState({ visible: true, message: e instanceof Error ? e.message : t("mobile.staleStateDesc") });
+      } else {
+        showToast("error", e instanceof Error ? e.message : t("mobile.actionFailed"));
+      }
     } finally {
       setExecuting(null);
     }
@@ -197,7 +212,11 @@ function MobileWorkItemPage() {
       showToast("success", t("mobile.actionSuccess"));
       await load();
     } catch (e) {
-      showToast("error", e instanceof Error ? e.message : t("mobile.actionFailed"));
+      if (isStaleStateError(e)) {
+        setStaleState({ visible: true, message: e instanceof Error ? e.message : t("mobile.staleStateDesc") });
+      } else {
+        showToast("error", e instanceof Error ? e.message : t("mobile.actionFailed"));
+      }
     } finally {
       setExecuting(null);
     }
@@ -226,10 +245,21 @@ function MobileWorkItemPage() {
       setDecisionComment("");
       await load();
     } catch (e) {
-      showToast("error", e instanceof Error ? e.message : t("mobile.actionFailed"));
+      if (isStaleStateError(e)) {
+        setStaleState({ visible: true, message: e instanceof Error ? e.message : t("mobile.staleStateDesc") });
+      } else {
+        showToast("error", e instanceof Error ? e.message : t("mobile.actionFailed"));
+      }
     } finally {
       setExecuting(null);
     }
+  };
+
+  // Stale-state recovery: reload the latest data
+  const handleStaleStateRecovery = async () => {
+    setStaleState(null);
+    await load();
+    showToast("success", t("mobile.staleStateRefreshed"));
   };
 
   // ── Render ──
@@ -249,6 +279,42 @@ function MobileWorkItemPage() {
         >
           {toast.type === "success" ? <CheckCircle2 size={16} /> : <AlertTriangle size={16} />}
           {toast.message}
+        </div>
+      )}
+
+      {/* Stale-state recovery dialog (v0.5.1 Spec §5.4) */}
+      {staleState?.visible && (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/50 p-6">
+          <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl">
+            <div className="mb-4 flex items-center gap-3">
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-amber-100">
+                <AlertTriangle size={24} className="text-amber-600" />
+              </div>
+              <div>
+                <h3 className="text-base font-semibold text-slate-900">
+                  {t("mobile.staleStateTitle")}
+                </h3>
+              </div>
+            </div>
+            <p className="mb-5 text-sm leading-relaxed text-slate-600">
+              {t("mobile.staleStateDesc")}
+            </p>
+            <div className="flex flex-col gap-2">
+              <button
+                onClick={() => void handleStaleStateRecovery()}
+                className="flex min-h-[44px] w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-3 text-sm font-semibold text-white active:bg-indigo-700"
+              >
+                <RefreshCw size={16} />
+                {t("mobile.staleStateRefresh")}
+              </button>
+              <button
+                onClick={() => setStaleState(null)}
+                className="flex min-h-[44px] w-full items-center justify-center rounded-xl border border-slate-200 px-4 py-3 text-sm font-semibold text-slate-700 active:bg-slate-50"
+              >
+                {t("mobile.staleStateDismiss")}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

@@ -16,11 +16,15 @@ export async function GET(
     const url = new URL(request.url);
     const actorId = ctx.principal?.userId ?? "unknown";
 
+    // Per v0.5.1 Spec §6: cursor-based pagination with from/to time window
     const result = await getMyWork(workspaceId, actorId, {
       kind: url.searchParams.get("kind") ?? undefined,
       status: url.searchParams.get("status") ?? undefined,
       subjectType: url.searchParams.get("subjectType") ?? undefined,
       dueBefore: url.searchParams.get("dueBefore") ?? undefined,
+      from: url.searchParams.get("from") ?? undefined,
+      to: url.searchParams.get("to") ?? undefined,
+      cursor: url.searchParams.get("cursor") ?? undefined,
       limit: url.searchParams.get("limit") ? parseInt(url.searchParams.get("limit")!) : undefined,
       offset: url.searchParams.get("offset") ? parseInt(url.searchParams.get("offset")!) : undefined,
     });

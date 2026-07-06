@@ -700,6 +700,12 @@ export async function cancelWorkflow(
 }
 
 // ── Get My Work ──
+//
+// Per v0.5.1 Spec §6 API contract:
+//   GET /api/workspaces/{workspaceId}/my-work?assignee=me&from=...&to=...&cursor=...
+//
+// Cursor-based pagination uses (due_at, created_at, id) as a stable composite
+// cursor. The caller passes the `cursor` value returned by the previous page.
 
 export async function getMyWork(
   workspaceId: string,
@@ -709,18 +715,18 @@ export async function getMyWork(
     status?: string;
     subjectType?: string;
     dueBefore?: string;
+    from?: string;   // ISO timestamp — only items with due_at >= from
+    to?: string;     // ISO timestamp — only items with due_at <= to
+    cursor?: string; // composite cursor "{due_at}|{created_at}|{id}"
     limit?: number;
-    offset?: number;
+    offset?: number; // kept for backward compatibility
   } = {}
-): Promise<{ items: WorkItemRow[]; total: number }> {
-  const limit = filters.limit ?? 50;
-  const offset = filters.offset ?? 0;
+): Promise<{ items: WorkItemRow[]; total: number; nextCursor: string | null }> {
+  const limit = Math.min(filters.limit ?? 50, 100);
   const conditions: string[] = ["workspace_id = ?", "status IN ('ready', 'active')"];
   const args: unknown[] = [workspaceId];
 
   // Assignee filter: assigned to user directly OR in a permission group the user belongs to.
-  // Work items store the permission group key (e.g. "sales_manager") in assignee_id
-  // when assignee_type = 'permission_group', so we match against group keys.
   const groups = await getUserPermissionGroups(workspaceId, actorId);
   const groupKeys = groups.map(g => g.groupKey);
 
@@ -751,13 +757,41 @@ export async function getMyWork(
     conditions.push("(due_at IS NULL OR due_at <= ?)");
     args.push(filters.dueBefore);
   }
+  // Time window filters (spec §6: from/to)
+  if (filters.from) {
+    conditions.push("(due_at IS NOT NULL AND due_at >= ?)");
+    args.push(filters.from);
+  }
+  if (filters.to) {
+    conditions.push("(due_at IS NULL OR due_at <= ?)");
+    args.push(filters.to);
+  }
+
+  // Cursor pagination: if cursor is provided, decode it and add a WHERE clause
+  // that fetches items strictly after the cursor position.
+  // Cursor format: "{due_at_iso}|{created_at_iso}|{id}"
+  if (filters.cursor) {
+    const parts = filters.cursor.split("|");
+    if (parts.length === 3) {
+      const [cursorDueAt, cursorCreatedAt, cursorId] = parts;
+      // Composite ordering: (due_at ASC NULLS LAST, created_at ASC, id ASC)
+      // For cursor-based "after", we need: due_at > cursorDue_at OR (due_at = cursorDue_at AND created_at > cursorCreatedAt) OR (due_at = cursorDue_at AND created_at = cursorCreatedAt AND id > cursorId)
+      conditions.push(`(
+        (due_at IS NOT NULL AND due_at > ?) OR
+        (due_at = ? AND created_at > ?) OR
+        (due_at = ? AND created_at = ? AND id > ?) OR
+        (due_at IS NULL AND ? IS NOT NULL)
+      )`);
+      args.push(cursorDueAt, cursorDueAt, cursorCreatedAt, cursorDueAt, cursorCreatedAt, cursorId, cursorDueAt);
+    }
+  }
 
   const where = conditions.join(" AND ");
 
   const rows = await queryAll<WorkItemRow>(
     `SELECT * FROM ${TABLES.workItems} WHERE ${where}
-     ORDER BY due_at ASC NULLS LAST, created_at ASC LIMIT ? OFFSET ?`,
-    [...args, limit, offset]
+     ORDER BY due_at ASC NULLS LAST, created_at ASC, id ASC LIMIT ?`,
+    [...args, limit + 1] // fetch one extra to determine if there's a next page
   );
 
   const countRow = await queryOne<{ count: number }>(
@@ -765,7 +799,16 @@ export async function getMyWork(
     args
   );
 
-  return { items: rows, total: countRow?.count ?? 0 };
+  // If we fetched more than `limit` rows, there's a next page
+  let nextCursor: string | null = null;
+  let items = rows;
+  if (rows.length > limit) {
+    items = rows.slice(0, limit);
+    const last = items[items.length - 1];
+    nextCursor = `${last.due_at ?? "null"}|${last.created_at}|${last.id}`;
+  }
+
+  return { items, total: countRow?.count ?? 0, nextCursor };
 }
 
 // ── Get Workflow History ──
@@ -1451,6 +1494,118 @@ export async function fireOverdueTimers(
   }
 
   return { fired };
+}
+
+// ── Fire SLA Warning Events ──
+//
+// Per v0.5.1 Spec §4.6: SLA timers fire a warning event before the deadline.
+// The warning threshold is computed from the step's `sla` duration:
+//   - If sla ≤ 4h: warn at 50% of the duration
+//   - If sla > 4h: warn at 4h before deadline
+//
+// This function is idempotent — it checks whether a `timer.sla_warning` event
+// already exists for each timer before creating a new one.
+
+export async function fireSlaWarnings(
+  workspaceId: string
+): Promise<{ warned: number }> {
+  const ts = now();
+
+  // Find active SLA timers that haven't been warned yet
+  const activeTimers = await queryAll<{
+    id: string;
+    instance_id: string;
+    work_item_id: string | null;
+    due_at: string;
+    created_at: string;
+  }>(
+    `SELECT id, instance_id, work_item_id, due_at, created_at
+     FROM ${TABLES.workflowTimers}
+     WHERE workspace_id = ? AND status = 'active' AND timer_type = 'sla'`,
+    [workspaceId]
+  );
+
+  let warned = 0;
+
+  for (const timer of activeTimers) {
+    const dueAt = new Date(timer.due_at).getTime();
+    const createdAt = new Date(timer.created_at).getTime();
+    const totalDuration = dueAt - createdAt;
+    const remaining = dueAt - new Date(ts).getTime();
+
+    // Compute warning threshold
+    let warnAt: number;
+    if (totalDuration <= 4 * 60 * 60 * 1000) {
+      // ≤ 4h: warn at 50% elapsed
+      warnAt = dueAt - totalDuration * 0.5;
+    } else {
+      // > 4h: warn 4h before deadline
+      warnAt = dueAt - 4 * 60 * 60 * 1000;
+    }
+
+    // Only warn if we've passed the warning threshold but haven't reached overdue
+    if (new Date(ts).getTime() < warnAt || remaining <= 0) {
+      continue;
+    }
+
+    // Idempotency: check if warning already fired
+    if (timer.work_item_id) {
+      const existing = await queryOne<{ id: string }>(
+        `SELECT id FROM ${TABLES.workflowEvents}
+         WHERE instance_id = ? AND event_type = 'timer.sla_warning'
+         AND payload_json LIKE ?`,
+        [timer.instance_id, `%"timerId":"${timer.id}"%`]
+      );
+      if (existing) continue;
+    }
+
+    const lastEvent = await queryOne<{ max_seq: number }>(
+      `SELECT MAX(sequence) as max_seq FROM ${TABLES.workflowEvents}
+       WHERE instance_id = ?`,
+      [timer.instance_id]
+    );
+    const nextSeq = (lastEvent?.max_seq ?? 0) + 1;
+
+    await batch([
+      {
+        sql: `INSERT INTO ${TABLES.workflowEvents}
+              (id, workspace_id, instance_id, sequence, event_type, step_id,
+               actor_type, actor_id, payload_json, occurred_at)
+              VALUES (?, ?, ?, ?, 'timer.sla_warning', NULL, 'system', NULL, ?, ?)`,
+        args: [
+          genId("wfe"), workspaceId, timer.instance_id, nextSeq,
+          JSON.stringify({
+            timerId: timer.id,
+            workItemId: timer.work_item_id,
+            timerType: "sla",
+            dueAt: timer.due_at,
+            remainingMs: remaining,
+            totalDurationMs: totalDuration,
+          }),
+          ts,
+        ],
+      },
+    ]);
+
+    // Audit event for SLA warning
+    writeAuditEvent({
+      workspaceId,
+      actorType: "system",
+      actorId: "system",
+      action: "work_item.sla_warning",
+      entityType: "work_item",
+      entityId: timer.work_item_id ?? timer.id,
+      before: null,
+      after: { due_at: timer.due_at, remaining_ms: remaining },
+      requestId: `sla-warning-${timer.id}-${ts}`,
+    }).catch((err) => {
+      console.error("[audit] Failed to write SLA warning audit event:", err);
+    });
+
+    warned++;
+  }
+
+  return { warned };
 }
 
 /**

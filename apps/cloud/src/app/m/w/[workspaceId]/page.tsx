@@ -92,6 +92,9 @@ function MobileTodayPage() {
   const [items, setItems] = useState<MyWorkItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
+  const [cursor, setCursor] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(
@@ -103,28 +106,51 @@ function MobileTodayPage() {
           setLoading(true);
         }
         setError(null);
+        // Per v0.5.1 Spec §6: use cursor-based pagination, not full download
+        const params = new URLSearchParams();
+        if (isRefresh) {
+          // Fresh load — no cursor, reset state
+          setCursor(null);
+        } else if (cursor) {
+          params.set("cursor", cursor);
+        }
         const res = await fetch(
-          `/api/workspaces/${workspaceId}/my-work`,
+          `/api/workspaces/${workspaceId}/my-work?${params.toString()}`,
           { cache: "no-store" }
         );
         const json = await res.json();
         if (!json.success) {
           throw new Error(json.error?.message ?? t("mobile.errorOccurred"));
         }
-        setItems(json.data?.items ?? []);
+        const newItems = json.data?.items ?? [];
+        if (isRefresh || !cursor) {
+          setItems(newItems);
+        } else {
+          setItems((prev) => [...prev, ...newItems]);
+        }
+        setHasMore(!!json.data?.nextCursor);
+        setCursor(json.data?.nextCursor ?? null);
       } catch (e) {
         setError(e instanceof Error ? e.message : t("mobile.errorOccurred"));
       } finally {
         setLoading(false);
         setRefreshing(false);
+        setLoadingMore(false);
       }
     },
-    [workspaceId, t]
+    [workspaceId, cursor, t]
   );
 
   useEffect(() => {
     void load();
-  }, [load]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [workspaceId]);
+
+  const loadMore = useCallback(() => {
+    if (!hasMore || loadingMore) return;
+    setLoadingMore(true);
+    void load(false);
+  }, [hasMore, loadingMore, load]);
 
   const overdueCount = items.filter(
     (i) => isOverdue(i.due_at) && i.status !== "completed"
@@ -253,6 +279,17 @@ function MobileTodayPage() {
                 </button>
               );
             })}
+
+            {/* Load More button — cursor pagination */}
+            {hasMore && (
+              <button
+                onClick={loadMore}
+                disabled={loadingMore}
+                className="flex min-h-[44px] w-full items-center justify-center rounded-xl border border-slate-200 bg-white py-3 text-sm font-semibold text-slate-700 active:bg-slate-50 disabled:opacity-50"
+              >
+                {loadingMore ? t("mobile.loading") : t("mobile.loadMore")}
+              </button>
+            )}
           </div>
         )}
       </div>

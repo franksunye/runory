@@ -16,10 +16,12 @@ import {
   AlertTriangle,
   Loader2,
   FileText,
+  Clock,
 } from "lucide-react";
 import type { FormBlock } from "@runory/contracts";
 import { MobileFormRenderer } from "@/components/forms/MobileFormRenderer";
 import { notifyWorkspaceDataChanged } from "@/lib/workspace-events";
+import { useI18n } from "@/i18n/locale-provider";
 
 export const dynamic = "force-dynamic";
 
@@ -62,7 +64,7 @@ interface FormSchemaData {
 
 interface EvidenceEntryLike {
   id: string;
-  file: File;
+  file?: File;
   previewUrl: string;
 }
 
@@ -149,6 +151,92 @@ function transformAnswers(
   return out;
 }
 
+// ── Draft answer recovery ──
+//
+// Reverse of `transformAnswers`: converts a draft submission's backend-stored
+// answers back into the MobileFormRenderer's internal answer format so a
+// recovered draft can pre-fill the form.
+//  - Field blocks:      answers[field_key ?? block.id] = typed value
+//  - Checklist blocks:  answers[block.id] = { [itemId]: { result, notes } }
+//  - Evidence blocks:   answers[block.id] = EvidenceEntry[] (no File object —
+//                       only the attachment id is recovered; previews are not
+//                       available for restored entries)
+//  - Signature blocks:  answers[block.id] = { signerLabel, acknowledged, timestamp }
+function restoreDraftAnswers(
+  blocks: FormBlock[],
+  backend: Record<string, unknown>
+): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+
+  for (const block of blocks) {
+    switch (block.block_type) {
+      case "field": {
+        const key = block.field_key ?? block.id;
+        if (backend[key] !== undefined) {
+          out[key] = backend[key];
+        }
+        break;
+      }
+
+      case "checklist": {
+        const simplified = backend[block.id] as
+          | Record<string, string>
+          | undefined;
+        if (simplified) {
+          const restored: Record<string, ChecklistItemAnswerLike> = {};
+          for (const [itemId, result] of Object.entries(simplified)) {
+            restored[itemId] = {
+              result: (result as "pass" | "fail" | "na") ?? null,
+              notes: "",
+            };
+          }
+          out[block.id] = restored;
+        }
+        break;
+      }
+
+      case "evidence": {
+        const ev = backend[block.id] as
+          | { attachments?: string[] }
+          | undefined;
+        if (ev?.attachments && ev.attachments.length > 0) {
+          out[block.id] = ev.attachments.map((id, idx) => ({
+            localId: `rec-${idx}-${id}`,
+            // The entry id becomes the real attachment id so that on submit
+            // the evidence block stores attachment ids.
+            id,
+            attachmentId: id,
+            status: "uploaded" as const,
+            progress: 100,
+            previewUrl: "",
+          }));
+        }
+        break;
+      }
+
+      case "signature": {
+        const sig = backend[block.id] as
+          | { acknowledged?: boolean; signedBy?: string; timestamp?: string }
+          | undefined;
+        if (sig) {
+          out[block.id] = {
+            signerLabel: sig.signedBy ?? "",
+            acknowledged: sig.acknowledged ?? false,
+            timestamp: sig.timestamp ?? "",
+          };
+        }
+        break;
+      }
+
+      case "header":
+      default:
+        break;
+    }
+  }
+
+  return out;
+}
+
 // ── Page (Suspense wrapper) ──
 
 export default function MobileFormPageWrapper() {
@@ -172,6 +260,7 @@ function MobileFormPage() {
   const workspaceId = params.workspaceId as string;
   const workItemId = params.workItemId as string;
   const router = useRouter();
+  const { t, locale } = useI18n();
 
   const [state, setState] = useState<PageState>("loading");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -183,6 +272,16 @@ function MobileFormPage() {
     type: "success" | "error";
     message: string;
   } | null>(null);
+  // Draft recovery (v0.5.1 Spec §5.4): if a draft submission exists for this
+  // work item, we prompt the user before rendering the form. `initialAnswers`
+  // is set only when the user chooses to continue from the draft.
+  const [draftPrompt, setDraftPrompt] = useState<{
+    answers: Record<string, unknown>;
+    updatedAt: string;
+  } | null>(null);
+  const [initialAnswers, setInitialAnswers] = useState<
+    Record<string, unknown> | undefined
+  >(undefined);
 
   const showToast = useCallback(
     (type: "success" | "error", message: string) => {
@@ -273,6 +372,51 @@ function MobileFormPage() {
       setFormDefId(definition.id);
       setFormName(definition.name ?? formKey);
       setSchema(formSchema);
+
+      // 4. Check for an existing draft submission for this work item
+      //    (v0.5.1 Spec §5.4: "Online form drafts SHOULD persist server-side").
+      //    If one exists, surface a "Continue from draft?" prompt before
+      //    rendering the form. This is best-effort: a failure here never blocks
+      //    the form from rendering.
+      setDraftPrompt(null);
+      setInitialAnswers(undefined);
+      try {
+        const draftRes = await fetch(
+          `/api/workspaces/${workspaceId}/forms/submissions?workItemId=${encodeURIComponent(
+            workItemId
+          )}&status=draft`,
+          { cache: "no-store" }
+        );
+        const draftJson = await draftRes.json();
+        if (
+          draftJson.success &&
+          Array.isArray(draftJson.data) &&
+          draftJson.data.length > 0
+        ) {
+          const draft = draftJson.data[0] as Record<string, unknown>;
+          const raw = draft.answers_json as string | undefined;
+          let parsed: Record<string, unknown> = {};
+          if (raw) {
+            try {
+              parsed = JSON.parse(raw) as Record<string, unknown>;
+            } catch {
+              parsed = {};
+            }
+          }
+          if (Object.keys(parsed).length > 0) {
+            setDraftPrompt({
+              answers: parsed,
+              updatedAt:
+                (draft.updated_at as string) ??
+                (draft.created_at as string) ??
+                "",
+            });
+          }
+        }
+      } catch {
+        // Draft recovery is best-effort; never block form rendering on it.
+      }
+
       setState("ready");
     } catch (e) {
       setErrorMessage(
@@ -356,6 +500,62 @@ function MobileFormPage() {
     },
     [workItem, formDefId, schema, workspaceId, showToast]
   );
+
+  // ── Draft auto-save (v0.5.1 Spec §5.4) ──
+  //
+  // Called by MobileFormRenderer (debounced) to persist the current answers as
+  // a draft via the `form_submission.save_draft` command. Answers are
+  // transformed to the backend format (same as submit) so a recovered draft
+  // round-trips cleanly. Never throws — failures surface only in the
+  // renderer's status indicator.
+
+  const handleSaveDraft = useCallback(
+    async (rawAnswers: Record<string, unknown>): Promise<boolean> => {
+      if (!workItem || !formDefId || !schema) return false;
+      try {
+        const transformed = transformAnswers(schema.blocks, rawAnswers);
+        const res = await fetch(
+          `/api/workspaces/${workspaceId}/commands/form_submission.save_draft`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              formDefinitionId: formDefId,
+              subjectType: workItem.subject_type ?? undefined,
+              subjectId: workItem.subject_id ?? undefined,
+              workItemId: workItem.id,
+              bindingId: workItem.form_binding_id ?? undefined,
+              answers: transformed,
+            }),
+          }
+        );
+        const json = await res.json();
+        return Boolean(json.success);
+      } catch {
+        return false;
+      }
+    },
+    [workItem, formDefId, schema, workspaceId]
+  );
+
+  // ── Draft recovery handlers ──
+
+  const handleContinueDraft = useCallback(() => {
+    if (!draftPrompt || !schema) {
+      setDraftPrompt(null);
+      return;
+    }
+    const restored = restoreDraftAnswers(schema.blocks, draftPrompt.answers);
+    setInitialAnswers(restored);
+    setDraftPrompt(null);
+  }, [draftPrompt, schema]);
+
+  const handleStartFresh = useCallback(() => {
+    // Per Spec §5.4: declining does NOT delete the draft — the server keeps
+    // it. We simply start the form blank.
+    setInitialAnswers(undefined);
+    setDraftPrompt(null);
+  }, []);
 
   // ── Render ──
 
@@ -455,12 +655,61 @@ function MobileFormPage() {
           </div>
         )}
 
-        {state === "ready" && schema && (
+        {state === "ready" && schema && draftPrompt && (
+          <div className="flex flex-col items-center justify-center gap-5 px-6 py-16">
+            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-indigo-100">
+              <Clock size={32} className="text-indigo-600" />
+            </div>
+            <div className="text-center">
+              <h2 className="text-base font-bold text-slate-900">
+                {t("form.continueDraft")}
+              </h2>
+              <p className="mt-2 text-sm leading-relaxed text-slate-500">
+                {t("form.continueDraftDesc", {
+                  time: draftPrompt.updatedAt
+                    ? new Date(draftPrompt.updatedAt).toLocaleString(
+                        locale === "zh" ? "zh-CN" : "en-US"
+                      )
+                    : "",
+                })}
+              </p>
+            </div>
+            <div className="flex w-full max-w-xs flex-col gap-2">
+              <button
+                onClick={handleContinueDraft}
+                className="flex min-h-[48px] w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 px-6 text-sm font-bold text-white shadow-lg shadow-indigo-600/20 active:bg-indigo-700"
+              >
+                {t("workspace.workflow.confirm")}
+              </button>
+              <button
+                onClick={handleStartFresh}
+                className="flex min-h-[48px] w-full items-center justify-center rounded-xl border border-slate-200 px-6 text-sm font-semibold text-slate-700 active:bg-slate-100"
+              >
+                {t("form.startFresh")}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {state === "ready" && schema && !draftPrompt && (
           <MobileFormRenderer
             schema={schema}
+            initialAnswers={initialAnswers}
             onSubmit={(answers) => void handleSubmit(answers)}
             submitting={false}
             workspaceId={workspaceId}
+            draftContext={
+              workItem && formDefId
+                ? {
+                    formDefinitionId: formDefId,
+                    bindingId: workItem.form_binding_id ?? undefined,
+                    subjectType: workItem.subject_type ?? undefined,
+                    subjectId: workItem.subject_id ?? undefined,
+                    workItemId: workItem.id,
+                  }
+                : undefined
+            }
+            onSaveDraft={handleSaveDraft}
           />
         )}
 

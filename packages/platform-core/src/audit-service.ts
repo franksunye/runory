@@ -91,6 +91,7 @@ export type AuditAction =
   | "work_item.approval_decide"
   | "work_item.return"
   | "work_item.cancel"
+  | "work_item.sla_warning"
   // Evidence Upload (v0.5.1)
   | "attachment.upload"
   | "attachment.download"

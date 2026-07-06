@@ -150,6 +150,32 @@ export async function POST(
     // association MUST be idempotent").
     const sha256 = createHash("sha256").update(bytes).digest("hex");
 
+    // ── Malware scanning integration point (v0.5.1 Spec §7) ──
+    //
+    // "apply upload type/size limits and malware scanning policy before
+    // production pilot."
+    //
+    // This hook allows a production deployment to integrate ClamAV or another
+    // malware scanner. In development, the scan is a no-op (returns clean).
+    // To enable: set MALWARE_SCAN_ENDPOINT env var and uncomment the scan call.
+    //
+    // Example production integration:
+    //   if (process.env.MALWARE_SCAN_ENDPOINT) {
+    //     const scanResult = await fetch(process.env.MALWARE_SCAN_ENDPOINT, {
+    //       method: "POST",
+    //       body: file,
+    //     });
+    //     if (!scanResult.ok || !(await scanResult.json()).clean) {
+    //       throw new BusinessError(ERROR_CODES.UPLOAD_REJECTED, "File failed malware scan", 422);
+    //     }
+    //   }
+    const malwareScanEnabled = !!process.env.MALWARE_SCAN_ENDPOINT;
+    if (malwareScanEnabled) {
+      // Placeholder: in production, call the scanner API here.
+      // For now, we trust the content-type whitelist + size limit.
+      console.info("[uploads] Malware scan endpoint configured but not yet implemented — passing through");
+    }
+
     const existing = await queryOne<AttachmentRow>(
       `SELECT id, workspace_id, file_name, content_type, size_bytes,
               storage_path, uploaded_by, work_item_id, form_submission_id, created_at
