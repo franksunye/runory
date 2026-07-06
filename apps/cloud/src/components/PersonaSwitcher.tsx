@@ -35,7 +35,7 @@ const TEXT_COLOR_CLASSES: Record<string, string> = {
   purple: "text-purple-600",
 };
 
-export default function DevPersonaSwitcher() {
+export default function PersonaSwitcher() {
   const { t } = useI18n();
   const [personas, setPersonas] = useState<Persona[]>([]);
   const [current, setCurrent] = useState<string>("dev-local-owner");
@@ -53,7 +53,7 @@ export default function DevPersonaSwitcher() {
       setCurrent(data.current);
       setLoaded(true);
     } catch {
-      // Dev endpoint not available — silently hide the switcher
+      // Endpoint not available — silently hide the switcher
     }
   }, []);
 
@@ -94,7 +94,7 @@ export default function DevPersonaSwitcher() {
     [current, switching]
   );
 
-  // Only render in dev mode
+  // Only render in dev mode — in production, users log in via OTP with their own email
   if (
     process.env.NODE_ENV !== "development" &&
     process.env.NEXT_PUBLIC_PLATFORM_DEV_BOOTSTRAP !== "true"
@@ -102,7 +102,7 @@ export default function DevPersonaSwitcher() {
     return null;
   }
 
-  // Don't render until we've confirmed the dev endpoint is available
+  // Don't render until we've confirmed the endpoint is available
   if (!loaded) return null;
 
   const currentPersona = personas.find((p) => p.id === current) ?? personas[0];
@@ -117,7 +117,10 @@ export default function DevPersonaSwitcher() {
         <div className="mb-2 w-72 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl">
           <div className="border-b border-slate-100 px-4 py-3">
             <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-              {t("dev.persona.title")}
+              {t("persona.title")}
+            </p>
+            <p className="mt-0.5 text-[11px] text-slate-400">
+              {t("persona.hint")}
             </p>
           </div>
           <ul className="max-h-80 overflow-y-auto py-1">
@@ -158,7 +161,7 @@ export default function DevPersonaSwitcher() {
         onClick={() => setOpen((v) => !v)}
         disabled={switching}
         className="flex items-center gap-2.5 rounded-full border border-slate-200 bg-white px-4 py-2.5 shadow-lg transition hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-60"
-        title={t("dev.persona.title")}
+        title={t("persona.title")}
       >
         {switching ? (
           <Loader2 size={18} className="animate-spin text-slate-500" />
@@ -172,7 +175,7 @@ export default function DevPersonaSwitcher() {
             }`}
           />
           <span className="text-sm font-semibold text-slate-700">
-            {currentPersona?.label ?? "Dev Persona"}
+            {currentPersona?.label ?? t("persona.title")}
           </span>
         </div>
         <ChevronDown

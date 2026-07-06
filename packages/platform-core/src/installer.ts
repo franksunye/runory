@@ -344,6 +344,7 @@ async function seedPackDemoData(workspaceId: string, packId: string): Promise<nu
         );
 
         let actualUserId: string;
+        let isNewUser = false;
         if (existing) {
           actualUserId = existing.id;
         } else {
@@ -355,6 +356,25 @@ async function seedPackDemoData(workspaceId: string, packId: string): Promise<nu
             [actualUserId, du.externalId, du.email ?? null, du.displayName, nowTs, nowTs]
           );
           created++;
+          isNewUser = true;
+        }
+
+        // Create auth_identity so this persona can log in via OTP
+        if (du.email && isNewUser) {
+          const emailNormalized = du.email.trim().toLowerCase();
+          const existingIdentity = await queryOne<{ id: string }>(
+            `SELECT id FROM ${TABLES.authIdentities}
+             WHERE method = 'email_otp' AND email_normalized = ?`,
+            [emailNormalized]
+          );
+          if (!existingIdentity) {
+            await execute(
+              `INSERT INTO ${TABLES.authIdentities}
+               (id, user_id, method, email_normalized, email_display, verified, verified_at, created_at, updated_at)
+               VALUES (?, ?, 'email_otp', ?, ?, 1, ?, ?, ?)`,
+              [genId("auth"), actualUserId, emailNormalized, du.email, nowTs, nowTs, nowTs]
+            );
+          }
         }
 
         // Create workspace membership (idempotent)

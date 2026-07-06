@@ -1573,8 +1573,9 @@ export const en = {
   "mobile.retry": "Retry",
 
   // Dev persona switcher (dev-only)
-  "dev.persona.title": "Dev Persona",
-  "dev.persona.switching": "Switching persona...",
+  "persona.title": "Persona",
+  "persona.hint": "Quick switch — users can also log in via OTP",
+  "persona.switching": "Switching persona...",
 } as const;
 
 export type MessageKey = keyof typeof en;
@@ -2134,8 +2135,9 @@ export const zh: Messages = {
   "mobile.retry": "重试",
 
   // Dev persona switcher (dev-only)
-  "dev.persona.title": "开发角色",
-  "dev.persona.switching": "切换角色中...",
+  "persona.title": "角色",
+  "persona.hint": "快速切换 — 用户也可通过 OTP 登录",
+  "persona.switching": "切换角色中...",
 };
 
 export const messages = { en, zh } as const;
