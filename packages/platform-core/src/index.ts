@@ -29,6 +29,7 @@ export * from "./permission-groups";
 export * from "./command-runtime";
 export * from "./outbox";
 export * from "./governed-fields";
+export * from "./managed-fields";
 export * from "./workflow-v2";
 export * from "./quote-commands";
 export * from "./quote-calculation";

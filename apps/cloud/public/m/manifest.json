@@ -1,0 +1,12 @@
+{
+  "id": "/m",
+  "start_url": "/m",
+  "scope": "/m/",
+  "display": "standalone",
+  "name": "Runory Field",
+  "short_name": "Runory",
+  "theme_color": "#7c5cfc",
+  "background_color": "#ffffff",
+  "orientation": "portrait-primary",
+  "icons": []
+}

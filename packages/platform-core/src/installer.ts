@@ -20,6 +20,7 @@ import {
 } from "@runory/contracts";
 import { publishFormDefinition, createFormBinding, submitForm, type FormSchema } from "./forms-v2";
 import { startWorkflowV2 } from "./workflow-v2";
+import type { CommandActor } from "./command-runtime";
 import { getOutboxMessages } from "./outbox";
 
 // ── Manifest in-memory cache ──
@@ -117,6 +118,12 @@ interface DemoOutboxMessage {
   lastError?: string;
 }
 
+interface DemoWorkflowInstance {
+  workflowKey: string;
+  recordAlias: string; // alias of a previously seeded record
+  actorId?: string;    // defaults to "demo-seed"
+}
+
 interface PackDemoData {
   records: DemoRecord[];
   automations?: unknown[];
@@ -127,6 +134,7 @@ interface PackDemoData {
   formSubmissions?: DemoFormSubmission[];
   scheduleEntries?: DemoScheduleEntry[];
   outboxMessages?: DemoOutboxMessage[];
+  workflowInstances?: DemoWorkflowInstance[];
 }
 
 function readPackDemoDataFile(packId: string): PackDemoData | null {
@@ -142,6 +150,7 @@ function readPackDemoDataFile(packId: string): PackDemoData | null {
     formSubmissions: Array.isArray(raw.formSubmissions) ? raw.formSubmissions : [],
     scheduleEntries: Array.isArray(raw.scheduleEntries) ? raw.scheduleEntries : [],
     outboxMessages: Array.isArray(raw.outboxMessages) ? raw.outboxMessages : [],
+    workflowInstances: Array.isArray(raw.workflowInstances) ? raw.workflowInstances : [],
   };
 }
 
@@ -288,7 +297,7 @@ async function seedPackDemoData(workspaceId: string, packId: string): Promise<nu
 
     const row = existing ?? (await createRecord(workspaceId, record.object, data));
     if (!existing) created++;
-    if (record.alias) aliases.set(record.alias, row);
+    if (record.alias) aliases.set(record.alias, { ...row, objectKey: record.object });
   }
 
   // Seed demo automations (idempotent — skip if automation_id already exists)
@@ -496,11 +505,47 @@ async function seedPackDemoData(workspaceId: string, packId: string): Promise<nu
     }
   }
 
-  // Auto-start workflow instances for existing records (v0.4).
-  // After workflow definitions are seeded, check for autoStart workflows and
-  // V1 auto-start workflow logic removed.
-  // V2 workflows are started via command runtime when records are created
-  // through the API, or manually via the workflows UI.
+  // ── v0.5: Seed V2 workflow instances ──
+  // After records are seeded and the alias map is populated, start V2 workflow
+  // instances for records that should have an active approval/workflow process.
+  // Idempotent: skips records that already have a running instance.
+  if (demo.workflowInstances && demo.workflowInstances.length > 0) {
+    for (const wi of demo.workflowInstances) {
+      try {
+        // Resolve record ID from alias
+        const alias = aliases.get(wi.recordAlias);
+        if (!alias) {
+          console.warn(`[installer] Workflow instance skipped: alias "${wi.recordAlias}" not found`);
+          continue;
+        }
+        const recordId = alias.id as string;
+
+        // Check if instance already exists (idempotency)
+        const existing = await queryOne<{ id: string }>(
+          `SELECT id FROM ${TABLES.workflowInstancesV2}
+           WHERE workspace_id = ? AND workflow_key = ? AND record_id = ? AND status = 'running'`,
+          [workspaceId, wi.workflowKey, recordId]
+        );
+        if (existing) {
+          continue; // Already started
+        }
+
+        // Start the workflow
+        const actor: CommandActor = { type: "system", id: wi.actorId ?? "demo-seed" };
+        const result = await startWorkflowV2(
+          workspaceId,
+          wi.workflowKey,
+          alias.objectKey as string,
+          recordId,
+          actor
+        );
+        console.log(`[installer] Started workflow ${wi.workflowKey} for ${wi.recordAlias} → ${result.instanceId}`);
+        created++;
+      } catch (e) {
+        console.warn(`[installer] Failed to seed workflow instance ${wi.workflowKey}: ${e instanceof Error ? e.message : String(e)}`);
+      }
+    }
+  }
 
   return created;
 }

@@ -16,6 +16,7 @@ const WORKSPACE_NAME = "Demo Workspace";
 const PACKS = [
   { id: "crm-lite-pack", label: "CRM Lite Pack" },
   { id: "fsm-pack", label: "FSM Pack" },
+  { id: "sales-quote-pack", label: "Sales Quote Pack" },
 ];
 
 async function fetchJson(url, opts = {}) {

@@ -1291,5 +1291,17 @@
         "sort_order": 2
       }
     }
+  ],
+  "workflowInstances": [
+    {
+      "workflowKey": "quote-approval",
+      "recordAlias": "q-acme-wo-urgent",
+      "actorId": "demo-seed"
+    },
+    {
+      "workflowKey": "quote-approval",
+      "recordAlias": "q-harbor-deal",
+      "actorId": "demo-seed"
+    }
   ]
 }

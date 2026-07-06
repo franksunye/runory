@@ -81,7 +81,9 @@ export type AuditAction =
   | "automation.enable"
   | "automation.disable"
   | "automation.run"
-  | "automation.run_fail";
+  | "automation.run_fail"
+  // Quote Document Output (v0.5.1)
+  | "quote.document_generated";
 
 export interface AuditEventInput {
   workspaceId: string;

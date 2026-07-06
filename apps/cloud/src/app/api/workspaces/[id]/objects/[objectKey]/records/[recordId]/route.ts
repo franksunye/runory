@@ -1,7 +1,17 @@
 import { NextRequest } from "next/server";
-import { getRecord, updateRecord, deleteRecord, restoreRecord, writeAuditEvent, now } from "@runory/platform-core";
+import {
+  getRecord,
+  updateRecord,
+  deleteRecord,
+  restoreRecord,
+  writeAuditEvent,
+  now,
+  isManagedField,
+  getManagedFieldCommand,
+  ERROR_CODES,
+} from "@runory/platform-core";
 import { requireWorkspaceContext } from "@/lib/auth";
-import { successResponse, handleError, notFound, getOrCreateRequestId } from "@/lib/http";
+import { successResponse, handleError, notFound, errorResponse, getOrCreateRequestId } from "@/lib/http";
 
 export const dynamic = "force-dynamic";
 
@@ -34,6 +44,36 @@ export async function PUT(
     const { id, objectKey, recordId } = await params;
     const { ctx, workspaceId } = await requireWorkspaceContext(request, id, "member");
     const data = await request.json() as Record<string, unknown>;
+
+    // ── Guard: managed lifecycle fields require a named command (v0.5.1 P0) ──
+    // Generic record CRUD MUST NOT directly change managed lifecycle fields such
+    // as status / stage / revision_number / snapshot_hash. Those can only be
+    // mutated via the command directory. UI / API / automation / MCP / future
+    // Agents all share that single entry point.
+    const managedViolations: { field: string; command: string }[] = [];
+    for (const field of Object.keys(data)) {
+      if (isManagedField(objectKey, field)) {
+        managedViolations.push({
+          field,
+          command: getManagedFieldCommand(objectKey, field) ?? "(see command directory)",
+        });
+      }
+    }
+    if (managedViolations.length > 0) {
+      const message = managedViolations
+        .map(
+          (v) =>
+            `Field '${v.field}' on '${objectKey}' is managed by command(s): ${v.command}. Use the command API instead of generic update.`
+        )
+        .join(" ");
+      return errorResponse(
+        ERROR_CODES.GOVERNED_FIELD_REQUIRES_COMMAND,
+        message,
+        409,
+        ctx.requestId
+      );
+    }
+
     const before = await getRecord(workspaceId, objectKey, recordId);
     const record = await updateRecord(workspaceId, objectKey, recordId, data);
     if (!record) {
