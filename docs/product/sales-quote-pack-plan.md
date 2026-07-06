@@ -131,7 +131,7 @@ Management
 
 Object key: `product_service`
 
-Chinese label: `产品/服务`
+Chinese label: `Product/Service`
 
 Purpose:
 
@@ -156,7 +156,7 @@ notes               optional
 
 Object key: `price_book`
 
-Chinese label: `价格表`
+Chinese label: `Price Book`
 
 Purpose:
 
@@ -181,7 +181,7 @@ Price book line items can be represented as quote-time price snapshots or a simp
 
 Object key: `quote`
 
-Chinese label: `报价`
+Chinese label: `Quote`
 
 Purpose:
 
@@ -223,7 +223,7 @@ Rules:
 
 Object key: `quote_line`
 
-Chinese label: `报价项`
+Chinese label: `Quote Line`
 
 Purpose:
 
@@ -250,7 +250,7 @@ sort_order          optional
 
 Object key: `quote_approval`
 
-Chinese label: `报价审批`
+Chinese label: `Quote Approval`
 
 Purpose:
 

@@ -19,7 +19,7 @@ Cloud must not create hard coupling that prevents future Private Cloud, VPC, On-
 
 ## 2. Deployment Modes
 
-### Runory Cloud（默认）
+### Runory Cloud (Default)
 
 ```text
 Multi-tenant SaaS
@@ -30,7 +30,7 @@ Auth / Billing / Workspace hosting
 
 Best for: ordinary SMB, fast onboarding, continuous upgrades, team collaboration.
 
-### Private Cloud / Customer VPC（高级）
+### Private Cloud / Customer VPC (Advanced)
 
 ```text
 Runory Core + Module Runtime in customer-controlled infrastructure
@@ -40,10 +40,10 @@ Customer-managed Auth, Storage, and network boundaries
 
 Best for: data residency, private network, large customers with IT teams.
 
-### On-premise / Local Runtime（高级 / 开发）
+### On-premise / Local Runtime (Advanced / Development)
 
 ```text
-Portable Runtime（SQLite or customer PostgreSQL）
+Portable Runtime (SQLite or customer PostgreSQL)
 Adapter-based integration with optional cloud services
 MCP / SDK for Agent connection
 Export/import from Cloud Workspace
@@ -100,7 +100,7 @@ Search Adapter
 
 Example: Cloud uses managed Auth and S3; Private Runtime uses local Auth adapter and filesystem storage adapter—with the same Core and Module APIs.
 
-## 5. Cloud To Local Path（非默认，但架构预留）
+## 5. Cloud To Local Path (Non-default, but architecturally reserved)
 
 The preferred advanced path is **controlled export/import**, not bidirectional sync.
 
@@ -111,7 +111,7 @@ Cloud Workspace
     v
 Workspace Export Package
     |
-    | import（Private / Local Runtime）
+    | import (Private / Local Runtime)
     v
 Private / Local Workspace
 ```
@@ -125,10 +125,10 @@ Cloud Workspace = optionally retained, read-only, or disconnected
 
 Bidirectional sync is **deferred**. It requires conflict resolution, delete semantics, concurrent edits, and attachment sync—highest complexity.
 
-### Early Cloud add-ons（post-MVP）
+### Early Cloud add-ons (post-MVP)
 
 ```text
-Cloud Backup（retain as service for Cloud users）
+Cloud Backup (retain as service for Cloud users)
 One-way Export to Private / Local
 Team / Billing upgrade within Cloud
 ```
@@ -150,7 +150,7 @@ runory-workspace-export.zip
 |-- modules.json
 |-- extensions/
 |-- templates.json
-|-- data/（optional, deployment-dependent）
+|-- data/ (optional, deployment-dependent)
 |-- files/
 |-- audit/
 `-- checksums.json
@@ -161,7 +161,7 @@ Draft `manifest.json`:
 ```json
 {
   "workspaceId": "ws_001",
-  "workspaceName": "我的小饭馆",
+  "workspaceName": "My Small Restaurant",
   "coreVersion": "1.0.0",
   "templateId": "small-business-crm",
   "packs": [
@@ -190,20 +190,20 @@ POC requirement: prove export of config + schema + extensions (full data migrati
 Runory Cloud:
 
 ```text
-Turso/libSQL（business + metadata + platform objects）
-Object Storage（attachments, exports, reports）
+Turso/libSQL (business + metadata + platform objects)
+Object Storage (attachments, exports, reports)
 Queue / Async Jobs
 Cloud API + Agent Operation API
-Cloud MCP Server（advanced channel）
+Cloud MCP Server (advanced channel)
 Web UI Shell
 ```
 
 Portable Runtime:
 
 ```text
-SQLite or PostgreSQL（deployment choice）
+SQLite or PostgreSQL (deployment choice)
 Local or customer Object Storage
-Optional queue（in-process or external）
+Optional queue (in-process or external)
 HTTP API + MCP
 localhost or private-network UI
 ```
@@ -228,7 +228,7 @@ Without these, Cloud → Private / Local migration becomes fragile.
 
 ## 9. Agent Experience Across Deployment Modes
 
-### Cloud（默认）
+### Cloud (Default)
 
 ```text
 Built-in Agent in Cloud UI
@@ -236,17 +236,17 @@ Built-in Agent in Cloud UI
 → governed apply with Diff / Audit / Rollback
 ```
 
-### Private / Local（高级）
+### Private / Local (Advanced)
 
 ```text
-Built-in Agent（if bundled）or External Agent via MCP
+Built-in Agent (if bundled) or External Agent via MCP
 → same governed APIs and permission model
 → no direct DB or source access
 ```
 
 Example advanced request:
 
-> 我们需要把 Cloud Workspace 导出到客户私有环境。
+> We need to export the Cloud Workspace to the customer's private environment.
 
 Agent explains export scope, generates export package, validates compatibility with target Portable Runtime version—not "install SQLite locally first."
 
@@ -262,18 +262,18 @@ POC should not implement:
 
 POC **should** implement:
 
-* Workspace export prototype（config + schema + extensions）;
-* Portable Runtime prototype consumption of exported schema manifest（validation level）;
+* Workspace export prototype (config + schema + extensions);
+* Portable Runtime prototype consumption of exported schema manifest (validation level);
 * adapter interfaces documented and stubbed where Cloud services are used.
 
 ## 11. Summary
 
 ```text
-旧假设：Local 是默认，Cloud 是升级路径
-新假设：Cloud 是默认，Private / Local 是高级部署模式
+Old assumption: Local is the default, Cloud is the upgrade path
+New assumption: Cloud is the default, Private / Local is an advanced deployment mode
 
-旧路径：Local → Cloud Migration
-新路径：Cloud → Export → Private / Local Import
+Old path: Local -> Cloud Migration
+New path: Cloud -> Export -> Private / Local Import
 
-不变原则：Portable Runtime、标准 Manifest、Managed Extension、 governed Agent APIs
+Invariant principle: Portable Runtime, standard Manifest, Managed Extension, governed Agent APIs
 ```

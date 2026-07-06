@@ -46,11 +46,11 @@ Catalog artifacts must separate stable keys from localized presentation:
   "id": "runory.customer",
   "name": {
     "en": "Customers",
-    "zh": "客户"
+    "zh": "Customers"
   },
   "description": {
     "en": "Manage customer organizations and relationships.",
-    "zh": "管理客户组织与业务关系。"
+    "zh": "Manage customer organizations and relationships."
   }
 }
 ```

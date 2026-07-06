@@ -15,7 +15,7 @@ Modules are **technical install units**. Business Packs combine modules; Workspa
 Workspace Extension architecture: [../architecture/workspace-extension-architecture.md](../architecture/workspace-extension-architecture.md).
 Catalog and release lifecycle: [../09-catalog-release-control-plane.md](../09-catalog-release-control-plane.md).
 
-## 2. Module Manifest（完整示例）
+## 2. Module Manifest (Complete Example)
 
 ```yaml
 id: runory.expense
@@ -116,7 +116,7 @@ releaseCompatibility:
   automaticUpgrade: patch_only
 ```
 
-## 3. Pack Manifest（示例）
+## 3. Pack Manifest (Example)
 
 ```yaml
 id: crm-lite-pack
@@ -144,7 +144,7 @@ marketplace:
   license: runory_official
 ```
 
-## 4. Template Manifest（示例）
+## 4. Template Manifest (Example)
 
 ```yaml
 id: small-business-crm
@@ -152,8 +152,8 @@ name: Small Business CRM
 version: 1.0.0
 
 terminology:
-  customer: 客户
-  contact: 联系人
+  customer: Customer
+  contact: Contact
 
 navigation:
   - dashboard
@@ -178,7 +178,7 @@ mobile:
   primaryRoutes: [customers, contacts]
 ```
 
-## 5. Extension Surface（Module 侧）
+## 5. Extension Surface (Module Side)
 
 Each Official Module should declare in `extensionPoints`:
 
@@ -281,8 +281,8 @@ Manifests should reserve:
 ```text
 marketplace.category / license / publisher
 dependency resolution metadata
-security review status（third-party）
-billing hook references（future）
+security review status (third-party)
+billing hook references (future)
 data ownership declarations
 ```
 

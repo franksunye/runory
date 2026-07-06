@@ -71,7 +71,7 @@ Problems:
 
 Object key: `company`
 
-Chinese label: `公司` or `客户组织`
+Display label: `Company` or `Customer Organization`
 
 Purpose:
 
@@ -104,22 +104,22 @@ customer
 inactive
 ```
 
-Chinese display labels:
+Display labels:
 
 ```text
-线索
-市场合格线索
-销售合格线索
-商机中
-客户
-沉睡/流失
+Lead
+Marketing Qualified Lead
+Sales Qualified Lead
+In Opportunity
+Customer
+Dormant / Churned
 ```
 
 ### 3.2 Contact
 
 Object key: `contact`
 
-Chinese label: `联系人`
+Display label: `Contact`
 
 Purpose:
 
@@ -150,7 +150,7 @@ Rules:
 
 Object key: `deal`
 
-Chinese label: `商机`
+Display label: `Deal`
 
 Purpose:
 
@@ -183,22 +183,22 @@ won
 lost
 ```
 
-Chinese display labels:
+Display labels:
 
 ```text
-新商机
-已确认
-方案/报价
-谈判中
-已赢单
-已丢单
+New Deal
+Qualified
+Proposal / Quote
+Negotiating
+Won
+Lost
 ```
 
 ### 3.4 Task / Activity
 
 Object key: `task`
 
-Chinese label: `任务`
+Display label: `Task`
 
 Purpose:
 

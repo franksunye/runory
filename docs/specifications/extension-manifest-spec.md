@@ -52,12 +52,12 @@ Draft shape:
 * `schemaVersion`: manifest schema version.
 * `extensionId`: stable extension ID.
 * `workspaceId`: workspace binding.
-* `tenantId`: tenant binding（Cloud multi-tenant）.
+* `tenantId`: tenant binding (Cloud multi-tenant).
 * `namespace`: stable namespace for generated keys.
 * `name`: human-readable name.
 * `targetModules`: official modules extended by this manifest.
 * `riskLevel`: highest risk level across all manifest changes.
-* `fieldOwnership`: default ownership for new fields（`workspace_extension`）.
+* `fieldOwnership`: default ownership for new fields (`workspace_extension`).
 
 ## 4. Risk Levels
 
@@ -79,7 +79,7 @@ Draft shape:
   "targetModuleId": "runory.customer",
   "targetObject": "customer",
   "fieldKey": "tier",
-  "label": "客户等级",
+  "label": "Customer Tier",
   "type": "select",
   "ownership": "workspace_extension",
   "required": false,
@@ -97,7 +97,7 @@ Draft shape:
 
 Field `ownership` must be `workspace_extension` for Extension-created fields. Agent-computed fields require explicit `ownership: "agent_computed"` and computation metadata.
 
-## 6. Custom Workflow Entry（POC）
+## 6. Custom Workflow Entry (POC)
 
 Draft shape:
 
@@ -144,7 +144,7 @@ Only validated manifests can be applied via Agent Operation API.
 Applying a manifest must:
 
 * run permission check;
-* produce Diff Preview（stored in `diff_json`）;
+* produce Diff Preview (stored in `diff_json`);
 * create Rollback Point;
 * create new `extension_versions` record;
 * update effective extension definitions;

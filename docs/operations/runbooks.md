@@ -9,13 +9,13 @@ Related: [Backup & Restore Runbook](./backup-restore-runbook.md) · [Release Def
 
 ## Overview
 
-本文档覆盖 Runory Cloud `v0.1.0` Early Access 的关键故障场景 runbook（PROD-04）。每个 runbook 包含：Symptom、Diagnosis、Mitigation、Recovery。
+This document covers the key failure-scenario runbooks (PROD-04) for Runory Cloud `v0.1.0` Early Access. Each runbook contains: Symptom, Diagnosis, Mitigation, Recovery.
 
-**通用原则**:
-- 不要删除已创建的用户数据。
-- 不要覆盖已发布的 Catalog artifact（Release Blocker #5）。
-- 优先使用 last-known-good rollback，而非在 production 中调试。
-- 所有故障与恢复操作记录于 Audit log。
+**General principles**:
+- Do not delete already-created user data.
+- Do not overwrite published Catalog artifacts (Release Blocker #5).
+- Prefer last-known-good rollback over debugging in production.
+- All failure and recovery operations are recorded in the Audit log.
 
 ---
 
@@ -23,24 +23,24 @@ Related: [Backup & Restore Runbook](./backup-restore-runbook.md) · [Release Def
 
 ### Symptom
 
-- 用户无法收到 OTP 邮件。
-- OTP 验证失败（`verify-otp` 返回错误）。
-- 用户无法登录。
+- Users cannot receive OTP emails.
+- OTP verification fails (`verify-otp` returns an error).
+- Users cannot sign in.
 
 ### Diagnosis
 
-1. **检查 mail provider**:
+1. **Check mail provider**:
    ```bash
-   # 确认 mail provider URL 已配置
+   # Confirm the mail provider URL is configured
    echo $PLATFORM_MAIL_PROVIDER_URL
 
-   # 测试 mail provider 连通性
+   # Test mail provider connectivity
    curl -s -o /dev/null -w "%{http_code}" $PLATFORM_MAIL_PROVIDER_URL/health
    ```
 
-2. **检查 OTP 表**:
+2. **Check the OTP table**:
    ```bash
-   # 查询最近的 OTP challenges（不暴露 secret）
+   # Query recent OTP challenges (do not expose secrets)
    sqlite3 $LIBSQL_URL_FILE "
      SELECT id, email, purpose, status, expires_at, attempt_count, created_at
      FROM saas_auth_challenges
@@ -48,11 +48,11 @@ Related: [Backup & Restore Runbook](./backup-restore-runbook.md) · [Release Def
      LIMIT 20;
    "
    ```
-   - 确认 OTP 记录存在且 `status` 为 `pending`。
-   - 确认 `expires_at` 未过期。
-   - 确认 `attempt_count` 未超过 limit。
+   - Confirm OTP records exist and `status` is `pending`.
+   - Confirm `expires_at` has not expired.
+   - Confirm `attempt_count` has not exceeded the limit.
 
-3. **检查 rate limiter**:
+3. **Check the rate limiter**:
    ```bash
    sqlite3 $LIBSQL_URL_FILE "
      SELECT bucket_key, count, window_start, window_end
@@ -61,32 +61,32 @@ Related: [Backup & Restore Runbook](./backup-restore-runbook.md) · [Release Def
      ORDER BY window_start DESC LIMIT 20;
    "
    ```
-   - 确认用户未被 rate limit 阻止。
+   - Confirm the user is not blocked by rate limiting.
 
-4. **检查应用日志**:
-   - 查找 `/api/auth/request-otp` 与 `/api/auth/verify-otp` 的 error log。
-   - 确认无 `MAIL_PROVIDER_ERROR` 或 `RATE_LIMIT_EXCEEDED`。
+4. **Check application logs**:
+   - Look for error logs from `/api/auth/request-otp` and `/api/auth/verify-otp`.
+   - Confirm there are no `MAIL_PROVIDER_ERROR` or `RATE_LIMIT_EXCEEDED` errors.
 
 ### Mitigation
 
-- **Fallback mail provider**: 如果 primary mail provider 不可用，切换 `PLATFORM_MAIL_PROVIDER_URL` 到 backup provider。
-- **临时禁用 rate limit**: 仅在确认是误触发时，临时提高 rate limit 阈值（不推荐长期禁用）。
-- **Manual session grant (admin only)**: 平台管理员可通过 `PLATFORM_ADMIN_EMAILS` 配置的用户，使用 admin 面板手动为受影响用户创建 session。此操作必须记录于 Audit log 并事后审查。
+- **Fallback mail provider**: If the primary mail provider is unavailable, switch `PLATFORM_MAIL_PROVIDER_URL` to the backup provider.
+- **Temporarily disable rate limiting**: Only when a false trigger is confirmed, temporarily raise the rate-limit threshold (disabling long-term is not recommended).
+- **Manual session grant (admin only)**: Platform administrators configured via `PLATFORM_ADMIN_EMAILS` can use the admin panel to manually create sessions for affected users. This operation must be recorded in the Audit log and reviewed afterwards.
 
 ### Recovery
 
-1. 修复 mail provider 或 rate limiter 后，发送测试 OTP：
+1. After fixing the mail provider or rate limiter, send a test OTP:
    ```bash
    curl -X POST http://localhost:3000/api/auth/request-otp \
      -H "Content-Type: application/json" \
      -d '{"email":"test@example.com"}'
    ```
 
-2. 验证 OTP 流程 end-to-end（收到邮件 → 验证 → 登录成功）。
+2. Verify the OTP flow end-to-end (receive email → verify → successful sign-in).
 
-3. 确认 `saas_auth_challenges` 表中 `status` 正确流转（`pending` → `verified`）。
+3. Confirm that `status` in the `saas_auth_challenges` table transitions correctly (`pending` → `verified`).
 
-4. 通知受影响用户可重新尝试登录。
+4. Notify affected users that they can retry signing in.
 
 ---
 
@@ -94,53 +94,53 @@ Related: [Backup & Restore Runbook](./backup-restore-runbook.md) · [Release Def
 
 ### Symptom
 
-- OTP 邮件未送达用户邮箱。
-- Organization invitation 邮件未送达。
-- 用户报告收到邮件在 spam folder。
+- OTP emails are not delivered to user inboxes.
+- Organization invitation emails are not delivered.
+- Users report receiving emails in the spam folder.
 
 ### Diagnosis
 
-1. **检查 MAIL_PROVIDER_URL**:
+1. **Check MAIL_PROVIDER_URL**:
    ```bash
    echo $PLATFORM_MAIL_PROVIDER_URL
-   # 确认非空且可访问
+   # Confirm it is non-empty and accessible
    curl -s -o /dev/null -w "%{http_code}" $PLATFORM_MAIL_PROVIDER_URL
    ```
 
-2. **检查 provider logs**:
-   - 登录 mail provider 控制台（如 Resend、SendGrid、Postmark）。
-   - 查看最近的 delivery events。
-   - 确认是否有 bounce、deferred、blocked 状态。
+2. **Check provider logs**:
+   - Sign in to the mail provider console (e.g., Resend, SendGrid, Postmark).
+   - Review recent delivery events.
+   - Confirm there are no bounce, deferred, or blocked statuses.
 
-3. **检查 bounce rate**:
-   - 如果 bounce rate > 5%，mail provider 可能暂停发送。
-   - 检查是否有无效邮箱地址累积。
+3. **Check bounce rate**:
+   - If the bounce rate > 5%, the mail provider may pause sending.
+   - Check whether invalid email addresses have accumulated.
 
-4. **检查 DNS 配置**:
-   - 确认 SPF、DKIM、DMARC 记录正确配置。
-   - 确认 sending domain 未被 blacklist。
+4. **Check DNS configuration**:
+   - Confirm SPF, DKIM, and DMARC records are correctly configured.
+   - Confirm the sending domain is not blacklisted.
 
 ### Mitigation
 
-- **切换 provider**: 更新 `PLATFORM_MAIL_PROVIDER_URL` 到备用 provider。
-- **Retry queue**: 如果 provider 支持 retry，确认 retry policy 生效。
-- **通知 affected users**: 通过其他渠道（如 Slack、电话）通知用户，并提供 manual login 协助。
-- **手动发送 invitation**: 管理员可直接复制 invitation link 发送给用户（link 存储于 `saas_organization_invitations` 表）。
+- **Switch provider**: Update `PLATFORM_MAIL_PROVIDER_URL` to a backup provider.
+- **Retry queue**: If the provider supports retries, confirm the retry policy is in effect.
+- **Notify affected users**: Notify users through other channels (e.g., Slack, phone) and provide manual login assistance.
+- **Manually send invitations**: Administrators can directly copy the invitation link and send it to users (the link is stored in the `saas_organization_invitations` table).
 
 ### Recovery
 
-1. 发送测试邮件验证 delivery：
+1. Send a test email to verify delivery:
    ```bash
    curl -X POST http://localhost:3000/api/auth/request-otp \
      -H "Content-Type: application/json" \
      -d '{"email":"ops-test@runory.dev"}'
    ```
 
-2. 在 mail provider 控制台确认邮件状态为 `delivered`。
+2. Confirm in the mail provider console that the email status is `delivered`.
 
-3. 检查 spam rate，必要时调整 DKIM/SPF。
+3. Check the spam rate and adjust DKIM/SPF if necessary.
 
-4. 恢复后持续监控 24 小时的 delivery rate。
+4. After recovery, continue monitoring the delivery rate for 24 hours.
 
 ---
 
@@ -148,62 +148,62 @@ Related: [Backup & Restore Runbook](./backup-restore-runbook.md) · [Release Def
 
 ### Symptom
 
-- API 返回 `503 Service Unavailable` 或 database connection error。
-- Query timeout（`SQLITE_BUSY`、`libsql: connection error`）。
-- 数据不一致或 corruption 警告。
+- API returns `503 Service Unavailable` or a database connection error.
+- Query timeout (`SQLITE_BUSY`, `libsql: connection error`).
+- Data inconsistency or corruption warnings.
 
 ### Diagnosis
 
-1. **检查 Turso status**:
-   - 访问 https://status.turso.tech 查看是否有 incident。
-   - 使用 Turso CLI 检查 DB health：
+1. **Check Turso status**:
+   - Visit https://status.turso.tech to check for incidents.
+   - Use the Turso CLI to check DB health:
      ```bash
      turso db shell <db-name> "PRAGMA integrity_check;"
      turso db shell <db-name> "SELECT 1;"
      ```
 
-2. **检查 connection pool**:
-   - 确认 `LIBSQL_URL` 与 `LIBSQL_AUTH_TOKEN` 正确配置。
-   - 确认应用未超出 connection limit。
-   - 检查应用日志中的 connection error 频率。
+2. **Check the connection pool**:
+   - Confirm `LIBSQL_URL` and `LIBSQL_AUTH_TOKEN` are correctly configured.
+   - Confirm the application has not exceeded the connection limit.
+   - Check the frequency of connection errors in the application logs.
 
-3. **检查 slow queries**:
+3. **Check slow queries**:
    ```bash
-   # 查询最近活跃的 long-running queries（如果 Turso 提供）
+   # Query recently active long-running queries (if Turso provides them)
    turso db shell <db-name> "SELECT * FROM sqlite_master WHERE type='table';"
    ```
 
-4. **检查磁盘空间**:
-   - 确认 Turso DB 未超出 storage limit。
-   - 确认本地 SQLite 文件所在磁盘有足够空间。
+4. **Check disk space**:
+   - Confirm the Turso DB has not exceeded the storage limit.
+   - Confirm the disk hosting the local SQLite file has enough space.
 
 ### Mitigation
 
-- **Failover to replica**: 如果 Turso primary 不可用，将 `LIBSQL_URL` 指向 read replica（注意：replica 可能 lag）。
-- **Restore from backup**: 如果数据 corruption，按 [Backup & Restore Runbook](./backup-restore-runbook.md) §4 执行 restore。
-- **Maintenance mode**: 暂停应用，显示 maintenance page，防止进一步写入损坏数据。
+- **Failover to replica**: If the Turso primary is unavailable, point `LIBSQL_URL` to a read replica (note: the replica may lag).
+- **Restore from backup**: If there is data corruption, perform a restore following [Backup & Restore Runbook](./backup-restore-runbook.md) §4.
+- **Maintenance mode**: Pause the application and display a maintenance page to prevent further writes from corrupting data.
 
 ### Recovery
 
-1. Restore from backup（如果需要）→ 见 [Backup & Restore Runbook](./backup-restore-runbook.md)。
+1. Restore from backup (if needed) → see [Backup & Restore Runbook](./backup-restore-runbook.md).
 
-2. Run migrations（idempotent，确认 schema 完整）：
+2. Run migrations (idempotent, confirm schema integrity):
    ```bash
    node apps/cloud/scripts/backup-restore-drill.mjs
    ```
 
-3. 验证 tenant isolation：
+3. Verify tenant isolation:
    ```bash
    pnpm --filter @runory/platform-core test tenant-isolation
    ```
 
-4. 验证 CRM journey：
+4. Verify the CRM journey:
    ```bash
    pnpm dev:cloud
    node apps/cloud/scripts/e2e-turso-migration.mjs
    ```
 
-5. 恢复后监控 24 小时的 error rate 与 query latency。
+5. After recovery, monitor the error rate and query latency for 24 hours.
 
 ---
 
@@ -211,13 +211,13 @@ Related: [Backup & Restore Runbook](./backup-restore-runbook.md) · [Release Def
 
 ### Symptom
 
-- Module install 失败（`/api/workspaces/:id/packs/:packId/install` 返回错误）。
-- Version not found（`runory_catalog_versions` 中找不到请求的 version）。
-- Checksum mismatch（`artifact_checksum` 与实际 artifact 不匹配）。
+- Module install fails (`/api/workspaces/:id/packs/:packId/install` returns an error).
+- Version not found (the requested version cannot be found in `runory_catalog_versions`).
+- Checksum mismatch (`artifact_checksum` does not match the actual artifact).
 
 ### Diagnosis
 
-1. **检查 catalog_versions 表**:
+1. **Check the catalog_versions table**:
    ```bash
    sqlite3 $LIBSQL_URL_FILE "
      SELECT id, catalog_item_id, version, lifecycle_status,
@@ -226,22 +226,22 @@ Related: [Backup & Restore Runbook](./backup-restore-runbook.md) · [Release Def
      WHERE version = '<requested-version>';
    "
    ```
-   - 确认 version 存在且 `lifecycle_status` 为 `ready` 或更高。
-   - 确认 `artifact_uri` 与 `artifact_checksum` 非空。
+   - Confirm the version exists and `lifecycle_status` is `ready` or higher.
+   - Confirm `artifact_uri` and `artifact_checksum` are non-empty.
 
-2. **检查 artifact storage**:
-   - 如果 `artifact_uri` 指向 git/CI，确认 commit 存在。
-   - 如果指向 object storage，确认文件可访问。
-   - 重新计算 artifact checksum 并对比：
+2. **Check artifact storage**:
+   - If `artifact_uri` points to git/CI, confirm the commit exists.
+   - If it points to object storage, confirm the file is accessible.
+   - Recompute the artifact checksum and compare:
      ```bash
      shasum -a 256 <artifact-file>
      ```
 
-3. **检查 migration files**:
-   - 确认 module 的 migration 文件存在于 `/catalog/modules/<module>/migrations/`。
-   - 确认 migration checksum 与 `sys_schema_migrations` 一致。
+3. **Check migration files**:
+   - Confirm the module's migration files exist in `/catalog/modules/<module>/migrations/`.
+   - Confirm the migration checksum is consistent with `sys_schema_migrations`.
 
-4. **检查 catalog_releases**:
+4. **Check catalog_releases**:
    ```bash
    sqlite3 $LIBSQL_URL_FILE "
      SELECT r.id, r.channel, r.status, v.version
@@ -250,42 +250,42 @@ Related: [Backup & Restore Runbook](./backup-restore-runbook.md) · [Release Def
      WHERE r.status = 'active';
    "
    ```
-   - 确认请求的 version 在 `stable` channel 有 active release。
+   - Confirm the requested version has an active release in the `stable` channel.
 
 ### Mitigation
 
 - **Rollback to last-known-good version**:
-   - 将 Workspace 的 installation 指向上一个已知良好的 version。
-   - 不要删除或修改失败的 version（标记为 `deprecated` 或 `withdrawn`）。
+   - Point the Workspace installation to the previous known-good version.
+   - Do not delete or modify the failed version (mark it as `deprecated` or `withdrawn`).
 
 - **Freeze rollouts**:
-   - 暂停所有 `release_rollouts`（`status` → `paused`）。
-   - 通知所有 affected Workspace admin。
+   - Pause all `release_rollouts` (`status` → `paused`).
+   - Notify all affected Workspace admins.
 
-- **不要覆盖 artifact**:
-   - Release Blocker #5：Published Catalog Version 不可变。
-   - 如果需要修复，发布新 version，不要覆盖旧的。
+- **Do not overwrite artifacts**:
+   - Release Blocker #5: Published Catalog Versions are immutable.
+   - If a fix is needed, publish a new version; do not overwrite the old one.
 
 ### Recovery
 
-1. **Re-import artifact**（如果 artifact 丢失但可从 source 重建）:
-   - 使用相同 `source_commit` 重新 build。
-   - 验证 checksum 匹配（如果 checksum 不同，创建新 version）。
+1. **Re-import artifact** (if the artifact is lost but can be rebuilt from source):
+   - Rebuild using the same `source_commit`.
+   - Verify the checksum matches (if the checksum differs, create a new version).
 
 2. **Verify checksum**:
    ```bash
-   # 重新计算并对比
+   # Recompute and compare
    shasum -a 256 <rebuilt-artifact>
-   # 对比 runory_catalog_versions.artifact_checksum
+   # Compare against runory_catalog_versions.artifact_checksum
    ```
 
 3. **Run compatibility check**:
-   - 对所有 affected Workspace 生成 compatibility report。
-   - 确认 upgrade path 可行。
+   - Generate a compatibility report for all affected Workspaces.
+   - Confirm the upgrade path is feasible.
 
 4. **Resume rollouts**:
-   - 确认修复后，将 `release_rollouts.status` 从 `paused` 改为 `resumed`。
-   - 监控 rollout success rate。
+   - After confirming the fix, change `release_rollouts.status` from `paused` to `resumed`.
+   - Monitor the rollout success rate.
 
 ---
 
@@ -293,28 +293,28 @@ Related: [Backup & Restore Runbook](./backup-restore-runbook.md) · [Release Def
 
 ### Symptom
 
-- Production smoke test 失败（PROD-05）。
-- Canonical v0.1 User Journey 失败。
-- 部署后 error rate 或 latency 异常升高。
+- Production smoke test fails (PROD-05).
+- Canonical v0.1 User Journey fails.
+- Error rate or latency rises abnormally after deployment.
 
 ### Steps
 
-**重要原则**（来自 Release Definition §12）:
-> 如果 Tag 后 Production smoke 失败：停止新用户邀请与 Catalog rollout，按 runbook 恢复 last-known-good deployment；不要删除已创建数据或覆盖发布 artifact。
+**Important principle** (from Release Definition §12):
+> If Production smoke fails after tagging: stop new user invitations and Catalog rollout, restore the last-known-good deployment following the runbook; do not delete already-created data or overwrite published artifacts.
 
 ### 5.1 Immediate Actions
 
-1. **停止新用户邀请与 Catalog rollout**:
-   - 暂停所有 `release_rollouts`。
-   - 暂停 invitation 发送。
+1. **Stop new user invitations and Catalog rollout**:
+   - Pause all `release_rollouts`.
+   - Pause invitation sending.
 
-2. **保留 previous deployment**:
-   - Vercel: 确认 previous deployment 仍可用（Vercel 自动保留历史 deployment）。
-   - 不要删除 previous deployment。
+2. **Preserve previous deployment**:
+   - Vercel: Confirm the previous deployment is still available (Vercel automatically retains historical deployments).
+   - Do not delete the previous deployment.
 
-3. **不要删除已创建数据**:
-   - 用户数据、Organization、Workspace 必须保留。
-   - 已发布的 Catalog artifact 必须保留（不可变）。
+3. **Do not delete already-created data**:
+   - User data, Organizations, and Workspaces must be preserved.
+   - Published Catalog artifacts must be preserved (immutable).
 
 ### 5.2 Rollback Steps
 
@@ -324,40 +324,40 @@ Related: [Backup & Restore Runbook](./backup-restore-runbook.md) · [Release Def
    vercel promote <previous-deployment-url> --prod
    ```
 
-2. **验证 previous deployment 正常**:
-   - 运行 smoke test。
-   - 确认 Canonical v0.1 User Journey 通过。
+2. **Verify the previous deployment is working**:
+   - Run smoke tests.
+   - Confirm the Canonical v0.1 User Journey passes.
 
-3. **保留数据**:
-   - 不要 rollback database（数据库 schema 通常向后兼容）。
-   - 如果新 deployment 执行了不可逆 migration，**不要** rollback DB——评估是否需要 forward fix。
+3. **Preserve data**:
+   - Do not roll back the database (database schemas are usually backward compatible).
+   - If the new deployment performed an irreversible migration, **do not** roll back the DB — assess whether a forward fix is needed.
 
-4. **不要覆盖 published artifacts**:
-   - 即使新 deployment 发布了有问题的 artifact，不要覆盖它。
-   - 将有问题的 artifact 标记为 `deprecated` 或 `withdrawn`。
+4. **Do not overwrite published artifacts**:
+   - Even if the new deployment published a problematic artifact, do not overwrite it.
+   - Mark the problematic artifact as `deprecated` or `withdrawn`.
 
 ### 5.3 Investigation
 
-1. 收集失败 deployment 的日志与 metrics。
-2. 确认失败原因（smoke test 失败的具体步骤）。
-3. 评估是否需要 hotfix 或重新部署。
-4. 记录 incident 于 release evidence。
+1. Collect logs and metrics from the failed deployment.
+2. Confirm the cause of failure (the specific step where the smoke test failed).
+3. Assess whether a hotfix or redeployment is needed.
+4. Record the incident in the release evidence.
 
 ### 5.4 Recovery
 
-1. 修复问题后，创建新的 deployment（不要 force push 到同一 deployment）。
-2. 运行完整 smoke test + Canonical journey。
-3. 确认通过后 promote 到 production。
-4. 恢复 Catalog rollout（如果之前暂停）。
-5. 通知用户服务已恢复。
+1. After fixing the issue, create a new deployment (do not force push to the same deployment).
+2. Run the full smoke test + Canonical journey.
+3. After confirming it passes, promote to production.
+4. Resume Catalog rollout (if it was paused).
+5. Notify users that the service has recovered.
 
 ### 5.5 Do NOT
 
-- ❌ 删除已创建的用户数据。
-- ❌ 覆盖已发布的 Catalog artifact。
-- ❌ 强制 rollback database schema（除非有可逆 migration）。
-- ❌ 在 production 中调试（使用 staging）。
-- ❌ 跳过 smoke test 直接 re-deploy。
+- ❌ Delete already-created user data.
+- ❌ Overwrite published Catalog artifacts.
+- ❌ Force rollback of the database schema (unless there is a reversible migration).
+- ❌ Debug in production (use staging).
+- ❌ Skip smoke tests and directly re-deploy.
 
 ---
 
@@ -375,8 +375,8 @@ Related: [Backup & Restore Runbook](./backup-restore-runbook.md) · [Release Def
 ## 7. References
 
 - [Release Definition v0.1.0](../releases/v0.1.0-cloud-early-access.md) — §7 Release Blockers, §8.10 PROD-04/05, §12 Go/No-go
-- [Backup & Restore Runbook](./backup-restore-runbook.md) — backup/restore 详细流程
-- [Database Namespaces](../architecture/database-namespaces.md) — table prefix 设计
-- [SaaS Core Boundaries](../07-saas-core-boundaries.md) — 平台边界
+- [Backup & Restore Runbook](./backup-restore-runbook.md) — detailed backup/restore procedure
+- [Database Namespaces](../architecture/database-namespaces.md) — table prefix design
+- [SaaS Core Boundaries](../07-saas-core-boundaries.md) — platform boundaries
 - Drill script: `apps/cloud/scripts/backup-restore-drill.mjs`
 - E2E script: `apps/cloud/scripts/e2e-turso-migration.mjs`
