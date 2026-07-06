@@ -7,15 +7,15 @@ Related: [sdk/module-sdk.md](sdk/module-sdk.md), [09-catalog-release-control-pla
 
 ## 1. Purpose
 
-本文档将 Runory SDK 从“Manifest 与 Module 规范文档”提升为一个明确的开发者产品，定义其定位、包边界、本地开发循环、Cloud Catalog 接口、测试工具、Agent Skill 和分阶段实施范围。
+This document elevates the Runory SDK from a "Manifest and Module specification document" into a clearly defined developer product. It defines its positioning, package boundaries, local development loop, Cloud Catalog interface, testing tools, Agent Skill, and phased implementation scope.
 
-核心目标：
+Core objective:
 
-> 开发者和研发 Agent 可以在本地用 typed contracts 制造、验证和测试 Module/Pack/Template，再将 immutable artifact 交付 Runory Cloud Catalog 进行发布治理。
+> Developers and engineering Agents can use typed contracts locally to create, validate, and test Modules/Packs/Templates, then deliver immutable artifacts to the Runory Cloud Catalog for release governance.
 
 ## 2. Positioning
 
-Runory SDK 是 **Business Capability Platform SDK**，不是普通 REST API client，也不是 SaaS Core SDK。
+Runory SDK is a **Business Capability Platform SDK**. It is not a generic REST API client, and it is not the SaaS Core SDK.
 
 ```text
 Runory SaaS Core
@@ -31,38 +31,38 @@ Runory Business Capability
   Module / Pack / Template / Workflow / Agent Skill
 ```
 
-SDK 的开发产物是 Module、Pack、Template artifact，以及 Workflow/Agent Skill declarations、validation 和 test evidence。
+The SDK's development outputs are Module, Pack, and Template artifacts, as well as Workflow/Agent Skill declarations, validation, and test evidence.
 
-SDK 不负责：
+The SDK is not responsible for:
 
-- 用户登录、Organization 或 Billing。
-- 直接访问客户数据库。
-- 绕过 Business Engine 执行业务写入。
-- 在 Workspace 中执行任意开发者代码。
-- 取代 Catalog Release approval。
+- User login, Organization, or Billing.
+- Direct access to customer databases.
+- Executing business writes by bypassing the Business Engine.
+- Running arbitrary developer code in a Workspace.
+- Replacing Catalog Release approval.
 
 ## 3. Reference Pattern and Independent Direction
 
-WaniWani 的公开 SDK 展示了一种有效的平台模式：开源 typed runtime 在无 Cloud key 时可独立运行，设置配置后可接入可选 Hosted Platform；CLI 将本地项目连接到 Cloud Playground；Agent Skill 让 Coding Agent 理解开发框架。
+WaniWani's public SDK demonstrates an effective platform pattern: an open-source typed runtime can run independently without a Cloud key, connect to an optional Hosted Platform after configuration is provided, use a CLI to connect local projects to a Cloud Playground, and use an Agent Skill to help Coding Agents understand the development framework.
 
-Runory 吸收以下模式：
+Runory adopts the following patterns:
 
-1. SDK 本身是可安装、可测试的产品，不只是文档。
-2. 本地开发不依赖 Cloud，Cloud 提供 Registry、validation、release 和 observability。
-3. CLI 缩短 local → sandbox → publish 循环。
-4. Typed deterministic runtime 管理状态、验证、分支、暂停和恢复。
-5. Testing harness、starter/template 和 Agent Skill 属于 SDK 的正式组成。
-6. SDK runtime 与 hosted control plane 解耦。
+1. The SDK itself is an installable and testable product, not just documentation.
+2. Local development does not depend on Cloud; Cloud provides Registry, validation, release, and observability.
+3. The CLI shortens the local → sandbox → publish loop.
+4. A typed deterministic runtime manages state, validation, branching, pause, and resume.
+5. Testing harness, starter/template, and Agent Skill are formal SDK components.
+6. The SDK runtime is decoupled from the hosted control plane.
 
-Runory 不照搬：
+Runory does not copy:
 
-1. “一个 Flow 编译成一个 MCP Tool”作为 Module 模型。
-2. MCP Funnel 作为默认业务能力抽象。
-3. Chat Widget 作为 Runory 默认入口。
-4. 任意 JavaScript sandbox execute 作为业务操作路径。
-5. 通过环境变量隐式改变生产 Module 行为。
+1. "Compile one Flow into one MCP Tool" as the Module model.
+2. MCP Funnel as the default business capability abstraction.
+3. Chat Widget as Runory's default entry point.
+4. Arbitrary JavaScript sandbox execute as the business operation path.
+5. Implicitly changing production Module behavior through environment variables.
 
-参考来源：
+References:
 
 - [WaniWani SDK](https://github.com/WaniWani-AI/sdk)
 - [WaniWani CLI](https://github.com/WaniWani-AI/cli)
@@ -72,23 +72,23 @@ Runory 不照搬：
 
 ### v0.1
 
-- Runory 官方 Module 工程师。
-- Runory 平台研发 Agent。
-- Release/CI pipeline。
+- Runory official Module engineers.
+- Runory platform engineering Agents.
+- Release/CI pipeline.
 
 ### Later
 
-- 认证合作伙伴和集成商。
-- 第三方 Module 开发者。
-- Private/Local Runtime 客户研发团队。
+- Certified partners and integrators.
+- Third-party Module developers.
+- Private/Local Runtime customer engineering teams.
 
-公共 SDK 生态、第三方发布和 Marketplace onboarding 不阻塞 v0.1；Official/Internal toolchain 必须进入 v0.1。
+The public SDK ecosystem, third-party publishing, and Marketplace onboarding do not block v0.1; the Official/Internal toolchain must be included in v0.1.
 
 ## 5. Product Components
 
 ### 5.1 `@runory/sdk`
 
-公共 contracts 和 authoring API：
+Public contracts and authoring API:
 
 ```text
 defineModule
@@ -102,7 +102,7 @@ artifact metadata contracts
 
 ### 5.2 `@runory/sdk-testing`
 
-确定性测试工具：
+Deterministic testing tools:
 
 ```text
 createModuleTestHarness
@@ -117,7 +117,7 @@ replayWorkflow
 
 ### 5.3 `@runory/cli`
 
-v0.1 本地和 CI command adapter：
+v0.1 local and CI command adapter:
 
 ```text
 runory validate
@@ -126,7 +126,7 @@ runory build
 runory publish --channel internal
 ```
 
-后续扩展：
+Future extensions:
 
 ```text
 runory init
@@ -139,16 +139,16 @@ runory release plan
 
 ### 5.4 Runory Module Skill
 
-Agent Skill 教会 Coding Agent：
+The Agent Skill teaches Coding Agents:
 
-- Module/Pack/Template 边界。
-- Manifest 和 typed authoring API。
-- Object/View/Workflow/Extension Point 设计。
-- validation/test/build/publish 流程。
-- 安全、数据 ownership 和 migration 规则。
-- Catalog release 与人工审批边界。
+- Module/Pack/Template boundaries.
+- Manifest and typed authoring API.
+- Object/View/Workflow/Extension Point design.
+- validation/test/build/publish flow.
+- Security, data ownership, and migration rules.
+- Catalog release and human approval boundaries.
 
-Skill 提供知识和流程，不提供越权凭证或发布旁路。
+The Skill provides knowledge and process; it does not provide unauthorized credentials or release bypasses.
 
 ### 5.5 Starter
 
@@ -163,13 +163,13 @@ module/
 └─ package.json
 ```
 
-Starter 面向 Official/Internal Module，第三方发布模板延后。
+The Starter targets Official/Internal Modules; third-party publishing templates are deferred.
 
 ## 6. Authoring Model
 
 ### 6.1 Typed Definition
 
-目标 API 形态：
+Target API shape:
 
 ```ts
 import { defineModule } from "@runory/sdk";
@@ -197,13 +197,13 @@ export default defineModule({
 });
 ```
 
-该 API 是 Manifest 的 typed authoring facade。Build 结果必须生成 canonical Manifest；Runory Runtime 和 Catalog 以 canonical artifact 为真相源，不直接执行 TypeScript authoring code。
+This API is the typed authoring facade for the Manifest. The build output must generate a canonical Manifest; Runory Runtime and Catalog treat the canonical artifact as the source of truth and do not directly execute TypeScript authoring code.
 
 ### 6.2 Declarative First
 
-优先使用数据声明：Object、Field、Relation、View、Form、Dashboard slot、Permission、Event、Action、Workflow、Agent Skill metadata 和 Migration reference。
+Prefer data declarations: Object, Field, Relation, View, Form, Dashboard slot, Permission, Event, Action, Workflow, Agent Skill metadata, and Migration reference.
 
-SDK 不允许 Module 携带任意 React/Node 代码并在多租户 Runtime 动态执行。受控 custom component/runtime extension 必须形成独立安全规范后才能引入。
+The SDK does not allow Modules to carry arbitrary React/Node code and dynamically execute it in the multi-tenant Runtime. Controlled custom component/runtime extensions can only be introduced after an independent security specification is created.
 
 ### 6.3 Canonical Output
 
@@ -216,25 +216,25 @@ Typed source
 → immutable artifact
 ```
 
-相同 source、SDK version 和 build inputs 必须产生等价 canonical output。
+The same source, SDK version, and build inputs must produce equivalent canonical output.
 
 ## 7. Local Development Contract
 
-SDK 的本地能力不依赖 Runory Cloud：
+The SDK's local capabilities do not depend on Runory Cloud:
 
-- validate schemas and references。
-- resolve local dependency fixtures。
-- create temporary SQLite fixture Workspace。
-- run install/upgrade migrations。
-- render schema/view snapshots。
-- run compatibility and permission tests。
-- build artifact and checksums。
+- Validate schemas and references.
+- Resolve local dependency fixtures.
+- Create a temporary SQLite fixture Workspace.
+- Run install/upgrade migrations.
+- Render schema/view snapshots.
+- Run compatibility and permission tests.
+- Build artifact and checksums.
 
-Cloud 连接只用于发布 artifact、Remote Sandbox validation、Release/rollout 操作和运营指标。本地测试成功不代表可以发布 Stable；Cloud Catalog validation 和 Release Manager approval 仍然生效。
+Cloud connectivity is only used to publish artifacts, run Remote Sandbox validation, perform Release/rollout operations, and collect operational metrics. Passing local tests does not mean a Stable release can be published; Cloud Catalog validation and Release Manager approval still apply.
 
 ## 8. Configuration
 
-建议项目配置：
+Recommended project configuration:
 
 ```ts
 import { defineConfig } from "@runory/sdk";
@@ -249,26 +249,26 @@ export default defineConfig({
 });
 ```
 
-原则：
+Principles:
 
-- 项目配置可提交 Git。
-- Token、API key、private registry URL 不进入配置文件。
-- CI 凭证通过 `RUNORY_TOKEN` 或后续 CI identity 提供。
-- SDK/CLI 不把本地 secret 打包进 artifact。
+- Project configuration can be committed to Git.
+- Token, API key, and private registry URL do not go into configuration files.
+- CI credentials are provided through `RUNORY_TOKEN` or future CI identity.
+- SDK/CLI does not package local secrets into artifacts.
 
 ## 9. CLI Contract for v0.1
 
 ### `runory validate`
 
-执行 authoring compile、canonical Manifest、SemVer/Core range/dependency、permission/data ownership、migration path/checksum 和 Extension Point validation。支持 `--json`，CI 不解析人类日志。
+Runs authoring compile, canonical Manifest, SemVer/Core range/dependency, permission/data ownership, migration path/checksum, and Extension Point validation. Supports `--json`; CI does not parse human-readable logs.
 
 ### `runory test`
 
-执行 empty Workspace install、previous Stable → candidate upgrade、fixture data preservation、Extension compatibility 和 permission/UI schema snapshots。
+Runs empty Workspace install, previous Stable → candidate upgrade, fixture data preservation, Extension compatibility, and permission/UI schema snapshots.
 
 ### `runory build`
 
-生成：
+Generates:
 
 ```text
 dist/<item-id>-<version>.tar.gz
@@ -278,21 +278,21 @@ dist/checksums.json
 dist/validation-summary.json
 ```
 
-Build 不发布、不创建 Release，也不隐式连接 Cloud。
+Build does not publish, does not create a Release, and does not implicitly connect to Cloud.
 
 ### `runory publish --channel internal`
 
-POC 只允许上传为 Catalog candidate/internal release request：
+The POC only allows upload as a Catalog candidate/internal release request:
 
-- 验证 artifact checksum。
-- 使用 idempotency key。
-- 输出 Catalog item/version/validation IDs。
-- 不允许 CLI 直接发布 Stable。
-- Stable promotion 仍在 Platform Catalog Console/governed command 完成。
+- Verify artifact checksum.
+- Use an idempotency key.
+- Output Catalog item/version/validation IDs.
+- Do not allow the CLI to publish Stable directly.
+- Stable promotion is still completed in Platform Catalog Console/governed command.
 
 ## 10. Testing Harness
 
-最低 API：
+Minimum API:
 
 ```ts
 const harness = await createModuleTestHarness({
@@ -310,15 +310,15 @@ await harness.upgrade();
 await harness.assertDataPreserved();
 ```
 
-Harness 使用 Platform Runtime 的真实 Installer/Migration/Compatibility code，不重新实现一套测试专用语义。
+The Harness uses the Platform Runtime's real Installer/Migration/Compatibility code instead of reimplementing a separate testing-only semantic layer.
 
-必须支持 deterministic fixture IDs/time、isolated temporary database、success/failure migration fixtures、structured report/snapshots、cleanup，并默认无网络。
+It must support deterministic fixture IDs/time, isolated temporary database, success/failure migration fixtures, structured report/snapshots, cleanup, and no network by default.
 
 ## 11. Deterministic Workflow Direction
 
-Typed state graph 对 Runory 的主要启发是：LLM 负责理解和呈现，服务端状态机负责顺序、验证、权限、分支、暂停和恢复。
+The main inspiration Runory takes from a typed state graph is: LLMs are responsible for understanding and presentation, while the server-side state machine is responsible for sequencing, validation, permissions, branching, pause, and resume.
 
-未来 Workflow SDK 可采用：
+A future Workflow SDK may use:
 
 ```ts
 defineWorkflow({
@@ -331,9 +331,9 @@ defineWorkflow({
 });
 ```
 
-适用于报价审批、客户 onboarding、派工和费用审核。Workflow state 必须在 Workspace scope 持久化，每一步经过 Business Engine 和 permission check；LLM 不能跳步或绕过 typed validation。
+This applies to quote approval, customer onboarding, dispatching, and expense review. Workflow state must be persisted in Workspace scope, and every step must pass through the Business Engine and permission checks; LLMs cannot skip steps or bypass typed validation.
 
-完整 Workflow authoring/runtime 不阻塞 v0.1；v0.1 只需保留 Manifest contract 和最小测试接口。
+Complete Workflow authoring/runtime does not block v0.1; v0.1 only needs to preserve the Manifest contract and minimal testing interfaces.
 
 ## 12. Cloud Catalog Integration
 
@@ -349,25 +349,25 @@ Developer / Agent
 → Workspace compatibility/install/upgrade
 ```
 
-SDK、CLI、Catalog UI 和 Catalog Agent 最终调用相同 domain commands。不存在 SDK-only 发布旁路。
+SDK, CLI, Catalog UI, and Catalog Agent eventually call the same domain commands. There is no SDK-only publishing bypass.
 
 ## 13. Agent Development Experience
 
-Agent 读取 Runory Module Skill 后可以 scaffold Module、修改 typed definitions、生成 migration proposal、运行 validation/test/build、解释 compatibility failures、生成 release notes 并提交 Internal candidate。
+After reading the Runory Module Skill, an Agent can scaffold Modules, modify typed definitions, generate migration proposals, run validation/test/build, explain compatibility failures, generate release notes, and submit Internal candidates.
 
-以下操作必须停止并请求人工处理：
+The following operations must stop and request human handling:
 
-- permission expansion approval。
-- breaking schema/data migration。
-- Stable promotion。
-- rollout all eligible Workspaces。
-- security withdrawal。
+- Permission expansion approval.
+- Breaking schema/data migration.
+- Stable promotion.
+- Rollout to all eligible Workspaces.
+- Security withdrawal.
 
-Agent 输出必须引用真实 validation/test IDs，不得仅用自然语言声称“测试通过”。
+Agent output must reference real validation/test IDs and must not merely claim in natural language that "tests passed."
 
 ## 14. Package and Dependency Boundaries
 
-建议 workspace packages：
+Recommended workspace packages:
 
 ```text
 packages/contracts       canonical schemas and transport-neutral types
@@ -378,7 +378,7 @@ apps/cli                 command adapter
 skills/runory-module     agent development instructions
 ```
 
-依赖方向：
+Dependency direction:
 
 ```text
 contracts ← sdk ← module source
@@ -387,124 +387,123 @@ contracts ← platform-core
 sdk/cli must not import private repositories or database clients
 ```
 
-避免将 `platform-core` 直接发布为 SDK。公开 contracts 与私有 runtime 实现必须分开。
+Avoid publishing `platform-core` directly as the SDK. Public contracts and private runtime implementation must remain separate.
 
 ## 15. Versioning and Compatibility
 
-- SDK 使用 SemVer。
-- Canonical Manifest 有独立 `manifestSchemaVersion`。
-- Artifact 记录 SDK/compiler version。
-- Module 声明 Core compatibility。
-- SDK minor version 不应无迁移说明地产生 breaking manifest output。
-- CLI 必须报告使用的 compiler version。
-- 1.0 前允许快速演进，但 pinned version 和 lockfile 必须支持可复现构建。
+- SDK uses SemVer.
+- Canonical Manifest has an independent `manifestSchemaVersion`.
+- Artifact records SDK/compiler version.
+- Module declares Core compatibility.
+- SDK minor versions should not produce breaking manifest output without migration notes.
+- CLI must report the compiler version it uses.
+- Before 1.0, rapid evolution is allowed, but pinned versions and lockfiles must support reproducible builds.
 
 ## 16. Security
 
-- Build/validate 默认无网络。
-- Artifact builder 使用 allowlisted source paths，拒绝路径逃逸。
-- Secret scanner 阻止 `.env`、token、private key 进入 artifact。
-- 测试使用隔离数据库，Cloud migration 使用受控 runner。
-- Publish credential 不暴露给 Module code、fixture 或 Agent output。
-- Artifact checksum、provenance 与 Catalog validation result 一致。
-- SDK telemetry 默认关闭；未来启用必须显式 opt-in 且不上传业务 fixture/data。
+- Build/validate has no network by default.
+- Artifact builder uses allowlisted source paths and rejects path traversal.
+- Secret scanner prevents `.env`, tokens, and private keys from entering artifacts.
+- Tests use isolated databases; Cloud migration uses a controlled runner.
+- Publish credentials are not exposed to Module code, fixtures, or Agent output.
+- Artifact checksum and provenance must match the Catalog validation result.
+- SDK telemetry is disabled by default; if enabled in the future, it must be explicit opt-in and must not upload business fixtures/data.
 
 ## 17. v0.1 Required Scope
 
-阻塞 Cloud `v0.1.0`：
+Blocking for Cloud `v0.1.0`:
 
-1. `@runory/sdk` canonical typed Manifest contracts。
-2. `runory validate`，含 structured JSON result。
-3. `runory test` 的 install/upgrade/Extension fixture harness。
-4. `runory build` immutable artifact/provenance/checksum。
-5. `runory publish --channel internal` 或等价 CI adapter。
-6. Official Customer 1.1 artifact 由该 toolchain 生成，而非手工拼包。
-7. SDK/CLI 产物可以进入 Catalog CR0–CR2 流程。
-8. Runory Module Skill 能指导 Agent 执行同一流程。
+1. `@runory/sdk` canonical typed Manifest contracts.
+2. `runory validate` with structured JSON result.
+3. `runory test` install/upgrade/Extension fixture harness.
+4. `runory build` immutable artifact/provenance/checksum.
+5. `runory publish --channel internal` or an equivalent CI adapter.
+6. Official Customer 1.1 artifact is generated by this toolchain, not manually assembled.
+7. SDK/CLI outputs can enter the Catalog CR0–CR2 flow.
+8. Runory Module Skill can guide Agents through the same flow.
 
-不阻塞 v0.1：
+Not blocking v0.1:
 
-- public npm release。
-- `runory init/login/connect/dev` 完整交互体验。
-- 第三方 starter/onboarding。
-- Hosted Playground。
-- 完整 Workflow builder。
-- public Marketplace publish。
+- Public npm release.
+- Complete `runory init/login/connect/dev` interactive experience.
+- Third-party starter/onboarding.
+- Hosted Playground.
+- Complete Workflow builder.
+- Public Marketplace publish.
 
 ## 18. Implementation Plan
 
 ### SDK0 — Contract Separation
 
-- 从 `packages/contracts` 明确 canonical public schemas。
-- 增加 `manifestSchemaVersion`、compiler metadata 与 upgrade graph。
-- 建立 `packages/sdk`，不得导出 private DB/runtime。
-- `defineModule/definePack/defineTemplate/defineConfig` 最小 facade。
+- Clearly define canonical public schemas from `packages/contracts`.
+- Add `manifestSchemaVersion`, compiler metadata, and upgrade graph.
+- Create `packages/sdk`; it must not export private DB/runtime.
+- Minimal `defineModule/definePack/defineTemplate/defineConfig` facade.
 
-Exit：现有 YAML Catalog 可编译为与 typed source 相同的 canonical Manifest；旧 Catalog contract tests 通过。
+Exit: Existing YAML Catalog can compile into the same canonical Manifest as typed source; legacy Catalog contract tests pass.
 
 ### SDK1 — Validate and Build
 
-- Artifact compiler、canonical serializer、checksum、provenance。
-- Secret/path safety。
-- CLI `validate/build --json`。
-- Deterministic/reproducible build tests。
+- Artifact compiler, canonical serializer, checksum, and provenance.
+- Secret/path safety.
+- CLI `validate/build --json`.
+- Deterministic/reproducible build tests.
 
-Exit：相同输入产生等价 checksum；Customer 1.1 artifact 通过本地 validation。
+Exit: The same input produces equivalent checksums; Customer 1.1 artifact passes local validation.
 
 ### SDK2 — Testing Harness
 
-- Temporary Workspace fixture。
-- Real Installer/Migration/Compatibility adapters。
-- install/upgrade/data preservation/Extension conflict assertions。
-- CLI `test --json`。
+- Temporary Workspace fixture.
+- Real Installer/Migration/Compatibility adapters.
+- Install/upgrade/data preservation/Extension conflict assertions.
+- CLI `test --json`.
 
-Exit：Catalog POC positive/negative cases 可在本地 CI 重放。
+Exit: Catalog POC positive/negative cases can be replayed in local CI.
 
 ### SDK3 — Internal Publish Adapter
 
-- Authenticated CI upload。
-- idempotent candidate import。
-- validation result polling/output。
-- CLI `publish --channel internal --json`。
-- 禁止 Stable direct publish。
+- Authenticated CI upload.
+- Idempotent candidate import.
+- Validation result polling/output.
+- CLI `publish --channel internal --json`.
+- Forbid direct Stable publish.
 
-Exit：Customer 1.1 从 build artifact 进入 Cloud Catalog candidate，无手工文件复制。
+Exit: Customer 1.1 moves from build artifact into a Cloud Catalog candidate without manual file copying.
 
 ### SDK4 — Developer Experience after v0.1
 
-- init/login/connect/dev/diff。
-- hot-reload local fixture Workspace。
-- public docs/starter/npm packages。
-- partner/third-party onboarding。
-- richer Workflow authoring and replay tools。
+- init/login/connect/dev/diff.
+- Hot-reload local fixture Workspace.
+- Public docs/starter/npm packages.
+- Partner/third-party onboarding.
+- Richer Workflow authoring and replay tools.
 
 ## 19. Acceptance Matrix
 
 | ID | Acceptance | v0.1 |
 | --- | --- | --- |
-| SDK-01 | SDK public surface 不暴露 Platform DB/repository | Required |
-| SDK-02 | Typed source 编译为 canonical Manifest | Required |
-| SDK-03 | validate/test/build 提供 machine-readable output | Required |
-| SDK-04 | Build 可复现且 artifact checksum 可验证 | Required |
-| SDK-05 | Secret/path escape negative tests 通过 | Required |
-| SDK-06 | Harness 使用真实 runtime adapters | Required |
-| SDK-07 | Customer 1.0 → 1.1 fixture 验证数据与 Extension | Required |
-| SDK-08 | Internal publish 幂等且不能直接 Stable | Required |
-| SDK-09 | Agent Skill 引用真实 command/evidence | Required |
-| SDK-10 | 无 Cloud 时 validate/test/build 可运行 | Required |
+| SDK-01 | SDK public surface does not expose Platform DB/repository | Required |
+| SDK-02 | Typed source compiles into canonical Manifest | Required |
+| SDK-03 | validate/test/build provide machine-readable output | Required |
+| SDK-04 | Build is reproducible and artifact checksum is verifiable | Required |
+| SDK-05 | Secret/path escape negative tests pass | Required |
+| SDK-06 | Harness uses real runtime adapters | Required |
+| SDK-07 | Customer 1.0 → 1.1 fixture verifies data and Extension | Required |
+| SDK-08 | Internal publish is idempotent and cannot publish directly to Stable | Required |
+| SDK-09 | Agent Skill references real commands/evidence | Required |
+| SDK-10 | validate/test/build can run without Cloud | Required |
 | SDK-11 | Public npm/third-party onboarding | Deferred |
 | SDK-12 | Full deterministic Workflow builder | Deferred |
 
 ## 20. Definition of Complete
 
-Runory SDK v0.1 内部工具链完成必须同时满足：
+The Runory SDK v0.1 internal toolchain is complete only when all of the following are true:
 
-1. SDK 是实际 package/API/CLI/test harness，不只是 Markdown 规范。
-2. Official Module 使用同一 typed contract 和 build pipeline。
-3. 本地 validate/test/build 无 Cloud 依赖。
-4. Cloud publish 只创建 candidate/internal request，不绕过 release governance。
-5. Artifact 可复现、checksummed、无 secret 且关联 source/build identity。
-6. Testing harness 覆盖 install、upgrade、data preservation 和 Extension compatibility。
-7. Agent 可以通过 Skill 使用工具链，但无法批准 Stable release。
-8. Catalog POC 的 Customer 1.1 artifact 由 SDK toolchain 端到端产生。
-
+1. The SDK is a real package/API/CLI/test harness, not just a Markdown specification.
+2. Official Modules use the same typed contract and build pipeline.
+3. Local validate/test/build has no Cloud dependency.
+4. Cloud publish only creates candidate/internal requests and does not bypass release governance.
+5. Artifacts are reproducible, checksummed, secret-free, and linked to source/build identity.
+6. The testing harness covers install, upgrade, data preservation, and Extension compatibility.
+7. Agents can use the toolchain through the Skill, but cannot approve Stable releases.
+8. The Catalog POC Customer 1.1 artifact is produced end-to-end by the SDK toolchain.
