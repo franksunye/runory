@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { readFile } from "node:fs/promises";
 import { resolve, sep } from "node:path";
-import { queryOne, TABLES, type RequestContext } from "@runory/platform-core";
+import { queryOne, writeAuditEvent, TABLES, type RequestContext } from "@runory/platform-core";
 import { requireWorkspaceContext } from "@/lib/auth";
 import { handleError, notFound, getOrCreateRequestId } from "@/lib/http";
 
@@ -78,6 +78,22 @@ export async function GET(
     }
 
     const contentType = row.content_type ?? "application/octet-stream";
+
+    // Audit event — per v0.5.1 Spec §7: "audit evidence download, form submission,
+    // Quote output generation, and governed commands."
+    writeAuditEvent({
+      workspaceId,
+      actorType: ctx.principal?.authMethod === "api_key" ? "api_key" : "user",
+      actorId: ctx.principal?.userId ?? "unknown",
+      action: "attachment.download",
+      entityType: "attachment",
+      entityId: attachmentId,
+      before: null,
+      after: { file_name: row.file_name, content_type: contentType, size: row.size_bytes },
+      requestId: ctx.requestId,
+    }).catch((err) => {
+      console.error("[audit] Failed to write attachment.download audit event:", err);
+    });
 
     // Spec §5.3: attachments are network-only — never cached. Wrap the Buffer
     // in a Uint8Array so it satisfies the fetch BodyInit contract under the

@@ -93,7 +93,12 @@ export type AuditAction =
   | "work_item.cancel"
   // Evidence Upload (v0.5.1)
   | "attachment.upload"
-  | "attachment.download";
+  | "attachment.download"
+  // Form Submission Lifecycle (v0.5.1)
+  | "form_submission.submit"
+  | "form_submission.return"
+  | "form_submission.accept"
+  | "form_submission.save_draft";
 
 export interface AuditEventInput {
   workspaceId: string;

@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useParams, usePathname } from "next/navigation";
 import Link from "next/link";
-import { Home, Calendar, ClipboardList, User, WifiOff } from "lucide-react";
+import { Home, Calendar, ClipboardList, User, WifiOff, RefreshCw } from "lucide-react";
 import { useI18n } from "@/i18n/locale-provider";
 import type { MessageKey } from "@/i18n/messages";
+import { initPerformanceMeasurement } from "@/lib/performance";
 
 // Bump this when sw.js cache policy changes to force a clean update.
 const SW_PATH = "/sw.js";
@@ -25,6 +26,13 @@ export default function MobileLayout({
   // ── Online / offline detection (v0.5.1 Spec §5.6: visible online/offline state) ──
   const [isOffline, setIsOffline] = useState(false);
 
+  // ── Service worker update recovery (v0.5.1 Spec §5.3: "safe update/reload path") ──
+  // When a new sw.js is fetched, the browser installs it. We listen for the
+  // `updatefound` event on the installing worker and the `controllerchange`
+  // event on the registration to detect when a new version has taken control,
+  // then surface a non-blocking banner that lets the field worker refresh.
+  const [updateAvailable, setUpdateAvailable] = useState(false);
+
   useEffect(() => {
     // Initialize from the browser's current connectivity state.
     setIsOffline(!navigator.onLine);
@@ -41,25 +49,103 @@ export default function MobileLayout({
     };
   }, []);
 
-  // ── Service worker registration (v0.5.1 Spec §5.3) ──
+  // ── Service worker registration + update recovery (v0.5.1 Spec §5.3) ──
   useEffect(() => {
     if (typeof window === "undefined") return;
     if (!("serviceWorker" in navigator)) return;
 
-    const register = () => {
+    // Mutable handle to the periodic update interval so it can be cleared on
+    // unmount. It is assigned inside the async registration callback.
+    let updateInterval: ReturnType<typeof setInterval> | undefined;
+    let attachedControllerListener = false;
+    let pendingLoadListener: (() => void) | undefined;
+
+    // A new service worker has taken control of the page. Only surface the
+    // banner when a controller already existed (not on the very first
+    // install) so the field worker is not bothered on first load.
+    const handleControllerChange = () => {
+      if (navigator.serviceWorker.controller) {
+        setUpdateAvailable(true);
+      }
+    };
+
+    const doRegister = () => {
       navigator.serviceWorker
         .register(SW_PATH, { scope: SW_SCOPE })
+        .then((registration) => {
+          // `updatefound` fires when a new service worker starts installing.
+          registration.addEventListener("updatefound", () => {
+            const installingWorker = registration.installing;
+            if (!installingWorker) return;
+            installingWorker.addEventListener("statechange", () => {
+              // When the new worker finishes installing, prompt the user to
+              // refresh so they pick up the updated app shell safely.
+              if (
+                installingWorker.state === "installed" &&
+                navigator.serviceWorker.controller
+              ) {
+                setUpdateAvailable(true);
+              }
+            });
+          });
+
+          // Periodically check for updates while the app is open so a deployed
+          // fix reaches an already-open PWA without a manual reload.
+          updateInterval = setInterval(() => {
+            registration.update().catch(() => {
+              // Update checks are best-effort; ignore network failures.
+            });
+          }, 60 * 1000);
+        })
         .catch(() => {
           // Registration failed — the app still works online-only.
         });
+
+      // Listen for the controller swapping over (happens after the new SW
+      // activates, e.g. following a SKIP_WAITING message).
+      navigator.serviceWorker.addEventListener(
+        "controllerchange",
+        handleControllerChange,
+      );
+      attachedControllerListener = true;
     };
 
     // Register on load to avoid competing with first paint.
     if (document.readyState === "complete") {
-      register();
+      doRegister();
     } else {
-      window.addEventListener("load", register, { once: true });
-      return () => window.removeEventListener("load", register);
+      pendingLoadListener = () => doRegister();
+      window.addEventListener("load", pendingLoadListener, { once: true });
+    }
+
+    return () => {
+      if (pendingLoadListener) {
+        window.removeEventListener("load", pendingLoadListener);
+      }
+      if (updateInterval) clearInterval(updateInterval);
+      if (attachedControllerListener) {
+        navigator.serviceWorker.removeEventListener(
+          "controllerchange",
+          handleControllerChange,
+        );
+      }
+    };
+  }, []);
+
+  // ── Performance measurement (v0.5.1 Spec §5.7) ──
+  // Initialize Web Vitals (LCP, INP, CLS, FCP, TTFB) capture in the browser.
+  // Metrics are logged to the console; endpoint reporting is opt-in.
+  useEffect(() => {
+    return initPerformanceMeasurement({
+      logToConsole: true,
+      reportToEndpoint: false,
+    });
+  }, []);
+
+  // Reload the page so the new service worker controls all subsequent fetches.
+  const handleRefresh = useCallback(() => {
+    if (typeof window !== "undefined") {
+      window.location.reload();
     }
   }, []);
 
@@ -120,15 +206,41 @@ export default function MobileLayout({
         </div>
       )}
 
+      {/* Update recovery banner — surfaces a new SW version (v0.5.1 Spec §5.3) */}
+      {updateAvailable && (
+        <button
+          type="button"
+          onClick={handleRefresh}
+          className="fixed left-1/2 z-[61] w-full max-w-[480px] -translate-x-1/2 bg-indigo-600"
+          style={{
+            top: isOffline ? "calc(env(safe-area-inset-top) + 34px)" : "env(safe-area-inset-top)",
+          }}
+          role="status"
+          aria-live="polite"
+        >
+          <div className="flex items-center justify-center gap-2 py-2">
+            <RefreshCw size={14} className="shrink-0 text-white" />
+            <span className="text-xs font-semibold text-white">
+              New version available, tap to refresh
+            </span>
+          </div>
+        </button>
+      )}
+
       {/* Main content area with safe-area top padding */}
       <main
         className="flex-1 overflow-y-auto"
         style={{
           // When the offline banner is visible, add space for it below the
-          // safe-area inset so it doesn't cover the page header.
-          paddingTop: isOffline
-            ? "calc(env(safe-area-inset-top) + 34px)"
-            : "env(safe-area-inset-top)",
+          // safe-area inset so it doesn't cover the page header. The update
+          // banner sits below the offline banner and overlays content (it is
+          // dismissable via refresh), so it does not add extra padding.
+          paddingTop:
+            isOffline && updateAvailable
+              ? "calc(env(safe-area-inset-top) + 68px)"
+              : isOffline
+                ? "calc(env(safe-area-inset-top) + 34px)"
+                : "env(safe-area-inset-top)",
           paddingBottom: showBottomNav ? "calc(env(safe-area-inset-bottom) + 72px)" : "env(safe-area-inset-bottom)",
         }}
       >

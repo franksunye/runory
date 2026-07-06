@@ -12,6 +12,7 @@ import { genId, now, queryOne, queryAll, execute, batch } from "./db";
 import { TABLES, businessTable } from "./contracts";
 import { BusinessError, NotFoundError, InvalidInputError } from "./context";
 import { ERROR_CODES } from "./errors";
+import { writeAuditEvent } from "./audit-service";
 
 // ── Types ──
 
@@ -489,6 +490,31 @@ export async function submitForm(
     ]
   );
 
+  // Audit event — per v0.5.1 Spec §7: "audit evidence download, form submission,
+  // Quote output generation, and governed commands."
+  writeAuditEvent({
+    workspaceId,
+    actorType: "user",
+    actorId: params.submittedBy,
+    action: "form_submission.submit",
+    entityType: params.subjectType ?? "form_submission",
+    entityId: submissionId,
+    before: null,
+    after: {
+      form_definition_id: params.formDefinitionId,
+      form_version_id: versionRow.id,
+      binding_id: params.bindingId ?? null,
+      subject_type: params.subjectType ?? null,
+      subject_id: params.subjectId ?? null,
+      work_item_id: params.workItemId ?? null,
+      revision_number: revisionNumber,
+      supersedes_submission_id: params.supersedesSubmissionId ?? null,
+    },
+    requestId: `form-submit-${submissionId}-${ts}`,
+  }).catch((err) => {
+    console.error("[audit] Failed to write form_submission.submit audit event:", err);
+  });
+
   return { submissionId, revisionNumber };
 }
 
@@ -676,6 +702,26 @@ export async function returnFormSubmission(
     },
   ]);
 
+  // Audit event — per v0.5.1 Spec §7 and §4.3: return is a governed action
+  writeAuditEvent({
+    workspaceId,
+    actorType: "user",
+    actorId: returnedBy,
+    action: "form_submission.return",
+    entityType: "form_submission",
+    entityId: submissionId,
+    before: { status: "submitted", revision_number: submission.revision_number },
+    after: {
+      status: "returned",
+      return_reason: returnReason,
+      new_submission_id: newSubmissionId,
+      new_revision_number: newRevisionNumber,
+    },
+    requestId: `form-return-${submissionId}-${ts}`,
+  }).catch((err) => {
+    console.error("[audit] Failed to write form_submission.return audit event:", err);
+  });
+
   return { newSubmissionId, revisionNumber: newRevisionNumber };
 }
 
@@ -759,6 +805,26 @@ export async function acceptFormSubmission(
   if (submission.work_item_id) {
     await completeWorkItem(workspaceId, submission.work_item_id, acceptedBy, ts);
   }
+
+  // Audit event — per v0.5.1 Spec §7: "audit evidence download, form submission,
+  // Quote output generation, and governed commands."
+  writeAuditEvent({
+    workspaceId,
+    actorType: "user",
+    actorId: acceptedBy,
+    action: "form_submission.accept",
+    entityType: "form_submission",
+    entityId: submissionId,
+    before: { status: "submitted", revision_number: submission.revision_number },
+    after: {
+      status: "accepted",
+      service_report_id: serviceReportId ?? null,
+      work_item_id: submission.work_item_id ?? null,
+    },
+    requestId: `form-accept-${submissionId}-${ts}`,
+  }).catch((err) => {
+    console.error("[audit] Failed to write form_submission.accept audit event:", err);
+  });
 
   return { accepted: true, serviceReportId };
 }

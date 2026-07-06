@@ -532,6 +532,52 @@ export async function returnWorkItem(
 
   checkOptimisticLock(workItem.version, expectedVersion);
 
+  // Per v0.5.1 Spec §4.3: "Return creates a new work item and submission
+  // revision; it does not edit prior evidence."
+  // We create a new work item for the same step, so the technician can
+  // re-execute with the prior context and return reason.
+
+  const instance = await queryOne<WorkflowInstanceRow>(
+    `SELECT * FROM ${TABLES.workflowInstancesV2} WHERE workspace_id = ? AND id = ?`,
+    [workspaceId, workItem.instance_id]
+  );
+  if (!instance) {
+    throw new NotFoundError(`Workflow instance not found: ${workItem.instance_id}`);
+  }
+
+  const defVersion = await queryOne<WorkflowDefinitionVersionRow>(
+    `SELECT * FROM ${TABLES.formDefinitionVersions}
+     WHERE id = ?`,
+    [instance.definition_version_id]
+  );
+  // Fallback: definition version may be in workflow definition versions table
+  let definition: WorkflowDefinition;
+  if (defVersion) {
+    definition = JSON.parse(defVersion.definition_json) as WorkflowDefinition;
+  } else {
+    const wfDefVersion = await queryOne<WorkflowDefinitionVersionRow>(
+      `SELECT * FROM ${TABLES.workflowDefinitionVersions}
+       WHERE id = ?`,
+      [instance.definition_version_id]
+    );
+    if (!wfDefVersion) {
+      throw new NotFoundError(
+        `Workflow definition version not found: ${instance.definition_version_id}`
+      );
+    }
+    definition = JSON.parse(wfDefVersion.definition_json) as WorkflowDefinition;
+  }
+
+  // Find the current step definition to create a new work item for it
+  const stepDef = definition.steps.find((s) => s.id === workItem.step_id);
+  if (!stepDef) {
+    throw new BusinessError(
+      ERROR_CODES.INTERNAL_ERROR,
+      `Step definition not found for step_id: ${workItem.step_id}`,
+      500
+    );
+  }
+
   const lastEvent = await queryOne<{ max_seq: number }>(
     `SELECT MAX(sequence) as max_seq FROM ${TABLES.workflowEvents}
      WHERE instance_id = ?`,
@@ -539,24 +585,57 @@ export async function returnWorkItem(
   );
   const nextSeq = (lastEvent?.max_seq ?? 0) + 1;
 
+  const newWorkItemId = genId("wi");
+  const assigneeRule = stepDef.assigneeRule;
+
   await batch([
-    // Mark work item as returned
+    // Mark current work item as returned
     {
       sql: `UPDATE ${TABLES.workItems}
             SET status = 'returned', completed_at = ?, version = version + 1, updated_at = ?
             WHERE id = ? AND version = ?`,
       args: [ts, ts, workItemId, expectedVersion],
     },
-    // Write workflow event
+    // Write workflow event for the return
     {
       sql: `INSERT INTO ${TABLES.workflowEvents}
             (id, workspace_id, instance_id, sequence, event_type, step_id,
              actor_type, actor_id, payload_json, occurred_at)
             VALUES (?, ?, ?, ?, 'workflow.work_returned', ?, ?, ?, ?, ?)`,
       args: [genId("wfe"), workspaceId, workItem.instance_id, nextSeq, workItem.step_id,
-             actor.type, actor.id, JSON.stringify({ comment }), ts],
+             actor.type, actor.id, JSON.stringify({ comment, new_work_item_id: newWorkItemId }), ts],
+    },
+    // Create a new work item for the same step (ready for the technician)
+    {
+      sql: `INSERT INTO ${TABLES.workItems}
+            (id, workspace_id, instance_id, step_id, kind, status,
+             subject_type, subject_id, assignee_type, assignee_id,
+             candidate_rule_json, form_binding_id, version, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, 'ready', ?, ?, ?, ?, ?, ?, 1, ?, ?)`,
+      args: [newWorkItemId, workspaceId, workItem.instance_id, workItem.step_id, workItem.kind,
+             workItem.subject_type, workItem.subject_id,
+             assigneeRule?.permissionGroup ? "permission_group" : (assigneeRule?.userId ? "user" : null),
+             assigneeRule?.permissionGroup ?? assigneeRule?.userId ?? null,
+             assigneeRule ? JSON.stringify(assigneeRule) : workItem.candidate_rule_json,
+             workItem.form_binding_id,
+             ts, ts],
     },
   ]);
+
+  // Audit event
+  writeAuditEvent({
+    workspaceId,
+    actorType: actor.type,
+    actorId: actor.id,
+    action: "work_item.return",
+    entityType: "work_item",
+    entityId: workItemId,
+    before: { status: workItem.status, version: workItem.version },
+    after: { status: "returned", comment, new_work_item_id: newWorkItemId },
+    requestId: `return-${workItemId}-${ts}`,
+  }).catch((err) => {
+    console.error("[audit] Failed to write work_item.return audit event:", err);
+  });
 }
 
 // ── Cancel Workflow ──
@@ -1196,6 +1275,21 @@ export async function cancelWorkItem(
              actor.type, actor.id, JSON.stringify({ reason: reason ?? null }), ts],
     },
   ]);
+
+  // Audit event
+  writeAuditEvent({
+    workspaceId,
+    actorType: actor.type,
+    actorId: actor.id,
+    action: "work_item.cancel",
+    entityType: "work_item",
+    entityId: workItemId,
+    before: { status: workItem.status, version: workItem.version },
+    after: { status: "cancelled", reason: reason ?? null },
+    requestId: `cancel-${workItemId}-${ts}`,
+  }).catch((err) => {
+    console.error("[audit] Failed to write work_item.cancel audit event:", err);
+  });
 }
 
 // ── SLA Timers (v0.5 Phase 5) ──

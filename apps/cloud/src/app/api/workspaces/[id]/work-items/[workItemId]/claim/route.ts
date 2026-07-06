@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { claimWorkItem, type CommandActor, InvalidInputError } from "@runory/platform-core";
 import { requireWorkspaceContext } from "@/lib/auth";
+import { checkIdempotency } from "@/lib/idempotency";
 import { successResponse, handleError, getOrCreateRequestId } from "@/lib/http";
 
 export const dynamic = "force-dynamic";
@@ -19,11 +20,18 @@ export async function POST(
     };
 
     // Per v0.5.1: expectedVersion MUST be explicitly provided — no silent default.
-    // This prevents blind overwrites when the client omits the field.
     if (body.expectedVersion === undefined || body.expectedVersion === null) {
       throw new InvalidInputError(
         "expectedVersion is required. Provide the current work item version to enable optimistic locking."
       );
+    }
+
+    // Idempotency check: if the same key was used before, return the stored result.
+    if (body.idempotencyKey) {
+      const existing = await checkIdempotency(workspaceId, body.idempotencyKey);
+      if (existing && existing.status === "succeeded") {
+        return successResponse({ success: true, idempotent: true }, 200, ctx.requestId);
+      }
     }
 
     const actor: CommandActor = {

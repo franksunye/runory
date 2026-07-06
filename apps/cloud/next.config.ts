@@ -13,6 +13,25 @@ const baseConfig: NextConfig = {
     // resolved at build time from PLATFORM_DEV_BOOTSTRAP.
     NEXT_PUBLIC_PLATFORM_DEV_BOOTSTRAP: process.env.PLATFORM_DEV_BOOTSTRAP ?? "false",
   },
+  // ── v0.5.1 Spec §5.3: Service Worker cache policy ──
+  // The service worker file (sw.js) MUST NOT be cached by the browser/CDN so
+  // that users always fetch the latest version. Per the spec:
+  //   "Deployment MUST set sw.js to no-cache, no-store, must-revalidate"
+  // Without this header a stale sw.js can pin users to an old SW version and
+  // prevent the update/reload recovery path from ever being reached.
+  async headers() {
+    return [
+      {
+        source: "/sw.js",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "no-cache, no-store, must-revalidate",
+          },
+        ],
+      },
+    ];
+  },
 };
 
 export default function nextConfig(phase: string): NextConfig {

@@ -134,6 +134,14 @@ export default function AccountPage() {
 
   const handleLogout = async () => {
     await fetch("/api/auth/logout", { method: "POST", headers: { "X-Requested-With": "XMLHttpRequest" } });
+    // Clear ephemeral UI state per v0.5.1 Spec §7
+    try {
+      localStorage.removeItem("runory:sidebar-collapsed");
+      localStorage.removeItem("runory:extension-notice-dismissed");
+      localStorage.removeItem("runory:early-access-dismissed");
+    } catch {
+      // localStorage may not be available
+    }
     router.push("/login");
     router.refresh();
   };

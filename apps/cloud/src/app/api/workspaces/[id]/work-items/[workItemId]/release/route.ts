@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { releaseWorkItem, type CommandActor, InvalidInputError } from "@runory/platform-core";
 import { requireWorkspaceContext } from "@/lib/auth";
+import { checkIdempotency } from "@/lib/idempotency";
 import { successResponse, handleError, getOrCreateRequestId } from "@/lib/http";
 
 export const dynamic = "force-dynamic";
@@ -24,6 +25,14 @@ export async function POST(
       throw new InvalidInputError(
         "expectedVersion is required. Provide the current work item version to enable optimistic locking."
       );
+    }
+
+    // Idempotency check
+    if (body.idempotencyKey) {
+      const existing = await checkIdempotency(workspaceId, body.idempotencyKey);
+      if (existing && existing.status === "succeeded") {
+        return successResponse({ success: true, idempotent: true }, 200, ctx.requestId);
+      }
     }
 
     const actor: CommandActor = {
