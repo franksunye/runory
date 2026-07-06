@@ -6,7 +6,7 @@ Change: Cloud-first pivot — see [../04-architecture-pivot-cloud-first.md](../0
 
 ## 1. Canonical Definition
 
-Runory 是 **Cloud-first** 的 Agent-native SMB 业务运行平台——一个可组合、可扩展、接近 SMB 时代 WordPress 的业务能力平台，但由 Agent 在受治理的结构中完成安装、配置、扩展、验证和持续运行。
+Runory is a **Cloud-first**, Agent-native SMB business operations platform — a composable, extensible business capability platform close to WordPress for the SMB era, but with an Agent performing installation, configuration, extension, validation, and continuous operation inside a governed structure.
 
 Runory serves small and medium businesses that want business software to start quickly in the Cloud, adapt to their operations through a Built-in Agent, and remain upgrade-safe—with an optional path to Private or Local deployment for advanced needs.
 
@@ -105,15 +105,15 @@ Runory is **Cloud-first**, but architecture must preserve **Portable Runtime** s
 
 The intended evolution is:
 
-> Cloud 是默认入口；Private / Local 是高级部署形态。
+> Cloud is the default entry point; Private / Local is the advanced deployment form.
 
 Recommended paths:
 
 ```text
-Runory Cloud（default）
+Runory Cloud (default)
 → Members / Billing upgrade
 → Export Workspace
-→ Private Cloud / VPC / On-premise（advanced）
+→ Private Cloud / VPC / On-premise (advanced)
 ```
 
 Local / Private deployment is **not** the MVP default. It is an Enterprise / Advanced Deployment Mode for compliance, offline use, and customers with IT teams.
@@ -122,7 +122,7 @@ Early Cloud should not depend on bidirectional sync with Local. The preferred ad
 
 ```text
 Cloud Workspace
-→ Export Package（config + modules + extensions + schema）
+→ Export Package (config + modules + extensions + schema)
 → Private / Local Runtime Import
 ```
 
@@ -138,7 +138,7 @@ SaaS Core product boundaries: [../07-saas-core-boundaries.md](../07-saas-core-bo
 Module     = technical install unit
 Pack       = commercial delivery unit
 Template   = workspace experience entry
-Extension  = workspace-specific customization（managed, auditable）
+Extension  = workspace-specific customization (managed, auditable)
 ```
 
 ```text
