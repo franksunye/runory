@@ -1,0 +1,59 @@
+{
+  "workflowKey": "deal-stage-workflow",
+  "name": "Deal Stage Workflow",
+  "targetObject": "deal",
+  "initialState": "new",
+  "steps": [
+    {
+      "id": "start",
+      "kind": "start",
+      "next": "qualified"
+    },
+    {
+      "id": "qualified",
+      "kind": "human_task",
+      "next": "proposal",
+      "command": "deal.qualify",
+      "assigneeRule": {
+        "permissionGroup": "sales_representative"
+      }
+    },
+    {
+      "id": "proposal",
+      "kind": "human_task",
+      "next": "negotiation",
+      "command": "deal.send_proposal",
+      "assigneeRule": {
+        "permissionGroup": "sales_representative"
+      }
+    },
+    {
+      "id": "negotiation",
+      "kind": "approval",
+      "onApprove": "won",
+      "onReject": "lost",
+      "assigneeRule": {
+        "permissionGroup": "sales_manager"
+      },
+      "policy": {
+        "allowSelfApproval": false
+      }
+    },
+    {
+      "id": "won",
+      "kind": "system_command",
+      "next": "complete",
+      "command": "deal.close_won"
+    },
+    {
+      "id": "lost",
+      "kind": "system_command",
+      "next": "complete",
+      "command": "deal.close_lost"
+    },
+    {
+      "id": "complete",
+      "kind": "end"
+    }
+  ]
+}

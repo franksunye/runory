@@ -7,7 +7,29 @@ import {
 } from "./context";
 import { getRecord, createRecord, updateRecord } from "./metadata";
 import { writeAuditEvent } from "./audit-service";
-import { evaluateConditions as evaluateWorkflowConditions } from "./workflow";
+
+// Inline condition evaluator (previously in workflow.ts, now removed for V2 migration)
+function evaluateConditions(
+  record: Record<string, unknown>,
+  conditions: Array<{ field: string; operator: string; value: unknown }>
+): boolean {
+  if (!conditions || conditions.length === 0) return true;
+  return conditions.every((cond) => {
+    const val = record[cond.field];
+    switch (cond.operator) {
+      case "eq": return val === cond.value;
+      case "neq": return val !== cond.value;
+      case "gt": return Number(val) > Number(cond.value);
+      case "lt": return Number(val) < Number(cond.value);
+      case "gte": return Number(val) >= Number(cond.value);
+      case "lte": return Number(val) <= Number(cond.value);
+      case "contains": return String(val).includes(String(cond.value));
+      case "in": return Array.isArray(cond.value) && cond.value.includes(val);
+      default: return false;
+    }
+  });
+}
+const evaluateWorkflowConditions = evaluateConditions;
 import type {
   AutomationDefinition,
   AutomationAction,

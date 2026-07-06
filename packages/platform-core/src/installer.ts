@@ -336,6 +336,17 @@ async function seedPackDemoData(workspaceId: string, packId: string): Promise<nu
   if (demo.formDefinitions && demo.formDefinitions.length > 0) {
     for (const fd of demo.formDefinitions) {
       try {
+        // Check if form definition already exists by form_key
+        const existing = await queryOne<{ id: string }>(
+          `SELECT id FROM ${TABLES.formDefinitions}
+           WHERE workspace_id = ? AND form_key = ?`,
+          [workspaceId, fd.formKey]
+        );
+        if (existing) {
+          // Skip — already created
+          continue;
+        }
+
         const result = await publishFormDefinition(
           workspaceId,
           {
@@ -385,10 +396,18 @@ async function seedPackDemoData(workspaceId: string, packId: string): Promise<nu
           continue;
         }
 
-        // Resolve subject_id from alias if provided
+        // Check if submission already exists (by form_definition_id + subject_id + status)
         let subjectId: string | undefined;
         if (fs.subjectAlias && aliases.has(fs.subjectAlias)) {
           subjectId = aliases.get(fs.subjectAlias)!.id as string;
+        }
+        if (subjectId) {
+          const existingSub = await queryOne<{ id: string }>(
+            `SELECT id FROM ${TABLES.formSubmissions}
+             WHERE workspace_id = ? AND form_definition_id = ? AND subject_id = ? AND status = ?`,
+            [workspaceId, def.id, subjectId, fs.status ?? "submitted"]
+          );
+          if (existingSub) continue;
         }
 
         const result = await submitForm(workspaceId, {
@@ -446,9 +465,17 @@ async function seedPackDemoData(workspaceId: string, packId: string): Promise<nu
   // ── v0.5: Seed outbox diagnostic messages ──
   if (demo.outboxMessages && demo.outboxMessages.length > 0) {
     for (const om of demo.outboxMessages) {
+      // Check if outbox message already exists (by message_type + status to avoid duplicates)
+      const payloadJson = JSON.stringify(om.payload);
+      const existingMsg = await queryOne<{ id: string }>(
+        `SELECT id FROM ${TABLES.outboxMessages}
+         WHERE workspace_id = ? AND message_type = ? AND payload_json = ? AND status = ?`,
+        [workspaceId, om.messageType, payloadJson, om.status]
+      );
+      if (existingMsg) continue;
+
       const id = genId("obx");
       const ts = now();
-      const payloadJson = JSON.stringify(om.payload);
       await execute(
         `INSERT INTO ${TABLES.outboxMessages}
          (id, workspace_id, message_type, payload_json, status, attempts, last_error, created_at, delivered_at)
@@ -771,7 +798,7 @@ export async function installModule(
       const filePath = join(workflowsDir, file);
       try {
         const raw = readFileSync(filePath, "utf-8");
-        const def = JSON.parse(raw) as WorkflowV2Definition;
+        const def = JSON.parse(raw);
         await publishWorkflowDefinition(workspaceId, def, "system");
         console.log(`[installer] Published workflow "${def.workflowKey}" from module "${moduleId}"`);
       } catch (err) {
