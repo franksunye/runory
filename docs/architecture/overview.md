@@ -22,7 +22,7 @@ Internationalization: [internationalization.md](internationalization.md)
 
 ## Canonical Definition
 
-Runory 是 **Cloud-first** 的 Agent-native SMB 业务运行平台——可组合的 Module / Pack / Template 体系，加上 Managed Workspace Extension，由 Built-in Agent 在受治理的 API 上完成配置与运营。
+Runory is a **Cloud-first**, Agent-native SMB business operations platform: a composable Module / Pack / Template system plus Managed Workspace Extensions, with configuration and operations performed by the Built-in Agent through governed APIs.
 
 Runory is not an AI Coding tool, traditional low-code platform, general ERP, or a Local-first system where users edit module source.
 
@@ -31,7 +31,7 @@ Runory is not an AI Coding tool, traditional low-code platform, general ERP, or 
 ```text
 Runory App
 =
-Runory Cloud（default）
+Runory Cloud (default)
 + Platform Core
 + Official Modules
 + Business Packs / Workspace Templates
@@ -46,7 +46,7 @@ Runtime relationship:
 SMB User
         |
         v
-Runory Cloud UI + Built-in Agent（default）
+Runory Cloud UI + Built-in Agent (default)
         |
         v
 Runory Cloud API / Workspace Runtime
@@ -69,7 +69,7 @@ Codex / MCP / SDK → same governed APIs → Private / Local Portable Runtime
 
 ## Layer Responsibilities
 
-### Built-in Agent（默认）
+### Built-in Agent (default)
 
 The Built-in Agent is the primary operator for SMB users. It:
 
@@ -82,7 +82,7 @@ The Built-in Agent is the primary operator for SMB users. It:
 
 The Agent must not directly operate the database or modify official module source code.
 
-### Codex / MCP / SDK（高级通道）
+### Codex / MCP / SDK (advanced channel)
 
 External Agents connect through MCP or SDK with the **same permission model** as the Built-in Agent. This path serves developers, integrators, and Private deployment—not ordinary SMB onboarding.
 
@@ -138,12 +138,12 @@ Business records, files, events, audit logs, extension state, and workspace sett
 ## Non-Negotiable Boundaries
 
 ```text
-Agent 不直接操作数据库
-Agent 不修改官方模块源码
-Module / Extension 不绕过 Platform Core
-Extension 不覆盖官方模块文件
-所有写操作经过 Business Engine / governed APIs
-Cloud Agent 与 MCP 共享同一权限模型
+Agents do not directly operate the database
+Agents do not modify official module source
+Modules / Extensions do not bypass Platform Core
+Extensions do not overwrite official module files
+All writes go through the Business Engine / governed APIs
+Cloud Agents and MCP share the same permission model
 ```
 
 ## Core Runtime Chains
@@ -151,40 +151,40 @@ Cloud Agent 与 MCP 共享同一权限模型
 Capability activation chain:
 
 ```text
-注册 Runory Cloud
-→ 创建 Workspace
-→ 选择 Template
-→ 安装 Business Pack
+Register for Runory Cloud
+→ Create Workspace
+→ Select Template
+→ Install Business Pack
 → Module Manifest + Migration
-→ 注册 Objects / Views / Navigation / Workflows
-→ UI 可用
+→ Register Objects / Views / Navigation / Workflows
+→ UI becomes available
 ```
 
 Agent configuration chain:
 
 ```text
-用户提出配置需求
-→ Agent 查询 Schema 与 Extension Points
-→ 生成 Extension / Workflow Plan
+User submits a configuration request
+→ Agent queries Schema and Extension Points
+→ Generate Extension / Workflow Plan
 → Diff Preview
-→ 用户确认（如需要）
+→ User confirms (if required)
 → Agent Operation API Apply
 → Audit Log + Rollback Point
-→ Effective Runtime Model 重组
-→ UI 更新
+→ Effective Runtime Model is recomposed
+→ UI updates
 ```
 
 Data-change chain:
 
 ```text
-用户提供资料
-→ Agent 理解和提取
+User provides information
+→ Agent understands and extracts it
 → governed API / MCP Tool
 → Business Engine
 → Database
 → Business Event
 → SSE / Query Refresh
-→ Dynamic UI 更新
+→ Dynamic UI updates
 ```
 
 ## Workspace Extension Position
@@ -268,7 +268,7 @@ Runory is **Cloud-first** with **Portable Runtime** architecture.
 ```text
 Cloud = default product entry
 Private / Local = advanced deployment mode
-Export / Import = preferred path between Cloud and Private（not bidirectional sync first）
+Export / Import = preferred path between Cloud and Private (not bidirectional sync first)
 ```
 
 Cloud architecture must use adapters so runtime can migrate:
