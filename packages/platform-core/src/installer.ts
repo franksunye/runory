@@ -21,6 +21,9 @@ import {
   type AutomationDefinition,
   type WorkflowDefinition,
 } from "@runory/contracts";
+import { publishFormDefinition, createFormBinding, submitForm, type FormSchema } from "./forms-v2";
+import { startWorkflowV2 } from "./workflow-v2";
+import { getOutboxMessages } from "./outbox";
 
 // ── Manifest in-memory cache ──
 // Manifest YAML files are static at runtime (they ship with the deploy and do
@@ -71,10 +74,62 @@ interface DemoRecord {
   data: Record<string, unknown>;
 }
 
+interface DemoFormDefinition {
+  formKey: string;
+  name: string;
+  schema: { blocks: unknown[] };
+  bindings?: Array<{
+    usageType: string;
+    usageKey?: string;
+    labelOverride?: string;
+    requirementPolicy?: "optional" | "required";
+    targetMapping?: Record<string, unknown>;
+  }>;
+}
+
+interface DemoFormSubmission {
+  formKey: string;
+  subjectType?: string;
+  subjectAlias?: string;
+  status?: "draft" | "submitted" | "accepted" | "returned";
+  answers: Record<string, unknown>;
+  returnReason?: string;
+}
+
+interface DemoScheduleEntry {
+  resourceAlias: string;
+  subjectType: string;
+  subjectAlias: string;
+  startAt: string;
+  endAt: string;
+  status: string;
+  notes?: string;
+}
+
+interface DemoResource {
+  alias: string;
+  displayName: string;
+  resourceType: string;
+  email?: string;
+}
+
+interface DemoOutboxMessage {
+  messageType: string;
+  payload: Record<string, unknown>;
+  status: "pending" | "delivered" | "failed";
+  lastError?: string;
+}
+
 interface PackDemoData {
   records: DemoRecord[];
   automations?: unknown[];
   workflows?: unknown[];
+  // v0.5 demo data extensions
+  resources?: DemoResource[];
+  formDefinitions?: DemoFormDefinition[];
+  formSubmissions?: DemoFormSubmission[];
+  scheduleEntries?: DemoScheduleEntry[];
+  outboxMessages?: DemoOutboxMessage[];
 }
 
 function readPackDemoDataFile(packId: string): PackDemoData | null {
@@ -85,6 +140,12 @@ function readPackDemoDataFile(packId: string): PackDemoData | null {
     records: Array.isArray(raw.records) ? raw.records : [],
     automations: Array.isArray(raw.automations) ? raw.automations : [],
     workflows: Array.isArray(raw.workflows) ? raw.workflows : [],
+    // v0.5 extensions
+    resources: Array.isArray(raw.resources) ? raw.resources : [],
+    formDefinitions: Array.isArray(raw.formDefinitions) ? raw.formDefinitions : [],
+    formSubmissions: Array.isArray(raw.formSubmissions) ? raw.formSubmissions : [],
+    scheduleEntries: Array.isArray(raw.scheduleEntries) ? raw.scheduleEntries : [],
+    outboxMessages: Array.isArray(raw.outboxMessages) ? raw.outboxMessages : [],
   };
 }
 
@@ -254,6 +315,169 @@ async function seedPackDemoData(workspaceId: string, packId: string): Promise<nu
       const def = workflowDefinitionSchema.parse(raw);
       if (existingIds.has(def.id)) continue;
       await createWorkflowDefinition(workspaceId, def);
+      created++;
+    }
+  }
+
+  // ── v0.5: Seed resources ──
+  if (demo.resources && demo.resources.length > 0) {
+    for (const res of demo.resources) {
+      // Check if resource already exists by display_name
+      const existing = await queryOne<{ id: string }>(
+        `SELECT id FROM ${TABLES.resources}
+         WHERE workspace_id = ? AND display_name = ?`,
+        [workspaceId, res.displayName]
+      );
+      if (existing) {
+        aliases.set(res.alias, { id: existing.id, ...res });
+        continue;
+      }
+      const id = genId("res");
+      const ts = now();
+      await execute(
+        `INSERT INTO ${TABLES.resources}
+         (id, workspace_id, resource_type, display_name, active, created_at, updated_at)
+         VALUES (?, ?, ?, ?, 1, ?, ?)`,
+        [id, workspaceId, res.resourceType, res.displayName, ts, ts]
+      );
+      aliases.set(res.alias, { id, ...res });
+      created++;
+    }
+  }
+
+  // ── v0.5: Seed form definitions + bindings ──
+  if (demo.formDefinitions && demo.formDefinitions.length > 0) {
+    for (const fd of demo.formDefinitions) {
+      try {
+        const result = await publishFormDefinition(
+          workspaceId,
+          {
+            formKey: fd.formKey,
+            name: fd.name,
+            schema: fd.schema as never,
+          },
+          "demo-seed"
+        );
+
+        // Create bindings if specified
+        if (fd.bindings && fd.bindings.length > 0) {
+          for (const b of fd.bindings) {
+            try {
+              await createFormBinding(workspaceId, result.definitionId, {
+                usageType: b.usageType,
+                usageKey: b.usageKey,
+                labelOverride: b.labelOverride,
+                requirementPolicy: b.requirementPolicy ?? "required",
+                targetMapping: b.targetMapping,
+              });
+              created++;
+            } catch (err) {
+              console.error(`[installer] Demo form binding for ${fd.formKey} failed:`, err);
+            }
+          }
+        }
+        created++;
+      } catch (err) {
+        console.error(`[installer] Demo form definition ${fd.formKey} failed:`, err);
+      }
+    }
+  }
+
+  // ── v0.5: Seed form submissions ──
+  if (demo.formSubmissions && demo.formSubmissions.length > 0) {
+    for (const fs of demo.formSubmissions) {
+      try {
+        // Resolve form definition ID by formKey
+        const def = await queryOne<{ id: string }>(
+          `SELECT id FROM ${TABLES.formDefinitions}
+           WHERE workspace_id = ? AND form_key = ?`,
+          [workspaceId, fs.formKey]
+        );
+        if (!def) {
+          console.warn(`[installer] Demo form submission skipped: form definition "${fs.formKey}" not found`);
+          continue;
+        }
+
+        // Resolve subject_id from alias if provided
+        let subjectId: string | undefined;
+        if (fs.subjectAlias && aliases.has(fs.subjectAlias)) {
+          subjectId = aliases.get(fs.subjectAlias)!.id as string;
+        }
+
+        const result = await submitForm(workspaceId, {
+          formDefinitionId: def.id,
+          subjectType: fs.subjectType,
+          subjectId,
+          answers: fs.answers,
+          submittedBy: "demo-seed",
+        });
+
+        // Apply status transition if not the default "submitted"
+        if (result.submissionId && fs.status === "accepted") {
+          const { acceptFormSubmission } = await import("./forms-v2");
+          await acceptFormSubmission(workspaceId, result.submissionId, "demo-seed");
+        } else if (result.submissionId && fs.status === "returned") {
+          const { returnFormSubmission } = await import("./forms-v2");
+          await returnFormSubmission(workspaceId, result.submissionId, "demo-seed", fs.returnReason ?? "Demo: returned for revision");
+        }
+        created++;
+      } catch (err) {
+        console.error(`[installer] Demo form submission for ${fs.formKey} failed:`, err);
+      }
+    }
+  }
+
+  // ── v0.5: Seed schedule entries ──
+  if (demo.scheduleEntries && demo.scheduleEntries.length > 0) {
+    for (const se of demo.scheduleEntries) {
+      const resourceId = aliases.get(se.resourceAlias)?.id;
+      const subjectId = aliases.get(se.subjectAlias)?.id;
+      if (!resourceId || !subjectId) {
+        console.warn(`[installer] Demo schedule entry skipped: missing alias resolution`);
+        continue;
+      }
+      // Check for existing entry to avoid duplicates
+      const existing = await queryOne<{ id: string }>(
+        `SELECT id FROM ${TABLES.scheduleEntries}
+         WHERE workspace_id = ? AND resource_id = ? AND subject_id = ? AND start_at = ?`,
+        [workspaceId, resourceId, subjectId, se.startAt]
+      );
+      if (existing) continue;
+
+      const id = genId("sch");
+      const ts = now();
+      await execute(
+        `INSERT INTO ${TABLES.scheduleEntries}
+         (id, workspace_id, resource_id, subject_type, subject_id, start_at, end_at, status, conflict_state, version, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'none', 1, ?, ?)`,
+        [id, workspaceId, resourceId, se.subjectType, subjectId, se.startAt, se.endAt, se.status, ts, ts]
+      );
+      created++;
+    }
+  }
+
+  // ── v0.5: Seed outbox diagnostic messages ──
+  if (demo.outboxMessages && demo.outboxMessages.length > 0) {
+    for (const om of demo.outboxMessages) {
+      const id = genId("obx");
+      const ts = now();
+      const payloadJson = JSON.stringify(om.payload);
+      await execute(
+        `INSERT INTO ${TABLES.outboxMessages}
+         (id, workspace_id, message_type, payload_json, status, attempts, last_error, created_at, delivered_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          id,
+          workspaceId,
+          om.messageType,
+          payloadJson,
+          om.status,
+          om.status === "failed" ? 3 : 0,
+          om.lastError ?? null,
+          ts,
+          om.status === "delivered" ? ts : null,
+        ]
+      );
       created++;
     }
   }

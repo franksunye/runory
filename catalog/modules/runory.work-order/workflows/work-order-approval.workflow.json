@@ -1,0 +1,63 @@
+{
+  "workflowKey": "work-order-approval",
+  "name": "Work Order Approval Flow",
+  "targetObject": "work_order",
+  "initialState": "draft",
+  "steps": [
+    {
+      "id": "start",
+      "kind": "start",
+      "next": "submit"
+    },
+    {
+      "id": "submit",
+      "kind": "human_task",
+      "next": "approval",
+      "command": "work_order.submit_for_review",
+      "assigneeRule": {
+        "permissionGroup": "field_service_manager"
+      },
+      "formBindingId": null
+    },
+    {
+      "id": "approval",
+      "kind": "approval",
+      "onApprove": "schedule",
+      "onReject": "revision",
+      "assigneeRule": {
+        "permissionGroup": "field_service_manager"
+      },
+      "policy": {
+        "allowSelfApproval": false
+      }
+    },
+    {
+      "id": "revision",
+      "kind": "human_task",
+      "next": "submit",
+      "command": "work_order.revise",
+      "assigneeRule": {
+        "permissionGroup": "field_service_technician"
+      }
+    },
+    {
+      "id": "schedule",
+      "kind": "human_task",
+      "next": "dispatch",
+      "command": "work_order.schedule",
+      "assigneeRule": {
+        "permissionGroup": "dispatch_coordinator"
+      }
+    },
+    {
+      "id": "dispatch",
+      "kind": "system_command",
+      "next": "complete",
+      "command": "work_order.dispatch"
+    },
+    {
+      "id": "complete",
+      "kind": "end"
+    }
+  ]
+}

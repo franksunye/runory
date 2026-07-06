@@ -407,6 +407,351 @@
       ]
     }
   ],
+  "resources": [
+    {
+      "alias": "res-david",
+      "displayName": "David Park",
+      "resourceType": "technician",
+      "email": "david@runory.fsm"
+    },
+    {
+      "alias": "res-maria",
+      "displayName": "Maria Garcia",
+      "resourceType": "technician",
+      "email": "maria@runory.fsm"
+    },
+    {
+      "alias": "res-james",
+      "displayName": "James Wilson",
+      "resourceType": "technician",
+      "email": "james@runory.fsm"
+    }
+  ],
+  "formDefinitions": [
+    {
+      "formKey": "service-deliverable-checklist",
+      "name": "Service Deliverable Checklist",
+      "schema": {
+        "blocks": [
+          {
+            "block_type": "header",
+            "id": "hdr-1",
+            "label": "Pre-Service Checklist"
+          },
+          {
+            "block_type": "checklist",
+            "id": "cl-pre-service",
+            "label": "Pre-Service Safety Checks",
+            "required_count": 4,
+            "items": [
+              { "id": "cl-1", "label": "Safety gear inspected and worn", "required": true, "pass_fail_na": true },
+              { "id": "cl-2", "label": "Work area secured and marked", "required": true, "pass_fail_na": true },
+              { "id": "cl-3", "label": "Equipment power isolated", "required": true, "pass_fail_na": true },
+              { "id": "cl-4", "label": "Customer notified of work commencement", "required": true, "pass_fail_na": true }
+            ]
+          },
+          {
+            "block_type": "header",
+            "id": "hdr-2",
+            "label": "Service Execution"
+          },
+          {
+            "block_type": "field",
+            "id": "fld-work-performed",
+            "field_key": "work_performed",
+            "field_type": "text",
+            "label": "Work Performed",
+            "required": true
+          },
+          {
+            "block_type": "field",
+            "id": "fld-parts-used",
+            "field_key": "parts_used",
+            "field_type": "text",
+            "label": "Parts / Materials Used",
+            "required": false
+          },
+          {
+            "block_type": "field",
+            "id": "fld-system-status",
+            "field_key": "system_status_after_service",
+            "field_type": "select",
+            "label": "System Status After Service",
+            "required": true,
+            "options": ["operational", "monitoring", "needs_followup", "failed"]
+          },
+          {
+            "block_type": "header",
+            "id": "hdr-3",
+            "label": "Evidence & Sign-off"
+          },
+          {
+            "block_type": "evidence",
+            "id": "evi-photos",
+            "label": "Before/After Photos",
+            "accepted_types": ["image/jpeg", "image/png"],
+            "required_count": 2
+          },
+          {
+            "block_type": "signature",
+            "id": "sig-customer",
+            "label": "Customer Signature",
+            "acknowledgment_text": "I confirm that the service described above was performed to my satisfaction."
+          }
+        ]
+      },
+      "bindings": [
+        {
+          "usageType": "service_deliverable",
+          "usageKey": "service_visit_completion",
+          "requirementPolicy": "required"
+        },
+        {
+          "usageType": "workflow_step",
+          "usageKey": "service-visit-completion.deliverable",
+          "requirementPolicy": "required"
+        }
+      ]
+    },
+    {
+      "formKey": "work-order-approval-form",
+      "name": "Work Order Approval Form",
+      "schema": {
+        "blocks": [
+          {
+            "block_type": "header",
+            "id": "hdr-approval",
+            "label": "Approval Decision"
+          },
+          {
+            "block_type": "field",
+            "id": "fld-approval-notes",
+            "field_key": "approval_notes",
+            "field_type": "text",
+            "label": "Approval Notes",
+            "required": true
+          },
+          {
+            "block_type": "field",
+            "id": "fld-estimated-cost",
+            "field_key": "estimated_cost",
+            "field_type": "number",
+            "label": "Estimated Cost (USD)",
+            "required": true
+          },
+          {
+            "block_type": "signature",
+            "id": "sig-approver",
+            "label": "Approver Signature",
+            "acknowledgment_text": "I authorize this work order for execution."
+          }
+        ]
+      },
+      "bindings": [
+        {
+          "usageType": "workflow_step",
+          "usageKey": "work-order-approval.approval",
+          "requirementPolicy": "required"
+        }
+      ]
+    },
+    {
+      "formKey": "customer-feedback-survey",
+      "name": "Customer Feedback Survey",
+      "schema": {
+        "blocks": [
+          {
+            "block_type": "header",
+            "id": "hdr-feedback",
+            "label": "We value your feedback"
+          },
+          {
+            "block_type": "field",
+            "id": "fld-rating",
+            "field_key": "satisfaction_rating",
+            "field_type": "select",
+            "label": "How satisfied are you with the service?",
+            "required": true,
+            "options": ["very_satisfied", "satisfied", "neutral", "dissatisfied", "very_dissatisfied"]
+          },
+          {
+            "block_type": "field",
+            "id": "fld-comments",
+            "field_key": "comments",
+            "field_type": "text",
+            "label": "Additional Comments",
+            "required": false
+          }
+        ]
+      },
+      "bindings": [
+        {
+          "usageType": "public_endpoint",
+          "usageKey": "post-service-survey",
+          "requirementPolicy": "optional"
+        }
+      ]
+    }
+  ],
+  "formSubmissions": [
+    {
+      "formKey": "service-deliverable-checklist",
+      "subjectType": "service_visit",
+      "subjectAlias": "visit-acme-completed",
+      "status": "accepted",
+      "answers": {
+        "work_performed": "Replaced primary and secondary HEPA filters on rooftop HVAC unit. Cleaned condenser coils. Tested system operation — all parameters normal.",
+        "parts_used": "2x HEPA Filter (Model H-12), 1x Condenser Coil Cleaner",
+        "system_status_after_service": "operational",
+        "cl-pre-service": {
+          "cl-1": "pass",
+          "cl-2": "pass",
+          "cl-3": "pass",
+          "cl-4": "pass"
+        },
+        "sig-customer": {
+          "acknowledged": true,
+          "signed_by": "Maya Chen",
+          "signed_at": "2026-06-05T16:30:00Z"
+        }
+      }
+    },
+    {
+      "formKey": "service-deliverable-checklist",
+      "subjectType": "service_visit",
+      "subjectAlias": "visit-acme-warehouse",
+      "status": "submitted",
+      "answers": {
+        "work_performed": "Identified refrigerant leak at condenser coil joint. Applied temporary seal and recharged system. Monitoring required.",
+        "parts_used": "Refrigerant R-410A (5kg), Epoxy sealant",
+        "system_status_after_service": "monitoring",
+        "cl-pre-service": {
+          "cl-1": "pass",
+          "cl-2": "pass",
+          "cl-3": "pass",
+          "cl-4": "na"
+        }
+      }
+    },
+    {
+      "formKey": "service-deliverable-checklist",
+      "subjectType": "service_visit",
+      "subjectAlias": "visit-acme-completed",
+      "status": "returned",
+      "answers": {
+        "work_performed": "Filter replaced.",
+        "parts_used": "1x HEPA Filter",
+        "system_status_after_service": "operational",
+        "cl-pre-service": {
+          "cl-1": "pass",
+          "cl-2": "na",
+          "cl-3": "na",
+          "cl-4": "na"
+        }
+      },
+      "returnReason": "Please provide more detail on work performed and include all required checklist items."
+    },
+    {
+      "formKey": "work-order-approval-form",
+      "subjectType": "work_order",
+      "subjectAlias": "wo-acme-hvac-urgent",
+      "status": "submitted",
+      "answers": {
+        "approval_notes": "Urgent repair approved. Technician dispatched immediately. Parts available in stock.",
+        "estimated_cost": 850
+      }
+    },
+    {
+      "formKey": "customer-feedback-survey",
+      "subjectType": "service_visit",
+      "subjectAlias": "visit-acme-completed",
+      "status": "accepted",
+      "answers": {
+        "satisfaction_rating": "very_satisfied",
+        "comments": "David was professional and efficient. The HVAC is running perfectly now."
+      }
+    }
+  ],
+  "scheduleEntries": [
+    {
+      "resourceAlias": "res-david",
+      "subjectType": "service_visit",
+      "subjectAlias": "visit-acme-urgent",
+      "startAt": "2026-07-07T09:00:00Z",
+      "endAt": "2026-07-07T13:00:00Z",
+      "status": "confirmed"
+    },
+    {
+      "resourceAlias": "res-david",
+      "subjectType": "service_visit",
+      "subjectAlias": "visit-acme-warehouse",
+      "startAt": "2026-07-07T14:00:00Z",
+      "endAt": "2026-07-07T17:00:00Z",
+      "status": "confirmed"
+    },
+    {
+      "resourceAlias": "res-james",
+      "subjectType": "service_visit",
+      "subjectAlias": "visit-nova-fridge",
+      "startAt": "2026-07-08T10:00:00Z",
+      "endAt": "2026-07-08T15:00:00Z",
+      "status": "tentative"
+    },
+    {
+      "resourceAlias": "res-maria",
+      "subjectType": "work_order",
+      "subjectAlias": "wo-vertex-cnc-calibration",
+      "startAt": "2026-07-09T08:00:00Z",
+      "endAt": "2026-07-09T16:00:00Z",
+      "status": "tentative"
+    },
+    {
+      "resourceAlias": "res-david",
+      "subjectType": "work_order",
+      "subjectAlias": "wo-acme-warehouse-overdue",
+      "startAt": "2026-07-06T08:00:00Z",
+      "endAt": "2026-07-06T12:00:00Z",
+      "status": "confirmed"
+    }
+  ],
+  "outboxMessages": [
+    {
+      "messageType": "notification.email",
+      "payload": {
+        "to": "maya@acme.example",
+        "subject": "Work Order Update: Acme HVAC emergency repair",
+        "body": "Your work order has been scheduled. Technician David Park will arrive on July 7th."
+      },
+      "status": "delivered"
+    },
+    {
+      "messageType": "notification.sms",
+      "payload": {
+        "to": "+14155550201",
+        "body": "Runory: Visit scheduled for July 7th, 9:00 AM. Reply STOP to unsubscribe."
+      },
+      "status": "delivered"
+    },
+    {
+      "messageType": "webhook.delivery",
+      "payload": {
+        "url": "https://hooks.acme.example/work-order-updated",
+        "event": "work_order.scheduled",
+        "recordId": "wo-acme-hvac-urgent"
+      },
+      "status": "failed",
+      "lastError": "Connection timeout: webhook endpoint did not respond within 30s"
+    },
+    {
+      "messageType": "notification.email",
+      "payload": {
+        "to": "sara@vertexmfg.example",
+        "subject": "Work Order Created: Vertex CNC calibration and service",
+        "body": "A new work order has been created for your CNC machining center."
+      },
+      "status": "pending"
+    }
+  ],
   "automations": [
     {
       "id": "fsm-urgent-work-order-alert",

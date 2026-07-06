@@ -1,0 +1,47 @@
+{
+  "workflowKey": "service-visit-completion",
+  "name": "Service Visit Completion Flow",
+  "targetObject": "service_visit",
+  "initialState": "scheduled",
+  "steps": [
+    {
+      "id": "start",
+      "kind": "start",
+      "next": "on_site"
+    },
+    {
+      "id": "on_site",
+      "kind": "human_task",
+      "next": "deliverable",
+      "command": "service_visit.start_on_site",
+      "assigneeRule": {
+        "permissionGroup": "field_service_technician"
+      }
+    },
+    {
+      "id": "deliverable",
+      "kind": "human_task",
+      "next": "review",
+      "command": "service_visit.submit_deliverable",
+      "assigneeRule": {
+        "permissionGroup": "field_service_technician"
+      }
+    },
+    {
+      "id": "review",
+      "kind": "approval",
+      "onApprove": "complete",
+      "onReject": "deliverable",
+      "assigneeRule": {
+        "permissionGroup": "field_service_manager"
+      },
+      "policy": {
+        "allowSelfApproval": false
+      }
+    },
+    {
+      "id": "complete",
+      "kind": "end"
+    }
+  ]
+}
