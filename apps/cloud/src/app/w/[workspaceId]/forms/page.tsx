@@ -516,6 +516,15 @@ export default function FormsPage() {
                 const defName =
                   definitions.find((d) => d.id === b.form_definition_id)
                     ?.name ?? b.form_definition_id.slice(0, 8);
+                // Parse workflow_step usage_key: "{workflowKey}.{stepId}"
+                const dotIdx = b.usage_key ? b.usage_key.lastIndexOf(".") : -1;
+                const wfKey =
+                  dotIdx > 0 ? b.usage_key!.slice(0, dotIdx) : (b.usage_key ?? "");
+                const stepId = dotIdx > 0 ? b.usage_key!.slice(dotIdx + 1) : "";
+                const isWorkflowStep =
+                  b.usage_type === "workflow_step" && dotIdx > 0;
+                const isServiceDeliverable =
+                  b.usage_type === "service_deliverable";
                 return (
                   <li
                     key={b.id}
@@ -529,22 +538,66 @@ export default function FormsPage() {
                     >
                       {usageKey ? t(usageKey) : b.usage_type}
                     </span>
+                    {/* Requirement policy badge */}
+                    <span
+                      className={`app-badge ${
+                        b.requirement_policy === "required"
+                          ? "bg-rose-50 text-rose-700"
+                          : "bg-slate-100 text-slate-500"
+                      }`}
+                    >
+                      {b.requirement_policy === "required"
+                        ? t("forms.requirementRequired")
+                        : t("forms.requirementOptional")}
+                    </span>
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-semibold text-slate-800">
                         {defName}
                       </p>
-                      <p className="mt-0.5 truncate text-xs text-slate-500">
-                        {b.usage_key ? (
-                          <span className="font-mono">{b.usage_key}</span>
-                        ) : (
-                          <span className="app-muted">—</span>
-                        )}
-                        {b.label_override && (
-                          <span className="ml-2 text-slate-400">
-                            · {b.label_override}
+                      {isWorkflowStep ? (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            router.push(`/w/${workspaceId}/workflows`)
+                          }
+                          className="mt-1 inline-flex flex-wrap items-center gap-x-2 gap-y-0.5 rounded-md bg-indigo-50 px-2 py-1 text-left text-xs font-medium text-indigo-700 transition hover:bg-indigo-100"
+                          title={t("forms.openWorkflows")}
+                        >
+                          <Link2 size={12} className="shrink-0" />
+                          <span>
+                            {t("forms.workflowLink")}:{" "}
+                            <span className="font-mono">{wfKey}</span>
                           </span>
-                        )}
-                      </p>
+                          <span className="text-indigo-300">·</span>
+                          <span>
+                            {t("forms.stepLabel")}:{" "}
+                            <span className="font-mono">{stepId}</span>
+                          </span>
+                          <ArrowRight
+                            size={11}
+                            className="text-indigo-400"
+                          />
+                        </button>
+                      ) : (
+                        <p className="mt-0.5 truncate text-xs text-slate-500">
+                          {b.usage_key ? (
+                            <span className="font-mono">{b.usage_key}</span>
+                          ) : (
+                            <span className="app-muted">—</span>
+                          )}
+                          {b.label_override && (
+                            <span className="ml-2 text-slate-400">
+                              · {b.label_override}
+                            </span>
+                          )}
+                        </p>
+                      )}
+                      {isServiceDeliverable && (
+                        <span className="mt-1 inline-flex items-center gap-1 rounded bg-cyan-50 px-1.5 py-0.5 text-[10px] font-semibold text-cyan-700">
+                          <CircleDot size={10} />
+                          {t("forms.usageServiceDeliverable")}
+                        </span>
+                      )}
                     </div>
                     <span
                       className={`flex items-center gap-1.5 text-xs font-semibold ${

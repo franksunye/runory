@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import {
   GitBranch, Plus, RefreshCw, CheckCircle2, XCircle, Clock3,
   Play, ArrowRight, X, Pencil, Trash2, AlertCircle, Loader2,
-  Layers, ListChecks, ExternalLink,
+  Layers, ListChecks, ExternalLink, FileText, Workflow,
 } from "lucide-react";
 import type {
   WorkflowDefinition, WorkflowTransition,
@@ -295,6 +295,9 @@ export default function WorkflowsPage() {
           onSubmit={(ot, rid) => handleStartInstance(startFor.id, ot, rid)} />
       )}
 
+      {/* V2 Workflow Definitions */}
+      <V2DefinitionsSection workspaceId={workspaceId} />
+
       {/* V2 Workflow Instances */}
       <V2InstancesSection workspaceId={workspaceId} />
     </div>
@@ -513,6 +516,154 @@ function v2StepKindBadgeClass(kind: WorkflowStepKind): string {
   }
 }
 
+// ── V2 Workflow Definitions Section ──
+
+interface V2DefinitionDetail {
+  id: string;
+  workflowKey: string;
+  name: string;
+  targetObject: string;
+  status: string;
+  versionNumber: number;
+  definition: WorkflowDefinitionV2 | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+function V2DefinitionsSection({ workspaceId }: { workspaceId: string }) {
+  const { t } = useI18n();
+  const [definitions, setDefinitions] = useState<V2DefinitionDetail[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const res = await fetch(
+        `/api/workspaces/${workspaceId}/workflows/definitions-v2`,
+        { cache: "no-store" }
+      );
+      const json = await res.json();
+      if (!json.success) {
+        throw new Error(json.error?.message ?? t("workflowV2.loadFailed"));
+      }
+      setDefinitions(json.data ?? []);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t("workflowV2.loadFailed"));
+    } finally {
+      setLoading(false);
+    }
+  }, [workspaceId, t]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  return (
+    <section className="app-card p-5 sm:p-6">
+      <div className="mb-4 flex items-center justify-between">
+        <div>
+          <h3 className="flex items-center gap-2 font-bold text-slate-900">
+            <Workflow size={16} className="text-indigo-600" />
+            {t("workflowV2.definitions")}
+          </h3>
+          <p className="mt-1 text-xs text-slate-500">{t("workflowV2.definitionsHint")}</p>
+        </div>
+        <button onClick={() => void load()} className="app-button-secondary" disabled={loading}>
+          {loading ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
+        </button>
+      </div>
+
+      {loading && definitions.length === 0 ? (
+        <p className="text-sm text-slate-400">{t("workflowV2.loadingDefinitions")}</p>
+      ) : error ? (
+        <div className="app-error">
+          <div className="flex items-start gap-2">
+            <AlertCircle size={16} className="mt-0.5 shrink-0" />
+            <p>{error}</p>
+          </div>
+        </div>
+      ) : definitions.length === 0 ? (
+        <p className="text-sm text-slate-400">{t("workflowV2.noDefinitions")}</p>
+      ) : (
+        <ul className="space-y-4">
+          {definitions.map((def) => {
+            const steps: WorkflowStep[] = def.definition?.steps ?? [];
+            return (
+              <li key={def.id} className="rounded-lg border border-slate-100 p-4">
+                <div className="flex flex-wrap items-center gap-3">
+                  <span className="grid size-9 place-items-center rounded-lg bg-indigo-50 text-indigo-600">
+                    <Workflow size={17} />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold text-slate-800">
+                      {def.name}
+                    </p>
+                    <p className="truncate text-xs text-slate-500">
+                      {t("workflowV2.workflowKey")}: <span className="font-mono">{def.workflowKey}</span>
+                      {" · "}{t("workflowV2.targetObject")}: <span className="font-mono">{def.targetObject}</span>
+                      {" · v"}{def.versionNumber}
+                    </p>
+                  </div>
+                  <span className={`app-badge ${v2StatusBadgeClass(def.status === "active" ? "running" : def.status)}`}>
+                    {def.status}
+                  </span>
+                </div>
+
+                {/* Step pipeline with form & assignee details */}
+                {steps.length > 0 && (
+                  <div className="mt-3 pl-12">
+                    <p className="mb-1.5 text-xs font-semibold text-slate-500">{t("workflowV2.stepPipeline")}</p>
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      {steps.map((step, i) => {
+                        const hasForm = Boolean(step.formBindingId);
+                        const permissionGroup = step.assigneeRule?.permissionGroup;
+                        return (
+                          <span key={`${step.id}-${i}`} className="flex items-center gap-1.5">
+                            <span
+                              className={`app-badge ${v2StepKindBadgeClass(step.kind)}`}
+                              title={hasForm ? t("workflowV2.formBound") : undefined}
+                            >
+                              {hasForm && (
+                                <FileText size={11} className="mr-0.5 shrink-0" />
+                              )}
+                              {t(V2_STEP_KIND_LABEL_KEY[step.kind])}
+                              <span className="font-mono text-[10px] opacity-70">{step.id}</span>
+                            </span>
+                            {hasForm && (
+                              <span
+                                className="app-badge bg-purple-50 text-purple-700"
+                                title={t("workflowV2.stepForm")}
+                              >
+                                <FileText size={11} />
+                                {t("workflowV2.stepForm")}: {step.formBindingId}
+                              </span>
+                            )}
+                            {permissionGroup && (
+                              <span
+                                className="app-badge bg-slate-100 text-slate-600"
+                                title={t("workflowV2.assigneeRule")}
+                              >
+                                {t("workflowV2.assigneeRule")}: {permissionGroup}
+                              </span>
+                            )}
+                            {i < steps.length - 1 && <ArrowRight size={12} className="text-slate-300" />}
+                          </span>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </section>
+  );
+}
+
 function V2InstancesSection({ workspaceId }: { workspaceId: string }) {
   const { t } = useI18n();
   const router = useRouter();
@@ -668,11 +819,16 @@ function V2InstanceRow({ instance, onOpenRecord }: V2InstanceRowProps) {
           <div className="flex flex-wrap items-center gap-1.5">
             {steps.map((step, i) => {
               const isCurrent = step.id === currentStepId;
+              const hasForm = Boolean(step.formBindingId);
               return (
                 <span key={`${step.id}-${i}`} className="flex items-center gap-1.5">
                   <span
                     className={`app-badge ${v2StepKindBadgeClass(step.kind)} ${isCurrent ? "ring-2 ring-indigo-400" : ""}`}
+                    title={hasForm ? t("workflowV2.formBound") : undefined}
                   >
+                    {hasForm && (
+                      <FileText size={11} className="mr-0.5 shrink-0" />
+                    )}
                     {t(V2_STEP_KIND_LABEL_KEY[step.kind])}
                     <span className="font-mono text-[10px] opacity-70">{step.id}</span>
                   </span>

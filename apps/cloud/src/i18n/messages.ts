@@ -1343,6 +1343,11 @@ export const en = {
   "forms.usagePublicEndpoint": "Public Endpoint",
   "forms.usageMarketingCapture": "Marketing Capture",
   "forms.usageServiceDeliverable": "Service Deliverable",
+  "forms.requirementRequired": "Required",
+  "forms.requirementOptional": "Optional",
+  "forms.workflowLink": "Workflow",
+  "forms.stepLabel": "Step",
+  "forms.openWorkflows": "Open Workflows",
   "forms.submissionStatusDraft": "Draft",
   "forms.submissionStatusSubmitted": "Submitted",
   "forms.submissionStatusAccepted": "Accepted",
@@ -1453,6 +1458,14 @@ export const en = {
   "workflowV2.placeholderStepCommand": "command_id",
   "workflowV2.placeholderPermissionGroup": "e.g. sales_manager",
   "workflowV2.placeholderInitialState": "initial_state",
+  "workflowV2.definitions": "V2 Workflow Definitions",
+  "workflowV2.definitionsHint": "Published step-based workflow definitions and their bound forms",
+  "workflowV2.noDefinitions": "No V2 workflow definitions published",
+  "workflowV2.loadingDefinitions": "Loading V2 definitions…",
+  "workflowV2.stepForm": "Form",
+  "workflowV2.formBound": "Form bound",
+  "workflowV2.assigneeRule": "Assignee Rule",
+  "workflowV2.targetObject": "Target Object",
 } as const;
 
 export type MessageKey = keyof typeof en;
@@ -1790,6 +1803,11 @@ export const zh: Messages = {
   "forms.usagePublicEndpoint": "公开端点",
   "forms.usageMarketingCapture": "营销收集",
   "forms.usageServiceDeliverable": "服务交付",
+  "forms.requirementRequired": "必填",
+  "forms.requirementOptional": "选填",
+  "forms.workflowLink": "工作流",
+  "forms.stepLabel": "步骤",
+  "forms.openWorkflows": "打开工作流",
   "forms.submissionStatusDraft": "草稿",
   "forms.submissionStatusSubmitted": "已提交",
   "forms.submissionStatusAccepted": "已接受",
@@ -1900,6 +1918,14 @@ export const zh: Messages = {
   "workflowV2.placeholderStepCommand": "command_id",
   "workflowV2.placeholderPermissionGroup": "例如 sales_manager",
   "workflowV2.placeholderInitialState": "initial_state",
+  "workflowV2.definitions": "V2 工作流定义",
+  "workflowV2.definitionsHint": "已发布的步骤工作流定义及其绑定的表单",
+  "workflowV2.noDefinitions": "未发布 V2 工作流定义",
+  "workflowV2.loadingDefinitions": "正在加载 V2 定义…",
+  "workflowV2.stepForm": "表单",
+  "workflowV2.formBound": "已绑定表单",
+  "workflowV2.assigneeRule": "受理规则",
+  "workflowV2.targetObject": "目标对象",
 };
 
 export const messages = { en, zh } as const;
