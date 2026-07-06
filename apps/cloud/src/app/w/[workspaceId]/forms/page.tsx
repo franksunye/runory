@@ -15,6 +15,7 @@ import {
   ArrowRight,
   X,
   CircleDot,
+  Plus,
 } from "lucide-react";
 import { useI18n } from "@/i18n/locale-provider";
 import type { MessageKey } from "@/i18n/messages";
@@ -134,6 +135,22 @@ export default function FormsPage() {
   const [returnFor, setReturnFor] = useState<FormSubmissionV2 | null>(null);
   const [returnReason, setReturnReason] = useState("");
 
+  // Create Definition modal
+  const [showCreateDef, setShowCreateDef] = useState(false);
+  const [defForm, setDefForm] = useState({ formKey: "", name: "", schemaText: '{"blocks":[{"block_type":"header","id":"h1","label":"New Form"}]}' });
+  const [creatingDef, setCreatingDef] = useState(false);
+
+  // Create Binding modal
+  const [showCreateBinding, setShowCreateBinding] = useState(false);
+  const [bindingForm, setBindingForm] = useState({
+    formDefinitionId: "",
+    usageType: "workflow_step" as string,
+    usageKey: "",
+    labelOverride: "",
+    requirementPolicy: "required" as "required" | "optional",
+  });
+  const [creatingBinding, setCreatingBinding] = useState(false);
+
   const showToast = useCallback((type: Toast["type"], message: string) => {
     setToast({ type, message });
     setTimeout(() => setToast(null), 3500);
@@ -247,6 +264,61 @@ export default function FormsPage() {
     }
   };
 
+  const handleCreateDef = async () => {
+    try {
+      setCreatingDef(true);
+      let schema: unknown;
+      try {
+        schema = JSON.parse(defForm.schemaText);
+      } catch {
+        showToast("error", "Invalid JSON in schema");
+        return;
+      }
+      const res = await fetch(`/api/workspaces/${workspaceId}/forms/definitions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ formKey: defForm.formKey, name: defForm.name, schema }),
+      });
+      const json = await res.json();
+      if (!json.success) throw new Error(json.error?.message ?? "Create failed");
+      showToast("success", "Form definition created");
+      setShowCreateDef(false);
+      setDefForm({ formKey: "", name: "", schemaText: '{"blocks":[{"block_type":"header","id":"h1","label":"New Form"}]}' });
+      await load();
+    } catch (e) {
+      showToast("error", e instanceof Error ? e.message : "Create failed");
+    } finally {
+      setCreatingDef(false);
+    }
+  };
+
+  const handleCreateBinding = async () => {
+    try {
+      setCreatingBinding(true);
+      const res = await fetch(`/api/workspaces/${workspaceId}/forms/bindings`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          formDefinitionId: bindingForm.formDefinitionId,
+          usageType: bindingForm.usageType,
+          usageKey: bindingForm.usageKey || undefined,
+          labelOverride: bindingForm.labelOverride || undefined,
+          requirementPolicy: bindingForm.requirementPolicy,
+        }),
+      });
+      const json = await res.json();
+      if (!json.success) throw new Error(json.error?.message ?? "Create failed");
+      showToast("success", "Form binding created");
+      setShowCreateBinding(false);
+      setBindingForm({ formDefinitionId: "", usageType: "workflow_step", usageKey: "", labelOverride: "", requirementPolicy: "required" });
+      await load();
+    } catch (e) {
+      showToast("error", e instanceof Error ? e.message : "Create failed");
+    } finally {
+      setCreatingBinding(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Toast */}
@@ -273,15 +345,37 @@ export default function FormsPage() {
             {t("forms.title")}
           </h1>
         </div>
-        <button
-          type="button"
-          onClick={() => {
-            void load();
-            if (tab === "submissions") void loadSubmissions();
-          }}
-          disabled={loading}
-          className="app-button-secondary"
-        >
+        <div className="flex items-center gap-2">
+          {tab === "definitions" && (
+            <button
+              type="button"
+              onClick={() => setShowCreateDef(true)}
+              className="app-button-primary"
+            >
+              <Plus size={16} />
+              {t("forms.createDefinition")}
+            </button>
+          )}
+          {tab === "bindings" && (
+            <button
+              type="button"
+              onClick={() => setShowCreateBinding(true)}
+              className="app-button-primary"
+              disabled={definitions.length === 0}
+            >
+              <Plus size={16} />
+              {t("forms.createBinding")}
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => {
+              void load();
+              if (tab === "submissions") void loadSubmissions();
+            }}
+            disabled={loading}
+            className="app-button-secondary"
+          >
           {loading ? (
             <Loader2 size={16} className="animate-spin" />
           ) : (
@@ -289,6 +383,7 @@ export default function FormsPage() {
           )}
           {t("workspace.refresh")}
         </button>
+        </div>
       </header>
 
       {error && <div className="app-error">{error}</div>}
@@ -705,6 +800,158 @@ export default function FormsPage() {
                   <Loader2 size={16} className="animate-spin" />
                 ) : null}
                 {t("forms.actionReturn")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Create Definition Modal */}
+      {showCreateDef && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/30 p-4"
+          onClick={() => setShowCreateDef(false)}
+        >
+          <div
+            className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-bold text-slate-900">{t("forms.createDefinition")}</h3>
+              <button type="button" onClick={() => setShowCreateDef(false)} className="text-slate-400 hover:text-slate-600">
+                <X size={20} />
+              </button>
+            </div>
+            <div className="mt-4 space-y-3">
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-slate-600">{t("forms.formKey")}</label>
+                <input
+                  type="text"
+                  value={defForm.formKey}
+                  onChange={(e) => setDefForm({ ...defForm, formKey: e.target.value })}
+                  placeholder="e.g. service_report_checklist"
+                  className="app-input h-9"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-slate-600">Name</label>
+                <input
+                  type="text"
+                  value={defForm.name}
+                  onChange={(e) => setDefForm({ ...defForm, name: e.target.value })}
+                  placeholder="e.g. Service Report Checklist"
+                  className="app-input h-9"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-slate-600">Schema (JSON)</label>
+                <textarea
+                  value={defForm.schemaText}
+                  onChange={(e) => setDefForm({ ...defForm, schemaText: e.target.value })}
+                  className="app-input h-40 resize-none font-mono text-xs"
+                  placeholder='{"blocks":[{"block_type":"field","id":"f1","field_key":"notes","field_type":"text","label":"Notes","required":true}]}'
+                />
+                <p className="mt-1 text-xs text-slate-400">
+                  Block types: header, field, checklist, evidence, signature
+                </p>
+              </div>
+            </div>
+            <div className="mt-4 flex justify-end gap-2">
+              <button type="button" onClick={() => setShowCreateDef(false)} className="app-button-ghost">
+                {t("workspace.cancel")}
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleCreateDef()}
+                disabled={creatingDef || !defForm.formKey || !defForm.name}
+                className="app-button-primary"
+              >
+                {creatingDef ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}
+                {t("forms.createDefinition")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Create Binding Modal */}
+      {showCreateBinding && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/30 p-4"
+          onClick={() => setShowCreateBinding(false)}
+        >
+          <div
+            className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-bold text-slate-900">{t("forms.createBinding")}</h3>
+              <button type="button" onClick={() => setShowCreateBinding(false)} className="text-slate-400 hover:text-slate-600">
+                <X size={20} />
+              </button>
+            </div>
+            <div className="mt-4 space-y-3">
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-slate-600">{t("forms.definitions")}</label>
+                <select
+                  value={bindingForm.formDefinitionId}
+                  onChange={(e) => setBindingForm({ ...bindingForm, formDefinitionId: e.target.value })}
+                  className="app-input h-9"
+                >
+                  <option value="">Select a form definition</option>
+                  {definitions.map((d) => (
+                    <option key={d.id} value={d.id}>{d.name} ({d.form_key})</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-slate-600">Usage Type</label>
+                <select
+                  value={bindingForm.usageType}
+                  onChange={(e) => setBindingForm({ ...bindingForm, usageType: e.target.value })}
+                  className="app-input h-9"
+                >
+                  <option value="workflow_step">{t("forms.usageWorkflowStep")}</option>
+                  <option value="record_action">{t("forms.usageRecordAction")}</option>
+                  <option value="public_endpoint">{t("forms.usagePublicEndpoint")}</option>
+                  <option value="marketing_capture">{t("forms.usageMarketingCapture")}</option>
+                  <option value="service_deliverable">{t("forms.usageServiceDeliverable")}</option>
+                </select>
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-slate-600">Usage Key (optional)</label>
+                <input
+                  type="text"
+                  value={bindingForm.usageKey}
+                  onChange={(e) => setBindingForm({ ...bindingForm, usageKey: e.target.value })}
+                  placeholder="e.g. quote_approval_step"
+                  className="app-input h-9"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-slate-600">Requirement</label>
+                <select
+                  value={bindingForm.requirementPolicy}
+                  onChange={(e) => setBindingForm({ ...bindingForm, requirementPolicy: e.target.value as "required" | "optional" })}
+                  className="app-input h-9"
+                >
+                  <option value="required">Required</option>
+                  <option value="optional">Optional</option>
+                </select>
+              </div>
+            </div>
+            <div className="mt-4 flex justify-end gap-2">
+              <button type="button" onClick={() => setShowCreateBinding(false)} className="app-button-ghost">
+                {t("workspace.cancel")}
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleCreateBinding()}
+                disabled={creatingBinding || !bindingForm.formDefinitionId}
+                className="app-button-primary"
+              >
+                {creatingBinding ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}
+                {t("forms.createBinding")}
               </button>
             </div>
           </div>
