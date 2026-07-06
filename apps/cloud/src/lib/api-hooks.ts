@@ -490,6 +490,11 @@ export interface PlanningEntry {
   resource_name?: string;
   resource_type?: string;
   subject_name?: string;
+  latitude?: number | null;
+  longitude?: number | null;
+  locationType?: string | null;
+  locationId?: string | null;
+  conflictState?: string;
 }
 
 export interface PlanningFilters {

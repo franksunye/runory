@@ -887,6 +887,14 @@ export const en = {
   "activity.entityWithName": "{label}: {name}",
   "activity.entityWithVersion": "{label} · Version #{version}",
   "activity.entityWithId": "{label} · {id}",
+  // Record timeline section (v0.5.1)
+  "timeline.title": "Activity Timeline",
+  "timeline.empty": "No activity recorded yet",
+  "timeline.loadMore": "Load more",
+  "timeline.badgeWorkflow": "Workflow",
+  "timeline.badgeAudit": "Audit",
+  "timeline.badgeForm": "Form",
+  "timeline.badgeSchedule": "Schedule",
   // Modules page (v0.3.6)
   "modules.title": "Module center",
   "modules.subtitle": "Browse, install, and manage packs",
@@ -1394,6 +1402,7 @@ export const en = {
   "planning.title": "Planning",
   "planning.viewCalendar": "Calendar",
   "planning.viewTimeline": "Timeline",
+  "planning.viewResource": "Resource",
   "planning.viewMap": "Map",
   "planning.today": "Today",
   "planning.noEntries": "No scheduled entries",
@@ -1404,6 +1413,9 @@ export const en = {
   "planning.resource": "Resource",
   "planning.subject": "Subject",
   "planning.timeSlot": "Time",
+  "planning.unassigned": "Unassigned",
+  "planning.noGeolocated": "No geolocated entries",
+  "planning.directions": "Directions",
 
   // v0.5 Outbox Diagnostics
   "outbox.title": "Outbox Diagnostics",
@@ -1635,6 +1647,8 @@ export const zh: Messages = {
   "auditPage.title": "审计日志", "auditPage.subtitle": "工作区内所有变更操作记录（共 {total} 条，筛选后 {filtered} 条）", "auditPage.exporting": "导出中...", "auditPage.exportButton": "导出审计日志", "auditPage.exported": "审计日志已导出", "auditPage.exportFailed": "导出失败", "auditPage.filter": "筛选", "auditPage.categoryLabel": "操作类型", "auditPage.dateRangeLabel": "时间范围", "auditPage.noFiltered": "没有符合筛选条件的日志", "auditPage.categoryAll": "全部操作", "auditPage.categoryWorkflow": "工作流", "auditPage.categoryAutomation": "自动化", "auditPage.categoryRecord": "记录变更", "auditPage.categoryDashboard": "仪表盘", "auditPage.categoryAdmin": "管理操作", "auditPage.categoryCatalog": "模块与 Pack", "auditPage.categorySystem": "系统", "auditPage.range24h": "最近 24 小时", "auditPage.range7d": "最近 7 天", "auditPage.range30d": "最近 30 天", "auditPage.rangeAll": "全部时间", "auditPage.actorLabel": "操作者：", "auditPage.view": "查看", "auditPage.collapseRaw": "收起原始数据", "auditPage.viewRaw": "查看原始数据", "auditPage.before": "变更前", "auditPage.after": "变更后",
   // Activity page (v0.3.6)
   "activity.title": "活动", "activity.subtitle": "工作区内最近的业务变更与操作动态（共 {count} 条）", "activity.empty": "暂无活动记录", "activity.loadMore": "加载更多（剩余 {remaining} 条）", "activity.categoryCreate": "创建", "activity.categoryUpdate": "更新", "activity.categoryDelete": "删除", "activity.categoryExtension": "扩展", "activity.categorySystem": "系统", "activity.categoryWorkflow": "工作流", "activity.categoryFormSubmission": "表单提交", "activity.categoryWorkItem": "工作项", "activity.categoryCommand": "命令", "activity.filterCategory": "分类", "activity.filterAll": "全部", "activity.action.extensionApply": "应用了一项工作区扩展", "activity.action.extensionRollback": "回滚了工作区扩展", "activity.action.packInstall": "安装了业务 Pack", "activity.action.recordCreate": "创建了新记录", "activity.action.recordUpdate": "更新了记录", "activity.action.recordDelete": "删除了记录", "activity.entity.record": "记录", "activity.entity.extension": "扩展", "activity.entity.pack": "业务包", "activity.entity.module": "模块", "activity.entity.workflow": "工作流", "activity.actor.user": "成员", "activity.actor.agent": "Agent", "activity.actor.system": "系统", "activity.entityWithName": "{label}：{name}", "activity.entityWithVersion": "{label} · 版本 #{version}", "activity.entityWithId": "{label} · {id}",
+  // Record timeline section (v0.5.1)
+  "timeline.title": "活动时间线", "timeline.empty": "暂无活动记录", "timeline.loadMore": "加载更多", "timeline.badgeWorkflow": "工作流", "timeline.badgeAudit": "审计", "timeline.badgeForm": "表单", "timeline.badgeSchedule": "日程",
   // Modules page (v0.3.6)
   "modules.title": "模块中心", "modules.subtitle": "浏览、安装和管理功能包", "modules.loadDataFailed": "加载数据失败", "modules.installFailed": "安装失败", "modules.loadDemoFailed": "加载示例数据失败", "modules.installTimeout": "操作耗时较长，请刷新页面查看当前状态。", "modules.requestId": "请求 ID: {id}", "modules.noPacksAvailable": "暂无可用功能包", "modules.recommendedTitle": "推荐安装", "modules.recommendedBadge": "推荐", "modules.installedBadge": "已安装", "modules.installedCount": "已安装 ({count})", "modules.allPacks": "全部功能包", "modules.updateAvailable": "有更新", "modules.noDescription": "暂无描述", "modules.version": "版本", "modules.category": "分类", "modules.demoLoaded": "示例数据已加载", "modules.demoError": "示例数据加载失败", "modules.demoNotLoaded": "示例数据未加载", "modules.loadDemoData": "加载示例数据", "modules.viewDetails": "查看详情", "modules.installing": "安装中...", "modules.uninstall": "卸载", "modules.uninstalling": "卸载中...", "modules.uninstallConfirmTitle": "确认卸载此功能包？", "modules.uninstallConfirmBody": "独占模块的所有数据将被永久删除。其他功能包共享的模块将被保留。此操作不可撤销。", "modules.uninstallConfirmButton": "确认卸载", "modules.uninstallCancel": "取消", "modules.uninstallFailed": "卸载失败", "modules.uninstallSuccess": "卸载成功", "modules.installWithDemo": "安装并加载示例数据", "modules.installOnly": "仅安装（不加载示例数据）", "modules.installOnlyPlain": "仅安装", "modules.install": "安装", "modules.packNotFound": "未找到功能包", "modules.backToModules": "返回模块中心", "modules.versionLabel": "版本:", "modules.categoryLabel": "分类:", "modules.licenseLabel": "许可:", "modules.updateAvailableTitle": "有可用更新", "modules.updateMeta": "已安装版本 v{installedVersion} → 最新版本 v{latestVersion}", "modules.diagnostics": "诊断信息", "modules.installError": "安装错误:", "modules.demoDataError": "示例数据错误:", "modules.onboarding": "入门指引", "modules.onboardingHint": "安装完成后，按照以下步骤快速上手", "modules.goTo": "前往", "modules.includedModules": "包含模块",
   // Landing pages (v0.3.6)
@@ -1947,6 +1961,7 @@ export const zh: Messages = {
   "planning.title": "计划排程",
   "planning.viewCalendar": "日历",
   "planning.viewTimeline": "时间线",
+  "planning.viewResource": "资源",
   "planning.viewMap": "地图",
   "planning.today": "今天",
   "planning.noEntries": "没有排程记录",
@@ -1957,6 +1972,9 @@ export const zh: Messages = {
   "planning.resource": "资源",
   "planning.subject": "对象",
   "planning.timeSlot": "时段",
+  "planning.unassigned": "未分配",
+  "planning.noGeolocated": "没有地理位置的记录",
+  "planning.directions": "路线",
 
   // v0.5 Outbox Diagnostics
   "outbox.title": "发件箱诊断",

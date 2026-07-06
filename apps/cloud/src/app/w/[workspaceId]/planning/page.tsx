@@ -11,10 +11,12 @@ import {
   RefreshCw,
   Loader2,
   AlertTriangle,
+  Navigation,
+  Users,
 } from "lucide-react";
 import { useI18n } from "@/i18n/locale-provider";
 import type { MessageKey } from "@/i18n/messages";
-import type { PlanningEntry } from "@/lib/api-hooks";
+import type { PlanningEntry, WorkspaceRecord } from "@/lib/api-hooks";
 
 // ── Constants ──
 
@@ -22,6 +24,9 @@ const HOUR_START = 7; // 07:00
 const HOUR_END = 21; // 21:00 (exclusive upper bound)
 const HOUR_HEIGHT = 48; // px per hour
 const GRID_HEIGHT = (HOUR_END - HOUR_START) * HOUR_HEIGHT;
+const HOUR_WIDTH = 60; // px per hour (horizontal resource timeline)
+const GRID_WIDTH = (HOUR_END - HOUR_START) * HOUR_WIDTH;
+const RESOURCE_COL_WIDTH = 180; // px, sticky left column in resource timeline
 
 // ── Status styling ──
 
@@ -172,6 +177,39 @@ function positionFor(e: PlanningEntry): { top: number; height: number } {
   return { top, height };
 }
 
+/** Horizontal position (left/width in px) of an entry within the resource row. */
+function positionHorizontalFor(e: PlanningEntry): { left: number; width: number } {
+  const s = new Date(e.start_at);
+  const en = new Date(e.end_at);
+  const windowStartMin = HOUR_START * 60;
+  const windowMin = (HOUR_END - HOUR_START) * 60;
+
+  let startMin = s.getHours() * 60 + s.getMinutes() - windowStartMin;
+  let endMin = en.getHours() * 60 + en.getMinutes() - windowStartMin;
+
+  // Entry ending on the following day → cap to end of window.
+  if (endMin <= startMin) endMin = windowMin;
+  // Entirely before the visible window → small chip pinned to the left.
+  if (endMin <= 0) {
+    startMin = 0;
+    endMin = 14;
+  }
+  // Entirely after the visible window → small chip pinned to the right.
+  if (startMin >= windowMin) {
+    startMin = windowMin - 14;
+    endMin = windowMin;
+  }
+
+  startMin = Math.max(startMin, 0);
+  endMin = Math.min(endMin, windowMin);
+
+  const left = (startMin * HOUR_WIDTH) / 60;
+  let width = Math.max(((endMin - startMin) * HOUR_WIDTH) / 60, 16);
+  if (left + width > GRID_WIDTH) width = GRID_WIDTH - left - 1;
+  if (width < 1) width = 1;
+  return { left, width };
+}
+
 // ── API normalization ──
 //
 // The planning API returns camelCase fields (startAt, endAt, resourceName, …)
@@ -204,6 +242,14 @@ interface PlanningEntryRaw {
   resourceType?: string | null;
   subject_name?: string | null;
   subjectName?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  location_type?: string | null;
+  locationType?: string | null;
+  location_id?: string | null;
+  locationId?: string | null;
+  conflict_state?: string;
+  conflictState?: string;
 }
 
 function normalizeEntry(raw: PlanningEntryRaw): PlanningEntry {
@@ -223,6 +269,11 @@ function normalizeEntry(raw: PlanningEntryRaw): PlanningEntry {
     resource_name: r.resource_name ?? r.resourceName ?? undefined,
     resource_type: r.resource_type ?? r.resourceType ?? undefined,
     subject_name: r.subject_name ?? r.subjectName ?? undefined,
+    latitude: r.latitude ?? null,
+    longitude: r.longitude ?? null,
+    locationType: r.location_type ?? r.locationType ?? null,
+    locationId: r.location_id ?? r.locationId ?? null,
+    conflictState: r.conflict_state ?? r.conflictState ?? "none",
   };
 }
 
@@ -238,7 +289,9 @@ export default function PlanningPage() {
   const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const [weekStart, setWeekStart] = useState<Date>(() => startOfWeek(new Date()));
   const [selected, setSelected] = useState<PlanningEntry | null>(null);
-  const [view, setView] = useState<"calendar" | "timeline">("calendar");
+  const [view, setView] = useState<"calendar" | "timeline" | "resource" | "map">("calendar");
+  const [resources, setResources] = useState<{ id: string; name: string }[]>([]);
+  const [resourceDayIdx, setResourceDayIdx] = useState(0);
 
   const weekEnd = useMemo(() => addDays(weekStart, 7), [weekStart]);
   const days = useMemo(
@@ -289,6 +342,43 @@ export default function PlanningPage() {
     void load(false);
   }, [load]);
 
+  // Fetch technician records so the resource timeline can show all resource
+  // rows (even those without entries). Only loaded when the resource view is
+  // active to avoid unnecessary requests.
+  useEffect(() => {
+    if (view !== "resource") return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetch(
+          `/api/workspaces/${workspaceId}/objects/technician/records?limit=200`,
+          { cache: "no-store" }
+        );
+        const json = await res.json();
+        if (cancelled) return;
+        if (!json.success) {
+          setResources([]);
+          return;
+        }
+        const rows: WorkspaceRecord[] = Array.isArray(json.data) ? json.data : [];
+        const mapped = rows
+          .map((r) => ({
+            id: String(r.id ?? r._id ?? ""),
+            name: String(
+              r.name ?? r.display_name ?? r.full_name ?? r.title ?? ""
+            ),
+          }))
+          .filter((r) => r.id);
+        setResources(mapped);
+      } catch {
+        if (!cancelled) setResources([]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [view, workspaceId]);
+
   const entriesByDay = useMemo<PlanningEntry[][]>(() => {
     const buckets: PlanningEntry[][] = Array.from({ length: 7 }, () => []);
     for (const e of entries) {
@@ -303,6 +393,82 @@ export default function PlanningPage() {
     }
     return buckets;
   }, [entries, weekStart]);
+
+  // Index of "today" within the current week (−1 if not in this week).
+  const todayIdx = useMemo(() => {
+    const now = new Date();
+    return days.findIndex((d) => sameDay(d, now));
+  }, [days]);
+
+  // Auto-select today when entering the resource view (if today is visible).
+  useEffect(() => {
+    if (view === "resource" && todayIdx >= 0) {
+      setResourceDayIdx(todayIdx);
+    }
+  }, [view, todayIdx]);
+
+  // Display name lookup for every resource id we know about.
+  const resourceNameMap = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const r of resources) if (r.name) m.set(r.id, r.name);
+    for (const e of entries) {
+      if (e.resource_id && !m.has(e.resource_id) && e.resource_name) {
+        m.set(e.resource_id, e.resource_name);
+      }
+    }
+    return m;
+  }, [resources, entries]);
+
+  // Resource rows for the currently-selected day in the resource timeline.
+  // Includes the full technician roster (even resources with no entries) plus
+  // any resource ids referenced by entries but absent from the roster, with the
+  // "unassigned" bucket kept last.
+  const resourceRows = useMemo(() => {
+    const dayEntries = entriesByDay[resourceDayIdx] ?? [];
+    const byResource = new Map<string, PlanningEntry[]>();
+    for (const e of dayEntries) {
+      const rid = e.resource_id || "unassigned";
+      if (!byResource.has(rid)) byResource.set(rid, []);
+      byResource.get(rid)!.push(e);
+    }
+    const ordered: string[] = [];
+    const seen = new Set<string>();
+    for (const r of resources) {
+      if (!seen.has(r.id)) {
+        ordered.push(r.id);
+        seen.add(r.id);
+      }
+    }
+    for (const rid of byResource.keys()) {
+      if (!seen.has(rid)) {
+        ordered.push(rid);
+        seen.add(rid);
+      }
+    }
+    if (seen.has("unassigned")) {
+      const idx = ordered.indexOf("unassigned");
+      if (idx >= 0) {
+        ordered.splice(idx, 1);
+        ordered.push("unassigned");
+      }
+    }
+    return ordered.map((rid) => ({
+      id: rid,
+      name:
+        rid === "unassigned"
+          ? t("planning.unassigned")
+          : resourceNameMap.get(rid) || rid.slice(0, 8),
+      entries: (byResource.get(rid) || [])
+        .slice()
+        .sort((a, b) => a.start_at.localeCompare(b.start_at)),
+    }));
+  }, [entriesByDay, resourceDayIdx, resources, resourceNameMap, t]);
+
+  // Entries that carry coordinates — used by the simplified map view.
+  const geolocatedEntries = useMemo(
+    () => entries.filter((e) => e.latitude != null && e.longitude != null),
+    [entries]
+  );
 
   const isToday = useCallback((d: Date) => sameDay(d, new Date()), []);
 
@@ -342,7 +508,7 @@ export default function PlanningPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <div className="flex rounded-lg border border-slate-200 bg-white p-0.5">
+          <div className="flex flex-wrap rounded-lg border border-slate-200 bg-white p-0.5">
             <button
               onClick={() => setView("calendar")}
               className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition ${
@@ -364,6 +530,28 @@ export default function PlanningPage() {
             >
               <Clock size={14} />
               {t("planning.viewTimeline")}
+            </button>
+            <button
+              onClick={() => setView("resource")}
+              className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition ${
+                view === "resource"
+                  ? "bg-indigo-50 text-indigo-700"
+                  : "text-slate-500 hover:text-slate-800"
+              }`}
+            >
+              <Users size={14} />
+              {t("planning.viewResource")}
+            </button>
+            <button
+              onClick={() => setView("map")}
+              className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition ${
+                view === "map"
+                  ? "bg-indigo-50 text-indigo-700"
+                  : "text-slate-500 hover:text-slate-800"
+              }`}
+            >
+              <MapPin size={14} />
+              {t("planning.viewMap")}
             </button>
           </div>
           <button
@@ -527,7 +715,7 @@ export default function PlanningPage() {
             </div>
           </div>
         </div>
-      ) : (
+      ) : view === "timeline" ? (
         /* Timeline view */
         <div className="space-y-5">
           {days.map((d, dayIdx) => {
@@ -600,6 +788,181 @@ export default function PlanningPage() {
             );
           })}
         </div>
+      ) : view === "resource" ? (
+        /* Resource timeline (single selected day) */
+        <div className="space-y-3">
+          {/* Day selector */}
+          <div className="flex flex-wrap items-center gap-1">
+            {days.map((d, i) => {
+              const today = isToday(d);
+              const active = i === resourceDayIdx;
+              return (
+                <button
+                  key={i}
+                  onClick={() => setResourceDayIdx(i)}
+                  className={`inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-semibold transition ${
+                    active
+                      ? "border-indigo-300 bg-indigo-50 text-indigo-700"
+                      : "border-slate-200 bg-white text-slate-500 hover:text-slate-800"
+                  }`}
+                >
+                  <span className={today ? "text-indigo-500" : "text-slate-400"}>
+                    {d.toLocaleDateString(locale, { weekday: "short" })}
+                  </span>
+                  <span>{d.getDate()}</span>
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="app-card overflow-hidden">
+            <div className="overflow-x-auto">
+              <div
+                className="flex"
+                style={{ minWidth: RESOURCE_COL_WIDTH + GRID_WIDTH }}
+              >
+                {/* Sticky left column: resource names */}
+                <div
+                  className="sticky left-0 z-10 shrink-0 border-r border-slate-200 bg-white"
+                  style={{ width: RESOURCE_COL_WIDTH }}
+                >
+                  <div className="h-9 border-b border-slate-200 px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                    {t("planning.resource")}
+                  </div>
+                  {resourceRows.map((row) => (
+                    <div
+                      key={row.id}
+                      className="flex h-12 items-center border-b border-slate-100 px-3"
+                      title={row.name}
+                    >
+                      <span className="truncate text-xs font-semibold text-slate-700">
+                        {row.name}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Scrollable hour grid */}
+                <div className="shrink-0" style={{ width: GRID_WIDTH }}>
+                  {/* Hour header */}
+                  <div className="flex h-9 border-b border-slate-200">
+                    {hours.map((h) => (
+                      <div
+                        key={h}
+                        className="border-r border-slate-100 px-1 py-2 text-center text-[10px] font-medium text-slate-400 last:border-r-0"
+                        style={{ width: HOUR_WIDTH }}
+                      >
+                        {pad(h)}:00
+                      </div>
+                    ))}
+                  </div>
+                  {/* Resource rows */}
+                  {resourceRows.map((row) => (
+                    <div
+                      key={row.id}
+                      className="relative h-12 border-b border-slate-100"
+                    >
+                      {/* hour gridlines */}
+                      {hours.map((h, i) => (
+                        <div
+                          key={h}
+                          className="absolute bottom-0 top-0 border-r border-slate-100 last:border-r-0"
+                          style={{ left: i * HOUR_WIDTH, width: HOUR_WIDTH }}
+                        />
+                      ))}
+                      {/* entry blocks */}
+                      {row.entries.map((e) => {
+                        const pos = positionHorizontalFor(e);
+                        const style = STATUS_STYLE[statusBucket(e.status)];
+                        return (
+                          <button
+                            key={e.id}
+                            onClick={() => setSelected(e)}
+                            className={`absolute bottom-1 top-1 overflow-hidden rounded-md border border-l-4 px-1.5 py-0.5 text-left text-[10px] leading-tight shadow-sm transition hover:z-20 hover:shadow-md ${style.border} ${style.accent} ${style.block}`}
+                            style={{ left: pos.left, width: pos.width }}
+                          >
+                            <div className="truncate font-semibold">{entryLabel(e)}</div>
+                            {pos.width > 60 && (
+                              <div className="truncate opacity-80">
+                                {formatTime(e.start_at)}–{formatTime(e.end_at)}
+                              </div>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : (
+        /* Map view (simplified list of geolocated entries) */
+        geolocatedEntries.length === 0 ? (
+          <div className="app-card flex flex-col items-center p-12 text-center">
+            <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-slate-100">
+              <MapPin size={24} className="text-slate-400" />
+            </div>
+            <p className="text-sm font-medium text-slate-500">
+              {t("planning.noGeolocated")}
+            </p>
+          </div>
+        ) : (
+          <div className="grid gap-3 sm:grid-cols-2">
+            {geolocatedEntries.map((e) => {
+              const style = STATUS_STYLE[statusBucket(e.status)];
+              const lat = e.latitude as number;
+              const lng = e.longitude as number;
+              const href = `https://maps.google.com/?q=${lat},${lng}`;
+              return (
+                <div key={e.id} className="app-card p-4">
+                  <div className="flex items-start gap-3">
+                    <div
+                      className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-white ${style.bar}`}
+                    >
+                      <MapPin size={16} />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="truncate text-sm font-semibold text-slate-800">
+                          {entryLabel(e)}
+                        </span>
+                        <span className={`app-badge ${style.badge}`}>
+                          {t(style.labelKey)}
+                        </span>
+                      </div>
+                      <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-slate-500">
+                        <span className="inline-flex items-center gap-1">
+                          <Clock size={11} />
+                          {formatTime(e.start_at)}–{formatTime(e.end_at)}
+                        </span>
+                        {e.resource_name && (
+                          <span className="inline-flex items-center gap-1">
+                            <Users size={11} />
+                            {e.resource_name}
+                          </span>
+                        )}
+                      </div>
+                      <div className="mt-1.5 font-mono text-[10px] text-slate-400">
+                        {lat.toFixed(5)}, {lng.toFixed(5)}
+                      </div>
+                      <a
+                        href={href}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-indigo-600 hover:text-indigo-800"
+                      >
+                        <Navigation size={12} />
+                        {t("planning.directions")}
+                      </a>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )
       )}
 
       {/* Entry detail modal */}

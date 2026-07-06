@@ -7,6 +7,7 @@ import { Pencil, Trash2, ArrowLeft } from "lucide-react";
 import useSWR from "swr";
 import SchemaForm from "./SchemaForm";
 import RecordWorkflowPanel from "./RecordWorkflowPanel";
+import RecordTimelineSection, { isValidTimelineSubject } from "./RecordTimelineSection";
 import type { FieldDefinition } from "@runory/platform-core";
 import {
   useFields,
@@ -509,6 +510,15 @@ export default function ObjectDetailPage({
                 </div>
               )}
             </div>
+          )}
+
+          {/* Activity Timeline (v0.5.1) */}
+          {isValidTimelineSubject(objectKey) && (
+            <RecordTimelineSection
+              workspaceId={workspaceId}
+              subjectType={objectKey}
+              subjectId={recordId}
+            />
           )}
 
           {/* Meta */}
