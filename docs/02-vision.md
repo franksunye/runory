@@ -1,288 +1,288 @@
-# Runory 愿景
+# Runory Vision
 
 Status: Draft v0.2  
 Date: 2026-06-18  
 Change: Cloud-first pivot — see [04-architecture-pivot-cloud-first.md](04-architecture-pivot-cloud-first.md)
 
-## 愿景
+## Vision
 
-> **让每一家小企业，都拥有能够理解需求、持续运行并随业务生长的软件。**
+> **Every small business should have software that understands its needs, keeps running, and grows with the business.**
 
-Runory 相信，未来的商业软件不再要求用户学习复杂系统，也不再由固定菜单和预设流程定义。
+Runory believes future business software will no longer require users to learn complex systems, nor be defined by fixed menus and preset workflows.
 
-企业主只需要向 Agent 表达需求、提供资料、发起任务。
+Business owners only need to express needs, provide information, and initiate tasks through an Agent.
 
-Runory 会把这些意图转化为：
+Runory turns those intentions into:
 
-* 真实的业务数据；
-* 可运行的业务能力；
-* 可靠的流程与规则；
-* 按需出现的界面；
-* 持续演化的业务系统。
+* real business data;
+* running business capabilities;
+* reliable processes and rules;
+* interfaces that appear when needed;
+* business systems that continuously evolve.
 
-> **用户表达业务意图，Runory 让业务真正运行起来。**
+> **Users express business intent; Runory makes the business actually run.**
 
 ---
 
-## 产品定位
+## Product Positioning
 
-> **Runory 是 Cloud-first 的 Agent-native SMB 业务运行平台——接近 SMB 时代的 WordPress，但由 Agent 在受治理的平台结构中完成安装、配置、扩展、验证和持续运行。**
+> **Runory is a Cloud-first, Agent-native SMB business operations platform — close to WordPress for the SMB era, but with an Agent performing installation, configuration, extension, validation, and continuous operation inside a governed platform structure.**
 
-Runory 运行在 Personal Agent OS 之上，但 **Runory Cloud 是普通 SMB 用户的默认入口**，而不是本地 Runtime。
+Runory runs on top of the Personal Agent OS, but **Runory Cloud is the default entry point for ordinary SMB users**, not the local Runtime.
 
-它通过以下方式向 Agent 和用户提供能力：
+It provides capabilities to Agents and users through:
 
-1. **Business Packs / Workspace Templates**：快速启动完整业务体验；
-2. **Official Modules**：可安装、可升级的标准业务能力单元；
-3. **Managed Workspace Extensions**：受控的个性化与扩展；
-4. **Built-in Agent**：Cloud Workspace 内的配置、操作与分析助手；
-5. **MCP / SDK**（高级通道）：供开发者、集成商和私有部署场景使用。
+1. **Business Packs / Workspace Templates**: quickly start a complete business experience;
+2. **Official Modules**: installable and upgradable standard business capability units;
+3. **Managed Workspace Extensions**: governed personalization and extension;
+4. **Built-in Agent**: configuration, operation, and analysis assistant inside Cloud Workspace;
+5. **MCP / SDK** (advanced channel): for developers, integrators, and private deployment scenarios.
 
-Runory 内部由一个确定性的 **Platform Core** 管理：
+Internally, Runory is managed by a deterministic **Platform Core**:
 
 ```text
 Object / Field / View / Form / Workflow
 State / Permissions / Audit / Module Lifecycle
 ```
 
-Agent 负责理解用户意图并将其转换为受控配置变更。
+The Agent understands user intent and converts it into governed configuration changes.
 
-Runory 负责让意图在业务上正确地发生，并保证官方能力可升级、用户差异可隔离。
-
----
-
-## 核心产品承诺
-
-### 从意图到运行
-
-用户说：
-
-> 我需要费用管理。
-
-Runory 安装相应 Pack，数据开始进入，Dashboard 开始变化。
-
-用户说：
-
-> 给客户增加一个「客户等级」字段。
-
-Agent 创建 Workspace Extension，列表和表单更新，官方 CRM Module 仍可升级。
-
-### 软件适应业务
-
-传统软件要求用户适应系统。
-
-Runory 让软件随着用户的业务需求生长——通过 Pack、Template 和受控 Extension，而不是修改官方模块源码。
-
-### Agent 执行，用户掌控
-
-Agent 完成导入、配置、新增、整理、查询和流程调整。
-
-用户通过 UI 查看、修改、审核和控制关键操作。
-
-### 动态，但不失控
-
-界面和能力可以动态变化，但所有业务操作都经过确定性的规则、权限、事务和审计。Agent 不直接修改数据库或官方模块源码。
-
-### Cloud 优先，运行时可迁移
-
-默认体验在 Cloud；架构从第一天保留 Private / Local 部署路径。Workspace 配置、Extension 和 Module 安装状态应可导出。
+Runory is responsible for making intent happen correctly in the business context, while ensuring official capabilities remain upgradable and user-specific differences remain isolated.
 
 ---
 
-# 产品原则
+## Core Product Promises
+
+### From intent to operation
+
+The user says:
+
+> I need expense management.
+
+Runory installs the corresponding Pack, data starts flowing in, and the Dashboard starts changing.
+
+The user says:
+
+> Add a "Customer Tier" field to customers.
+
+The Agent creates a Workspace Extension; lists and forms update, while the official CRM Module remains upgradable.
+
+### Software adapts to the business
+
+Traditional software requires users to adapt to the system.
+
+Runory lets software grow with users' business needs — through Packs, Templates, and governed Extensions, not by modifying official module source.
+
+### Agent executes, user controls
+
+The Agent handles imports, configuration, creation, organization, queries, and workflow changes.
+
+Users inspect, edit, review, and control key operations through the UI.
+
+### Dynamic, but controlled
+
+Interfaces and capabilities can change dynamically, but every business operation goes through deterministic rules, permissions, transactions, and audit. The Agent does not directly modify the database or official module source.
+
+### Cloud-first, portable runtime
+
+The default experience is Cloud; the architecture preserves a Private / Local deployment path from day one. Workspace configuration, Extensions, and Module installation state should be exportable.
+
+---
+
+# Product Principles
 
 ## 1. Cloud-first, Portable-runtime
 
-Runory Cloud 是默认产品入口。Core Runtime 必须可独立运行，以支持未来 Private Cloud、VPC、On-premise 和 Local Dev。
+Runory Cloud is the default product entry point. Core Runtime must be able to run independently to support future Private Cloud, VPC, On-premise, and Local Dev.
 
 ## 2. Agent-first
 
-对话是主要入口，UI 是观察和控制界面。Built-in Agent 是 SMB 默认操作层；Codex / MCP 是高级扩展通道。
+Conversation is the primary entry point; UI is the observation and control surface. The Built-in Agent is the default SMB operation layer; Codex / MCP is the advanced extension channel.
 
 ## 3. Business-first
 
-Runory 交付的不是代码，而是可运行的业务能力。Core 不负责「某类企业怎么经营」，而负责「业务能力如何被定义、安装、组合、扩展、升级和运行」。
+Runory does not deliver code; it delivers running business capabilities. Core is not responsible for "how a certain type of company operates," but for "how business capabilities are defined, installed, composed, extended, upgraded, and run."
 
 ## 4. Composable platform
 
-财务、CRM、现场服务、员工等能力通过 Module 和 Pack 按需组合，并共享统一的元数据驱动业务对象模型。
+Finance, CRM, field service, employee, and other capabilities are composed on demand through Modules and Packs, sharing a unified metadata-driven business object model.
 
 ## 5. Deterministic core
 
-LLM 负责理解、建议和编排；Platform Core 和 Business Engine 负责校验、Diff、Apply 和 Audit。
+LLMs are responsible for understanding, recommending, and orchestrating; Platform Core and Business Engine are responsible for validation, Diff, Apply, and Audit.
 
 ## 6. No direct module customization
 
-用户个性化不得污染官方 Module。所有客户自定义优先落在 **Managed Workspace Extension** 层。
+User personalization must not pollute official Modules. All customer customization lands first in the **Managed Workspace Extension** layer.
 
 ## 7. Human-in-the-loop
 
-低置信、高风险和不可逆操作必须由用户确认或审核。Agent 配置变更必须支持 Diff Preview 和 Rollback Point。
+Low-confidence, high-risk, and irreversible operations must be confirmed or reviewed by the user. Agent configuration changes must support Diff Preview and Rollback Point.
 
 ## 8. Visible progress
 
-Agent 完成工作后，用户必须能看到软件真实发生变化：列表增加、指标更新、菜单出现、新页面打开、业务状态改变。
+After the Agent completes work, users must be able to see that software truly changed: lists added, metrics updated, menus appeared, new pages opened, and business states changed.
 
 ## 9. Marketplace-ready from day one
 
-即使 MVP 没有完整 Marketplace，Module Manifest、版本、依赖、权限和迁移模型必须从架构第一天预留。
+Even if the MVP does not include a full Marketplace, Module Manifest, version, dependency, permission, and migration models must be reserved from day one of the architecture.
 
-Marketplace 之前先完成 Official/Internal Catalog & Release Control Plane：不可变制品、结构化验证、Sandbox、发布通道、Pack dependency lock、Workspace upgrade 和 rollout。详见 [09-catalog-release-control-plane.md](09-catalog-release-control-plane.md)。
+Before Marketplace, first complete the Official/Internal Catalog & Release Control Plane: immutable artifacts, structured validation, Sandbox, release channels, Pack dependency lock, Workspace upgrade, and rollout. See [09-catalog-release-control-plane.md](09-catalog-release-control-plane.md).
 
-Module SDK 必须成为实际开发者产品：typed authoring、local validation、testing harness、artifact build、Internal candidate publish 和 Agent Skill；公共第三方生态延后。详见 [10-runory-sdk-product.md](10-runory-sdk-product.md)。
+The Module SDK must become a real developer product: typed authoring, local validation, testing harness, artifact build, Internal candidate publish, and Agent Skill; the public third-party ecosystem is deferred. See [10-runory-sdk-product.md](10-runory-sdk-product.md).
 
 ---
 
-# 产品路标
+# Product Roadmap
 
 ## Phase 0 — Cloud POC
 
-### 证明 Cloud Workspace 可被 Agent 配置和扩展
+### Prove that Cloud Workspace can be configured and extended by Agent
 
-目标：
+Goal:
 
-> 验证用户在 Runory Cloud 创建 Workspace、安装 Business Pack，并由 Agent 进行受控 Extension 配置。
+> Validate that users can create a Workspace in Runory Cloud, install a Business Pack, and have an Agent perform governed Extension configuration.
 
-核心场景：
+Core scenarios:
 
-* 用户注册并创建 Cloud Workspace；
-* 选择 Workspace Template 并安装 CRM Lite 或 Field Service Lite Pack；
-* Agent 为客户对象添加「客户等级」字段并更新 View / Form；
-* Agent 创建简单审批流程（如报价超过 10 万需经理审批）；
-* 所有变更有 Diff、Audit、Rollback；
-* Workspace 配置可导出，证明 Cloud-first 不锁死 Local 路径。
+* user signs up and creates a Cloud Workspace;
+* user selects a Workspace Template and installs CRM Lite or Field Service Lite Pack;
+* Agent adds a "Customer Tier" field to the customer object and updates View / Form;
+* Agent creates a simple approval workflow (for example, quotes over 100,000 require manager approval);
+* all changes have Diff, Audit, and Rollback;
+* Workspace configuration is exportable, proving Cloud-first does not lock out the Local path.
 
-成功标志：
+Success signal:
 
-> 用户第一次看到演示时，能立即理解：
-> 「我在 Cloud 上选了一个业务 Pack，Agent 帮我加了字段和流程，软件真的在运行。」
+> When users see the demo for the first time, they can immediately understand:
+> "I selected a business Pack in Cloud, the Agent added fields and workflows for me, and the software is really running."
 
 ---
 
 ## Phase 1 — MVP
 
-### 建立第一个可持续使用的 Cloud 业务工作区
+### Establish the first sustainably usable Cloud business workspace
 
-目标：
+Goal:
 
-> 从演示系统发展为小型企业可以持续使用的 Cloud 业务应用。
+> Evolve from a demo system into a Cloud business application that small businesses can use continuously.
 
-核心能力：
+Core capabilities:
 
-* Multi-tenant Cloud Runtime；
-* Auth / Organization / User / Role；
-* Module Install / Upgrade / Disable；
-* Business Pack 与 Workspace Template；
-* Managed Workspace Extension；
-* Built-in Agent 与 Agent Operation API；
-* Diff / Audit / Rollback；
-* 数据导入；
-* Schema-driven UI Shell；
-* 基础 Usage Metering 与 Billing-ready Account Model。
+* Multi-tenant Cloud Runtime;
+* Auth / Organization / User / Role;
+* Module Install / Upgrade / Disable;
+* Business Pack and Workspace Template;
+* Managed Workspace Extension;
+* Built-in Agent and Agent Operation API;
+* Diff / Audit / Rollback;
+* data import;
+* Schema-driven UI Shell;
+* basic Usage Metering and Billing-ready Account Model.
 
-SaaS Core 的当前产品边界已明确为 Email OTP、Organization/Workspace、固定 RBAC、强租户隔离、审计/API Key、Entitlement/Usage/Billing，以及 Migration/Backup/Deletion。Team、SSO/SCIM 与高级合规能力只做架构预留。详见 [07-saas-core-boundaries.md](07-saas-core-boundaries.md)。
+The current SaaS Core product boundary is defined as Email OTP, Organization/Workspace, fixed RBAC, strong tenant isolation, audit/API Key, Entitlement/Usage/Billing, and Migration/Backup/Deletion. Team, SSO/SCIM, and advanced compliance capabilities are reserved only architecturally. See [07-saas-core-boundaries.md](07-saas-core-boundaries.md).
 
-成功标志：
+Success signals:
 
-* 真实 SMB 连续使用 Cloud Workspace；
-* 数据持续积累；
-* 用户主要通过 Built-in Agent 完成日常操作与配置；
-* UI 用于审核、查看和管理；
-* 用户愿意为持续使用付费。
+* real SMBs continuously use Cloud Workspace;
+* data accumulates continuously;
+* users mainly use the Built-in Agent for daily operations and configuration;
+* UI is used for review, viewing, and management;
+* users are willing to pay for continuous use.
 
 ---
 
 ## Phase 2 — Vertical Product
 
-### 在一个行业形成完整业务闭环
+### Form a complete business loop in one industry
 
-目标：
+Goal:
 
-> 从通用平台验证，进入一个明确行业并建立真正的业务价值。
+> Move from general platform validation into one clear industry and establish real business value.
 
-首选方向：
+Preferred directions:
 
-* Home Services；
-* 小型维修施工企业；
-* 小型门店；
-* 专业服务企业。
+* Home Services;
+* small repair and construction businesses;
+* small stores;
+* professional services firms.
 
-核心能力：
+Core capabilities:
 
-* 行业 Business Pack；
-* 行业 Workspace Template；
-* 客户、线索、报价、项目、员工、费用、供应商、任务、报表；
-* 行业工作流与 Agent Skills。
+* industry Business Pack;
+* industry Workspace Template;
+* customers, leads, quotes, projects, employees, expenses, suppliers, tasks, reports;
+* industry workflows and Agent Skills.
 
-成功标志：
+Success signals:
 
-* 在单一行业中获得明确 PMF；
-* Agent 操作替代大量重复性后台工作；
-* Runory 成为企业日常经营入口之一。
+* clear PMF in a single industry;
+* Agent operations replace a large amount of repetitive back-office work;
+* Runory becomes one of the entry points for day-to-day business operations.
 
 ---
 
 ## Phase 3 — Marketplace & Private Deployment
 
-### 从单一产品扩展为平台与高级部署
+### Expand from a single product into a platform and advanced deployment model
 
-目标：
+Goal:
 
-> 开放 Module / Pack 生态，并支持企业级 Private / Local 部署。
+> Open the Module / Pack ecosystem and support enterprise-grade Private / Local deployment.
 
-核心能力：
+Core capabilities:
 
-* Module Marketplace 与开发者账户；
-* 第三方 Pack 与 Template；
-* Workspace 导出与 Private Cloud 部署；
-* Adapter 层（Auth、Storage、Queue、LLM、Email 等）；
-* 企业级审计与治理。
+* Module Marketplace and developer accounts;
+* third-party Packs and Templates;
+* Workspace export and Private Cloud deployment;
+* Adapter layer (Auth, Storage, Queue, LLM, Email, etc.);
+* enterprise-grade audit and governance.
 
-成功标志：
+Success signals:
 
-* 第三方可以交付行业 Pack 和 Module；
-* 大型客户可选择 Private / On-premise 部署；
-* Cloud 与 Private 共享同一 Core 与 Module 模型。
+* third parties can deliver industry Packs and Modules;
+* large customers can choose Private / On-premise deployment;
+* Cloud and Private share the same Core and Module model.
 
 ---
 
 ## Phase 4 — Runory Platform
 
-### 建立 Agent-native Business App 生态
+### Build an Agent-native Business App ecosystem
 
-目标：
+Goal:
 
-> 让开发者和行业专家能够为 Runory 构建业务模块，Agent 帮助 SMB 按需发现和安装。
+> Let developers and industry experts build business modules for Runory, while Agents help SMBs discover and install them on demand.
 
-平台组成：
+Platform components:
 
-* Module SDK / Pack SDK / Template SDK；
-* Business Object SDK；
-* Agent Skill SDK；
-* MCP Tool SDK；
-* Dynamic UI Schema；
-* Component Registry；
-* Domain Pack Marketplace；
-* PAO Adapters。
+* Module SDK / Pack SDK / Template SDK;
+* Business Object SDK;
+* Agent Skill SDK;
+* MCP Tool SDK;
+* Dynamic UI Schema;
+* Component Registry;
+* Domain Pack Marketplace;
+* PAO Adapters.
 
-成功标志：
+Success signals:
 
-* Runory 的能力不再只由内部团队建设；
-* 多个行业形成独立生态；
-* Runory 成为 Personal Agent OS 上的重要 SMB 应用层。
+* Runory capabilities are no longer built only by the internal team;
+* multiple industries form independent ecosystems;
+* Runory becomes an important SMB application layer on the Personal Agent OS.
 
 ---
 
-# 长期形态
+# Long-term Shape
 
-未来的 Runory 是一个 **Headless Business Platform**：
+Future Runory is a **Headless Business Platform**:
 
 ```text
 Personal Agent OS
         ↓
-Runory Cloud（默认入口）
+Runory Cloud (default entry)
         ↓
-Built-in Agent + MCP / SDK（高级通道）
+Built-in Agent + MCP / SDK (advanced channel)
         ↓
 Platform Core
         ↓
@@ -293,54 +293,46 @@ Business Data · Rules · Workflow · Audit
 Optional Private / Local Deployment
 ```
 
-用户大多数时候与 Agent 对话。
+Users converse with the Agent most of the time.
 
-Runory 在 Cloud（或 Private Runtime）中持续维护企业的业务状态。
+Runory continuously maintains the business state of the company in Cloud (or Private Runtime).
 
-当用户需要查看、比较、审核或配置时，相应 UI 才会出现。
+When users need to view, compare, review, or configure something, the corresponding UI appears.
 
-> **对话负责表达意图，Agent 负责完成受控配置，Runory 负责维护业务事实。**
-
----
-
-# Runory 的终局
-
-Runory 的终局不是成为功能最多的 SMB 软件，也不是成为另一个 AI Coding 平台。
-
-Runory 希望成为：
-
-> **SMB 时代的 WordPress——一个可组合、可扩展、可由 Agent 运营的业务运行平台。**
-
-区别不在于「用户自己装插件、自己处理冲突、自己找开发者」，而在于 **Agent 在受治理的平台结构中完成安装、配置、扩展、验证和持续运行**。
-
-当企业主提出一个新的业务需求时，不再首先寻找、购买和学习一个新的 SaaS。
-
-而是直接告诉 Agent：
-
-> 我现在需要这个能力。
-
-然后由 Runory 让它开始运行。
+> **Conversation expresses intent, the Agent completes governed configuration, and Runory maintains business facts.**
 
 ---
 
-# 品牌表达
+# Runory's End State
 
-## 一句话定义
+Runory's end state is not to become the SMB software with the most features, nor to become another AI Coding platform.
+
+Runory wants to become:
+
+> **WordPress for the SMB era — a composable, extensible, Agent-operated business operations platform.**
+
+The difference is not that "users install plugins themselves, handle conflicts themselves, and find developers themselves," but that **the Agent performs installation, configuration, extension, validation, and continuous operation within a governed platform structure**.
+
+When a business owner has a new business need, they no longer first search for, buy, and learn a new SaaS.
+
+They simply tell the Agent:
+
+> I need this capability now.
+
+Then Runory makes it start running.
+
+---
+
+# Brand Expression
+
+## One-sentence definition
 
 > **Runory turns business intent into running software.**
 
-中文：
-
-> **Runory 将业务意图转化为真正运行的软件。**
-
-## 品牌承诺
+## Brand promise
 
 > **Tell Runory what your business needs. Runory makes it operational.**
 
-中文：
-
-> **告诉 Runory 你的业务需要什么，它会让需求真正进入运行。**
-
-## 品牌标语
+## Brand tagline
 
 # **Tell it. Run it.**
