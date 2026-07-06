@@ -4,7 +4,7 @@ Status: Completed
 Date: 2026-06-18  
 Branch: feat/cloud-first-poc
 
-> Historical status note (2026-06-22): 本文记录 2026-06-18 POC 验收时点，不作为当前 SaaS Core 状态源。Organization/User/Membership 初始模型、Workspace API 授权和生产级 UI 基础已经开始建设；剩余正式范围与阶段状态以 [07-saas-core-boundaries.md](07-saas-core-boundaries.md) 和 [08-saas-core-implementation-plan.md](08-saas-core-implementation-plan.md) 为准。
+> Historical status note (2026-06-22): This document records the 2026-06-18 POC acceptance point and is not the current source of truth for SaaS Core status. The initial Organization/User/Membership model, Workspace API authorization, and production-grade UI foundation have already started. The remaining formal scope and phase status are defined by [07-saas-core-boundaries.md](07-saas-core-boundaries.md) and [08-saas-core-implementation-plan.md](08-saas-core-implementation-plan.md).
 
 ## What Was Built
 
@@ -48,7 +48,7 @@ A complete Cloud-first POC on Next.js + SQLite (local dev) that validates the co
 Create Workspace → Install CRM Lite Pack
 → Customer list + form appear (schema-driven, no hardcoded fields)
 → Create customer record
-→ Agent submits Extension Plan (客户等级 select field)
+→ Agent submits Extension Plan (Customer Tier select field)
 → Validate → Preview Diff → Apply
 → Field appears in list column + form dropdown
 → Create record with extension field (tier = "A")
