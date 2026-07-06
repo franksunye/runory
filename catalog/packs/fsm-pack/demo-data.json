@@ -704,41 +704,51 @@
       "resourceAlias": "res-david",
       "subjectType": "service_visit",
       "subjectAlias": "visit-acme-urgent",
-      "startAt": "2026-07-07T09:00:00Z",
-      "endAt": "2026-07-07T13:00:00Z",
+      "startAt": "$relativeDate:+1d:09:00",
+      "endAt": "$relativeDate:+1d:13:00",
       "status": "confirmed"
     },
     {
       "resourceAlias": "res-david",
       "subjectType": "service_visit",
       "subjectAlias": "visit-acme-warehouse",
-      "startAt": "2026-07-07T14:00:00Z",
-      "endAt": "2026-07-07T17:00:00Z",
+      "startAt": "$relativeDate:+1d:14:00",
+      "endAt": "$relativeDate:+1d:17:00",
       "status": "confirmed"
     },
     {
       "resourceAlias": "res-james",
       "subjectType": "service_visit",
       "subjectAlias": "visit-nova-fridge",
-      "startAt": "2026-07-08T10:00:00Z",
-      "endAt": "2026-07-08T15:00:00Z",
+      "startAt": "$relativeDate:+2d:10:00",
+      "endAt": "$relativeDate:+2d:15:00",
       "status": "tentative"
     },
     {
       "resourceAlias": "res-maria",
       "subjectType": "work_order",
       "subjectAlias": "wo-vertex-cnc-calibration",
-      "startAt": "2026-07-09T08:00:00Z",
-      "endAt": "2026-07-09T16:00:00Z",
+      "startAt": "$relativeDate:+3d:08:00",
+      "endAt": "$relativeDate:+3d:16:00",
       "status": "tentative"
     },
     {
       "resourceAlias": "res-david",
       "subjectType": "work_order",
       "subjectAlias": "wo-acme-warehouse-overdue",
-      "startAt": "2026-07-06T08:00:00Z",
-      "endAt": "2026-07-06T12:00:00Z",
+      "startAt": "$relativeDate:0d:08:00",
+      "endAt": "$relativeDate:0d:12:00",
       "status": "confirmed"
+    },
+    {
+      "resourceAlias": "res-maria",
+      "subjectType": "work_order",
+      "subjectAlias": "wo-nova-blocked",
+      "startAt": "$relativeDate:+3d:10:00",
+      "endAt": "$relativeDate:+3d:14:00",
+      "status": "confirmed",
+      "conflictState": "conflict",
+      "notes": "Overlaps with Vertex CNC calibration — demonstrates conflict detection"
     }
   ],
   "outboxMessages": [

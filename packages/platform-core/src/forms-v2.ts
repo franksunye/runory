@@ -182,11 +182,17 @@ export function validateAnswers(
       case "signature": {
         if (block.required) {
           const sigAnswers = answers[block.id] as
-            | { acknowledged?: unknown }
+            | { acknowledged?: unknown; signedBy?: unknown }
             | undefined;
           if (!sigAnswers || sigAnswers.acknowledged !== true) {
             missing.push(
               `signature block '${block.id}'${block.label ? ` (${block.label})` : ""}`
+            );
+          } else if (typeof sigAnswers.signedBy !== "string" || sigAnswers.signedBy.trim() === "") {
+            // Per v0.5.1 Spec §5.5: a drawn or typed acknowledgment records
+            // signer label. Server-side validation ensures it is present.
+            missing.push(
+              `signature block '${block.id}'${block.label ? ` (${block.label})` : ""} (requires signer label)`
             );
           }
         }

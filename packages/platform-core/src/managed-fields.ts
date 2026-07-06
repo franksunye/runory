@@ -24,6 +24,12 @@ const MANAGED_FIELDS: Record<string, Record<string, { command: string; descripti
   visit: {
     status: { command: "visit.start_travel|arrive|complete|cancel|reopen", description: "Visit lifecycle state" },
   },
+  // FSM module uses `service_visit` as the object key (see catalog/modules/runory.service-visit/manifest.yaml).
+  // Both `visit` and `service_visit` are registered so the guard works regardless
+  // of which key the caller uses.
+  service_visit: {
+    status: { command: "visit.start_travel|arrive|complete|cancel|reopen", description: "Service visit lifecycle state" },
+  },
   deal: {
     stage: { command: "deal.advance", description: "Deal stage progression" },
   },

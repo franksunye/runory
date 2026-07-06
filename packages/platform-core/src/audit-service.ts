@@ -83,7 +83,17 @@ export type AuditAction =
   | "automation.run"
   | "automation.run_fail"
   // Quote Document Output (v0.5.1)
-  | "quote.document_generated";
+  | "quote.document_generated"
+  // Work Item Lifecycle (v0.5.1)
+  | "work_item.claim"
+  | "work_item.release"
+  | "work_item.complete"
+  | "work_item.approval_decide"
+  | "work_item.return"
+  | "work_item.cancel"
+  // Evidence Upload (v0.5.1)
+  | "attachment.upload"
+  | "attachment.download";
 
 export interface AuditEventInput {
   workspaceId: string;

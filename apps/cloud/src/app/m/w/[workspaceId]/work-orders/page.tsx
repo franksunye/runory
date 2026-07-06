@@ -140,7 +140,7 @@ function MobileWorkOrdersPage() {
           {search && (
             <button
               onClick={() => setSearch("")}
-              className="absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full text-slate-400 active:bg-slate-200"
+              className="absolute right-0 top-0 flex h-11 w-11 items-center justify-center text-slate-400 active:bg-slate-200"
               aria-label={t("workspace.clearSearch")}
             >
               <X size={16} />
@@ -162,7 +162,7 @@ function MobileWorkOrdersPage() {
             <p className="text-center text-sm text-red-600">{error}</p>
             <button
               onClick={() => void load()}
-              className="rounded-lg border border-slate-200 px-5 py-2.5 text-sm font-semibold text-slate-700 active:bg-slate-100"
+              className="flex min-h-[44px] items-center rounded-lg border border-slate-200 px-5 py-3 text-sm font-semibold text-slate-700 active:bg-slate-100"
             >
               {t("mobile.retry")}
             </button>

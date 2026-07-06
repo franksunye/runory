@@ -9,6 +9,7 @@ export const metadata: Metadata = {
   title: "Runory | Composable Agent-native Business Runtime",
   description: "Start with one Workspace, install capabilities as needed, and adapt your business through a governed Agent.",
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"),
+  manifest: "/m/manifest.json",
   openGraph: {
     title: "Runory | Tell it. Run it.",
     description: "A composable, Cloud-first and Agent-native business runtime.",

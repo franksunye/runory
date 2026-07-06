@@ -29,6 +29,7 @@ CREATE TABLE IF NOT EXISTS {{BUSINESS_TABLE_PREFIX}}quote (
   approved_at TEXT,
   accepted_at TEXT,
   rejected_reason TEXT,
+  return_reason TEXT,
   withdrawn_at TEXT,
   snapshot_hash TEXT,
   locked_at TEXT,

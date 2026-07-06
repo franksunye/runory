@@ -15,6 +15,7 @@ ALTER TABLE runory_business_quote ADD COLUMN price_book_id TEXT;
 ALTER TABLE runory_business_quote ADD COLUMN approved_at TEXT;
 ALTER TABLE runory_business_quote ADD COLUMN accepted_at TEXT;
 ALTER TABLE runory_business_quote ADD COLUMN rejected_reason TEXT;
+ALTER TABLE runory_business_quote ADD COLUMN return_reason TEXT;
 ALTER TABLE runory_business_quote ADD COLUMN withdrawn_at TEXT;
 ALTER TABLE runory_business_quote ADD COLUMN snapshot_hash TEXT;
 ALTER TABLE runory_business_quote ADD COLUMN locked_at TEXT;

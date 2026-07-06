@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { approvalDecide, returnWorkItem, type CommandActor } from "@runory/platform-core";
+import { approvalDecide, returnWorkItem, type CommandActor, InvalidInputError } from "@runory/platform-core";
 import { requireWorkspaceContext } from "@/lib/auth";
 import { successResponse, handleError, getOrCreateRequestId } from "@/lib/http";
 
@@ -17,20 +17,27 @@ export async function POST(
       outcome: "approved" | "rejected" | "returned";
       comment?: string | null;
       expectedVersion?: number;
+      idempotencyKey?: string;
     };
 
     if (!body?.outcome) {
       return handleError(new Error("outcome is required"), requestId);
     }
 
-    const expectedVersion = body.expectedVersion ?? 1;
+    // Per v0.5.1: expectedVersion MUST be explicitly provided — no silent default.
+    if (body.expectedVersion === undefined || body.expectedVersion === null) {
+      throw new InvalidInputError(
+        "expectedVersion is required. Provide the current work item version to enable optimistic locking."
+      );
+    }
+
     const actor: CommandActor = {
       id: ctx.principal?.userId ?? "unknown",
       type: ctx.principal?.authMethod === "api_key" ? "api_key" : "user",
     };
 
     if (body.outcome === "returned") {
-      await returnWorkItem(workspaceId, workItemId, actor, body.comment ?? null, expectedVersion);
+      await returnWorkItem(workspaceId, workItemId, actor, body.comment ?? null, body.expectedVersion);
     } else {
       await approvalDecide(
         workspaceId,
@@ -38,7 +45,7 @@ export async function POST(
         actor,
         body.outcome,
         body.comment ?? null,
-        expectedVersion
+        body.expectedVersion
       );
     }
 

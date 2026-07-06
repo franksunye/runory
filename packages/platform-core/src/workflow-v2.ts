@@ -7,12 +7,13 @@
 // Work items carry human tasks, approvals, and form bindings.
 // Approval decisions are immutable and reference exactly one work_item.
 
-import { genId, now, queryOne, queryAll, batch } from "./db";
+import { genId, now, queryOne, queryAll, batch, execute } from "./db";
 import { TABLES, businessTable } from "./contracts";
 import { BusinessError, NotFoundError, InvalidInputError, ConflictError } from "./context";
 import { ERROR_CODES } from "./errors";
 import { checkOptimisticLock, type CommandActor } from "./command-runtime";
 import { getUserPermissionGroups } from "./permission-groups";
+import { writeAuditEvent } from "./audit-service";
 
 // ── Types ──
 
@@ -356,6 +357,11 @@ export async function approvalDecide(
     );
   }
 
+  // ── Candidate eligibility check (v0.5.1 P0) ──
+  // Beyond the self-approval check, the actor must be in the candidate
+  // permission group (if one is assigned) to make an approval decision.
+  await checkCandidateEligibility(workspaceId, workItem, actor);
+
   // Self-approval check
   const candidateRule = workItem.candidate_rule_json
     ? JSON.parse(workItem.candidate_rule_json)
@@ -485,6 +491,21 @@ export async function approvalDecide(
   }
 
   await batch(statements);
+
+  // Audit event
+  writeAuditEvent({
+    workspaceId,
+    actorType: actor.type,
+    actorId: actor.id,
+    action: "work_item.approval_decide",
+    entityType: "work_item",
+    entityId: workItemId,
+    before: { status: workItem.status, kind: workItem.kind },
+    after: { status: "completed", outcome, comment },
+    requestId: `approval-${workItemId}-${ts}`,
+  }).catch((err) => {
+    console.error("[audit] Failed to write work_item.approval_decide audit event:", err);
+  });
 
   return { instanceId: workItem.instance_id, nextStepId };
 }
@@ -700,6 +721,56 @@ export async function getWorkItem(
   return row;
 }
 
+// ── Candidate Eligibility Check ──
+//
+// Per v0.5.1 acceptance gate §9.10: "Mobile and desktop actions produce the
+// same command, permission, audit, and idempotency outcomes."
+// The actor must be eligible to act on the work item:
+//   - Direct user assignment: actor.id must match assignee_id
+//   - Permission group assignment: actor must be a member of the group
+//   - No assignment constraint: any workspace member is eligible
+
+async function checkCandidateEligibility(
+  workspaceId: string,
+  workItem: WorkItemRow,
+  actor: CommandActor
+): Promise<void> {
+  if (!workItem.assignee_type || !workItem.assignee_id) {
+    // No assignment constraint — any workspace member is eligible
+    return;
+  }
+
+  if (workItem.assignee_type === "user") {
+    if (actor.id !== workItem.assignee_id) {
+      throw new BusinessError(
+        ERROR_CODES.ASSIGNEE_NOT_ELIGIBLE,
+        `ASSIGNEE_NOT_ELIGIBLE: Work item is assigned to user '${workItem.assignee_id}', but actor is '${actor.id}'`,
+        403
+      );
+    }
+    return;
+  }
+
+  if (workItem.assignee_type === "permission_group") {
+    // The candidate_rule_json stores the assigneeRule with permissionGroup key
+    const candidateRule = workItem.candidate_rule_json
+      ? JSON.parse(workItem.candidate_rule_json)
+      : null;
+    const groupKey = candidateRule?.permissionGroup ?? workItem.assignee_id;
+
+    const userGroups = await getUserPermissionGroups(workspaceId, actor.id);
+    const isMember = userGroups.some((g) => g.groupKey === groupKey || g.groupId === workItem.assignee_id);
+
+    if (!isMember) {
+      throw new BusinessError(
+        ERROR_CODES.ASSIGNEE_NOT_ELIGIBLE,
+        `ASSIGNEE_NOT_ELIGIBLE: Actor '${actor.id}' is not a member of permission group '${groupKey}'`,
+        403
+      );
+    }
+  }
+}
+
 // ── Claim Work Item ──
 
 export async function claimWorkItem(
@@ -708,14 +779,41 @@ export async function claimWorkItem(
   actor: CommandActor,
   expectedVersion: number
 ): Promise<void> {
+  // ── Candidate eligibility check (v0.5.1 P0) ──
+  const workItem = await queryOne<WorkItemRow>(
+    `SELECT * FROM ${TABLES.workItems} WHERE workspace_id = ? AND id = ?`,
+    [workspaceId, workItemId]
+  );
+  if (!workItem) {
+    throw new NotFoundError(`Work item not found: ${workItemId}`);
+  }
+  checkOptimisticLock(workItem.version, expectedVersion);
+  await checkCandidateEligibility(workspaceId, workItem, actor);
+
   const ts = now();
-  const result = await batch([
+  const lastEvent = await queryOne<{ max_seq: number }>(
+    `SELECT MAX(sequence) as max_seq FROM ${TABLES.workflowEvents}
+     WHERE instance_id = ?`,
+    [workItem.instance_id]
+  );
+  const nextSeq = (lastEvent?.max_seq ?? 0) + 1;
+
+  await batch([
     {
       sql: `UPDATE ${TABLES.workItems}
             SET status = 'active', claimed_by = ?, claimed_at = ?,
                 version = version + 1, updated_at = ?
             WHERE id = ? AND version = ? AND status = 'ready'`,
       args: [actor.id, ts, ts, workItemId, expectedVersion],
+    },
+    // Write workflow event
+    {
+      sql: `INSERT INTO ${TABLES.workflowEvents}
+            (id, workspace_id, instance_id, sequence, event_type, step_id,
+             actor_type, actor_id, payload_json, occurred_at)
+            VALUES (?, ?, ?, ?, 'workflow.work_claimed', ?, ?, ?, ?, ?)`,
+      args: [genId("wfe"), workspaceId, workItem.instance_id, nextSeq, workItem.step_id,
+             actor.type, actor.id, JSON.stringify({}), ts],
     },
   ]);
 
@@ -732,6 +830,21 @@ export async function claimWorkItem(
       409
     );
   }
+
+  // Audit event
+  writeAuditEvent({
+    workspaceId,
+    actorType: actor.type,
+    actorId: actor.id,
+    action: "work_item.claim",
+    entityType: "work_item",
+    entityId: workItemId,
+    before: { status: "ready" },
+    after: { status: "active", claimed_by: actor.id },
+    requestId: `claim-${workItemId}-${ts}`,
+  }).catch((err) => {
+    console.error("[audit] Failed to write work_item.claim audit event:", err);
+  });
 }
 
 // ── Release Work Item ──
@@ -796,6 +909,21 @@ export async function releaseWorkItem(
              actor.type, actor.id, JSON.stringify({}), ts],
     },
   ]);
+
+  // Audit event
+  writeAuditEvent({
+    workspaceId,
+    actorType: actor.type,
+    actorId: actor.id,
+    action: "work_item.release",
+    entityType: "work_item",
+    entityId: workItemId,
+    before: { status: "active", claimed_by: workItem.claimed_by },
+    after: { status: "ready" },
+    requestId: `release-${workItemId}-${ts}`,
+  }).catch((err) => {
+    console.error("[audit] Failed to write work_item.release audit event:", err);
+  });
 }
 
 // ── Complete Work Item ──
@@ -828,6 +956,9 @@ export async function completeWorkItem(
 
   checkOptimisticLock(workItem.version, expectedVersion);
 
+  // ── Candidate eligibility check (v0.5.1 P0) ──
+  await checkCandidateEligibility(workspaceId, workItem, actor);
+
   // Approval work items are completed via approvalDecide, not here
   if (workItem.kind === "approval") {
     throw new BusinessError(
@@ -843,6 +974,26 @@ export async function completeWorkItem(
       `WORK_ITEM_NOT_ACTIONABLE: Work item ${workItemId} is in status '${workItem.status}', expected 'active' or 'ready'`,
       409
     );
+  }
+
+  // ── Form submission validation gate (v0.5.1 P0, acceptance gate §9.4) ──
+  // "Required fields/evidence block completion on the server, not only in the UI."
+  // If the work item has a form_binding_id, verify a submitted form exists.
+  if (workItem.form_binding_id) {
+    const submission = await queryOne<{ id: string; status: string }>(
+      `SELECT id, status FROM ${TABLES.formSubmissions}
+       WHERE workspace_id = ? AND work_item_id = ?
+       AND status IN ('submitted', 'accepted')
+       ORDER BY created_at DESC LIMIT 1`,
+      [workspaceId, workItemId]
+    );
+    if (!submission) {
+      throw new BusinessError(
+        ERROR_CODES.REQUIRED_INPUT_MISSING,
+        `REQUIRED_INPUT_MISSING: Work item ${workItemId} requires a form submission (form_binding_id: ${workItem.form_binding_id}) before completion. No submitted or accepted form was found.`,
+        400
+      );
+    }
   }
 
   // Read the instance to get the definition version
@@ -966,6 +1117,21 @@ export async function completeWorkItem(
   }
 
   await batch(statements);
+
+  // Audit event
+  writeAuditEvent({
+    workspaceId,
+    actorType: actor.type,
+    actorId: actor.id,
+    action: "work_item.complete",
+    entityType: "work_item",
+    entityId: workItemId,
+    before: { status: workItem.status, version: workItem.version },
+    after: { status: "completed", formData: formData ?? null },
+    requestId: `complete-${workItemId}-${ts}`,
+  }).catch((err) => {
+    console.error("[audit] Failed to write work_item.complete audit event:", err);
+  });
 }
 
 // ── Cancel Work Item ──

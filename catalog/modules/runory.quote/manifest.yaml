@@ -31,7 +31,7 @@ objects:
         required: true
         default_value: "draft"
         validation:
-          options: ["draft", "in_review", "approved", "rejected", "sent", "accepted", "declined", "expired", "withdrawn"]
+          options: ["draft", "in_review", "approved", "rejected", "sent", "accepted", "declined", "expired", "withdrawn", "returned"]
       - key: version
         label: Version
         type: number
@@ -127,6 +127,9 @@ objects:
         type: date
       - key: rejected_reason
         label: Rejected Reason
+        type: text
+      - key: return_reason
+        label: Return Reason
         type: text
       - key: withdrawn_at
         label: Withdrawn At

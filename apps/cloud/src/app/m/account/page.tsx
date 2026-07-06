@@ -91,7 +91,7 @@ function MobileAccountPage() {
             <p className="text-center text-sm text-red-600">{error}</p>
             <button
               onClick={() => void load()}
-              className="rounded-lg border border-slate-200 px-5 py-2.5 text-sm font-semibold text-slate-700 active:bg-slate-100"
+              className="flex min-h-[44px] items-center rounded-lg border border-slate-200 px-5 py-3 text-sm font-semibold text-slate-700 active:bg-slate-100"
             >
               {t("mobile.retry")}
             </button>

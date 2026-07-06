@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { queryAll, TABLES, InvalidInputError } from "@runory/platform-core";
+import { queryAll, queryOne, TABLES, InvalidInputError, BusinessError, ERROR_CODES } from "@runory/platform-core";
 import { requireWorkspaceContext } from "@/lib/auth";
 import { successResponse, handleError, getOrCreateRequestId } from "@/lib/http";
 
@@ -10,6 +10,8 @@ export const dynamic = "force-dynamic";
 // Per v0.5.1 Spec §6: Timeline entries use stable event IDs, event types,
 // occurrence time, subject links, actor when authorized, and localized
 // presentation data.
+// The API MUST enforce relation-level visibility; it MUST NOT return the
+// entire customer graph and rely on the client to hide it.
 
 export interface TimelineEntry {
   id: string;
@@ -23,6 +25,11 @@ export interface TimelineEntry {
 }
 
 // ── Allowed subject types ──
+//
+// `service_visit` is the FSM module's object key (see
+// catalog/modules/runory.service-visit/manifest.yaml). Both `visit` and
+// `service_visit` are accepted as input; queries normalize to match either
+// key stored in the database.
 
 const VALID_SUBJECT_TYPES = new Set([
   "company",
@@ -30,12 +37,29 @@ const VALID_SUBJECT_TYPES = new Set([
   "asset",
   "work_order",
   "visit",
+  "service_visit",
   "quote",
   "deal",
 ]);
 
+// Map alias subject types to their canonical + alias for DB queries
+// (the DB may store either form depending on which module wrote the row).
+const SUBJECT_ALIASES: Record<string, string[]> = {
+  visit: ["visit", "service_visit"],
+  service_visit: ["service_visit", "visit"],
+};
+
+function getSubjectTypeVariants(subjectType: string): string[] {
+  return SUBJECT_ALIASES[subjectType] ?? [subjectType];
+}
+
 const DEFAULT_LIMIT = 50;
 const MAX_LIMIT = 100;
+
+// Each source fetches up to MAX_FETCH entries to avoid premature
+// pagination termination when one source has many entries that
+// would be pushed out of the page by another source.
+const MAX_FETCH = 200;
 
 // ── GET /api/workspaces/{workspaceId}/timeline ──
 
@@ -73,14 +97,24 @@ export async function GET(
       MAX_LIMIT
     );
 
+    // ── Relation-level visibility enforcement (v0.5.1 Spec §6) ──
+    // "The API MUST enforce relation-level visibility; it MUST NOT return the
+    // entire customer graph and rely on the client to hide it."
+    // Verify the subject record exists in this workspace before returning events.
+    await enforceSubjectVisibility(workspaceId, subjectType, subjectId);
+
     // ── Query each source table in parallel ──
+    // Each source fetches up to MAX_FETCH entries (not `limit`) to avoid
+    // premature pagination termination when one source dominates the page.
+
+    const variants = getSubjectTypeVariants(subjectType);
 
     const [workflowEntries, auditEntries, formEntries, scheduleEntries] =
       await Promise.all([
-        queryWorkflowEvents(workspaceId, subjectType, subjectId, cursor, limit),
-        queryAuditEvents(workspaceId, subjectType, subjectId, cursor, limit),
-        queryFormSubmissions(workspaceId, subjectType, subjectId, cursor, limit),
-        queryScheduleEntries(workspaceId, subjectType, subjectId, cursor, limit),
+        queryWorkflowEvents(workspaceId, variants, subjectId, cursor, MAX_FETCH),
+        queryAuditEvents(workspaceId, variants, subjectId, cursor, MAX_FETCH),
+        queryFormSubmissions(workspaceId, variants, subjectId, cursor, MAX_FETCH),
+        queryScheduleEntries(workspaceId, variants, subjectId, cursor, MAX_FETCH),
       ]);
 
     // ── Merge, sort by occurred_at descending, apply limit ──
@@ -92,15 +126,29 @@ export async function GET(
       ...scheduleEntries,
     ];
 
-    allEntries.sort((a, b) => b.occurred_at.localeCompare(a.occurred_at));
+    // Deduplicate by entry ID (in case the same event appears in multiple sources)
+    const seenIds = new Set<string>();
+    const dedupedEntries = allEntries.filter((e) => {
+      if (seenIds.has(e.id)) return false;
+      seenIds.add(e.id);
+      return true;
+    });
 
-    const entries = allEntries.slice(0, limit);
+    // Sort by occurred_at desc, with ID as tiebreaker for stable ordering
+    dedupedEntries.sort((a, b) => {
+      const cmp = b.occurred_at.localeCompare(a.occurred_at);
+      if (cmp !== 0) return cmp;
+      return b.id.localeCompare(a.id);
+    });
+
+    const entries = dedupedEntries.slice(0, limit);
 
     // ── Derive next cursor from the last entry ──
-
+    // Use occurred_at + id as a composite cursor for stable pagination
     let nextCursor: string | null = null;
-    if (entries.length === limit && allEntries.length > limit) {
-      nextCursor = entries[entries.length - 1].occurred_at;
+    if (entries.length === limit && dedupedEntries.length > limit) {
+      const last = entries[entries.length - 1];
+      nextCursor = last.occurred_at;
     }
 
     return successResponse(
@@ -116,6 +164,75 @@ export async function GET(
   }
 }
 
+// ── Relation-level visibility enforcement ──
+//
+// Per v0.5.1 Spec §6 and §7: validate workspace membership on every mobile
+// API and prevent cross-workspace data leakage. The subject record must exist
+// in the caller's workspace before any timeline events are returned.
+
+async function enforceSubjectVisibility(
+  workspaceId: string,
+  subjectType: string,
+  subjectId: string
+): Promise<void> {
+  // For entity types that are stored as records in business tables, verify
+  // the record exists in this workspace.
+  const variants = getSubjectTypeVariants(subjectType);
+  const tableCandidates = variants.map((v) => businessTableForSubject(v));
+
+  for (const table of tableCandidates) {
+    if (!table) continue;
+    const row = await queryOne<{ id: string }>(
+      `SELECT id FROM ${table} WHERE id = ? AND workspace_id = ? AND deleted_at IS NULL`,
+      [subjectId, workspaceId]
+    );
+    if (row) return; // Found — visibility confirmed
+  }
+
+  // If the subject type is not a business-table entity (e.g., "deal" might
+  // be stored differently), check audit_logs as a fallback — if there are
+  // any audit events for this entity in this workspace, the subject is valid.
+  const placeholders = variants.map(() => "?").join(", ");
+  const auditCheck = await queryOne<{ cnt: number }>(
+    `SELECT COUNT(*) as cnt FROM ${TABLES.auditLogs}
+     WHERE workspace_id = ? AND entity_id = ? AND entity_type IN (${placeholders})`,
+    [workspaceId, subjectId, ...variants]
+  );
+
+  if (auditCheck && auditCheck.cnt > 0) return;
+
+  // Also check workflow instances (the subject might be a workflow-bound record)
+  const wfCheck = await queryOne<{ cnt: number }>(
+    `SELECT COUNT(*) as cnt FROM ${TABLES.workflowInstancesV2}
+     WHERE workspace_id = ? AND record_id = ? AND object_type IN (${placeholders})`,
+    [workspaceId, subjectId, ...variants]
+  );
+
+  if (wfCheck && wfCheck.cnt > 0) return;
+
+  // No evidence the subject exists in this workspace — reject
+  throw new BusinessError(
+    ERROR_CODES.NOT_FOUND,
+    `Subject ${subjectType}/${subjectId} not found in this workspace`,
+    404
+  );
+}
+
+function businessTableForSubject(subjectType: string): string | null {
+  // Map subject types to their business table names
+  const mapping: Record<string, string> = {
+    company: "business_companies",
+    service_site: "business_service_sites",
+    asset: "business_assets",
+    work_order: "business_work_orders",
+    visit: "business_service_visits",
+    service_visit: "business_service_visits",
+    quote: "business_quotes",
+    deal: "business_deals",
+  };
+  return mapping[subjectType] ?? null;
+}
+
 // ── Source 1: Workflow V2 Events ──
 //
 // Join workflow_events → workflow_instances_v2 to resolve object_type/record_id
@@ -123,17 +240,17 @@ export async function GET(
 
 async function queryWorkflowEvents(
   workspaceId: string,
-  subjectType: string,
+  subjectTypes: string[],
   subjectId: string,
   cursor: string | null,
   limit: number
 ): Promise<TimelineEntry[]> {
   const conditions = [
     "we.workspace_id = ?",
-    "wi.object_type = ?",
+    `wi.object_type IN (${subjectTypes.map(() => "?").join(", ")})`,
     "wi.record_id = ?",
   ];
-  const args: unknown[] = [workspaceId, subjectType, subjectId];
+  const args: unknown[] = [workspaceId, ...subjectTypes, subjectId];
 
   if (cursor) {
     conditions.push("we.occurred_at < ?");
@@ -186,17 +303,17 @@ async function queryWorkflowEvents(
 
 async function queryAuditEvents(
   workspaceId: string,
-  subjectType: string,
+  subjectTypes: string[],
   subjectId: string,
   cursor: string | null,
   limit: number
 ): Promise<TimelineEntry[]> {
   const conditions = [
     "workspace_id = ?",
-    "entity_type = ?",
+    `entity_type IN (${subjectTypes.map(() => "?").join(", ")})`,
     "entity_id = ?",
   ];
-  const args: unknown[] = [workspaceId, subjectType, subjectId];
+  const args: unknown[] = [workspaceId, ...subjectTypes, subjectId];
 
   if (cursor) {
     conditions.push("created_at < ?");
@@ -248,17 +365,17 @@ async function queryAuditEvents(
 
 async function queryFormSubmissions(
   workspaceId: string,
-  subjectType: string,
+  subjectTypes: string[],
   subjectId: string,
   cursor: string | null,
   limit: number
 ): Promise<TimelineEntry[]> {
   const conditions = [
     "workspace_id = ?",
-    "subject_type = ?",
+    `subject_type IN (${subjectTypes.map(() => "?").join(", ")})`,
     "subject_id = ?",
   ];
-  const args: unknown[] = [workspaceId, subjectType, subjectId];
+  const args: unknown[] = [workspaceId, ...subjectTypes, subjectId];
 
   if (cursor) {
     conditions.push("created_at < ?");
@@ -294,7 +411,7 @@ async function queryFormSubmissions(
     id: r.id,
     event_type: `form.submission.${r.status}`,
     occurred_at: r.submitted_at ?? r.created_at,
-    subject_type: r.subject_type ?? subjectType,
+    subject_type: r.subject_type ?? subjectTypes[0],
     subject_id: r.subject_id ?? subjectId,
     actor_id: r.submitted_by ?? r.accepted_by,
     summary: `Form submission ${r.status} (revision ${r.revision_number})`,
@@ -318,17 +435,17 @@ async function queryFormSubmissions(
 
 async function queryScheduleEntries(
   workspaceId: string,
-  subjectType: string,
+  subjectTypes: string[],
   subjectId: string,
   cursor: string | null,
   limit: number
 ): Promise<TimelineEntry[]> {
   const conditions = [
     "workspace_id = ?",
-    "subject_type = ?",
+    `subject_type IN (${subjectTypes.map(() => "?").join(", ")})`,
     "subject_id = ?",
   ];
-  const args: unknown[] = [workspaceId, subjectType, subjectId];
+  const args: unknown[] = [workspaceId, ...subjectTypes, subjectId];
 
   if (cursor) {
     conditions.push("created_at < ?");

@@ -170,6 +170,17 @@ export async function PATCH(
 
     // ── Publish action (v0.3.6: public content unpublish) ──
     if (body.action === "publish") {
+      // Guard: if `status` is a managed field for this object, the publish
+      // action cannot directly write it — the caller must use the command API.
+      if (isManagedField(objectKey, "status")) {
+        const cmd = getManagedFieldCommand(objectKey, "status") ?? "(see command directory)";
+        return errorResponse(
+          ERROR_CODES.GOVERNED_FIELD_REQUIRES_COMMAND,
+          `Field 'status' on '${objectKey}' is managed by command(s): ${cmd}. Use the command API instead of publish action.`,
+          409,
+          ctx.requestId
+        );
+      }
       const before = await getRecord(workspaceId, objectKey, recordId);
       if (!before) return notFound(`Record ${recordId} not found`, ctx.requestId);
       const updateData: Record<string, unknown> = { status: "published" };
@@ -196,6 +207,16 @@ export async function PATCH(
 
     // ── Unpublish action (v0.3.6: public content unpublish) ──
     if (body.action === "unpublish") {
+      // Guard: same as publish — managed `status` field cannot be written directly.
+      if (isManagedField(objectKey, "status")) {
+        const cmd = getManagedFieldCommand(objectKey, "status") ?? "(see command directory)";
+        return errorResponse(
+          ERROR_CODES.GOVERNED_FIELD_REQUIRES_COMMAND,
+          `Field 'status' on '${objectKey}' is managed by command(s): ${cmd}. Use the command API instead of unpublish action.`,
+          409,
+          ctx.requestId
+        );
+      }
       const before = await getRecord(workspaceId, objectKey, recordId);
       if (!before) return notFound(`Record ${recordId} not found`, ctx.requestId);
       const record = await updateRecord(workspaceId, objectKey, recordId, { status: "unpublished" });

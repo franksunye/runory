@@ -98,10 +98,16 @@ interface DemoScheduleEntry {
   resourceAlias: string;
   subjectType: string;
   subjectAlias: string;
+  // Accepts either a plain ISO date string (e.g. "2026-07-07T09:00:00Z") or a
+  // $relativeDate marker (e.g. "$relativeDate:+1d:09:00") that is resolved to an
+  // actual ISO date at seed time based on now().
   startAt: string;
   endAt: string;
   status: string;
   notes?: string;
+  // Override the conflict_state column (defaults to "none"). Use "conflict" or
+  // "warning" to seed demo entries that demonstrate conflict detection.
+  conflictState?: string;
 }
 
 interface DemoResource {
@@ -233,6 +239,41 @@ function resolveDemoValue(value: unknown, aliases: Map<string, Record<string, un
   if (!match) return value;
   const [, alias, field] = match;
   return aliases.get(alias)?.[field] ?? value;
+}
+
+/**
+ * Resolve a `$relativeDate` marker to an ISO date string (v0.5+).
+ *
+ * Supported formats:
+ *   "$relativeDate:+1d"        — tomorrow at 00:00:00 UTC
+ *   "$relativeDate:0d"         — today at 00:00:00 UTC
+ *   "$relativeDate:-1d"        — yesterday at 00:00:00 UTC
+ *   "$relativeDate:+1d:09:00"  — tomorrow at 09:00 UTC
+ *   "$relativeDate:+2d:14:30"  — day after tomorrow at 14:30 UTC
+ *
+ * The offset is an integer number of days (positive, negative, or zero) with
+ * a `d` suffix. An optional `:HH:MM` time component sets the UTC time.
+ *
+ * If the value is not a `$relativeDate` marker, it is returned unchanged.
+ */
+function resolveRelativeDate(value: string): string {
+  if (!value.startsWith("$relativeDate:")) return value;
+  const spec = value.slice("$relativeDate:".length);
+  const match = /^([+-]?\d+)d(?::(\d{2}):(\d{2}))?$/.exec(spec);
+  if (!match) {
+    console.warn(`[installer] Invalid $relativeDate format: ${value}`);
+    return value;
+  }
+  const [, daysStr, hoursStr, minutesStr] = match;
+  const days = parseInt(daysStr, 10);
+  const date = new Date();
+  date.setUTCDate(date.getUTCDate() + days);
+  if (hoursStr !== undefined && minutesStr !== undefined) {
+    date.setUTCHours(parseInt(hoursStr, 10), parseInt(minutesStr, 10), 0, 0);
+  } else {
+    date.setUTCHours(0, 0, 0, 0);
+  }
+  return date.toISOString();
 }
 
 // ── Cross-pack demo data lookup (v0.2.3) ──
@@ -584,21 +625,26 @@ async function seedPackDemoData(workspaceId: string, packId: string): Promise<nu
         console.warn(`[installer] Demo schedule entry skipped: missing alias resolution`);
         continue;
       }
+      // Resolve $relativeDate markers (e.g. "$relativeDate:+1d:09:00") to actual
+      // ISO date strings based on the current seed time.
+      const startAt = resolveRelativeDate(se.startAt);
+      const endAt = resolveRelativeDate(se.endAt);
       // Check for existing entry to avoid duplicates
       const existing = await queryOne<{ id: string }>(
         `SELECT id FROM ${TABLES.scheduleEntries}
          WHERE workspace_id = ? AND resource_id = ? AND subject_id = ? AND start_at = ?`,
-        [workspaceId, resourceId, subjectId, se.startAt]
+        [workspaceId, resourceId, subjectId, startAt]
       );
       if (existing) continue;
 
       const id = genId("sch");
       const ts = now();
+      const conflictState = se.conflictState ?? "none";
       await execute(
         `INSERT INTO ${TABLES.scheduleEntries}
          (id, workspace_id, resource_id, subject_type, subject_id, start_at, end_at, status, conflict_state, version, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'none', 1, ?, ?)`,
-        [id, workspaceId, resourceId, se.subjectType, subjectId, se.startAt, se.endAt, se.status, ts, ts]
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`,
+        [id, workspaceId, resourceId, se.subjectType, subjectId, startAt, endAt, se.status, conflictState, ts, ts]
       );
       created++;
     }

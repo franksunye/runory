@@ -244,7 +244,7 @@ describe("Sales Quote demo data with cross-pack references", () => {
 
     // Verify quotes were created with $lookup-resolved company_id
     const quotes = await getRecords(workspaceId, "quote");
-    expect(quotes.length).toBe(11);
+    expect(quotes.length).toBe(12);
 
     const acmeQuote = quotes.find((q) => q.quote_number === "Q-2026-001");
     expect(acmeQuote).toBeDefined();
@@ -298,7 +298,7 @@ describe("Sales Quote demo data with cross-pack references", () => {
     const quotes = await getRecords(workspaceId, "quote");
     const quoteLines = await getRecords(workspaceId, "quote_line");
     expect(products.length).toBe(10);
-    expect(quotes.length).toBe(11);
+    expect(quotes.length).toBe(12);
     expect(quoteLines.length).toBeGreaterThanOrEqual(16);
   });
 
@@ -440,8 +440,8 @@ describe("Sales Quote workbench composition", () => {
       where: "status not in ('accepted', 'rejected', 'expired', 'withdrawn')",
     });
 
-    // 11 quotes total, 2 accepted + 1 expired + 1 rejected = 4 closed → 7 open
-    expect(widget.count).toBe(7);
+    // 12 quotes total, 2 accepted + 1 expired + 1 rejected = 4 closed → 8 open
+    expect(widget.count).toBe(8);
   });
 
   it("pending approvals widget resolves correct count", async () => {

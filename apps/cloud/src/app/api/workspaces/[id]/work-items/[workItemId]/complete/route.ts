@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { completeWorkItem, type CommandActor } from "@runory/platform-core";
+import { completeWorkItem, type CommandActor, InvalidInputError } from "@runory/platform-core";
 import { requireWorkspaceContext } from "@/lib/auth";
 import { successResponse, handleError, getOrCreateRequestId } from "@/lib/http";
 
@@ -18,8 +18,15 @@ export async function POST(
       answers?: Record<string, unknown>;
       notes?: string;
       expectedVersion?: number;
+      idempotencyKey?: string;
     };
-    const expectedVersion = body.expectedVersion ?? 1;
+
+    // Per v0.5.1: expectedVersion MUST be explicitly provided — no silent default.
+    if (body.expectedVersion === undefined || body.expectedVersion === null) {
+      throw new InvalidInputError(
+        "expectedVersion is required. Provide the current work item version to enable optimistic locking."
+      );
+    }
 
     const actor: CommandActor = {
       id: ctx.principal?.userId ?? "unknown",
@@ -34,7 +41,7 @@ export async function POST(
       workspaceId,
       workItemId,
       actor,
-      expectedVersion,
+      body.expectedVersion,
       Object.keys(formData).length > 0 ? formData : undefined
     );
     return successResponse({ success: true }, 200, ctx.requestId);

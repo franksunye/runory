@@ -7,6 +7,12 @@
 // mobile-first, card-based layout with large touch targets and inline
 // validation.  File inputs support direct camera capture where the browser
 // permits it.  Signatures record signer label, capturer, and timestamp.
+//
+// Evidence blocks upload files to the real attachment API
+// (`POST /api/workspaces/{workspaceId}/uploads`) and store the returned
+// attachment id in the form state — evidence is never kept as an untyped URL
+// inside a form answer (Spec §5.5).  Uploads report real progress via
+// XMLHttpRequest upload events and support explicit, idempotent retry.
 
 import { useCallback, useMemo, useRef, useState } from "react";
 import type { FormBlock } from "@runory/contracts";
@@ -15,7 +21,9 @@ import {
   Camera,
   Check,
   FileText,
+  Film,
   Loader2,
+  RefreshCw,
   Upload,
   X,
 } from "lucide-react";
@@ -34,10 +42,27 @@ interface SignatureAnswer {
   timestamp: string;
 }
 
+type EvidenceStatus = "uploading" | "uploaded" | "error";
+
 interface EvidenceEntry {
+  /** Stable React key + XHR ref key (independent of the attachment id). */
+  localId: string;
+  /**
+   * The attachment id once the upload succeeds; a temporary local id while
+   * uploading. On submit this becomes the value stored against the evidence
+   * block (`{ attachments: [id, ...] }`), so it MUST be the real attachment id
+   * by the time the form is submitted (validation blocks submit otherwise).
+   */
   id: string;
   file: File;
+  /** Object URL for image previews; empty string for non-image types. */
   previewUrl: string;
+  status: EvidenceStatus;
+  /** Upload progress 0..100 (only meaningful while status === "uploading"). */
+  progress: number;
+  /** Server attachment id once uploaded. */
+  attachmentId?: string;
+  errorMessage?: string;
 }
 
 // ── Props ──
@@ -66,6 +91,14 @@ function formatFileSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+function isImageType(file: File): boolean {
+  return file.type.startsWith("image/");
+}
+
+function isVideoType(file: File): boolean {
+  return file.type.startsWith("video/");
+}
+
 // Pass/Fail/N/A button styles
 const PFN_STYLES: Record<string, { active: string; idle: string }> = {
   pass: {
@@ -82,6 +115,26 @@ const PFN_STYLES: Record<string, { active: string; idle: string }> = {
   },
 };
 
+// ── Upload response envelope ──
+// Matches the { success, data } | { success:false, error } shape returned by
+// the cloud API helpers (see src/lib/http.ts and @runory/contracts `ok`/`err`).
+
+interface UploadSuccessEnvelope {
+  success: true;
+  data: {
+    attachmentId: string;
+    fileName: string;
+    contentType: string;
+    size: number;
+    uploadedAt: string;
+  };
+}
+interface UploadErrorEnvelope {
+  success: false;
+  error: { code: string; message: string; requestId?: string };
+}
+type UploadEnvelope = UploadSuccessEnvelope | UploadErrorEnvelope;
+
 // ── Component ──
 
 export function MobileFormRenderer({
@@ -89,16 +142,18 @@ export function MobileFormRenderer({
   initialAnswers,
   onSubmit,
   submitting = false,
+  workspaceId,
 }: MobileFormRendererProps) {
   const [answers, setAnswers] = useState<Record<string, unknown>>(
     initialAnswers ?? {}
   );
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [uploading, setUploading] = useState<Record<string, boolean>>({});
 
   // Hidden file input refs (one per evidence block for camera + gallery)
   const cameraInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const galleryInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
+  // In-flight XHRs keyed by entry.localId, so removal/retry can abort them.
+  const xhrRefs = useRef<Record<string, XMLHttpRequest | null>>({});
 
   // ── Generic answer setter ──
   const setAnswer = useCallback(
@@ -153,11 +208,20 @@ export function MobileFormRenderer({
 
         case "evidence": {
           const required = block.required_count ?? 0;
-          if (required > 0) {
-            const files = (answers[block.id] as EvidenceEntry[]) ?? [];
-            if (files.length < required) {
-              nextErrors[block.id] = `At least ${required} photo(s) required`;
-            }
+          const files = (answers[block.id] as EvidenceEntry[]) ?? [];
+          if (required > 0 && files.length < required) {
+            nextErrors[block.id] = `At least ${required} attachment(s) required`;
+            break;
+          }
+          // Block submit while any attachment is still uploading or has failed.
+          // Evidence ids must be real attachment ids before they are stored
+          // against the submission revision (Spec §5.5).
+          const pending = files.filter((f) => f.status !== "uploaded");
+          if (pending.length > 0) {
+            const hasFailed = pending.some((f) => f.status === "error");
+            nextErrors[block.id] = hasFailed
+              ? "Some attachments failed to upload — retry or remove them"
+              : "Wait for uploads to finish";
           }
           break;
         }
@@ -243,56 +307,197 @@ export function MobileFormRenderer({
     [answers]
   );
 
+  // Patch a single evidence entry by localId.
+  const patchEvidenceEntry = useCallback(
+    (blockId: string, localId: string, patch: Partial<EvidenceEntry>) => {
+      setAnswers((prev) => {
+        const current = (prev[blockId] as EvidenceEntry[]) ?? [];
+        return {
+          ...prev,
+          [blockId]: current.map((e) =>
+            e.localId === localId ? { ...e, ...patch } : e
+          ),
+        };
+      });
+    },
+    []
+  );
+
+  // ── Real upload via XMLHttpRequest (progress + retry) ──
+  //
+  // Per Spec §5.5: "Files show upload progress and explicit retry. Retrying an
+  // attachment association MUST be idempotent." The server dedups by sha256, so
+  // retrying the same file content resolves to the existing attachment instead
+  // of duplicating storage.
+  const uploadFile = useCallback(
+    (blockId: string, localId: string, file: File) => {
+      if (!workspaceId) {
+        patchEvidenceEntry(blockId, localId, {
+          status: "error",
+          errorMessage: "Workspace context is missing — cannot upload.",
+        });
+        return;
+      }
+
+      // Abort any in-flight XHR for this entry (e.g. on retry).
+      const existing = xhrRefs.current[localId];
+      if (existing) {
+        try {
+          existing.abort();
+        } catch {
+          /* ignore */
+        }
+      }
+
+      const xhr = new XMLHttpRequest();
+      xhrRefs.current[localId] = xhr;
+
+      patchEvidenceEntry(blockId, localId, {
+        status: "uploading",
+        progress: 0,
+        errorMessage: undefined,
+      });
+
+      xhr.upload.onprogress = (event) => {
+        if (event.lengthComputable) {
+          const progress = Math.round((event.loaded / event.total) * 100);
+          patchEvidenceEntry(blockId, localId, { progress });
+        }
+      };
+
+      xhr.onload = () => {
+        delete xhrRefs.current[localId];
+        let envelope: UploadEnvelope | null = null;
+        try {
+          envelope = JSON.parse(xhr.responseText) as UploadEnvelope;
+        } catch {
+          envelope = null;
+        }
+
+        if (
+          xhr.status >= 200 &&
+          xhr.status < 300 &&
+          envelope &&
+          envelope.success &&
+          envelope.data?.attachmentId
+        ) {
+          const attachmentId = envelope.data.attachmentId;
+          patchEvidenceEntry(blockId, localId, {
+            status: "uploaded",
+            progress: 100,
+            attachmentId,
+            // The entry id becomes the real attachment id so that on submit the
+            // evidence block stores attachment ids, not local temp ids.
+            id: attachmentId,
+          });
+        } else {
+          const message =
+            (envelope && !envelope.success && envelope.error?.message) ||
+            `Upload failed (HTTP ${xhr.status})`;
+          patchEvidenceEntry(blockId, localId, {
+            status: "error",
+            errorMessage: message,
+          });
+        }
+      };
+
+      xhr.onerror = () => {
+        delete xhrRefs.current[localId];
+        patchEvidenceEntry(blockId, localId, {
+          status: "error",
+          errorMessage: "Network error during upload.",
+        });
+      };
+
+      xhr.onabort = () => {
+        delete xhrRefs.current[localId];
+        patchEvidenceEntry(blockId, localId, {
+          status: "error",
+          errorMessage: "Upload cancelled.",
+        });
+      };
+
+      const formData = new FormData();
+      formData.append("file", file);
+      xhr.open("POST", `/api/workspaces/${workspaceId}/uploads`);
+      xhr.send(formData);
+    },
+    [workspaceId, patchEvidenceEntry]
+  );
+
   const handleFilesSelected = useCallback(
     (block: FormBlock, fileList: FileList | null) => {
       if (!fileList || fileList.length === 0) return;
       const accept = block.accepted_types ?? ["image/*"];
 
+      const current = (answers[block.id] as EvidenceEntry[]) ?? [];
       const newEntries: EvidenceEntry[] = [];
+
       for (const file of Array.from(fileList)) {
         // Basic type filtering: accept if the block allows image/* or the
         // file's MIME type is explicitly in the accepted_types list.
         if (
           !accept.includes("image/*") &&
-          !accept.some((t) => file.type === t)
+          !accept.some((t) => file.type === t || file.type.startsWith(t.replace(/\/$/, "")))
         ) {
           continue;
         }
+        const localId = genId("ev");
         newEntries.push({
-          id: genId("ev"),
+          localId,
+          id: localId, // temporary; replaced by attachment id on success
           file,
-          previewUrl: URL.createObjectURL(file),
+          previewUrl: isImageType(file) ? URL.createObjectURL(file) : "",
+          status: "uploading",
+          progress: 0,
         });
       }
 
       if (newEntries.length === 0) return;
 
-      const current = (answers[block.id] as EvidenceEntry[]) ?? [];
       setAnswer(block.id, [...current, ...newEntries]);
 
-      // Simulate upload progress
-      setUploading((prev) => ({ ...prev, [block.id]: true }));
-      window.setTimeout(() => {
-        setUploading((prev) => {
-          const next = { ...prev };
-          delete next[block.id];
-          return next;
-        });
-      }, 1500);
+      // Kick off uploads for each new entry (after state is queued).
+      for (const entry of newEntries) {
+        uploadFile(block.id, entry.localId, entry.file);
+      }
     },
-    [answers, setAnswer]
+    [answers, setAnswer, uploadFile]
+  );
+
+  const retryEvidenceFile = useCallback(
+    (block: FormBlock, localId: string) => {
+      const current = (answers[block.id] as EvidenceEntry[]) ?? [];
+      const entry = current.find((e) => e.localId === localId);
+      if (!entry) return;
+      // Idempotent retry: server dedups by sha256, so re-uploading the same
+      // content either creates the attachment or returns the existing one.
+      uploadFile(block.id, localId, entry.file);
+    },
+    [answers, uploadFile]
   );
 
   const removeEvidenceFile = useCallback(
-    (block: FormBlock, entryId: string) => {
+    (block: FormBlock, localId: string) => {
       const current = (answers[block.id] as EvidenceEntry[]) ?? [];
-      const entry = current.find((e) => e.id === entryId);
-      if (entry) {
+      const entry = current.find((e) => e.localId === localId);
+
+      // Abort any in-flight upload and release the object URL.
+      const xhr = xhrRefs.current[localId];
+      if (xhr) {
+        try {
+          xhr.abort();
+        } catch {
+          /* ignore */
+        }
+        delete xhrRefs.current[localId];
+      }
+      if (entry?.previewUrl) {
         URL.revokeObjectURL(entry.previewUrl);
       }
       setAnswer(
         block.id,
-        current.filter((e) => e.id !== entryId)
+        current.filter((e) => e.localId !== localId)
       );
     },
     [answers, setAnswer]
@@ -543,8 +748,17 @@ export function MobileFormRenderer({
   const renderEvidence = (block: FormBlock) => {
     const files = getEvidenceFiles(block);
     const error = errors[block.id];
-    const isUploading = uploading[block.id];
     const required = block.required_count ?? 0;
+    const uploadedCount = files.filter((f) => f.status === "uploaded").length;
+    const isUploading = files.some((f) => f.status === "uploading");
+
+    // Gallery input accepts the full server whitelist unless the form author
+    // restricted accepted_types. The camera input stays image-only because
+    // capture="environment" only makes sense for photos.
+    const galleryAccept =
+      block.accepted_types && block.accepted_types.length > 0
+        ? block.accepted_types.join(",")
+        : "image/*,application/pdf,video/mp4";
 
     return (
       <div data-error-key={block.id}>
@@ -553,7 +767,7 @@ export function MobileFormRenderer({
             {block.label}
             {required > 0 && (
               <span className="ml-1 text-xs font-normal text-slate-400">
-                ({files.length}/{required})
+                ({uploadedCount}/{required})
               </span>
             )}
           </label>
@@ -575,7 +789,7 @@ export function MobileFormRenderer({
             className="flex min-h-[48px] flex-1 items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white text-sm font-semibold text-slate-700 active:bg-slate-50"
           >
             <Upload size={16} />
-            Gallery
+            Attach File
           </button>
         </div>
 
@@ -598,7 +812,7 @@ export function MobileFormRenderer({
             galleryInputRefs.current[block.id] = el;
           }}
           type="file"
-          accept="image/*"
+          accept={galleryAccept}
           multiple
           className="hidden"
           onChange={(e) => {
@@ -607,45 +821,118 @@ export function MobileFormRenderer({
           }}
         />
 
-        {/* Upload progress */}
+        {/* Block-level upload indicator */}
         {isUploading && (
           <div className="mt-3 flex items-center gap-2 rounded-lg bg-indigo-50 px-3 py-2">
             <Loader2 size={14} className="animate-spin text-indigo-600" />
             <span className="text-xs font-medium text-indigo-700">
               Uploading…
             </span>
-            <div className="ml-auto h-1.5 w-24 overflow-hidden rounded-full bg-indigo-200">
-              <div className="h-full w-full animate-pulse rounded-full bg-indigo-600" />
-            </div>
           </div>
         )}
 
         {/* File previews */}
         {files.length > 0 && (
           <div className="mt-3 grid grid-cols-3 gap-2">
-            {files.map((entry) => (
-              <div
-                key={entry.id}
-                className="group relative aspect-square overflow-hidden rounded-lg border border-slate-200 bg-slate-100"
-              >
-                <img
-                  src={entry.previewUrl}
-                  alt={entry.file.name}
-                  className="h-full w-full object-cover"
-                />
-                <button
-                  type="button"
-                  onClick={() => removeEvidenceFile(block, entry.id)}
-                  className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-black/60 text-white active:bg-black/80"
-                  aria-label="Remove photo"
+            {files.map((entry) => {
+              const isImage = isImageType(entry.file);
+              const isVideo = isVideoType(entry.file);
+              const isFailed = entry.status === "error";
+
+              return (
+                <div
+                  key={entry.localId}
+                  className={`group relative flex aspect-square flex-col items-center justify-center overflow-hidden rounded-lg border bg-slate-100 ${
+                    isFailed
+                      ? "border-red-400 bg-red-50"
+                      : entry.status === "uploaded"
+                        ? "border-green-300"
+                        : "border-slate-200"
+                  }`}
                 >
-                  <X size={14} />
-                </button>
-                <p className="absolute bottom-0 left-0 right-0 truncate bg-black/50 px-1 py-0.5 text-[9px] text-white">
-                  {formatFileSize(entry.file.size)}
-                </p>
-              </div>
-            ))}
+                  {/* Preview / file icon */}
+                  {isImage && entry.previewUrl ? (
+                    <img
+                      src={entry.previewUrl}
+                      alt={entry.file.name}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <div className="flex flex-col items-center gap-1 px-1 text-center">
+                      {isVideo ? (
+                        <Film size={20} className="text-slate-500" />
+                      ) : (
+                        <FileText size={20} className="text-slate-500" />
+                      )}
+                      <span className="line-clamp-2 text-[9px] font-medium text-slate-600">
+                        {entry.file.name}
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Upload progress overlay */}
+                  {entry.status === "uploading" && (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-black/50">
+                      <Loader2
+                        size={16}
+                        className="animate-spin text-white"
+                      />
+                      <span className="text-[10px] font-semibold text-white">
+                        {entry.progress}%
+                      </span>
+                      <div className="h-1 w-3/4 overflow-hidden rounded-full bg-white/30">
+                        <div
+                          className="h-full rounded-full bg-white transition-all"
+                          style={{ width: `${entry.progress}%` }}
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Error overlay */}
+                  {isFailed && (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-red-50/90 px-1 text-center">
+                      <AlertCircle size={16} className="text-red-600" />
+                      <span className="line-clamp-2 text-[9px] font-medium text-red-700">
+                        {entry.errorMessage ?? "Upload failed"}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          retryEvidenceFile(block, entry.localId)
+                        }
+                        className="mt-0.5 flex items-center gap-1 rounded-md bg-red-600 px-2 py-0.5 text-[9px] font-semibold text-white active:bg-red-700"
+                      >
+                        <RefreshCw size={10} />
+                        Retry
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Remove button */}
+                  {entry.status !== "uploading" && (
+                    <button
+                      type="button"
+                      onClick={() => removeEvidenceFile(block, entry.localId)}
+                      className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-black/60 text-white active:bg-black/80"
+                      aria-label="Remove attachment"
+                    >
+                      <X size={14} />
+                    </button>
+                  )}
+
+                  {/* Uploaded check + size footer */}
+                  <p className="absolute bottom-0 left-0 right-0 flex items-center gap-1 truncate bg-black/50 px-1 py-0.5 text-[9px] text-white">
+                    {entry.status === "uploaded" && (
+                      <Check size={9} className="shrink-0 text-green-300" />
+                    )}
+                    <span className="truncate">
+                      {formatFileSize(entry.file.size)}
+                    </span>
+                  </p>
+                </div>
+              );
+            })}
           </div>
         )}
 
@@ -754,7 +1041,7 @@ export function MobileFormRenderer({
   const renderedBlocks = useMemo(
     () => schema.blocks.map(renderBlock),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [schema.blocks, answers, errors, uploading]
+    [schema.blocks, answers, errors]
   );
 
   return (

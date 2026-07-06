@@ -1290,6 +1290,89 @@
         "line_total": 44100,
         "sort_order": 2
       }
+    },
+    {
+      "object": "quote",
+      "alias": "q-acme-returned",
+      "match": {
+        "field": "quote_number",
+        "value": "Q-2026-011"
+      },
+      "data": {
+        "quote_number": "Q-2026-011",
+        "title": "Acme Annual Maintenance Renewal Quote",
+        "status": "returned",
+        "version": 1,
+        "company_id": {
+          "$lookup": {
+            "object": "company",
+            "field": "domain",
+            "value": "acme.example"
+          }
+        },
+        "contact_id": {
+          "$lookup": {
+            "object": "contact",
+            "field": "email",
+            "value": "maya@acme.example"
+          }
+        },
+        "deal_id": {
+          "$lookup": {
+            "object": "deal",
+            "field": "name",
+            "value": "Acme Expansion Plan"
+          }
+        },
+        "currency": "CNY",
+        "valid_until": "2026-08-20",
+        "owner": "Sam",
+        "terms": "Payment terms: payment within 30 days",
+        "notes": "Quote returned for revision — pricing needs adjustment before resubmission",
+        "return_reason": "Pricing does not match the agreed 15% volume discount tier. Please revise line items to reflect the discounted rates and resubmit for approval.",
+        "subtotal": 20400,
+        "discount_total": 0,
+        "tax_total": 2448,
+        "grand_total": 22848
+      }
+    },
+    {
+      "object": "quote_line",
+      "alias": "ql-acme-returned-1",
+      "match": {
+        "field": "description",
+        "value": "Annual Maintenance Plan (Returned Revision)"
+      },
+      "data": {
+        "quote_id": "$q-acme-returned.id",
+        "product_service_id": "$ps-maintenance-bundle.id",
+        "description": "Annual Maintenance Plan (Returned Revision)",
+        "quantity": 2,
+        "unit": "Year",
+        "unit_price": 9800,
+        "tax_amount": 2352,
+        "line_total": 19600,
+        "sort_order": 1
+      }
+    },
+    {
+      "object": "quote_line",
+      "alias": "ql-acme-returned-2",
+      "match": {
+        "field": "description",
+        "value": "On-site inspection service (Returned Revision)"
+      },
+      "data": {
+        "quote_id": "$q-acme-returned.id",
+        "product_service_id": "$ps-inspection.id",
+        "description": "On-site inspection service (Returned Revision)",
+        "quantity": 1,
+        "unit": "Visit",
+        "unit_price": 800,
+        "tax_amount": 96,
+        "line_total": 800,
+        "sort_order": 2
+      }
     }
   ],
   "workflowInstances": [

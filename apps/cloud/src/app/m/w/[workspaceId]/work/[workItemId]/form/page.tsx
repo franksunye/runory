@@ -335,10 +335,12 @@ function MobileFormPage() {
         const completeJson = await completeRes.json();
         if (!completeJson.success) {
           // The form was submitted but the work item couldn't be completed.
-          // This is a soft failure — the submission is still recorded.
-          showToast(
-            "error",
-            "Form submitted but work item completion failed. Contact your administrator."
+          // Per v0.5.1 Spec §5.4: "The UI MUST never claim a governed action
+          // succeeded until the server command succeeds."
+          // Show a failure state, not a success state.
+          throw new Error(
+            completeJson.error?.message ??
+              "Work item completion failed. The form was saved but the work item could not be completed. Contact your administrator."
           );
         }
 
@@ -413,7 +415,7 @@ function MobileFormPage() {
             <div className="flex gap-3">
               <button
                 onClick={() => void load()}
-                className="rounded-lg border border-slate-200 px-5 py-2.5 text-sm font-semibold text-slate-700 active:bg-slate-100"
+                className="flex min-h-[44px] items-center rounded-lg border border-slate-200 px-5 py-3 text-sm font-semibold text-slate-700 active:bg-slate-100"
               >
                 Retry
               </button>
@@ -421,7 +423,7 @@ function MobileFormPage() {
                 onClick={() =>
                   router.push(`/m/w/${workspaceId}/work/${workItemId}`)
                 }
-                className="rounded-lg border border-slate-200 px-5 py-2.5 text-sm font-semibold text-slate-700 active:bg-slate-100"
+                className="flex min-h-[44px] items-center rounded-lg border border-slate-200 px-5 py-3 text-sm font-semibold text-slate-700 active:bg-slate-100"
               >
                 Back to Work Item
               </button>
