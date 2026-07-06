@@ -1,32 +1,32 @@
-# Runory 架构与技术路线变更说明
+# Runory Architecture and Technical Direction Change Note
 
 Status: Approved v1.0  
 Date: 2026-06-18  
 Supersedes: Local-first assumptions in docs dated 2026-06-17
 
-## 0. 核心结论
+## 0. Core Conclusion
 
-Runory 的技术路线从此前的：
+Runory's technical direction changes from the previous:
 
-> **Local-first：用户本地运行 Runory Core，通过 Codex / Agent 修改业务模块，后续再考虑 Cloud。**
+> **Local-first: users run Runory Core locally, use Codex / Agent to modify business modules, and consider Cloud later.**
 
-调整为：
+To:
 
-> **Cloud-first：Runory Cloud 作为默认产品入口，提供稳定 Core、官方业务模块、Workspace 配置、Agent 配置与托管运行能力；Local / Private Deployment 作为高级部署形态保留。**
+> **Cloud-first: Runory Cloud is the default product entry point, providing a stable Core, official business modules, Workspace configuration, Agent configuration, and managed runtime capabilities; Local / Private Deployment is preserved as an advanced deployment form.**
 
-这不是放弃 Local，而是改变优先级：
+This does not abandon Local; it changes priority:
 
 ```text
-旧路线：
+Old direction:
 Local Runtime → Local Customization → Cloud Sync / Cloud Service
 
-新路线：
+New direction:
 Runory Cloud → Managed Workspace → Agent-driven Configuration → Private / Local Deployment
 ```
 
-Runory 的长期形态不应再被定义为某个垂直行业软件，而应定义为：
+Runory's long-term form should no longer be defined as vertical-industry software, but as:
 
-> **面向 SMB 的可组合业务运行平台，接近 SMB 时代的 WordPress。**
+> **A composable business operations platform for SMBs, close to WordPress for the SMB era.**
 
 ```text
 Runory Core
@@ -38,37 +38,37 @@ Runory Core
 + Cloud / Private / Local Deployment
 ```
 
-## 1. 新旧路线对照
+## 1. Old vs New Direction
 
-| 维度 | 旧路线：Local to Cloud | 新路线：Cloud to Local |
+| Dimension | Old Direction: Local to Cloud | New Direction: Cloud to Local |
 | --- | --- | --- |
-| 默认入口 | 本地运行 | Runory Cloud |
-| 默认用户 | 技术用户 / 高级用户 | 普通 SMB 业务用户 |
-| Agent 角色 | 本地代码修改助手 | Workspace 配置与运营助手 |
-| Core 角色 | 可修改业务底座 | 稳定平台内核 |
-| 模块逻辑 | 用户可改模块 | 官方模块 + Managed Workspace Extension |
-| 自定义方式 | 改代码 / 改模块 | 受控扩展 |
-| 商业化路径 | 慢，偏开发者 | 快，偏 SaaS |
-| Local 角色 | 默认产品形态 | 高级部署形态 |
-| Marketplace | 后续考虑 | 架构上从第一天预留 |
-| 长期形态 | 可本地运行的软件底座 | SMB Business Platform |
+| Default entry | Local runtime | Runory Cloud |
+| Default user | Technical users / advanced users | Ordinary SMB business users |
+| Agent role | Local code modification assistant | Workspace configuration and operations assistant |
+| Core role | Modifiable business substrate | Stable platform kernel |
+| Module logic | User-modifiable modules | Official modules + Managed Workspace Extension |
+| Customization method | Code/module modification | Governed extension |
+| Commercialization path | Slow, developer-oriented | Fast, SaaS-oriented |
+| Local role | Default product form | Advanced deployment form |
+| Marketplace | Consider later | Reserved architecturally from day one |
+| Long-term form | Locally runnable software substrate | SMB Business Platform |
 
-## 2. 默认产品入口
+## 2. Default Product Entry
 
-新默认用户是 SMB 业务负责人、运营负责人、财务负责人、服务负责人。他们不关心本地部署、Git、MCP 配置、代码修改或数据库连接。
+The new default users are SMB business owners, operations leads, finance leads, and service leads. They do not care about local deployment, Git, MCP configuration, code modification, or database connections.
 
-产品入口必须是：
+The product entry must be:
 
 ```text
-注册 Runory Cloud
-→ 创建 Workspace
-→ 选择业务 Pack / Template
-→ 导入数据
-→ Agent 帮助配置
-→ 业务开始运行
+Sign up for Runory Cloud
+→ Create Workspace
+→ Select business Pack / Template
+→ Import data
+→ Agent helps configure
+→ Business starts running
 ```
 
-## 3. 目标架构
+## 3. Target Architecture
 
 ```text
 ┌───────────────────────────────────────┐
@@ -104,40 +104,40 @@ Runory Core
 └───────────────────────────────────────┘
 ```
 
-## 4. 七条架构原则
+## 4. Seven Architecture Principles
 
-1. **Cloud-first, Portable-runtime** — Cloud 是默认入口；运行时架构必须可迁移。
-2. **Core must stay small** — Core 只做平台能力；业务能力属于 Module；业务组合属于 Pack；用户差异属于 Workspace Extension。
-3. **No direct customization of official modules** — 官方 Module 可升级；Workspace Extension 承担个性化。
-4. **Agent must operate through governed APIs** — Agent Action → Permission Check → Diff → Approval → Apply → Validate → Audit。
-5. **Marketplace readiness from day one** — 即使 MVP 没有 Marketplace，也必须有 Manifest、版本、依赖、权限和迁移模型。
-6. **Templates are product experience, not just UI theme** — Template 决定业务体验，不只是颜色皮肤。
-7. **Local is deployment mode, not product starting point** — Local 是高级部署路径，不是普通 SMB 的默认路径。
+1. **Cloud-first, Portable-runtime** — Cloud is the default entry point; runtime architecture must be portable.
+2. **Core must stay small** — Core only handles platform capabilities; business capabilities belong to Modules; business composition belongs to Packs; user differences belong to Workspace Extensions.
+3. **No direct customization of official modules** — official Modules remain upgradable; Workspace Extensions handle personalization.
+4. **Agent must operate through governed APIs** — Agent Action → Permission Check → Diff → Approval → Apply → Validate → Audit.
+5. **Marketplace readiness from day one** — even if the MVP has no Marketplace, it must have Manifest, version, dependency, permission, and migration models.
+6. **Templates are product experience, not just UI theme** — Templates determine the business experience, not only color skins.
+7. **Local is deployment mode, not product starting point** — Local is an advanced deployment path, not the default path for ordinary SMBs.
 
-## 5. 对 POC / MVP 的直接影响
+## 5. Direct Impact on POC / MVP
 
-不要再把 MVP 做成「一个可以本地运行、由 Codex 修改的业务系统」。
+Do not build the MVP as "a locally runnable business system modified by Codex."
 
-应做成：
+Build it as:
 
-> **一个 Cloud 上可创建 Workspace、可安装业务 Pack、可由 Agent 受控配置和扩展的 SMB 业务运行平台。**
+> **An SMB business operations platform where users can create Workspaces in Cloud, install business Packs, and have Agents configure and extend them in a governed way.**
 
-最小成功标准：
+Minimum success criteria:
 
 ```text
-1. 用户可以在 Cloud 创建 Workspace
-2. 系统可以安装一个官方 Pack
-3. Pack 可以声明对象、字段、视图、表单、权限、流程
-4. 用户可以通过 Agent 添加字段、视图、简单流程
-5. 所有变更都有 Diff、Audit、Rollback
-6. 标准 Pack 不被用户直接修改
-7. Workspace Extension 与官方 Module 分离
-8. Workspace 配置可以导出，为未来 Local 保留路径
+1. User can create a Workspace in Cloud
+2. System can install an official Pack
+3. Pack can declare objects, fields, views, forms, permissions, workflows
+4. User can add fields, views, and simple workflows through Agent
+5. All changes have Diff, Audit, Rollback
+6. Standard Pack is not directly modified by users
+7. Workspace Extension is separated from official Module
+8. Workspace configuration can be exported, preserving a future Local path
 ```
 
-## 6. 文档索引
+## 6. Documentation Index
 
-本变更已同步修订以下文档：
+This change has been synchronized into the following documents:
 
 * [02-vision.md](02-vision.md)
 * [03-architecture.md](03-architecture.md)
@@ -155,4 +155,4 @@ Runory Core
 * [09-catalog-release-control-plane.md](09-catalog-release-control-plane.md)
 * [10-runory-sdk-product.md](10-runory-sdk-product.md)
 
-当前仓库中的 **Local Runtime POC 代码** 已归档到 `experiments/local-v1`，保留为 Portable Runtime 原型与开发沙箱，不再代表产品默认形态。详见 [01-poc-execution-plan.md](01-poc-execution-plan.md)。
+The **Local Runtime POC code** in the current repository has been archived to `experiments/local-v1`. It is retained as a Portable Runtime prototype and development sandbox, and no longer represents the default product form. See [01-poc-execution-plan.md](01-poc-execution-plan.md).
