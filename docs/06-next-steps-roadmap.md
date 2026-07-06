@@ -13,106 +13,106 @@ Runory 1.0 GA goal: [product/v1.0-ga-release-goal.md](product/v1.0-ga-release-go
 
 ## 1. Current Position
 
-Cloud-first POC 已证明核心产品假设：Metadata-driven objects + Agent-governed Workspace Extensions 可以在不生成运行时代码的情况下形成可运行的业务应用。
+The Cloud-first POC has proven the core product hypothesis: Metadata-driven objects + Agent-governed Workspace Extensions can form a running business application without generating runtime code.
 
-当前工作从“证明平台假设”进入两个并行方向：
+Current work moves from "proving the platform hypothesis" into two parallel tracks:
 
 ```text
-Track A — SaaS Core：让 Cloud 产品可安全上线、协作和商业化
-Track B — Product Runtime：让 CRM Lite 与 Agent 配置形成持续业务价值
+Track A — SaaS Core: make the Cloud product safe to launch, collaborate in, and commercialize
+Track B — Product Runtime: make CRM Lite and Agent configuration create sustained business value
 ```
 
-SaaS Core 边界以 [07-saas-core-boundaries.md](07-saas-core-boundaries.md) 为准。本文件只维护跨领域优先级，不重复具体安全与数据模型清单。
+The SaaS Core boundary is defined by [07-saas-core-boundaries.md](07-saas-core-boundaries.md). This file only maintains cross-domain priorities and does not repeat detailed security and data-model checklists.
 
-`v0.1–v0.3` 已建立 Cloud、SaaS、Catalog 和 Product Runtime 基础；`v0.4` 正在完成公开发布与线上性能收尾。当前下一产品目标是 [v0.5 Commercial FSM Execution And Planning](product/v0.5-commercial-fsm-execution-plan.md)：让 CRM、Quote 和 FSM 通过可审计执行与计划主干成为一套可承接商用试点的系统。
+`v0.1–v0.3` established the Cloud, SaaS, Catalog, and Product Runtime foundations; `v0.4` is completing public launch and online performance closure. The current next product target is [v0.5 Commercial FSM Execution And Planning](product/v0.5-commercial-fsm-execution-plan.md): make CRM, Quote, and FSM become a commercially pilotable system through auditable execution and planning backbones.
 
-`v0.5.1` 的移动现场入口与表单/My Work 规格，以及 `v0.6+` 的持续服务、商业运营、外部连接、离线和 AI 里程碑，以本文件顶部链接的当前路线文档为准。下面第 2–4 节保留早期 SaaS 基础建设的优先级和历史债务，不再作为当前产品版本顺序。
+The mobile field-entry and form/My Work specifications for `v0.5.1`, and the continuous service, commercial operations, external connection, offline, and AI milestones for `v0.6+`, are governed by the current roadmap documents linked at the top of this file. Sections 2–4 below retain priorities and historical debt from early SaaS foundation work and are no longer the current product-version order.
 
 ## 2. Priority Order
 
 ### P0 — Cloud Safety and Identity
 
-- Consolidate RequestContext、Principal、Role Policy 与版本化 Migration。
-- Email OTP + server-side Session。
-- Organization、Invitation、固定 RBAC 与 Owner invariants。
-- HTTP/MCP/Agent/Job 统一 tenant isolation。
-- Append-only Audit 与 Workspace-scoped API Key。
-- Cross-tenant security regression suite。
+- Consolidate RequestContext, Principal, Role Policy, and versioned Migration.
+- Email OTP + server-side Session.
+- Organization, Invitation, fixed RBAC, and Owner invariants.
+- Unified tenant isolation across HTTP/MCP/Agent/Job.
+- Append-only Audit and Workspace-scoped API Key.
+- Cross-tenant security regression suite.
 
-完成标准：未认证用户和跨租户用户无法通过任何入口读取或修改数据；多人 Organization 可以完成邀请、授权和移除闭环。
+Completion standard: unauthenticated users and cross-tenant users cannot read or modify data through any entry point; multi-user Organizations can complete the full invitation, authorization, and removal loop.
 
 ### P0 — Production Operations
 
-- Vercel + Turso production deployment。
-- Secret、rate limit、security headers 与 structured errors。
-- Platform migration deployment job。
-- Database backup、真实 restore drill 与 incident runbooks。
-- Workspace export、archive、restore 与 purge 基础。
-- Browser E2E、observability 与 production readiness gate。
+- Vercel + Turso production deployment.
+- Secret, rate limit, security headers, and structured errors.
+- Platform migration deployment job.
+- Database backup, real restore drill, and incident runbooks.
+- Workspace export, archive, restore, and purge foundation.
+- Browser E2E, observability, and production readiness gate.
 
-完成标准：可以从备份恢复服务，并重新通过 tenant isolation 和核心业务测试。
+Completion standard: the service can be restored from backup and pass tenant isolation plus core business tests again.
 
 ### P0 — Catalog & Release Control Plane POC
 
-- Git/CI → immutable Cloud Catalog artifact。
-- Module/Pack/Template versions 与 structured validation。
-- Pack dependency resolver 与 frozen lock。
-- Internal/Beta/Stable release promotion。
-- Sandbox Workspace compatibility validation。
-- Workspace Module Center 与 upgrade preflight。
-- Rollout observability、pause 与 failure isolation。
-- Internal SDK toolchain：typed authoring、validate、test harness、build、publish candidate。
+- Git/CI → immutable Cloud Catalog artifact.
+- Module/Pack/Template versions and structured validation.
+- Pack dependency resolver and frozen lock.
+- Internal/Beta/Stable release promotion.
+- Sandbox Workspace compatibility validation.
+- Workspace Module Center and upgrade preflight.
+- Rollout observability, pause, and failure isolation.
+- Internal SDK toolchain: typed authoring, validate, test harness, build, publish candidate.
 
-完成标准：`runory.customer` 1.0 → 1.1 从 candidate、Sandbox、Beta rollout 到 Stable 升级形成完整可审计闭环。详细规格见 [09-catalog-release-control-plane.md](09-catalog-release-control-plane.md)。
+Completion standard: `runory.customer` 1.0 → 1.1 forms a complete auditable loop from candidate, Sandbox, Beta rollout, to Stable upgrade. Detailed specification: [09-catalog-release-control-plane.md](09-catalog-release-control-plane.md).
 
 ### P1 — SaaS Commercialization
 
-- `early_access` Entitlement。
-- Quota 与幂等 Usage Metering。
-- Stripe Checkout、Subscription Webhook 与 Customer Portal。
-- Billing failure grace period 和安全降级。
+- `early_access` Entitlement.
+- Quota and idempotent Usage Metering.
+- Stripe Checkout, Subscription Webhook, and Customer Portal.
+- Billing failure grace period and safe downgrade.
 
-完成标准：套餐变化不修改业务模块；重复或伪造 Billing 事件不能错误授予权益。
+Completion standard: plan changes do not modify business modules; duplicate or forged Billing events cannot incorrectly grant entitlements.
 
 ### P1 — Product Runtime
 
-- Contact full CRUD 与 Customer relation。
-- Template-driven navigation/dashboard/terminology。
-- Extension beyond custom field：view order、filter、section。
-- Built-in Agent 的最小受控配置入口。
-- SSE 或 SWR revalidation，变更后 UI 在 2 秒内更新。
+- Contact full CRUD and Customer relation.
+- Template-driven navigation/dashboard/terminology.
+- Extension beyond custom field: view order, filter, section.
+- Minimal governed configuration entry for the Built-in Agent.
+- SSE or SWR revalidation; UI updates within 2 seconds after changes.
 
-完成标准：真实 SMB 可通过 Cloud UI 持续使用 CRM Lite，并通过 Agent 安全完成常见配置。
+Completion standard: real SMBs can continuously use CRM Lite through Cloud UI and safely complete common configuration through Agent.
 
 ### P2 — Platform Expansion
 
-- Workflow Runtime 与 approval queue。
-- Third-party publisher 与 Marketplace read path。
-- Async jobs for export、retention 与 usage rollup。
-- Module SDK 与发布工具。
+- Workflow Runtime and approval queue.
+- Third-party publisher and Marketplace read path.
+- Async jobs for export, retention, and usage rollup.
+- Module SDK and publishing tools.
 
 ### Deferred — Requires New ADR
 
-- Team。
-- Custom roles、field/record ACL。
-- OIDC、SAML、SCIM。
-- Service Account。
-- Seat/usage-overage Billing 与复杂 Add-on。
-- Private/VPC/On-premise production delivery。
-- Data residency、per-tenant database 与 advanced compliance controls。
+- Team.
+- Custom roles, field/record ACL.
+- OIDC, SAML, SCIM.
+- Service Account.
+- Seat/usage-overage Billing and complex Add-on.
+- Private/VPC/On-premise production delivery.
+- Data residency, per-tenant database, and advanced compliance controls.
 
 ## 3. Milestone Gates
 
 | Milestone | Required Outcome |
 | --- | --- |
-| M1 Identity | Email OTP、Session、首次 Organization/Workspace onboarding 通过 E2E |
-| M2 Collaboration | Invitation、RBAC、Owner transfer 与 immediate revoke 完整 |
-| M3 Isolation | HTTP/MCP/Agent/Job 跨租户测试在 CI 强制通过 |
-| M4 Trust | Audit、API Key、rate limit、structured security errors 完成 |
-| M5 Catalog | Immutable artifact、validation、release、upgrade 与 rollout POC 完成 |
-| M6 Operations | Migration、backup restore、export/deletion runbook 完成 |
-| M7 Commercial | Entitlement、Usage、Stripe sandbox subscription loop 完成 |
-| M8 Public Launch | Production readiness gate 全部通过 |
+| M1 Identity | Email OTP, Session, and first Organization/Workspace onboarding pass E2E |
+| M2 Collaboration | Invitation, RBAC, Owner transfer, and immediate revoke are complete |
+| M3 Isolation | HTTP/MCP/Agent/Job cross-tenant tests are enforced in CI |
+| M4 Trust | Audit, API Key, rate limit, and structured security errors are complete |
+| M5 Catalog | Immutable artifact, validation, release, upgrade, and rollout POC are complete |
+| M6 Operations | Migration, backup restore, and export/deletion runbooks are complete |
+| M7 Commercial | Entitlement, Usage, and Stripe sandbox subscription loop are complete |
+| M8 Public Launch | Production readiness gate fully passes |
 
 ## 4. Active Technical Debt
 
@@ -146,4 +146,4 @@ SaaS Core 边界以 [07-saas-core-boundaries.md](07-saas-core-boundaries.md) 为
 - Runory 1.0 GA 90/10 release contract: [product/v1.0-ga-release-goal.md](product/v1.0-ga-release-goal.md)
 - Historical POC result: [05-cloud-first-poc-progress.md](05-cloud-first-poc-progress.md)
 
-不要在本文件重新定义 SaaS 数据模型或权限边界；决策变化必须先更新 SaaS Core decision baseline，并记录迁移影响。
+Do not redefine the SaaS data model or permission boundary in this file. Decision changes must first update the SaaS Core decision baseline and record migration impact.
