@@ -12,6 +12,7 @@ import {
   Link2,
   Inbox,
   CircleDot,
+  Pencil,
 } from "lucide-react";
 import { useI18n } from "@/i18n/locale-provider";
 import type { MessageKey } from "@/i18n/messages";
@@ -245,14 +246,28 @@ export default function FormDefinitionDetailPage() {
                 </p>
               </div>
             </div>
-            <button
-              type="button"
-              onClick={() => void load()}
-              className="app-button-secondary"
-            >
-              <RefreshCw size={16} />
-              {t("workspace.refresh")}
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() =>
+                  router.push(
+                    `/w/${workspaceId}/forms/editor?edit=${formKey}`
+                  )
+                }
+                className="app-button-secondary"
+              >
+                <Pencil size={16} />
+                {t("workspace.edit")}
+              </button>
+              <button
+                type="button"
+                onClick={() => void load()}
+                className="app-button-secondary"
+              >
+                <RefreshCw size={16} />
+                {t("workspace.refresh")}
+              </button>
+            </div>
           </header>
 
           {/* Schema JSON */}
