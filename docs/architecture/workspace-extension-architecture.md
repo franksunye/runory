@@ -1,18 +1,18 @@
-# Runory Managed Workspace Extension 架构规范
+# Runory Managed Workspace Extension Architecture Specification
 
 Status: Draft v0.2  
 Date: 2026-06-18  
 Change: Cloud-first pivot — see [../04-architecture-pivot-cloud-first.md](../04-architecture-pivot-cloud-first.md)
 
-## 1. 定义
+## 1. Definition
 
-**Managed Workspace Extension** 是绑定到具体 Cloud Workspace（或 Private / Local Workspace）的声明式扩展层，用于在不修改官方 Module 源码的前提下增加用户特有能力。
+**Managed Workspace Extension** is a declarative extension layer bound to a specific Cloud Workspace (or Private / Local Workspace), used to add user-specific capabilities without modifying official Module source.
 
-它不是 Official Module，也不是一次性的 Agent 代码改动。它是 Platform Core 可以校验、版本化、合并、审计、Diff、Apply、Rollback 的运行时业务配置层。
+It is neither an Official Module nor a one-off Agent code change. It is a runtime business configuration layer that Platform Core can validate, version, merge, audit, diff, apply, and roll back.
 
-核心原则：
+Core principle:
 
-> 官方 Module 提供标准能力；Managed Workspace Extension 表达用户差异。
+> Official Modules provide standard capabilities; Managed Workspace Extensions express user-specific differences.
 
 ```text
 Effective App
@@ -24,21 +24,21 @@ Workspace Template Overlays
 Managed Workspace Extension
 ```
 
-## 2. 设计原则
+## 2. Design Principles
 
-* Official Module 只读；
-* Managed Workspace Extension 可写（通过 governed APIs）；
-* 所有变更可审计、可版本化、可 Diff、可回滚；
-* 扩展必须通过 Schema 校验；
-* 扩展不能绕过 Business Engine；
-* 官方 Module 升级不能覆盖用户扩展；
-* **Built-in Agent**（默认）和 **MCP / SDK**（高级）使用同一套 Agent Operation API 与权限模型；
-* Agent 生成 Extension Plan，Platform Core 是唯一 Apply 边界；
-* Cloud-first 不等于 Cloud-only：Extension 定义必须可导出到 Private / Local Runtime。
+* Official Modules are read-only;
+* Managed Workspace Extensions are writable (through governed APIs);
+* all changes are auditable, versionable, diffable, and rollbackable;
+* extensions must pass Schema validation;
+* extensions cannot bypass Business Engine;
+* official Module upgrades cannot overwrite user extensions;
+* **Built-in Agent** (default) and **MCP / SDK** (advanced) use the same Agent Operation API and permission model;
+* Agent generates Extension Plans, and Platform Core is the only Apply boundary;
+* Cloud-first does not mean Cloud-only: Extension definitions must be exportable to Private / Local Runtime.
 
-## 3. 扩展类型
+## 3. Extension Types
 
-Runory 支持以下扩展类型：
+Runory supports the following extension types:
 
 ```text
 Custom Fields
@@ -52,16 +52,16 @@ Custom Dashboards / Metrics
 Custom Automations
 Custom Actions
 Custom Agent Skills
-Custom UI Slots（within Module-declared boundaries）
+Custom UI Slots (within Module-declared boundaries)
 Custom Reports
 Custom Notifications
 ```
 
 ### Custom Fields
 
-为官方 Object 增加 workspace-specific 字段。例：给客户增加「客户等级」。
+Add workspace-specific fields to official Objects. Example: add "Customer Tier" to Customer.
 
-Agent 正确路径：
+Correct Agent path:
 
 ```text
 Create Workspace Extension:
@@ -72,40 +72,40 @@ Create Workspace Extension:
 - record audit log
 ```
 
-Agent **不应**修改 `runory.customer` Module 源码。
+Agent **must not** modify the `runory.customer` Module source.
 
 ### Custom Workflows
 
-增加 workspace-specific 流程。例：报价金额超过 10 万需经理审批。
+Add workspace-specific workflows. Example: quotes over 100,000 require manager approval.
 
 ```text
-识别 Quotation Object
-→ 创建 Approval Workflow Extension
-→ 添加 Rule
-→ 配置 Role
-→ 生成测试样例
-→ Diff Preview → 用户确认 → Apply
+Identify Quotation Object
+→ Create Approval Workflow Extension
+→ Add Rule
+→ Configure Role
+→ Generate test sample
+→ Diff Preview → User confirms → Apply
 ```
 
-## 4. 字段归属
+## 4. Field Ownership
 
-必须明确字段归属：
+Field ownership must be explicit:
 
 ```text
-Core-owned Field       → 如 created_at（Agent 不可删改定义）
-Module-owned Field     → 如 Customer.name（Extension 不可覆盖）
-Workspace Extension    → 如 Customer.vip_level（Extension 命名空间下）
-Agent-computed Field   → 如 Customer.ai_score（Computed，需声明来源与刷新策略）
-User-created Field     → 通过 Extension 创建，受 Extension 生命周期管理
+Core-owned Field       → e.g. created_at (Agent cannot delete or modify the definition)
+Module-owned Field     → e.g. Customer.name (Extension cannot override)
+Workspace Extension    → e.g. Customer.vip_level (under Extension namespace)
+Agent-computed Field   → e.g. Customer.ai_score (Computed; source and refresh policy required)
+User-created Field     → created through Extension and managed by Extension lifecycle
 ```
 
-归属影响：是否可删除、是否可升级、是否可迁移、Agent 是否可修改、是否出现在标准 API。
+Ownership affects whether a field is deletable, upgradable, migratable, Agent-mutable, and exposed in standard APIs.
 
-## 5. 数据模型
+## 5. Data Model
 
-Cloud 版本使用 Turso/libSQL 保存 Extension 状态。Portable Runtime 使用同一 libSQL schema（本地 SQLite `file:` URL）。
+The Cloud version stores Extension state in Turso/libSQL. Portable Runtime uses the same libSQL schema (local SQLite `file:` URL).
 
-### Platform tables（Cloud）
+### Platform tables (Cloud)
 
 ```text
 extension_definitions
@@ -117,7 +117,7 @@ custom_form_definitions
 custom_workflow_definitions
 custom_rule_definitions
 extension_audit_logs
-agent_runs（Agent apply 记录）
+agent_runs (Agent apply records)
 rollback_points
 ```
 
@@ -141,11 +141,11 @@ created_at / created_by / approved_by
 applied_at / rollback_of_version
 ```
 
-字段完整定义见 POC 实施阶段的数据库设计。Cloud POC 必须至少实现 `extension_definitions`、`extension_versions`、`extension_audit_logs` 和 rollback 引用。
+The full field definitions are specified in the POC implementation phase database design. The Cloud POC must implement at least `extension_definitions`, `extension_versions`, `extension_audit_logs`, and rollback references.
 
 ## 6. Runtime Composition
 
-Platform Core 在运行时合并官方 Module、Template 和 Workspace Extension：
+Platform Core merges official Modules, Templates, and Workspace Extensions at runtime:
 
 ```text
 Official Module Manifest
@@ -155,7 +155,7 @@ Official Module Manifest
 Effective Runtime Model
 ```
 
-Effective Runtime Model 包含：
+Effective Runtime Model includes:
 
 ```text
 effective objects / fields / relations
@@ -165,48 +165,48 @@ effective metrics / permissions
 effective event subscriptions / agent skills
 ```
 
-合并必须是确定性的。同一组 Core 版本、Module 版本、Template 版本、Extension 版本，应得到同一个 Effective Runtime Model。
+The merge must be deterministic. The same Core version, Module version, Template version, and Extension version set should produce the same Effective Runtime Model.
 
-## 7. Agent 工作流（Built-in Agent 与 MCP 共用）
+## 7. Agent Workflow (shared by Built-in Agent and MCP)
 
-Managed Workspace Extension 由 Agent 辅助生成，由 Platform Core 执行。
+Managed Workspace Extension is assisted by the Agent and executed by Platform Core.
 
 ```text
-用户提出修改
-→ Agent 解析需求
-→ 查询当前 Schema 与 Extension Points
-→ 生成 Extension Plan
+User proposes change
+→ Agent parses need
+→ Query current Schema and Extension Points
+→ Generate Extension Plan
 → Diff Preview
 → Permission Check
-→ 用户确认（中高风险）
+→ User confirms (medium/high risk)
 → Agent Operation API Apply
-→ Business Engine 校验并写入
-→ 创建 Rollback Point
+→ Business Engine validates and writes
+→ Create Rollback Point
 → Audit Log
-→ Event 发布
-→ UI 更新
+→ Event publish
+→ UI updates
 ```
 
-Agent 可以：
+Agent can:
 
-* 解释可行方案；
-* 推荐 Pack 或 Extension 路径；
-* 查询 Module、Object、Field、View、Workflow；
-* 生成 Extension Plan 和 Workflow Plan；
-* 调用 preview、validate、apply、rollback API。
+* explain feasible options;
+* recommend Pack or Extension paths;
+* query Module, Object, Field, View, Workflow;
+* generate Extension Plans and Workflow Plans;
+* call preview, validate, apply, and rollback APIs.
 
-Agent 不可以：
+Agent cannot:
 
-* 直接改数据库；
-* 直接改官方 Module 源码；
-* 直接写 React 生产代码；
-* 绕过 Agent Operation API 权限；
-* 跳过 Diff 或用户确认（中高风险）；
-* 修改 Core、Billing、跨租户 Runtime 或 Module Dependency Resolver。
+* directly modify the database;
+* directly modify official Module source;
+* directly write production React code;
+* bypass Agent Operation API permissions;
+* skip Diff or user confirmation (medium/high risk);
+* modify Core, Billing, cross-tenant Runtime, or Module Dependency Resolver.
 
 ## 8. Agent Operation API
 
-Extension 管理通过受控 API 暴露（Built-in Agent 与 MCP 镜像）：
+Extension management is exposed through governed APIs (mirrored by Built-in Agent and MCP):
 
 ```text
 runory.schema.inspect
@@ -222,29 +222,29 @@ runory.workflow.preview
 runory.workflow.apply
 ```
 
-所有 `apply` 和 `rollback` 必须：写入 audit log、创建 rollback point、发布 business event、触发 Effective Runtime Model 重组。
+All `apply` and `rollback` operations must: write audit log, create rollback point, publish business event, and trigger Effective Runtime Model recomposition.
 
-Apply 流程：
+Apply flow:
 
 ```text
-Permission Check → Diff → Approval（if needed）→ Apply → Validate → Audit
+Permission Check → Diff → Approval (if needed) → Apply → Validate → Audit
 ```
 
-## 9. 风险等级
+## 9. Risk Levels
 
 ### Low Risk
 
-可自动 Apply（仍须 Audit）：非必填字段、列显示、只读 Widget、保存筛选视图。
+Can be auto-applied (still audited): non-required fields, column display, read-only widgets, saved filter views.
 
 ### Medium Risk
 
-必须 Diff Preview + 用户确认：必填字段、Relation、业务规则、Automation、Workflow 步骤、表单校验变更。
+Requires Diff Preview + user confirmation: required fields, relations, business rules, automation, workflow steps, form validation changes.
 
 ### High Risk
 
-必须影响分析 + Rollback 方案 + 明确确认：删字段、改字段类型、批量迁移、权限变更、覆盖主视图结构、影响历史报表口径。
+Requires impact analysis + rollback plan + explicit confirmation: deleting fields, changing field types, batch migrations, permission changes, overriding main view structure, affecting historical reporting metrics.
 
-## 10. 升级与冲突
+## 10. Upgrade and Conflict
 
 ### Namespace
 
@@ -254,21 +254,21 @@ workspace.{workspaceId}.{extensionKey}
 
 ### Module Upgrade Compatibility
 
-Module 升级时 Core 检查：Extension Slot 是否存在、target object 是否存在、字段类型是否兼容、Workflow 引用是否有效、Agent Skill 参数是否兼容。
+During Module upgrade, Core checks whether Extension Slots exist, target objects exist, field types are compatible, Workflow references are valid, and Agent Skill parameters are compatible.
 
-冲突时：阻止静默覆盖，生成报告，提供重命名、映射、保留或取消升级选项。
+On conflict: block silent overwrite, generate a report, and provide rename, map, preserve, or cancel-upgrade options.
 
 ### Extension Reapply
 
-Module 升级后，Core 重新计算 Effective Runtime Model 并将兼容 Extension  reapplied。
+After Module upgrade, Core recomputes Effective Runtime Model and reapplies compatible Extensions.
 
 ### Rollback
 
-每次 Apply 前创建 Rollback Point。Rollback 恢复 extension manifest 及关联 field/view/workflow 定义。历史业务数据是否回滚按风险等级单独确认。
+Create a Rollback Point before every Apply. Rollback restores the extension manifest and related field/view/workflow definitions. Whether historical business data is rolled back is confirmed separately according to risk level.
 
-## 11. UI 合并规则
+## 11. UI Merge Rules
 
-Module 通过 **UI Slots** 声明可扩展位置：
+Module declares extensible positions through **UI Slots**:
 
 ```text
 customer.form.basic_fields.after
@@ -277,24 +277,24 @@ customer.detail.sidebar
 dashboard.crm.widgets
 ```
 
-Workspace Template 决定导航、首页和角色入口；Extension 在 Slot 内添加内容。
+Workspace Template determines navigation, homepage, and role entry; Extension adds content inside Slots.
 
-Workspace Extension 默认只能扩展视图，不能完整覆盖官方视图。完整 View Override 属于 High Risk，须 Module 显式允许。
+By default, Workspace Extensions can only extend views and cannot fully override official views. Full View Override is High Risk and requires explicit permission from the Module.
 
-## 12. 安全边界
+## 12. Security Boundaries
 
-明确禁止：
+Explicitly forbidden:
 
-* 直接改官方 Module 文件；
-* 直接改数据库 Schema（绕过 metadata runtime）；
-* 直接写 React 代码；
-* 绕过 Tool / API 权限；
-* 绕过 Audit；
-* 覆盖官方 MCP Tool 或 Agent Operation API；
-* 无审计高风险 Automation；
-* 在未声明 Extension Point 的位置注入 UI；
-* 跨租户访问或修改。
+* directly modifying official Module files;
+* directly modifying database Schema (bypassing metadata runtime);
+* directly writing React code;
+* bypassing Tool / API permissions;
+* bypassing Audit;
+* overriding official MCP Tool or Agent Operation API;
+* high-risk Automation without audit;
+* injecting UI where no Extension Point is declared;
+* cross-tenant access or modification.
 
 ## 13. Cloud Export
 
-Workspace Extension 必须包含在 Workspace Export 中，以支持 Cloud → Private / Local 路径。见 [cloud-to-local-workspace.md](cloud-to-local-workspace.md)。
+Workspace Extension must be included in Workspace Export to support the Cloud → Private / Local path. See [cloud-to-local-workspace.md](cloud-to-local-workspace.md).
