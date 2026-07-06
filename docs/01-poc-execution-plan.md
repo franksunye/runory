@@ -25,7 +25,7 @@ Everything else (multi-tenant billing, Marketplace, full auth, Private deploymen
 |---|-----------|---------------|-----------------|
 | H1 | Metadata-driven objects can drive real UI | If ViewDefinition can't render a usable list+form, the whole platform is moot | Pack install creates objects → schema-driven UI renders working list and form |
 | H2 | Pack/Module/Template layering works | If installing a Pack doesn't produce a coherent business experience, the composable platform claim fails | CRM Lite Pack install → customer object + views + navigation appear |
-| H3 | Managed Extension can safely extend Module-owned schema | If Extension can't add fields without breaking Module upgrades, the "no direct customization" principle fails | Agent adds "客户等级" field → appears in list+form → Module manifest unchanged |
+| H3 | Managed Extension can safely extend Module-owned schema | If Extension can't add fields without breaking Module upgrades, the "no direct customization" principle fails | Agent adds "Customer Tier" field → appears in list+form → Module manifest unchanged |
 | H4 | Governed Agent flow is practical | If the Permission→Diff→Apply→Audit→Rollback chain is too slow or too complex for real use, Agent-native is just a buzzword | Full flow completes in one session; rollback restores prior state |
 | H5 | SQLite (Turso) works as Cloud database for metadata-driven model | If we need PostgreSQL for the metadata runtime, the Portable Runtime story weakens | All platform + business data in Turso/libSQL |
 | H6 | Serverless (Vercel) can host the Platform Core | If serverless constraints break the architecture, we need a different deployment strategy | Full POC runs on Vercel API routes + Turso |
@@ -152,7 +152,7 @@ The previous plan included Workflow creation (V3) and full Export validation (V4
 
 The demo viewer should immediately understand:
 
-> I opened a URL, created a workspace, clicked "Install CRM Lite Pack", and got a working customer list. Then I typed "add a 客户等级 field to customers" in a chat box, saw a diff, clicked confirm, and the field appeared. No code was written. No local install was needed.
+> I opened a URL, created a workspace, clicked "Install CRM Lite Pack", and got a working customer list. Then I typed "add a Customer Tier field to customers" in a chat box, saw a diff, clicked confirm, and the field appeared. No code was written. No local install was needed.
 
 ### Demo Steps
 
@@ -164,12 +164,12 @@ The demo viewer should immediately understand:
 6. UI shows: left navigation (Dashboard, Customers), customer list page, "Add Customer" form.
 7. User creates a customer record (name, email, phone) → appears in list.
 8. User opens Personal Agent (e.g., Trae), which has Runory Skill installed.
-9. User tells Personal Agent: "给客户增加一个「客户等级」字段，选项为 A/B/C".
+9. User tells Personal Agent: "Add a Customer Tier field to customers, with options A/B/C".
 10. Personal Agent reads Runory Skill, calls `runory.extension.plan` MCP tool with the request.
 11. Runory returns current schema; Personal Agent generates Extension Plan JSON.
 12. Personal Agent calls `runory.extension.preview` → UI shows Diff Preview (new field: tier, type: select, options: A/B/C, added to customer.list.columns and customer.form.basic_fields.after).
 13. User clicks "Confirm" (in Personal Agent or Runory UI).
-14. Personal Agent calls `runory.extension.apply` → Extension is applied → customer list now shows "客户等级" column → form shows dropdown.
+14. Personal Agent calls `runory.extension.apply` → Extension is applied → customer list now shows "Customer Tier" column → form shows dropdown.
 15. User creates a customer with tier = "A" → record saved with extension field.
 16. User opens Audit Log → sees the full change record.
 17. Personal Agent calls `runory.extension.rollback` → field disappears → list and form revert.
@@ -407,16 +407,16 @@ objects:
     label: Customer
     fields:
       - key: name
-        label: 客户名称
+        label: Customer Name
         type: text
         ownership: module_owned
         required: true
       - key: email
-        label: 邮箱
+        label: Email
         type: email
         ownership: module_owned
       - key: phone
-        label: 电话
+        label: Phone
         type: phone
         ownership: module_owned
 
@@ -424,15 +424,15 @@ views:
   - object: customer
     key: customer_list
     type: list
-    label: 客户列表
+    label: Customer List
     config:
       columns:
         - field: name
-          label: 客户名称
+          label: Customer Name
         - field: email
-          label: 邮箱
+          label: Email
         - field: phone
-          label: 电话
+          label: Phone
       actions:
         - create
         - view
@@ -441,10 +441,10 @@ views:
   - object: customer
     key: customer_form
     type: form
-    label: 客户表单
+    label: Customer Form
     config:
       sections:
-        - title: 基本信息
+        - title: Basic Information
           fields:
             - field: name
               required: true
@@ -463,7 +463,7 @@ migrations:
 
 ui:
   navigation:
-    - label: 客户
+    - label: Customers
       route: /customers
       icon: users
       sortOrder: 20
@@ -514,20 +514,20 @@ objects:
     label: Contact
     fields:
       - key: name
-        label: 联系人姓名
+        label: Contact Name
         type: text
         ownership: module_owned
         required: true
       - key: email
-        label: 邮箱
+        label: Email
         type: email
         ownership: module_owned
       - key: phone
-        label: 电话
+        label: Phone
         type: phone
         ownership: module_owned
       - key: role
-        label: 角色
+        label: Role
         type: text
         ownership: module_owned
 
@@ -535,7 +535,7 @@ views:
   - object: contact
     key: contact_list
     type: list
-    label: 联系人列表
+    label: Contact List
     config:
       columns:
         - field: name
@@ -555,7 +555,7 @@ migrations:
 
 ui:
   navigation:
-    - label: 联系人
+    - label: Contacts
       route: /contacts
       icon: contact
       sortOrder: 30
@@ -579,8 +579,8 @@ name: Small Business CRM
 version: 1.0.0
 
 terminology:
-  customer: 客户
-  contact: 联系人
+  customer: Customer
+  contact: Contact
 
 navigation:
   - dashboard
@@ -674,7 +674,7 @@ LLM intelligence lives in the **Personal Agent** (Codex / Trae / Cursor / Claude
 ### Operation Flow
 
 ```text
-User tells Personal Agent: "给客户增加一个「客户等级」字段，选项为 A/B/C"
+User tells Personal Agent: "Add a Customer Tier field to customers, with options A/B/C"
   |
   v
 Personal Agent reads Runory Skill (SKILL.md)
@@ -739,7 +739,7 @@ The Personal Agent generates this JSON and submits via `runory.extension.plan`:
     {
       "targetObject": "customer",
       "fieldKey": "tier",
-      "label": "客户等级",
+      "label": "Customer Tier",
       "type": "select",
       "ownership": "workspace_extension",
       "required": false,
@@ -959,7 +959,7 @@ The POC passes when:
 3. Pack install creates objects, fields, views, and navigation via metadata—no code deploy.
 4. Schema-driven UI renders a working customer list and form from view definitions.
 5. User can create, view customer records.
-6. Personal Agent can submit an Extension Plan ("客户等级" field) via MCP tool.
+6. Personal Agent can submit an Extension Plan ("Customer Tier" field) via MCP tool.
 7. Diff Preview is shown before apply.
 8. After confirm, the field appears in list and form without page reload (polling).
 9. Audit log records the full change.
