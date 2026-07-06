@@ -219,7 +219,7 @@ Management
 
 Object key: `service_site`
 
-Chinese label: `服务地点`
+Label: `Service Site`
 
 Purpose:
 
@@ -248,7 +248,7 @@ An SMB customer can have multiple service locations. A company record is an acco
 
 Object key: `asset`
 
-Chinese label: `设备/资产`
+Label: `Asset`
 
 Purpose:
 
@@ -272,7 +272,7 @@ notes               optional
 
 Object key: `work_order`
 
-Chinese label: `工单`
+Label: `Work Order`
 
 Purpose:
 
@@ -315,7 +315,7 @@ cancelled
 
 Object key: `technician`
 
-Chinese label: `工程师/技师`
+Label: `Technician`
 
 Purpose:
 
@@ -341,7 +341,7 @@ In the future, a technician may map to a workspace member. For the first FSM pac
 
 Object key: `service_visit`
 
-Chinese label: `上门/服务行程`
+Label: `Service Visit`
 
 Purpose:
 
@@ -364,7 +364,7 @@ notes               optional
 
 Object key: `service_report`
 
-Chinese label: `服务报告`
+Label: `Service Report`
 
 Purpose:
 
@@ -470,8 +470,8 @@ service_site.company_id       FSM-owned relation, preferred
 Different packs may label the same shared object differently:
 
 ```text
-CRM: Companies / 客户组织
-FSM: Customers / 客户
+CRM: Companies / Customer Organizations
+FSM: Customers / Customers
 ```
 
 The underlying object key can remain `company`.
