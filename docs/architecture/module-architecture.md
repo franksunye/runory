@@ -38,13 +38,13 @@ Examples that are **not** modules:
 ```text
 Runory Core
     ↓
-Modules（technical install units）
+Modules (technical install units)
     ↓
-Business Packs（commercial delivery units）
+Business Packs (commercial delivery units)
     ↓
-Workspace Templates（experience entry）
+Workspace Templates (experience entry)
     ↓
-Workspace Extensions（workspace customization）
+Workspace Extensions (workspace customization)
 ```
 
 ### Module
@@ -75,7 +75,7 @@ Small Business Finance Workspace Template
 
 Installing a Pack runs module migrations, registers manifests, and applies Template overlays.
 
-Module/Pack/Template 的研发与生产发布不直接使用 mutable repository files。Official/Internal source 经 Git/CI 生成 immutable artifact，进入 Cloud Catalog Registry，通过 validation、release channel 和 rollout 后才对 Workspace 可见。完整控制面见 [../09-catalog-release-control-plane.md](../09-catalog-release-control-plane.md)。
+Module/Pack/Template development and production release do not directly use mutable repository files. Official/Internal source is turned by Git/CI into immutable artifacts, imported into the Cloud Catalog Registry, and only becomes visible to Workspaces after validation, release channel promotion, and rollout. For the full control plane, see [../09-catalog-release-control-plane.md](../09-catalog-release-control-plane.md).
 
 ## 3. Module Boundary
 
@@ -93,7 +93,7 @@ An Official Module does **not** own workspace-specific customization.
 
 Core principle:
 
-> 官方 Module 提供标准能力；Managed Workspace Extension 表达用户差异。
+> Official Modules provide standard capabilities; Managed Workspace Extensions express user-specific differences.
 
 ## 4. Module Manifest
 
@@ -180,7 +180,7 @@ Module installation:
 7. Publish `module.installed` event.
 8. Recompute Effective Runtime Model.
 
-上述步骤描述 Workspace Runtime 安装语义。生产安装的 Manifest、migration 和依赖必须来自具体 Catalog Version 及其 artifact checksum；Pack 必须使用发布时冻结的 dependency lock，不能在每次安装时重新解析“最新版本”。
+The steps above describe Workspace Runtime installation semantics. Production installation manifests, migrations, and dependencies must come from a specific Catalog Version and its artifact checksum. Packs must use the dependency lock frozen at release time and must not re-resolve the "latest version" on every install.
 
 Duplicate install returns success with `alreadyInstalled: true`.
 
@@ -191,9 +191,9 @@ Modules define objects through metadata—not ad-hoc undocumented tables only.
 Field ownership within a module:
 
 ```text
-Core-owned fields（created_at, updated_at, id）
-Module-owned fields（expense.amount, customer.name）
-Extension-compatible slots（declared in extensionPoints）
+Core-owned fields (created_at, updated_at, id)
+Module-owned fields (expense.amount, customer.name)
+Extension-compatible slots (declared in extensionPoints)
 ```
 
 Modules must declare which entities support Extension fields, relations, views, and workflows.
@@ -227,7 +227,7 @@ Each upgrade declares:
 
 If upgrade may break active Extensions, Core blocks automatic upgrade and requires user confirmation with compatibility report.
 
-Upgrade 前必须生成结构化 Compatibility Report，至少覆盖 Core、dependency、permission、schema、Workspace Extension 和 migration risk。Rollout pause 只停止新目标，不能假装已执行的数据库 migration 可以通用自动回滚。
+Before upgrade, a structured Compatibility Report must be generated. It must cover at least Core, dependencies, permissions, schema, Workspace Extensions, and migration risk. Rollout pause only stops new targets; it must not pretend that already-executed database migrations can be generically and automatically rolled back.
 
 ## 9. Prohibited Module Behavior
 
@@ -238,7 +238,7 @@ Official Modules must not:
 * bypass Business Engine or audit logging;
 * dynamically load arbitrary user-generated React code;
 * silently remove Extension Slots used by active workspaces;
-* assume Local-only or Cloud-only storage（must use adapters when touching storage services）.
+* assume Local-only or Cloud-only storage (must use adapters when touching storage services).
 
 ## 10. Marketplace Readiness
 
@@ -254,4 +254,4 @@ security and marketplace metadata hooks
 
 Third-party modules follow the same manifest contract as official modules.
 
-Marketplace readiness 不等同于当前建设第三方 Marketplace。当前优先实现 Official/Internal Catalog & Release Control Plane：immutable artifact、validation、Internal/Beta/Stable release、Sandbox、Workspace upgrade 和 rollout governance。
+Marketplace readiness does not mean building the third-party Marketplace now. The current priority is Official/Internal Catalog & Release Control Plane: immutable artifacts, validation, Internal/Beta/Stable release, Sandbox, Workspace upgrade, and rollout governance.
