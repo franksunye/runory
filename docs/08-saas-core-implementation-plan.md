@@ -29,51 +29,51 @@ Decision baseline: [07-saas-core-boundaries.md](07-saas-core-boundaries.md)
 
 ## 1. Objective
 
-本计划将 SaaS Core 按依赖顺序拆成可独立验收的阶段。每一阶段必须满足退出条件后才能进入下一阶段；时间估算仅用于排序，不替代验收。
+This plan splits SaaS Core into independently acceptable phases in dependency order. Each phase must satisfy its exit criteria before the next phase begins; time estimates are only for ordering and do not replace acceptance.
 
-Module/Pack/Template 的制造、发布、升级和 rollout 是并行的平台控制面工作流，不混入租户 SaaS Core 数据模型。其独立规格和 CR0–CR5 实施计划见 [09-catalog-release-control-plane.md](09-catalog-release-control-plane.md)。Public launch gate 必须同时评估两个工作流的完成状态。
+The manufacturing, release, upgrade, and rollout lifecycle for Modules/Packs/Templates is a parallel platform control-plane workflow and is not mixed into the tenant SaaS Core data model. Its independent specification and CR0–CR5 implementation plan are defined in [09-catalog-release-control-plane.md](09-catalog-release-control-plane.md). The public launch gate must evaluate the completion state of both workflows.
 
-Runory SDK 是该控制面的本地开发者产品入口，其 SDK0–SDK4 计划见 [10-runory-sdk-product.md](10-runory-sdk-product.md)。SaaS Core、SDK 与 Catalog 共用 contracts，但 SDK 不导出 SaaS private runtime/repository。
+Runory SDK is the local developer product entry point for that control plane. Its SDK0–SDK4 plan is defined in [10-runory-sdk-product.md](10-runory-sdk-product.md). SaaS Core, SDK, and Catalog share contracts, but SDK does not export SaaS private runtime/repository.
 
 ## 2. Current Baseline
 
-截至 2026-06-22（SaaS Core Phase 0-5, 7 完成后更新）：
+As of 2026-06-22 (updated after SaaS Core Phases 0–5 and 7 are complete):
 
-已具备：
+Already available:
 
-- Next.js Cloud UI、Workspace shell 与生产级视觉基础。
-- Organization、User、OrganizationMembership、WorkspaceTenant、WorkspaceMembership 完整表结构。
-- `OrganizationRole (owner/admin/member)` 与 `WorkspaceRole (admin/member/viewer)` 两套独立 enum。
-- Workspace HTTP API 的统一访问 helper（`requireWorkspaceContext`）与完整角色检查。
-- Email OTP 认证、服务端 session、速率限制、首次登录自动 onboarding。
-- 组织邀请系统（7天过期、哈希 token、workspace grants）。
-- RBAC 与组织角色继承（owner/admin → workspace admin）。
-- 跨租户隔离回归测试套件（33 个测试，覆盖完整访问矩阵）。
-- API Key 系统（create/list/revoke/rotate、hash-only 存储、scope+RBAC 交集、creator 权限失效自动吊销）。
-- 统一审计服务（append-only、敏感字段脱敏、request ID 追踪）。
-- Entitlement & Quota 服务（early_access 计划、6 个配额指标、幂等 usage 事件）。
-- 数据生命周期管理（export with checksum、30天软删除、组织删除、用户账户删除与审计匿名化）。
-- 版本化 Platform Migration runner（0001-0007）与 SHA-256 校验。
-- Turso/libSQL async 数据路径。
+- Next.js Cloud UI, Workspace shell, and production-grade visual foundation.
+- Complete table structure for Organization, User, OrganizationMembership, WorkspaceTenant, and WorkspaceMembership.
+- Two independent enums: `OrganizationRole (owner/admin/member)` and `WorkspaceRole (admin/member/viewer)`.
+- Unified access helper for Workspace HTTP APIs (`requireWorkspaceContext`) and complete role checks.
+- Email OTP authentication, server-side sessions, rate limiting, and automatic first-login onboarding.
+- Organization invitation system (7-day expiry, hashed token, workspace grants).
+- RBAC and organization-role inheritance (owner/admin → workspace admin).
+- Cross-tenant isolation regression test suite (33 tests covering the full access matrix).
+- API Key system (create/list/revoke/rotate, hash-only storage, scope+RBAC intersection, automatic revocation when creator loses permission).
+- Unified audit service (append-only, sensitive-field redaction, request ID tracing).
+- Entitlement & Quota service (early_access plan, 6 quota metrics, idempotent usage events).
+- Data lifecycle management (export with checksum, 30-day soft delete, organization deletion, user account deletion and audit anonymization).
+- Versioned Platform Migration runner (0001–0007) with SHA-256 verification.
+- Turso/libSQL async data path.
 
-仍属于待完成：
+Still pending:
 
-- Audit Event 尚未接入所有写操作（基础设施已就绪）。
-- Quota enforcement 尚未接入资源创建路径（基础设施已就绪）。
-- Billing & Subscriptions（Phase 6）未实现，early_access 阶段不需要。
-- 备份恢复演练未执行。
-- CI/CD pipeline、E2E 测试、Runbook 未建立（Phase 8）。
+- Audit Event is not yet wired into all write operations (infrastructure ready).
+- Quota enforcement is not yet wired into resource creation paths (infrastructure ready).
+- Billing & Subscriptions (Phase 6) is not implemented and is not required during early_access.
+- Backup restore drill has not been executed.
+- CI/CD pipeline, E2E tests, and Runbook are not established (Phase 8).
 
 ## 3. Delivery Rules
 
-每个阶段遵循：
+Each phase follows:
 
-1. 先定义 contract 和 migration，再实现 service/API/UI。
-2. 权限与跨租户测试和功能代码同批交付。
-3. 新写操作必须同时产生 Audit Event。
-4. 不允许页面直接操作数据库或自行计算授权。
-5. 所有生产 secret、token 和 key 使用 hash 或托管 secret。
-6. 阶段未达到退出条件时，不通过增加功能掩盖基础缺口。
+1. Define contracts and migrations first, then implement service/API/UI.
+2. Permission and cross-tenant tests ship in the same batch as feature code.
+3. New write operations must also produce Audit Events.
+4. Pages are not allowed to directly operate the database or compute authorization on their own.
+5. All production secrets, tokens, and keys use hashes or managed secrets.
+6. If a phase has not met its exit criteria, do not mask foundational gaps by adding features.
 
 ## 4. Phase 0: Consolidate the Existing Foundation
 
@@ -82,27 +82,27 @@ Dependency: none
 
 ### Deliverables
 
-- 固化 `OrganizationRole` 与 `WorkspaceRole` 两套独立 enum。
-- 从 Workspace role 中移除 `owner`，迁移现有记录为 `admin`。
-- 建立 canonical `RequestContext`、`Principal` 与 Authorization Policy API。
-- 将 HTTP 错误统一为稳定的 `401/403/404/409/429` envelope。
-- 明确低层 Repository 与 Authorized Service 的代码边界。
-- 增加 request ID，并贯穿 API response 和日志。
-- 建立版本化 Platform Migration runner 与 `schema_migrations` 表。
-- 将当前 schema bootstrap 转为 migration `0001_baseline`，保留开发环境初始化入口。
+- Finalize two independent enums: `OrganizationRole` and `WorkspaceRole`.
+- Remove `owner` from Workspace role and migrate existing records to `admin`.
+- Establish canonical `RequestContext`, `Principal`, and Authorization Policy API.
+- Unify HTTP errors into stable `401/403/404/409/429` envelopes.
+- Clarify code boundaries between low-level Repository and Authorized Service.
+- Add request ID and carry it through API responses and logs.
+- Establish versioned Platform Migration runner and `schema_migrations` table.
+- Convert current schema bootstrap into migration `0001_baseline`, while preserving a development-environment initialization entry.
 
 ### Tests
 
-- Role hierarchy unit tests。
-- RequestContext 不接受客户端 Actor 覆盖。
-- Migration 从空数据库重放、重复执行与 checksum mismatch 测试。
-- 所有 Workspace route 都声明最低角色。
+- Role hierarchy unit tests.
+- RequestContext does not accept client Actor override.
+- Migration replay from empty database, repeated execution, and checksum mismatch tests.
+- All Workspace routes declare a minimum role.
 
 ### Exit Criteria
 
-- 无生产 route 依赖临时开发身份。
-- 从空数据库可以只靠 migrations 建立完整 schema。
-- 认证失败和授权失败不再返回通用 500。
+- No production route depends on temporary development identity.
+- A complete schema can be built from an empty database using only migrations.
+- Authentication and authorization failures no longer return generic 500.
 
 ## 5. Phase 1: Email OTP and Server Sessions
 
@@ -118,28 +118,28 @@ Dependency: Phase 0
 
 ### Deliverables
 
-- Request OTP、Verify OTP、Logout、Logout all sessions API。
-- 邮箱规范化、OTP hash、过期、attempt limit 与 single-use。
-- Session opaque token、hash storage、rotation、expiry 与 revoke。
-- `HttpOnly + Secure + SameSite` Cookie。
-- Origin/CSRF 防护。
-- IP、邮箱与 endpoint rate limiting。
-- 邮件 provider adapter 与开发环境安全 mail sink。
-- 登录页、验证码页、Session 管理基础 UI。
-- 首次登录自动创建 Organization、默认 Workspace 和 Owner membership。
+- Request OTP, Verify OTP, Logout, and Logout all sessions APIs.
+- Email normalization, OTP hash, expiration, attempt limit, and single-use.
+- Session opaque token, hash storage, rotation, expiry, and revoke.
+- `HttpOnly + Secure + SameSite` Cookie.
+- Origin/CSRF protection.
+- IP, email, and endpoint rate limiting.
+- Mail provider adapter and safe development mail sink.
+- Login page, verification-code page, and basic Session management UI.
+- Automatic Organization, default Workspace, and Owner membership creation on first login.
 
 ### Tests
 
-- OTP 过期、重放、暴力尝试和枚举防护。
-- Session revoke、logout-all 和 cookie flags。
-- 首次用户 onboarding 事务一致性。
-- 相同规范化邮箱不会创建重复 User。
+- OTP expiration, replay, brute-force attempt, and enumeration protection.
+- Session revoke, logout-all, and cookie flags.
+- First-user onboarding transaction consistency.
+- Same normalized email does not create duplicate User.
 
 ### Exit Criteria
 
-- 生产环境无需 trusted identity headers。
-- 未认证请求无法访问任何 Workspace 数据。
-- 完整浏览器测试覆盖登录、首次创建和再次登录。
+- Production environment does not need trusted identity headers.
+- Unauthenticated requests cannot access any Workspace data.
+- Complete browser tests cover login, first creation, and repeat login.
 
 ## 6. Phase 2: Organization, Invitations, and RBAC
 
@@ -154,27 +154,27 @@ Dependency: Phase 1
 
 ### Deliverables
 
-- Organization settings 与成员列表。
-- 创建、重发、撤销、接受邀请。
-- 邀请接受时事务创建组织和 Workspace memberships。
-- 成员角色修改、Workspace assignment、成员移除。
-- Owner transfer。
-- last-owner invariant。
-- Organization owner/admin 的 Workspace admin inheritance。
-- Membership/permission cache 的即时失效策略。
+- Organization settings and member list.
+- Create, resend, revoke, and accept invitations.
+- Transactionally create Organization and Workspace memberships when accepting invitations.
+- Member role modification, Workspace assignment, member removal.
+- Owner transfer.
+- last-owner invariant.
+- Workspace admin inheritance for Organization owner/admin.
+- Immediate invalidation strategy for Membership/permission cache.
 
 ### Tests
 
-- 错误邮箱不能接受邀请。
-- 邀请 token 过期、撤销、重放测试。
-- 普通成员不能邀请或升级自己。
-- 最后一名 Owner 不能退出、降级或被删除。
-- 移除成员后下一请求立即返回 403。
+- Wrong email cannot accept invitation.
+- Invitation token expiration, revocation, and replay tests.
+- Ordinary members cannot invite or upgrade themselves.
+- Last Owner cannot leave, be downgraded, or be removed.
+- After member removal, the next request immediately returns 403.
 
 ### Exit Criteria
 
-- 多人 Organization 可以仅通过 UI 完成邀请、授权和移除闭环。
-- 所有权限变更均有 Audit Event。
+- Multi-user Organization can complete the full invitation, authorization, and removal loop only through UI.
+- All permission changes have Audit Events.
 
 ## 7. Phase 3: End-to-end Tenant Isolation
 
@@ -183,25 +183,25 @@ Dependency: Phase 2
 
 ### Deliverables
 
-- 所有 HTTP、MCP、Agent、Webhook 和 Job 入口使用统一 RequestContext。
-- 所有 record lookup 同时包含 `workspace_id` 与 resource ID。
-- 核查并修复 metadata、module business tables 与 extension value 查询。
-- Cache key、SSE/event channel、file path 和 job payload tenant scope。
-- 禁止用户数据进入跨用户共享 Next.js cache。
-- MCP 改为 Cloud HTTP transport 并接入相同授权策略。
-- 建立跨租户 security regression suite。
+- All HTTP, MCP, Agent, Webhook, and Job entry points use unified RequestContext.
+- All record lookups include both `workspace_id` and resource ID.
+- Review and fix metadata, module business tables, and extension value queries.
+- Cache key, SSE/event channel, file path, and job payload include tenant scope.
+- Forbid user data from entering cross-user shared Next.js cache.
+- Change MCP to Cloud HTTP transport and wire it into the same authorization policy.
+- Establish cross-tenant security regression suite.
 
 ### Tests
 
-- 两个 Organization、多个 Workspace 的完整访问矩阵。
-- 已知其他租户 record ID 仍无法读写。
-- 文件、导出、事件订阅、缓存和 MCP 不泄漏。
-- Organization admin inheritance 与 explicit Workspace role 行为一致。
+- Full access matrix with two Organizations and multiple Workspaces.
+- Even if another tenant's record ID is known, it cannot be read or written.
+- Files, exports, event subscriptions, cache, and MCP do not leak.
+- Organization admin inheritance and explicit Workspace role behavior are consistent.
 
 ### Exit Criteria
 
-- 跨租户测试覆盖所有公开数据入口并在 CI 强制执行。
-- 不存在绕过 Authorized Service 访问生产数据的公开路径。
+- Cross-tenant tests cover all public data entry points and are enforced in CI.
+- No public path can bypass Authorized Service to access production data.
 
 ## 8. Phase 4: Audit, API Keys, and Security Baseline
 
@@ -216,26 +216,26 @@ Dependency: Phase 3
 
 ### Deliverables
 
-- Append-only audit service，与关键业务 mutation 同事务或可靠 outbox。
-- before/after redaction policy。
-- Audit query/export 权限与 365 天 retention policy。
-- Workspace API Key create/list/revoke/rotate。
-- Hash-only key storage、prefix、expiry、last-used 与 scopes。
-- API Key 权限与 creator RBAC 取交集。
-- 创建者失去权限时 API Key 即时失效。
-- 安全 headers、结构化日志、secret redaction 与 production error policy。
+- Append-only audit service, in the same transaction as key business mutations or via reliable outbox.
+- before/after redaction policy.
+- Audit query/export permission and 365-day retention policy.
+- Workspace API Key create/list/revoke/rotate.
+- Hash-only key storage, prefix, expiry, last-used, and scopes.
+- API Key permission intersects with creator RBAC.
+- API Key becomes invalid immediately when creator loses permission.
+- Security headers, structured logs, secret redaction, and production error policy.
 
 ### Tests
 
-- 数据库中不存在可直接使用的 Session/OTP/API Key。
-- Key revoke、expiry、scope 和 creator removal。
-- 每个 mutation 可通过 request ID 定位 Audit Event。
-- Audit 不包含认证 secret。
+- No directly usable Session/OTP/API Key exists in database.
+- Key revoke, expiry, scope, and creator removal.
+- Every mutation can locate an Audit Event by request ID.
+- Audit does not contain authentication secrets.
 
 ### Exit Criteria
 
-- Personal Agent 可使用可撤销、Workspace-scoped API Key。
-- 核心写操作审计覆盖率 100%。
+- Personal Agent can use a revocable, Workspace-scoped API Key.
+- Core write-operation audit coverage is 100%.
 
 ## 9. Phase 5: Entitlements, Quotas, and Usage
 
@@ -250,25 +250,25 @@ Dependency: Phase 4
 
 ### Deliverables
 
-- Central Entitlement Service。
-- `early_access` entitlement provisioning。
-- Workspace/member/storage/Agent hard quotas。
-- API/record/audit soft quotas 与 80%/100% 通知。
-- 幂等 usage event ingestion 与 period rollup。
-- 原子 quota reservation，避免并发超额。
-- 管理员用量与限额 UI。
+- Central Entitlement Service.
+- `early_access` entitlement provisioning.
+- Workspace/member/storage/Agent hard quotas.
+- API/record/audit soft quotas and 80%/100% notifications.
+- Idempotent usage event ingestion and period rollup.
+- Atomic quota reservation to avoid concurrent overage.
+- Admin usage and limit UI.
 
 ### Tests
 
-- 并发资源创建不能突破硬配额。
-- 同一 idempotency key 不重复计量。
-- Entitlement override 生效且可过期。
-- 降级不删除或隐藏已有数据。
+- Concurrent resource creation cannot exceed hard quotas.
+- Same idempotency key is not metered repeatedly.
+- Entitlement override takes effect and can expire.
+- Downgrade does not delete or hide existing data.
 
 ### Exit Criteria
 
-- 所有可计费资源有明确 metric owner 和服务端 enforcement。
-- 套餐变化不需要修改业务模块。
+- All billable resources have clear metric owners and server-side enforcement.
+- Plan changes do not require modifying business modules.
 
 ## 10. Phase 6: Subscription Billing
 
@@ -283,26 +283,26 @@ Dependency: Phase 5
 
 ### Deliverables
 
-- Organization Owner 创建 Stripe Checkout Session。
-- 服务端 price catalog，禁止客户端任意 Price ID。
-- Webhook raw-body signature verification 与 event idempotency。
-- Subscription snapshot → Entitlement transaction。
-- Stripe Customer Portal。
-- Billing settings UI。
-- payment failure grace period 和限制策略。
-- Stripe unavailable 时使用最近可信 Entitlement，不阻断已有用户。
+- Organization Owner creates Stripe Checkout Session.
+- Server-side price catalog; arbitrary client Price ID is forbidden.
+- Webhook raw-body signature verification and event idempotency.
+- Subscription snapshot → Entitlement transaction.
+- Stripe Customer Portal.
+- Billing settings UI.
+- payment failure grace period and restriction strategy.
+- When Stripe is unavailable, use the latest trusted Entitlement and do not block existing users.
 
 ### Tests
 
-- 伪造 success redirect 不开通权益。
-- 重复与乱序 webhook 不破坏 Subscription。
-- payment failed、恢复、cancel-at-period-end 与 deleted 状态。
-- 非 Owner 无法创建 Checkout 或 Portal session。
+- Forged success redirect does not grant entitlement.
+- Duplicate and out-of-order webhooks do not corrupt Subscription.
+- payment failed, recovery, cancel-at-period-end, and deleted states.
+- Non-Owner cannot create Checkout or Portal session.
 
 ### Exit Criteria
 
-- Sandbox 完成 subscribe → renew/fail → recover/cancel 全流程。
-- Billing 故障不会删除数据或让已有客户立即失去读取能力。
+- Sandbox completes subscribe → renew/fail → recover/cancel full loop.
+- Billing failure does not delete data or immediately remove read access from existing customers.
 
 ## 11. Phase 7: Export, Deletion, and Recovery Operations
 
@@ -317,26 +317,26 @@ Dependency: Phase 4; may run alongside Phase 5–6
 
 ### Deliverables
 
-- 版本化 Workspace export manifest 与 checksum。
-- 异步导出与短期 signed download URL。
-- Workspace archive、30-day pending deletion、restore 与 purge。
-- Organization deletion with fresh Email OTP confirmation。
-- User account deletion、Session/API Key revoke 与 audit anonymization。
-- Blob、cache、event 和 derived data purge handlers。
-- 托管数据库 backup 配置与恢复 runbook。
-- 完成一次真实恢复演练并记录 RPO/RTO 结果。
+- Versioned Workspace export manifest and checksum.
+- Async export and short-lived signed download URL.
+- Workspace archive, 30-day pending deletion, restore, and purge.
+- Organization deletion with fresh Email OTP confirmation.
+- User account deletion, Session/API Key revoke, and audit anonymization.
+- Blob, cache, event, and derived data purge handlers.
+- Managed database backup configuration and recovery runbook.
+- Complete one real recovery drill and record RPO/RTO results.
 
 ### Tests
 
-- Export 不含认证和 Billing secrets。
-- Purge 可重试且不影响其他 Workspace。
-- 30 天恢复窗口行为。
-- 从备份恢复后关键 tenant isolation tests 继续通过。
+- Export does not include authentication or Billing secrets.
+- Purge is retryable and does not affect other Workspaces.
+- 30-day recovery window behavior.
+- After restoring from backup, key tenant isolation tests still pass.
 
 ### Exit Criteria
 
-- Backup 有真实 restore evidence。
-- Workspace 和 Organization 删除生命周期可以端到端执行与审计。
+- Backup has real restore evidence.
+- Workspace and Organization deletion lifecycle can be executed and audited end to end.
 
 ## 12. Phase 8: Production Readiness Gate
 
@@ -345,42 +345,42 @@ Dependency: Phase 0–7
 
 ### Required Gate
 
-- 全仓 typecheck、unit、integration、migration 和 browser E2E 通过。
-- Cross-tenant security suite 通过。
-- Auth/OTP/API rate-limit 验证通过。
-- Webhook replay 与 job retry 验证通过。
-- Backup restore drill 通过。
-- Secret scan、dependency audit 与 production headers 检查通过。
-- 关键路径 observability：request ID、error rate、latency、job failure。
-- Runbook：auth outage、email outage、database restore、billing webhook backlog、key compromise。
+- Full-repo typecheck, unit, integration, migration, and browser E2E pass.
+- Cross-tenant security suite passes.
+- Auth/OTP/API rate-limit verification passes.
+- Webhook replay and job retry verification passes.
+- Backup restore drill passes.
+- Secret scan, dependency audit, and production headers check pass.
+- Critical-path observability: request ID, error rate, latency, job failure.
+- Runbook: auth outage, email outage, database restore, billing webhook backlog, key compromise.
 
 ### Launch Definition
 
-Public SaaS launch 的最低范围是 Phase 0–4、Phase 7 的 backup/deletion 基础与 Production Gate。Phase 5–6 可在 `early_access` 无付费阶段并行完成，但公开收费前必须完成。
+The minimum scope for public SaaS launch is Phases 0–4, Phase 7 backup/deletion foundation, and Production Gate. Phases 5–6 can be completed in parallel during the unpaid `early_access` phase, but must be complete before public paid billing.
 
 ## 13. Explicitly Deferred Backlog
 
-以下能力不进入上述阶段的完成标准：
+The following capabilities are not part of the completion standard for the phases above:
 
-- Team / TeamMembership / WorkspaceTeamGrant。
-- Custom roles、field ACL、record ACL。
-- OIDC、SAML、SCIM。
-- Service Account。
-- Seat Billing、usage overage Billing、Add-on。
-- Data residency、per-tenant database、customer-managed encryption keys。
-- SIEM/DLP/IP allowlist 和高级合规后台。
+- Team / TeamMembership / WorkspaceTeamGrant.
+- Custom roles, field ACL, record ACL.
+- OIDC, SAML, SCIM.
+- Service Account.
+- Seat Billing, usage overage Billing, Add-on.
+- Data residency, per-tenant database, customer-managed encryption keys.
+- SIEM/DLP/IP allowlist and advanced compliance admin console.
 
-任何 deferred 项目进入计划前必须先满足 [07-saas-core-boundaries.md](07-saas-core-boundaries.md) 定义的触发条件，并形成新的 ADR。
+Before any deferred item enters the plan, it must first satisfy the trigger conditions defined in [07-saas-core-boundaries.md](07-saas-core-boundaries.md) and produce a new ADR.
 
 ## 14. Tracking Format
 
-每个 Phase 使用以下状态：
+Each Phase uses the following status:
 
 ```text
 Not started → In progress → Verification → Complete
 ```
 
-完成报告必须包括：
+Completion report must include:
 
 - migrations and contracts changed
 - security boundary changed
