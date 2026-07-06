@@ -1,16 +1,16 @@
-# Runory 架构说明
+# Runory Architecture Narrative
 
 Status: Draft v0.3
 Date: 2026-06-22
 Change: Cloud-first pivot — see [04-architecture-pivot-cloud-first.md](04-architecture-pivot-cloud-first.md)
 
-## 1. 产品定义
+## 1. Product Definition
 
-Runory 是一个 **Cloud-first** 的 Agent-native SMB 业务运行平台。
+Runory is a **Cloud-first**, Agent-native SMB business operations platform.
 
-普通用户通过 Runory Cloud 注册、创建 Workspace、选择 Business Pack / Template，并使用 Built-in Agent 完成配置、操作和分析。
+Ordinary users sign up through Runory Cloud, create Workspaces, select Business Packs / Templates, and use the Built-in Agent to complete configuration, operations, and analysis.
 
-Runory 的核心形态是：
+Runory's core shape is:
 
 ```text
 Runory Cloud
@@ -22,13 +22,13 @@ Runory Cloud
 + Optional Private / Local Deployment
 ```
 
-Runory 不是某个垂直行业软件，而是 **可组合的业务运行平台**——接近 SMB 时代的 WordPress，但由 Agent 在受治理的结构中运营。
+Runory is not vertical-industry software. It is a **composable business operations platform** — close to WordPress for the SMB era, but operated by an Agent inside a governed structure.
 
-## 2. 总体架构
+## 2. Overall Architecture
 
 ```text
 Personal Agent OS
-Codex / Claude / TRAE / Cursor（高级通道）
+Codex / Claude / TRAE / Cursor (advanced channel)
         |
         | Built-in Agent / Skills / MCP
         v
@@ -36,7 +36,7 @@ Runory Cloud
   Auth / Billing / Workspace / Hosting
         |
         v
-Runory Core（Platform Kernel）
+Runory Core (Platform Kernel)
   Object / Field / View / Form / Workflow / ACL
   Event / Audit / Module Lifecycle / Extension Boundary
         |
@@ -61,39 +61,39 @@ Optional Private Cloud / Local Runtime
   Enterprise / Compliance / Offline
 ```
 
-## 3. 各层职责
+## 3. Layer Responsibilities
 
-### Personal Agent OS（高级通道）
+### Personal Agent OS (advanced channel)
 
-Codex、Cursor 等 Agent 通过 MCP / SDK 连接 Runory，适用于：
+Agents such as Codex and Cursor connect to Runory through MCP / SDK, for:
 
-* 开发者与集成商；
-* 私有部署环境；
-* 高级自动化与批量操作。
+* developers and integrators;
+* private deployment environments;
+* advanced automation and batch operations.
 
-**Codex / MCP 不是普通 SMB 的默认入口。** 普通用户使用 Runory Cloud UI + Built-in Agent。
+**Codex / MCP is not the default entry point for ordinary SMB users.** Ordinary users use Runory Cloud UI + Built-in Agent.
 
-Agent 负责理解意图、推荐 Pack、生成配置计划、调用受控 API，但不直接修改数据库或官方 Module 源码。
+The Agent understands intent, recommends Packs, generates configuration plans, and calls governed APIs, but does not directly modify the database or official Module source.
 
 ### Runory Cloud
 
-Runory Cloud 是默认产品入口，负责：
+Runory Cloud is the default product entry point and is responsible for:
 
-* Multi-tenant Workspace 托管；
-* Auth / Organization / User / Role；
-* Billing-ready Account Model；
-* Module Registry 与 Install Runtime；
-* Workspace Configuration Store；
-* Built-in Agent 运行环境；
-* Cloud UI Shell；
-* Usage Metering；
-* 数据导入与基础 Marketplace Readiness。
+* Multi-tenant Workspace hosting;
+* Auth / Organization / User / Role;
+* Billing-ready Account Model;
+* Module Registry and Install Runtime;
+* Workspace Configuration Store;
+* Built-in Agent runtime environment;
+* Cloud UI Shell;
+* Usage Metering;
+* data import and basic Marketplace Readiness.
 
 ### Runory Core
 
-Runory Core 是稳定、通用、少变化的平台内核。
+Runory Core is a stable, general-purpose, low-change platform kernel.
 
-Core **不负责具体行业业务**，而负责：
+Core is **not responsible for specific industry business logic**. It is responsible for:
 
 ```text
 Workspace / Organization
@@ -107,36 +107,36 @@ Agent Permission Boundary
 API / Webhook / MCP Interface
 ```
 
-一句话：
+In one sentence:
 
-> Core 不负责「某类企业怎么经营」，Core 负责「业务能力如何被定义、安装、组合、扩展、升级和运行」。
+> Core is not responsible for "how a certain type of company operates"; Core is responsible for "how business capabilities are defined, installed, composed, extended, upgraded, and run."
 
-这与 WordPress Core 的逻辑类似：WordPress Core 不决定用户建什么网站；Runory Core 不决定用户经营什么业务。
+This is similar to WordPress Core: WordPress Core does not decide what website a user builds; Runory Core does not decide what business a user runs.
 
 ### SaaS Core Boundary
 
-Runory Cloud 的 SaaS Core 使用以下边界：
+Runory Cloud's SaaS Core uses the following boundaries:
 
 ```text
 Email OTP + Server Session
-→ Organization（tenant / ownership / membership / billing）
-→ Workspace（business data / module / extension / audit）
+→ Organization (tenant / ownership / membership / billing)
+→ Workspace (business data / module / extension / audit)
 → RequestContext + Authorized Service
 → Repository / Turso-libSQL
 ```
 
-- 一个 User 可加入多个 Organization；一个 Organization 可拥有多个 Workspace。
-- Organization 角色为 `owner/admin/member`；Workspace 角色为 `admin/member/viewer`。
-- 当前通过直接 Workspace Membership 授权；Team 只做架构预留，不进入当前产品。
-- 所有 HTTP、MCP、Agent、Webhook 和后台任务必须经过同一 RequestContext 与授权策略。
-- 当前采用共享数据库、共享表和强制 `workspace_id` 隔离。
-- Plan、Entitlement、Usage 与 Billing 分离，业务模块不得直接判断套餐名。
+- One User can join multiple Organizations; one Organization can own multiple Workspaces.
+- Organization roles are `owner/admin/member`; Workspace roles are `admin/member/viewer`.
+- Current authorization uses direct Workspace Membership; Team is reserved architecturally and does not enter the current product.
+- All HTTP, MCP, Agent, Webhook, and background jobs must go through the same RequestContext and authorization policy.
+- The current design uses a shared database, shared tables, and enforced `workspace_id` isolation.
+- Plan, Entitlement, Usage, and Billing are separated; business modules must not directly check plan names.
 
-完整边界与验收定义见 [07-saas-core-boundaries.md](07-saas-core-boundaries.md)，实施顺序见 [08-saas-core-implementation-plan.md](08-saas-core-implementation-plan.md)。
+For the full boundary and acceptance definition, see [07-saas-core-boundaries.md](07-saas-core-boundaries.md). For the implementation order, see [08-saas-core-implementation-plan.md](08-saas-core-implementation-plan.md).
 
 ### Official Business Modules
 
-官方 Module 是完整的业务能力单元，而不是简单页面或功能包。每个 Module 至少包含：
+Official Modules are complete business capability units, not simple pages or feature bundles. Each Module contains at minimum:
 
 ```text
 Schema / Objects / Fields / Relations
@@ -146,23 +146,23 @@ Agent Skills / Dashboards
 Migrations / Seed Data / Upgrade Policy / Documentation
 ```
 
-Module 通过 Runory Core 安装、运行和升级。Module 源码对用户只读。
+Modules are installed, run, and upgraded through Runory Core. Module source is read-only for users.
 
-生产 Module/Pack/Template 由独立的 Catalog & Release Control Plane 管理。Git/CI 生成 immutable artifact；Cloud Registry 负责 structured validation、Sandbox、Internal/Beta/Stable release、dependency lock、Workspace upgrade 与 rollout。平台 UI 和 Agent 共享 governed commands，Stable 发布必须由平台 Release Manager 批准。详见 [09-catalog-release-control-plane.md](09-catalog-release-control-plane.md)。
+Production Module/Pack/Template lifecycle is managed by an independent Catalog & Release Control Plane. Git/CI generates immutable artifacts; Cloud Registry handles structured validation, Sandbox, Internal/Beta/Stable release, dependency lock, Workspace upgrade, and rollout. Platform UI and Agent share governed commands, and Stable release must be approved by a platform Release Manager. See [09-catalog-release-control-plane.md](09-catalog-release-control-plane.md).
 
-Runory SDK 是业务能力制造的本地开发者产品入口，提供 typed authoring、validation、testing、artifact build 和 Internal candidate publish；它不暴露 SaaS Core private repository，也不能绕过 Catalog release governance。详见 [10-runory-sdk-product.md](10-runory-sdk-product.md)。
+Runory SDK is the local developer product entry for manufacturing business capabilities. It provides typed authoring, validation, testing, artifact build, and Internal candidate publish; it does not expose SaaS Core private repositories and cannot bypass Catalog release governance. See [10-runory-sdk-product.md](10-runory-sdk-product.md).
 
-### Business Packs 与 Workspace Templates
+### Business Packs and Workspace Templates
 
-需要明确三层交付单元：
+Three delivery layers must be explicit:
 
 ```text
-Module     = 技术安装单元（Expense、Approval、Budget…）
-Pack       = 商业交付单元（Finance Operations Pack、CRM Lite Pack…）
-Template   = Workspace 体验入口（导航、首页、术语、默认视图、角色入口）
+Module     = technical install unit (Expense, Approval, Budget…)
+Pack       = commercial delivery unit (Finance Operations Pack, CRM Lite Pack…)
+Template   = Workspace experience entry (navigation, homepage, terminology, default views, role entry)
 ```
 
-标准分层：
+Standard layering:
 
 ```text
 Runory Core → Modules → Business Packs → Workspace Templates → Workspace Extensions
@@ -170,9 +170,9 @@ Runory Core → Modules → Business Packs → Workspace Templates → Workspace
 
 ### Managed Workspace Extensions
 
-Workspace Extension 是绑定到具体 Workspace 的声明式扩展层。用户个性化 **不得** 直接 fork 或改写官方 Module。
+Workspace Extension is a declarative extension layer bound to a specific Workspace. User personalization must **not** directly fork or rewrite official Modules.
 
-允许的受控扩展：
+Allowed governed extensions:
 
 ```text
 Custom Field / Object / Relation
@@ -180,7 +180,7 @@ Custom View / Form / Workflow / Rule
 Custom Dashboard / Agent Skill / UI Slot / Report / Notification
 ```
 
-不允许普通用户或默认 Agent 直接修改：
+Ordinary users or default Agents are not allowed to directly modify:
 
 ```text
 Runory Core / Official Module Source
@@ -188,151 +188,151 @@ System Migration Logic / Cross-tenant Runtime
 Security Boundary / Billing Logic / Module Dependency Resolver
 ```
 
-详细规范参见 [architecture/workspace-extension-architecture.md](architecture/workspace-extension-architecture.md)。
+For detailed rules, see [architecture/workspace-extension-architecture.md](architecture/workspace-extension-architecture.md).
 
 ### Agent Configuration Layer
 
-Agent 是 **Runory Workspace Operator**，职责包括：
+Agent is the **Runory Workspace Operator**. Its responsibilities include:
 
 ```text
-业务需求理解 / 模块与 Pack 推荐
-Workspace 配置 / 字段扩展 / 流程调整
-权限配置 / Dashboard 生成 / 数据导入辅助
-异常分析 / 运行验证 / 变更解释 / 升级影响分析
+Understanding business needs / recommending Modules and Packs
+Workspace configuration / field extension / workflow adjustment
+Permission configuration / Dashboard generation / data import assistance
+Exception analysis / runtime verification / change explanation / upgrade impact analysis
 ```
 
-Agent 操作必须走受控 API，每一步经过：
+Agent operations must go through governed APIs. Each step goes through:
 
 ```text
-Permission Check → Diff Preview → Approval（如需要）→ Apply → Validate → Audit Log → Rollback Point
+Permission Check → Diff Preview → Approval (if needed) → Apply → Validate → Audit Log → Rollback Point
 ```
 
-## 4. 两条核心运行链路
+## 4. Two Core Runtime Chains
 
-### 数据变化链路
+### Data-change chain
 
 ```text
-用户提供资料
-→ Agent 理解和提取
+User provides information
+→ Agent understands and extracts it
 → Agent Operation API / MCP Tool
 → Business Engine
-→ Cloud Database（或 Portable Runtime DB）
+→ Cloud Database (or Portable Runtime DB)
 → Business Event
 → SSE / Query Refresh
-→ UI 列表、KPI、图表实时更新
+→ UI lists, KPIs, and charts update in real time
 ```
 
-### 能力变化链路
+### Capability-change chain
 
 ```text
-用户提出新功能需求
-→ Agent 推荐 Pack / Module / Extension Plan
-→ Module Installer 或 Extension Apply
-→ Migration + Manifest 注册
-→ 注册 Tools、Views、Navigation、Workflows
-→ UI 自动增加菜单和页面
+User proposes a new capability need
+→ Agent recommends Pack / Module / Extension Plan
+→ Module Installer or Extension Apply
+→ Migration + Manifest registration
+→ Register Tools, Views, Navigation, Workflows
+→ UI automatically adds menus and pages
 ```
 
-**「动态能力」= 安装预置 Module / Pack 或应用受控 Extension**，不是运行时生成生产代码。
+**"Dynamic capability" = installing a preset Module / Pack or applying a governed Extension**, not generating production code at runtime.
 
-## 5. UI 架构
+## 5. UI Architecture
 
-UI 走 **Schema-driven UI + Composable Layout + UI Slots + Workspace Template**。
+UI uses **Schema-driven UI + Composable Layout + UI Slots + Workspace Template**.
 
-Module 声明：
+Module declares:
 
 ```text
 Object Detail Layout / List View / Form Sections
 Dashboard Widgets / Action Panels / Navigation Items / UI Slots
 ```
 
-Workspace Template 决定整体体验：
+Workspace Template determines the overall experience:
 
 ```text
 Navigation / Homepage / Dashboard
 Role-based entry / Terminology / Default views / Mobile layout
 ```
 
-Runory Theme 升级为 **Workspace Experience Template**，不只是颜色和视觉皮肤。
+Runory Theme is upgraded into **Workspace Experience Template**, not just color and visual skin.
 
-## 6. 数据架构
+## 6. Data Architecture
 
-Runory 采用 **元数据驱动的业务对象模型**。
+Runory uses a **metadata-driven business object model**.
 
-核心抽象：
+Core abstractions:
 
 ```text
 ObjectDefinition / FieldDefinition / RelationDefinition
 ViewDefinition / FormDefinition / WorkflowDefinition / PermissionDefinition
 ```
 
-字段归属必须明确：
+Field ownership must be explicit:
 
 ```text
-Core-owned Field      → 如 created_at
-Module-owned Field    → 如 Customer.name
-Workspace Extension   → 如 Customer.vip_level
-Agent-generated       → 如 Customer.ai_score（Computed）
+Core-owned Field      → e.g. created_at
+Module-owned Field    → e.g. Customer.name
+Workspace Extension   → e.g. Customer.vip_level
+Agent-generated       → e.g. Customer.ai_score (Computed)
 ```
 
-Cloud Runtime 默认使用：
+Cloud Runtime defaults to:
 
 ```text
 Turso/libSQL + Object Storage + Queue / Async Jobs
 ```
 
-Portable Runtime（Local / Private）可使用 SQLite + Local Files，通过 Adapter 抽象云服务依赖。
+Portable Runtime (Local / Private) can use SQLite + Local Files, abstracting cloud-service dependencies through Adapters.
 
-所有写操作必须经过 Runory Business Engine。
+All writes must go through Runory Business Engine.
 
-所有业务读取同样必须经过 Authorized Service，并同时约束 Workspace scope 与 resource ID。Cache、文件、事件和异步任务也属于租户隔离范围，不能只保护 SQL。
+All business reads must also go through Authorized Service while constraining both Workspace scope and resource ID. Cache, files, events, and async tasks are also within tenant-isolation scope; protecting SQL alone is not enough.
 
-## 7. MCP 与 Codex 定位
+## 7. MCP and Codex Positioning
 
 ```text
-普通用户：Runory Cloud UI + Built-in Agent
-高级用户 / 开发者：Codex / MCP / SDK
-企业用户 / 私有部署：Private Runtime + MCP + Controlled Agent
+Ordinary users: Runory Cloud UI + Built-in Agent
+Advanced users / developers: Codex / MCP / SDK
+Enterprise users / private deployment: Private Runtime + MCP + Controlled Agent
 ```
 
-MCP 是 Runory 的开放操作协议之一，权限模型与 Cloud 内部 Agent 一致。MCP 可以暴露 Workspace Management、Module Registry、Object Schema、Workflow、Audit 等 API，但 **不能** 暴露数据库 Root 权限、Core 源码修改权限或跨租户访问能力。
+MCP is one of Runory's open operation protocols, with the same permission model as the internal Cloud Agent. MCP may expose APIs for Workspace Management, Module Registry, Object Schema, Workflow, Audit, and similar surfaces, but **must not** expose database Root permission, Core source modification permission, or cross-tenant access capability.
 
 ## 8. Local / Private Deployment
 
-Local 不再是 MVP 默认体验，而是 **Enterprise / Advanced Deployment Mode**。
+Local is no longer the default MVP experience. It is **Enterprise / Advanced Deployment Mode**.
 
-适用场景：数据合规、私有网络、行业监管、离线使用、客户已有 IT 团队、需要本地数据库或私有模型。
+Applicable scenarios: data compliance, private network, industry regulation, offline use, customers with existing IT teams, or need for local databases or private models.
 
-架构要求 **Cloud-first Product, Portable Runtime Architecture**：
+Architecture requirement: **Cloud-first Product, Portable Runtime Architecture**:
 
 ```text
-Core runtime 可独立运行
-Module manifest / Migration 标准化
-Workspace config / Extension 可导出
-Audit 可导出 / Agent skill 可声明
+Core runtime can run independently
+Module manifest / Migration are standardized
+Workspace config / Extension can be exported
+Audit can be exported / Agent skill can be declared
 Auth / Storage / Queue / LLM / Email / Payment / Search Adapter
 ```
 
-详见 [architecture/cloud-to-local-workspace.md](architecture/cloud-to-local-workspace.md)。
+See [architecture/cloud-to-local-workspace.md](architecture/cloud-to-local-workspace.md).
 
-## 9. 核心设计原则
+## 9. Core Design Principles
 
-1. **Cloud-first, Portable-runtime** — Cloud 是默认入口；Runtime 必须可迁移。
-2. **Core must stay small** — 业务能力属于 Module；组合属于 Pack；差异属于 Extension。
-3. **No direct module customization** — 官方 Module 可升级；Extension 承担个性化。
-4. **Agent through governed APIs** — Agent 不直接改代码或数据库。
-5. **Metadata-driven objects** — 业务数据基于 Object / Field 定义运行。
-6. **Schema-driven UI** — Module 声明 UI Slots；Template 决定体验。
-7. **Marketplace-ready** — Manifest、版本、依赖、权限、迁移从第一天预留。
-8. **Event-driven UI** — 数据变化通过事件驱动 UI；以 API 数据为真相源。
-9. **Upgrade-safe** — Core、Module、Extension 分别版本化；升级前兼容性检查与备份。
+1. **Cloud-first, Portable-runtime** — Cloud is the default entry point; Runtime must be portable.
+2. **Core must stay small** — business capabilities belong to Modules; composition belongs to Packs; differences belong to Extensions.
+3. **No direct module customization** — official Modules remain upgradable; Extensions handle personalization.
+4. **Agent through governed APIs** — Agent does not directly modify code or databases.
+5. **Metadata-driven objects** — business data runs on Object / Field definitions.
+6. **Schema-driven UI** — Modules declare UI Slots; Templates determine experience.
+7. **Marketplace-ready** — Manifest, version, dependency, permission, and migration are reserved from day one.
+8. **Event-driven UI** — data changes drive UI through events; API data is the source of truth.
+9. **Upgrade-safe** — Core, Module, and Extension are versioned separately; compatibility checks and backups run before upgrades.
 
-## 10. 最终公式
+## 10. Final Formula
 
 ```text
 Runory
 =
-Runory Cloud（默认）
+Runory Cloud (default)
 + Platform Core
 + Official Modules
 + Business Packs / Workspace Templates
@@ -341,6 +341,6 @@ Runory Cloud（默认）
 + Optional Private / Local Deployment
 ```
 
-Runory 的本质是：
+Runory is essentially:
 
-> 一个 Cloud-first、由 Agent 受控配置、由确定性 Platform Core 执行、通过 Module / Pack 扩展、并允许用户安全定制的 SMB 业务运行平台。
+> A Cloud-first SMB business operations platform, configured by Agents through governed APIs, executed by a deterministic Platform Core, extended through Modules / Packs, and safely customizable by users.
