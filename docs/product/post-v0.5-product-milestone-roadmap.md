@@ -61,7 +61,9 @@ business permission enforcement
 
 ### v0.5.1 — Mobile Field Work, Forms And My Work
 
-Master source: [v0.5.1 Commercial FSM Productization And Workflow V2 Cutover specification](./v0.5.1-commercial-fsm-productization-technical-spec.md)
+Master source: [v0.5.1 Commercial FSM Productization, Command Kernel And Optional Workflow specification](./v0.5.1-commercial-fsm-productization-technical-spec.md)
+
+Closure source: [v0.5 SMB Dependency Decoupling And Closure Plan](./v0.5-smb-dependency-decoupling-and-closure-plan.md)
 
 Mobile source: [v0.5.1 Mobile Field Work, Forms And My Work sub-specification](./v0.5.1-mobile-field-work-spec.md)
 

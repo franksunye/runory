@@ -1761,22 +1761,24 @@ export async function fireSlaWarnings(
           ts,
         ],
       },
+      // Audit event for SLA warning (atomic with workflow event — §11.4)
+      {
+        sql: `INSERT INTO ${TABLES.auditLogs}
+              (id, workspace_id, actor_type, actor_id, action, entity_type,
+               entity_id, before_json, after_json, extension_version_id,
+               request_id, created_at)
+              VALUES (?, ?, 'system', 'system', 'work_item.sla_warning', 'work_item',
+                      ?, NULL, ?, NULL, ?, ?)`,
+        args: [
+          genId("aud"),
+          workspaceId,
+          timer.work_item_id ?? timer.id,
+          JSON.stringify({ due_at: timer.due_at, remaining_ms: remaining }),
+          `sla-warning-${timer.id}-${ts}`,
+          ts,
+        ],
+      },
     ]);
-
-    // Audit event for SLA warning
-    writeAuditEvent({
-      workspaceId,
-      actorType: "system",
-      actorId: "system",
-      action: "work_item.sla_warning",
-      entityType: "work_item",
-      entityId: timer.work_item_id ?? timer.id,
-      before: null,
-      after: { due_at: timer.due_at, remaining_ms: remaining },
-      requestId: `sla-warning-${timer.id}-${ts}`,
-    }).catch((err) => {
-      console.error("[audit] Failed to write SLA warning audit event:", err);
-    });
 
     warned++;
   }
