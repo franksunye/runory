@@ -12,7 +12,12 @@ import { genId, now, queryOne, queryAll, execute, batch } from "./db";
 import { TABLES, businessTable } from "./contracts";
 import { BusinessError, NotFoundError, InvalidInputError } from "./context";
 import { ERROR_CODES } from "./errors";
-import { writeAuditEvent } from "./audit-service";
+import {
+  executeCommand,
+  type CommandActor,
+  type CommandHandlerResult,
+  type CommandResult,
+} from "./command-runtime";
 
 // ── Types ──
 
@@ -374,20 +379,37 @@ export async function createFormBinding(
  * with status='submitted'. If supersedesSubmissionId is set, the revision
  * chain is continued (revision_number is incremented from the prior
  * submission).
+ *
+ * Per v0.5 Spec §11.4 ("lost audit event = 0"), the audit event is written
+ * atomically with the business state change via executeCommand() — no
+ * fire-and-forget audit writes.
  */
-export async function submitForm(
+
+export interface SubmitFormParams {
+  formDefinitionId: string;
+  subjectType?: string;
+  subjectId?: string;
+  workItemId?: string;
+  bindingId?: string;
+  answers: Record<string, unknown>;
+  submittedBy: string;
+  supersedesSubmissionId?: string;
+}
+
+export interface SubmitFormAggregate {
+  submissionId: string;
+  revisionNumber: number;
+}
+
+/**
+ * Handler: does all reads/validation and returns batch statements + audit +
+ * aggregate. The wrapper (submitForm) calls executeCommand() to persist these
+ * atomically.
+ */
+export async function submitFormHandler(
   workspaceId: string,
-  params: {
-    formDefinitionId: string;
-    subjectType?: string;
-    subjectId?: string;
-    workItemId?: string;
-    bindingId?: string;
-    answers: Record<string, unknown>;
-    submittedBy: string;
-    supersedesSubmissionId?: string;
-  }
-): Promise<{ submissionId: string; revisionNumber: number }> {
+  params: SubmitFormParams
+): Promise<CommandHandlerResult<SubmitFormAggregate>> {
   if (!params.formDefinitionId) {
     throw new InvalidInputError("formDefinitionId is required");
   }
@@ -464,58 +486,84 @@ export async function submitForm(
     revisionNumber = prior.revision_number + 1;
   }
 
-  await execute(
-    `INSERT INTO ${TABLES.formSubmissions}
-     (id, workspace_id, form_definition_id, form_version_id, binding_id,
-      subject_type, subject_id, work_item_id, revision_number, status,
-      answers_json, submitted_by, submitted_at, accepted_by, accepted_at,
-      return_reason, supersedes_submission_id, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'submitted', ?, ?, ?, NULL, NULL, NULL, ?, ?, ?)`,
-    [
-      submissionId,
-      workspaceId,
-      params.formDefinitionId,
-      versionRow.id,
-      params.bindingId ?? null,
-      params.subjectType ?? null,
-      params.subjectId ?? null,
-      params.workItemId ?? null,
-      revisionNumber,
-      JSON.stringify(params.answers),
-      params.submittedBy,
-      ts,
-      params.supersedesSubmissionId ?? null,
-      ts,
-      ts,
-    ]
-  );
-
-  // Audit event — per v0.5.1 Spec §7: "audit evidence download, form submission,
-  // Quote output generation, and governed commands."
-  writeAuditEvent({
-    workspaceId,
-    actorType: "user",
-    actorId: params.submittedBy,
-    action: "form_submission.submit",
-    entityType: params.subjectType ?? "form_submission",
-    entityId: submissionId,
-    before: null,
-    after: {
-      form_definition_id: params.formDefinitionId,
-      form_version_id: versionRow.id,
-      binding_id: params.bindingId ?? null,
-      subject_type: params.subjectType ?? null,
-      subject_id: params.subjectId ?? null,
-      work_item_id: params.workItemId ?? null,
-      revision_number: revisionNumber,
-      supersedes_submission_id: params.supersedesSubmissionId ?? null,
+  const statements: Array<{ sql: string; args?: unknown[] }> = [
+    {
+      sql: `INSERT INTO ${TABLES.formSubmissions}
+            (id, workspace_id, form_definition_id, form_version_id, binding_id,
+             subject_type, subject_id, work_item_id, revision_number, status,
+             answers_json, submitted_by, submitted_at, accepted_by, accepted_at,
+             return_reason, supersedes_submission_id, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'submitted', ?, ?, ?, NULL, NULL, NULL, ?, ?, ?)`,
+      args: [
+        submissionId,
+        workspaceId,
+        params.formDefinitionId,
+        versionRow.id,
+        params.bindingId ?? null,
+        params.subjectType ?? null,
+        params.subjectId ?? null,
+        params.workItemId ?? null,
+        revisionNumber,
+        JSON.stringify(params.answers),
+        params.submittedBy,
+        ts,
+        params.supersedesSubmissionId ?? null,
+        ts,
+        ts,
+      ],
     },
-    requestId: `form-submit-${submissionId}-${ts}`,
-  }).catch((err) => {
-    console.error("[audit] Failed to write form_submission.submit audit event:", err);
-  });
+  ];
 
-  return { submissionId, revisionNumber };
+  return {
+    statements,
+    audit: {
+      action: "form_submission.submit",
+      entityType: params.subjectType ?? "form_submission",
+      entityId: submissionId,
+      before: null,
+      after: {
+        form_definition_id: params.formDefinitionId,
+        form_version_id: versionRow.id,
+        binding_id: params.bindingId ?? null,
+        subject_type: params.subjectType ?? null,
+        subject_id: params.subjectId ?? null,
+        work_item_id: params.workItemId ?? null,
+        revision_number: revisionNumber,
+        supersedes_submission_id: params.supersedesSubmissionId ?? null,
+      },
+    },
+    aggregate: { submissionId, revisionNumber },
+    newVersion: 1,
+  };
+}
+
+/**
+ * Wrapper: builds a CommandEnvelope and calls executeCommand() so that the
+ * submission INSERT, audit event, and command_execution record are committed
+ * in a single atomic batch transaction.
+ */
+export async function submitForm(
+  workspaceId: string,
+  params: SubmitFormParams,
+  commandId?: string,
+  requestId?: string | null
+): Promise<SubmitFormAggregate> {
+  const result = await executeCommand<SubmitFormAggregate>(
+    {
+      commandId: commandId ?? genId("cmd"),
+      workspaceId,
+      commandType: "form_submission.submit",
+      aggregateType: "form_submission",
+      aggregateId: params.formDefinitionId,
+      expectedVersion: null,
+      actor: { type: "user", id: params.submittedBy },
+      input: params as unknown as Record<string, unknown>,
+      occurredAt: now(),
+      requestId: requestId ?? null,
+    },
+    async () => submitFormHandler(workspaceId, params)
+  );
+  return result.aggregate;
 }
 
 // ── saveFormDraft ──
@@ -528,19 +576,33 @@ export async function submitForm(
  * than duplicated). Otherwise a new submission is created with status='draft'.
  *
  * Drafts are NOT validated against the form schema — they may be incomplete.
+ *
+ * Per v0.5 Spec §11.4 ("lost audit event = 0"), the audit event is written
+ * atomically with the business state change via executeCommand().
  */
-export async function saveFormDraft(
+
+export interface SaveFormDraftParams {
+  formDefinitionId: string;
+  subjectType?: string;
+  subjectId?: string;
+  workItemId?: string;
+  bindingId?: string;
+  answers: Record<string, unknown>;
+  submittedBy: string;
+}
+
+export interface SaveFormDraftAggregate {
+  submissionId: string;
+}
+
+/**
+ * Handler: resolves whether to UPDATE an existing draft or INSERT a new one,
+ * then returns the batch statement + audit + aggregate.
+ */
+export async function saveFormDraftHandler(
   workspaceId: string,
-  params: {
-    formDefinitionId: string;
-    subjectType?: string;
-    subjectId?: string;
-    workItemId?: string;
-    bindingId?: string;
-    answers: Record<string, unknown>;
-    submittedBy: string;
-  }
-): Promise<{ submissionId: string }> {
+  params: SaveFormDraftParams
+): Promise<CommandHandlerResult<SaveFormDraftAggregate>> {
   if (!params.formDefinitionId) {
     throw new InvalidInputError("formDefinitionId is required");
   }
@@ -572,13 +634,25 @@ export async function saveFormDraft(
 
   if (existing) {
     // Update the existing draft's answers in place
-    await execute(
-      `UPDATE ${TABLES.formSubmissions}
-       SET answers_json = ?, updated_at = ?
-       WHERE id = ? AND workspace_id = ?`,
-      [JSON.stringify(params.answers), ts, existing.id, workspaceId]
-    );
-    return { submissionId: existing.id };
+    return {
+      statements: [
+        {
+          sql: `UPDATE ${TABLES.formSubmissions}
+                SET answers_json = ?, updated_at = ?
+                WHERE id = ? AND workspace_id = ?`,
+          args: [JSON.stringify(params.answers), ts, existing.id, workspaceId],
+        },
+      ],
+      audit: {
+        action: "form_submission.save_draft",
+        entityType: "form_submission",
+        entityId: existing.id,
+        before: { status: "draft" },
+        after: { status: "draft", updated: true },
+      },
+      aggregate: { submissionId: existing.id },
+      newVersion: 1,
+    };
   }
 
   // No existing draft — resolve the active form definition version
@@ -606,30 +680,74 @@ export async function saveFormDraft(
   // formally submitted via submitForm.
   const submissionId = genId("fsub");
 
-  await execute(
-    `INSERT INTO ${TABLES.formSubmissions}
-     (id, workspace_id, form_definition_id, form_version_id, binding_id,
-      subject_type, subject_id, work_item_id, revision_number, status,
-      answers_json, submitted_by, submitted_at, accepted_by, accepted_at,
-      return_reason, supersedes_submission_id, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, 'draft', ?, ?, NULL, NULL, NULL, NULL, NULL, ?, ?)`,
-    [
-      submissionId,
-      workspaceId,
-      params.formDefinitionId,
-      def.active_version_id,
-      params.bindingId ?? null,
-      params.subjectType ?? null,
-      params.subjectId ?? null,
-      params.workItemId ?? null,
-      JSON.stringify(params.answers),
-      params.submittedBy,
-      ts,
-      ts,
-    ]
-  );
+  return {
+    statements: [
+      {
+        sql: `INSERT INTO ${TABLES.formSubmissions}
+              (id, workspace_id, form_definition_id, form_version_id, binding_id,
+               subject_type, subject_id, work_item_id, revision_number, status,
+               answers_json, submitted_by, submitted_at, accepted_by, accepted_at,
+               return_reason, supersedes_submission_id, created_at, updated_at)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, 'draft', ?, ?, NULL, NULL, NULL, NULL, NULL, ?, ?)`,
+        args: [
+          submissionId,
+          workspaceId,
+          params.formDefinitionId,
+          def.active_version_id,
+          params.bindingId ?? null,
+          params.subjectType ?? null,
+          params.subjectId ?? null,
+          params.workItemId ?? null,
+          JSON.stringify(params.answers),
+          params.submittedBy,
+          ts,
+          ts,
+        ],
+      },
+    ],
+    audit: {
+      action: "form_submission.save_draft",
+      entityType: "form_submission",
+      entityId: submissionId,
+      before: null,
+      after: {
+        form_definition_id: params.formDefinitionId,
+        status: "draft",
+        revision_number: 1,
+      },
+    },
+    aggregate: { submissionId },
+    newVersion: 1,
+  };
+}
 
-  return { submissionId };
+/**
+ * Wrapper: builds a CommandEnvelope and calls executeCommand() so that the
+ * draft INSERT/UPDATE, audit event, and command_execution record are committed
+ * in a single atomic batch transaction.
+ */
+export async function saveFormDraft(
+  workspaceId: string,
+  params: SaveFormDraftParams,
+  commandId?: string,
+  requestId?: string | null
+): Promise<SaveFormDraftAggregate> {
+  const result = await executeCommand<SaveFormDraftAggregate>(
+    {
+      commandId: commandId ?? genId("cmd"),
+      workspaceId,
+      commandType: "form_submission.save_draft",
+      aggregateType: "form_submission",
+      aggregateId: params.formDefinitionId,
+      expectedVersion: null,
+      actor: { type: "user", id: params.submittedBy },
+      input: params as unknown as Record<string, unknown>,
+      occurredAt: now(),
+      requestId: requestId ?? null,
+    },
+    async () => saveFormDraftHandler(workspaceId, params)
+  );
+  return result.aggregate;
 }
 
 // ── returnFormSubmission ──
@@ -638,13 +756,27 @@ export async function saveFormDraft(
  * Return a submission for revision. Marks the old submission as 'returned'
  * with a return_reason, then creates a new draft submission with
  * revision_number + 1 linked via supersedes_submission_id.
+ *
+ * Per v0.5 Spec §11.4 ("lost audit event = 0"), the audit event is written
+ * atomically with the business state change via executeCommand().
  */
-export async function returnFormSubmission(
+
+export interface ReturnFormSubmissionAggregate {
+  newSubmissionId: string;
+  revisionNumber: number;
+}
+
+/**
+ * Handler: fetches the submission, validates it is in 'submitted' status, then
+ * returns batch statements (mark old returned + insert new draft) + audit +
+ * aggregate.
+ */
+export async function returnFormSubmissionHandler(
   workspaceId: string,
   submissionId: string,
   returnedBy: string,
   returnReason: string
-): Promise<{ newSubmissionId: string; revisionNumber: number }> {
+): Promise<CommandHandlerResult<ReturnFormSubmissionAggregate>> {
   const ts = now();
 
   const submission = await queryOne<FormSubmissionRow>(
@@ -667,7 +799,7 @@ export async function returnFormSubmission(
   const newSubmissionId = genId("fsub");
   const newRevisionNumber = submission.revision_number + 1;
 
-  await batch([
+  const statements: Array<{ sql: string; args?: unknown[] }> = [
     // Mark old submission as returned
     {
       sql: `UPDATE ${TABLES.formSubmissions}
@@ -700,29 +832,56 @@ export async function returnFormSubmission(
         ts,
       ],
     },
-  ]);
+  ];
 
-  // Audit event — per v0.5.1 Spec §7 and §4.3: return is a governed action
-  writeAuditEvent({
-    workspaceId,
-    actorType: "user",
-    actorId: returnedBy,
-    action: "form_submission.return",
-    entityType: "form_submission",
-    entityId: submissionId,
-    before: { status: "submitted", revision_number: submission.revision_number },
-    after: {
-      status: "returned",
-      return_reason: returnReason,
-      new_submission_id: newSubmissionId,
-      new_revision_number: newRevisionNumber,
+  return {
+    statements,
+    audit: {
+      action: "form_submission.return",
+      entityType: "form_submission",
+      entityId: submissionId,
+      before: { status: "submitted", revision_number: submission.revision_number },
+      after: {
+        status: "returned",
+        return_reason: returnReason,
+        new_submission_id: newSubmissionId,
+        new_revision_number: newRevisionNumber,
+      },
     },
-    requestId: `form-return-${submissionId}-${ts}`,
-  }).catch((err) => {
-    console.error("[audit] Failed to write form_submission.return audit event:", err);
-  });
+    aggregate: { newSubmissionId, revisionNumber: newRevisionNumber },
+    newVersion: 1,
+  };
+}
 
-  return { newSubmissionId, revisionNumber: newRevisionNumber };
+/**
+ * Wrapper: builds a CommandEnvelope and calls executeCommand() so that the
+ * UPDATE + INSERT, audit event, and command_execution record are committed in
+ * a single atomic batch transaction.
+ */
+export async function returnFormSubmission(
+  workspaceId: string,
+  submissionId: string,
+  returnedBy: string,
+  returnReason: string,
+  commandId?: string,
+  requestId?: string | null
+): Promise<ReturnFormSubmissionAggregate> {
+  const result = await executeCommand<ReturnFormSubmissionAggregate>(
+    {
+      commandId: commandId ?? genId("cmd"),
+      workspaceId,
+      commandType: "form_submission.return",
+      aggregateType: "form_submission",
+      aggregateId: submissionId,
+      expectedVersion: null,
+      actor: { type: "user", id: returnedBy },
+      input: { submissionId, returnedBy, returnReason },
+      occurredAt: now(),
+      requestId: requestId ?? null,
+    },
+    async () => returnFormSubmissionHandler(workspaceId, submissionId, returnedBy, returnReason)
+  );
+  return result.aggregate;
 }
 
 // ── acceptFormSubmission ──
@@ -732,12 +891,29 @@ export async function returnFormSubmission(
  * transitions it to 'accepted', and — when the bound form has
  * usage_type='service_deliverable' — projects a service_report record.
  * If the submission is linked to a work_item, the work item is advanced.
+ *
+ * Per v0.5 Spec §11.4 ("lost audit event = 0"), the audit event is written
+ * atomically with the business state change via executeCommand(). All
+ * statements (submission UPDATE + service_report INSERT + work_item UPDATE)
+ * are committed in a single batch transaction — no fire-and-forget writes.
  */
-export async function acceptFormSubmission(
+
+export interface AcceptFormSubmissionAggregate {
+  accepted: boolean;
+  serviceReportId?: string;
+}
+
+/**
+ * Handler: fetches the submission + binding, builds ALL statements (accept
+ * UPDATE + optional service_report INSERT + optional work_item UPDATE) in a
+ * single batch, plus the audit event. The wrapper calls executeCommand() to
+ * persist these atomically.
+ */
+export async function acceptFormSubmissionHandler(
   workspaceId: string,
   submissionId: string,
   acceptedBy: string
-): Promise<{ accepted: boolean; serviceReportId?: string }> {
+): Promise<CommandHandlerResult<AcceptFormSubmissionAggregate>> {
   const ts = now();
 
   const submission = await queryOne<FormSubmissionRow>(
@@ -788,45 +964,79 @@ export async function acceptFormSubmission(
     },
   ];
 
-  await batch(statements);
-
   // Project a service report when the binding is a service deliverable.
   let serviceReportId: string | undefined;
   if (usageType === "service_deliverable") {
-    serviceReportId = await createServiceReportProjection(
+    const report = await buildServiceReportStatement(
       workspaceId,
       submission as unknown as Record<string, unknown>,
       acceptedBy,
       targetMapping
     );
+    if (report) {
+      serviceReportId = report.reportId;
+      statements.push(report.statement);
+    }
   }
 
   // If linked to a work item, advance the workflow by completing the work item.
   if (submission.work_item_id) {
-    await completeWorkItem(workspaceId, submission.work_item_id, acceptedBy, ts);
+    const workItemStmt = await buildCompleteWorkItemStatement(
+      workspaceId,
+      submission.work_item_id,
+      ts
+    );
+    if (workItemStmt) {
+      statements.push(workItemStmt);
+    }
   }
 
-  // Audit event — per v0.5.1 Spec §7: "audit evidence download, form submission,
-  // Quote output generation, and governed commands."
-  writeAuditEvent({
-    workspaceId,
-    actorType: "user",
-    actorId: acceptedBy,
-    action: "form_submission.accept",
-    entityType: "form_submission",
-    entityId: submissionId,
-    before: { status: "submitted", revision_number: submission.revision_number },
-    after: {
-      status: "accepted",
-      service_report_id: serviceReportId ?? null,
-      work_item_id: submission.work_item_id ?? null,
+  return {
+    statements,
+    audit: {
+      action: "form_submission.accept",
+      entityType: "form_submission",
+      entityId: submissionId,
+      before: { status: "submitted", revision_number: submission.revision_number },
+      after: {
+        status: "accepted",
+        service_report_id: serviceReportId ?? null,
+        work_item_id: submission.work_item_id ?? null,
+      },
     },
-    requestId: `form-accept-${submissionId}-${ts}`,
-  }).catch((err) => {
-    console.error("[audit] Failed to write form_submission.accept audit event:", err);
-  });
+    aggregate: { accepted: true, serviceReportId },
+    newVersion: 1,
+  };
+}
 
-  return { accepted: true, serviceReportId };
+/**
+ * Wrapper: builds a CommandEnvelope and calls executeCommand() so that all
+ * business writes + audit event + command_execution record are committed in a
+ * single atomic batch transaction.
+ */
+export async function acceptFormSubmission(
+  workspaceId: string,
+  submissionId: string,
+  acceptedBy: string,
+  commandId?: string,
+  requestId?: string | null
+): Promise<AcceptFormSubmissionAggregate> {
+  const result = await executeCommand<AcceptFormSubmissionAggregate>(
+    {
+      commandId: commandId ?? genId("cmd"),
+      workspaceId,
+      commandType: "form_submission.accept",
+      aggregateType: "form_submission",
+      aggregateId: submissionId,
+      expectedVersion: null,
+      actor: { type: "user", id: acceptedBy },
+      input: { submissionId, acceptedBy },
+      occurredAt: now(),
+      requestId: requestId ?? null,
+    },
+    async () => acceptFormSubmissionHandler(workspaceId, submissionId, acceptedBy)
+  );
+  return result.aggregate;
 }
 
 // ── getFormSubmissions ──
@@ -1026,38 +1236,39 @@ export async function listFormBindings(
   );
 }
 
-// ── Internal: completeWorkItem ──
+// ── Internal: buildCompleteWorkItemStatement ──
 //
-// Mark a work item as completed to advance the workflow. Uses an optimistic
-// version check. Imported dynamically to avoid a hard dependency cycle with
-// workflow-v2.
+// Build a work item completion statement to advance the workflow. Uses an
+// optimistic version check. Returns null if the work item is not found (it may
+// have been removed). The statement is returned (not executed) so it can be
+// included in the atomic batch written by acceptFormSubmissionHandler.
 
-async function completeWorkItem(
+async function buildCompleteWorkItemStatement(
   workspaceId: string,
   workItemId: string,
-  actorId: string,
   ts: string
-): Promise<void> {
+): Promise<{ sql: string; args: unknown[] } | null> {
   const workItem = await queryOne<{ id: string; version: number; status: string }>(
     `SELECT id, version, status FROM ${TABLES.workItems}
      WHERE workspace_id = ? AND id = ?`,
     [workspaceId, workItemId]
   );
-  if (!workItem) return; // work item may have been removed; nothing to advance
+  if (!workItem) return null; // work item may have been removed; nothing to advance
 
-  await execute(
-    `UPDATE ${TABLES.workItems}
-     SET status = 'completed', completed_at = ?, version = version + 1, updated_at = ?
-     WHERE id = ? AND version = ? AND status IN ('ready', 'active')`,
-    [ts, ts, workItemId, workItem.version]
-  );
+  return {
+    sql: `UPDATE ${TABLES.workItems}
+          SET status = 'completed', completed_at = ?, version = version + 1, updated_at = ?
+          WHERE id = ? AND version = ? AND status IN ('ready', 'active')`,
+    args: [ts, ts, workItemId, workItem.version],
+  };
 }
 
-// ── Internal: createServiceReportProjection ──
+// ── Internal: buildServiceReportStatement ──
 //
-// Create or update a service_report record from an accepted form submission.
-// This is called internally by acceptFormSubmission when the binding's
-// usage_type is 'service_deliverable'.
+// Build a service_report INSERT statement from an accepted form submission.
+// This is called internally by acceptFormSubmissionHandler when the binding's
+// usage_type is 'service_deliverable'. The statement is returned (not executed)
+// so it can be included in the atomic batch written by executeCommand().
 //
 // Answer-to-field mapping:
 //  - summary:        answers[field_key='summary'] | answers['summary']
@@ -1069,12 +1280,12 @@ async function completeWorkItem(
 // Uses businessTable('service_report') directly so the projection does not
 // require the metadata module's field-definition layer to be loaded.
 
-async function createServiceReportProjection(
+async function buildServiceReportStatement(
   workspaceId: string,
   submission: Record<string, unknown>,
   acceptedBy: string,
   targetMapping: Record<string, unknown> | null
-): Promise<string | undefined> {
+): Promise<{ statement: { sql: string; args: unknown[] }; reportId: string }> {
   const ts = now();
 
   // Parse the answers JSON column
@@ -1165,12 +1376,12 @@ async function createServiceReportProjection(
 
   const reportId = genId("rec");
 
-  await execute(
-    `INSERT INTO ${businessTable("service_report")}
-     (id, workspace_id, work_order_id, service_visit_id, summary, resolution,
-      customer_signature, photos, created_by, completed_at, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [
+  const statement = {
+    sql: `INSERT INTO ${businessTable("service_report")}
+          (id, workspace_id, work_order_id, service_visit_id, summary, resolution,
+           customer_signature, photos, created_by, completed_at, created_at, updated_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    args: [
       reportId,
       workspaceId,
       workOrderId,
@@ -1183,8 +1394,8 @@ async function createServiceReportProjection(
       ts,
       ts,
       ts,
-    ]
-  );
+    ],
+  };
 
-  return reportId;
+  return { statement, reportId };
 }

@@ -450,7 +450,7 @@ export async function POST(
           bindingId: body.bindingId as string | undefined,
           answers: body.answers as Record<string, unknown>,
           submittedBy: actor.id,
-        });
+        }, idempotencyKey, ctx.requestId);
         break;
 
       case "form_submission.submit":
@@ -462,7 +462,7 @@ export async function POST(
           bindingId: body.bindingId as string | undefined,
           answers: body.answers as Record<string, unknown>,
           submittedBy: actor.id,
-        });
+        }, idempotencyKey, ctx.requestId);
         break;
 
       case "form_submission.return":
@@ -470,7 +470,9 @@ export async function POST(
           workspaceId,
           body.aggregateId,
           actor.id,
-          body.reason as string
+          body.reason as string,
+          idempotencyKey,
+          ctx.requestId
         );
         break;
 
@@ -478,7 +480,9 @@ export async function POST(
         result = await acceptFormSubmission(
           workspaceId,
           body.aggregateId,
-          actor.id
+          actor.id,
+          idempotencyKey,
+          ctx.requestId
         );
         break;
 

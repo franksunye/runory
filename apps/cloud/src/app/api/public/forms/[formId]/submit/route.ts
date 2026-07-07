@@ -262,12 +262,17 @@ export async function POST(
       // Forms 2.0 validation (required fields, checklists, evidence,
       // signatures) happens inside submitForm via validateAnswers.
       try {
-        const { submissionId } = await submitForm(v2Definition.workspaceId, {
-          formDefinitionId: v2Definition.definitionId,
-          bindingId: binding.id,
-          answers: extractAnswers(body),
-          submittedBy: "anonymous",
-        });
+        const idempotencyKey = request.headers.get("idempotency-key") ?? undefined;
+        const { submissionId } = await submitForm(
+          v2Definition.workspaceId,
+          {
+            formDefinitionId: v2Definition.definitionId,
+            bindingId: binding.id,
+            answers: extractAnswers(body),
+            submittedBy: "anonymous",
+          },
+          idempotencyKey
+        );
 
         return NextResponse.json({
           success: true,

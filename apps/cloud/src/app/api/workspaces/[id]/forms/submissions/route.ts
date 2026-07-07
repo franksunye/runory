@@ -43,16 +43,22 @@ export async function POST(
     }
 
     const userId = ctx.principal?.userId ?? "unknown";
-    const result = await submitForm(workspaceId, {
-      formDefinitionId: body.formDefinitionId,
-      subjectType: body.subjectType,
-      subjectId: body.subjectId,
-      workItemId: body.workItemId,
-      bindingId: body.bindingId,
-      answers: body.answers,
-      submittedBy: userId,
-      supersedesSubmissionId: body.supersedesSubmissionId,
-    });
+    const idempotencyKey = request.headers.get("idempotency-key") ?? undefined;
+    const result = await submitForm(
+      workspaceId,
+      {
+        formDefinitionId: body.formDefinitionId,
+        subjectType: body.subjectType,
+        subjectId: body.subjectId,
+        workItemId: body.workItemId,
+        bindingId: body.bindingId,
+        answers: body.answers,
+        submittedBy: userId,
+        supersedesSubmissionId: body.supersedesSubmissionId,
+      },
+      idempotencyKey,
+      ctx.requestId
+    );
 
     return successResponse(result, 201, ctx.requestId);
   } catch (e) {

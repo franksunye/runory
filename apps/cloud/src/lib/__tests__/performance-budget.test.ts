@@ -45,12 +45,13 @@ interface AppBuildManifest {
 
 /**
  * Locate the most relevant build manifest. Production builds emit to `.next`;
- * the dev server emits to `.next-dev`. We prefer production when present.
+ * the dev server emits to `.next-dev`. We only enforce the JS budget on
+ * production builds — dev builds contain unminified chunks and are not
+ * representative of the shipped bundle size.
  */
 function findBuildManifestDirs(): string[] {
   const candidates = [
     path.join(CLOUD_ROOT, ".next"),
-    path.join(CLOUD_ROOT, ".next-dev"),
   ];
   return candidates.filter((dir) => existsSync(dir));
 }

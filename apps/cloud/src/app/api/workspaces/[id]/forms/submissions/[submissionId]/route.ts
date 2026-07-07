@@ -63,12 +63,15 @@ export async function POST(
     }
 
     const userId = ctx.principal?.userId ?? "unknown";
+    const idempotencyKey = request.headers.get("idempotency-key") ?? undefined;
 
     if (body.action === "accept") {
       const result = await acceptFormSubmission(
         workspaceId,
         submissionId,
-        userId
+        userId,
+        idempotencyKey,
+        ctx.requestId
       );
       return successResponse(result, 200, ctx.requestId);
     }
@@ -79,7 +82,9 @@ export async function POST(
       workspaceId,
       submissionId,
       userId,
-      returnReason
+      returnReason,
+      idempotencyKey,
+      ctx.requestId
     );
     return successResponse(result, 200, ctx.requestId);
   } catch (e) {
