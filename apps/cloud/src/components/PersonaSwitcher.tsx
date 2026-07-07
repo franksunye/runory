@@ -1,8 +1,11 @@
 "use client";
 
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Users, Check, ChevronDown, Loader2 } from "lucide-react";
+import { Users, Check, ChevronDown, Loader2, LogIn } from "lucide-react";
 import { useI18n } from "@/i18n/locale-provider";
+import type { MessageKey } from "@/i18n/messages";
 
 interface Persona {
   id: string;
@@ -35,8 +38,18 @@ const TEXT_COLOR_CLASSES: Record<string, string> = {
   purple: "text-purple-600",
 };
 
+const PERSONA_DESCRIPTION_KEYS: Record<string, MessageKey> = {
+  "dev-local-owner": "persona.desc.owner",
+  "persona:sales-rep": "persona.desc.salesRep",
+  "persona:sales-manager": "persona.desc.salesManager",
+  "persona:dispatcher": "persona.desc.dispatcher",
+  "persona:technician": "persona.desc.technician",
+  "persona:supervisor": "persona.desc.supervisor",
+};
+
 export default function PersonaSwitcher() {
   const { t } = useI18n();
+  const pathname = usePathname();
   const [personas, setPersonas] = useState<Persona[]>([]);
   const [current, setCurrent] = useState<string>("dev-local-owner");
   const [open, setOpen] = useState(false);
@@ -106,11 +119,12 @@ export default function PersonaSwitcher() {
   if (!loaded) return null;
 
   const currentPersona = personas.find((p) => p.id === current) ?? personas[0];
+  const isMobileWorkspace = pathname?.startsWith("/m/w/");
 
   return (
     <div
       ref={dropdownRef}
-      className="fixed bottom-4 right-4 z-[9999]"
+      className={`fixed right-4 z-[9999] ${isMobileWorkspace ? "bottom-20" : "bottom-4"}`}
     >
       {/* Dropdown panel */}
       {open && (
@@ -126,6 +140,7 @@ export default function PersonaSwitcher() {
           <ul className="max-h-80 overflow-y-auto py-1">
             {personas.map((persona) => {
               const isActive = persona.id === current;
+              const descriptionKey = PERSONA_DESCRIPTION_KEYS[persona.id];
               return (
                 <li key={persona.id}>
                   <button
@@ -136,13 +151,20 @@ export default function PersonaSwitcher() {
                       isActive ? "bg-slate-50" : ""
                     }`}
                   >
-                    <span
-                      className={`inline-block size-2.5 shrink-0 rounded-full ${
-                        COLOR_CLASSES[persona.color] ?? "bg-slate-400"
-                      }`}
-                    />
-                    <span className="flex-1 truncate font-medium text-slate-700">
-                      {persona.label}
+                      <span
+                        className={`inline-block size-2.5 shrink-0 rounded-full ${
+                          COLOR_CLASSES[persona.color] ?? "bg-slate-400"
+                        }`}
+                      />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate font-medium text-slate-700">
+                        {persona.label}
+                      </span>
+                      {descriptionKey && (
+                        <span className="mt-0.5 block truncate text-[11px] text-slate-400">
+                          {t(descriptionKey)}
+                        </span>
+                      )}
                     </span>
                     {isActive && (
                       <Check size={16} className={`shrink-0 ${TEXT_COLOR_CLASSES[persona.color] ?? "text-slate-500"}`} />
@@ -152,6 +174,19 @@ export default function PersonaSwitcher() {
               );
             })}
           </ul>
+          <div className="border-t border-slate-100 bg-slate-50 px-4 py-3">
+            <Link
+              href="/login"
+              className="inline-flex items-center gap-1.5 text-xs font-semibold text-indigo-600 hover:text-indigo-700"
+              onClick={() => setOpen(false)}
+            >
+              <LogIn size={13} />
+              {t("persona.otpLogin")}
+            </Link>
+            <p className="mt-1 text-[11px] leading-4 text-slate-400">
+              {t("persona.otpLoginHint")}
+            </p>
+          </div>
         </div>
       )}
 
@@ -175,7 +210,7 @@ export default function PersonaSwitcher() {
             }`}
           />
           <span className="text-sm font-semibold text-slate-700">
-            {currentPersona?.label ?? t("persona.title")}
+            {currentPersona?.label ?? t("persona.trigger")}
           </span>
         </div>
         <ChevronDown

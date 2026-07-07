@@ -38,9 +38,9 @@ interface V2VersionRow {
 /**
  * GET /api/workspaces/[id]/workflows
  *
- * V2-only: returns all published V2 workflow definitions for the workspace,
+ * Returns all published workflow definitions for the workspace,
  * each with its active version's parsed step-based definition. Mirrors the
- * definitions-v2 route but is exposed on the canonical workflows path.
+ * definitions route but is exposed on the canonical workflows path.
  */
 export async function GET(
   request: NextRequest,
@@ -116,9 +116,9 @@ export async function GET(
 /**
  * POST /api/workspaces/[id]/workflows
  *
- * V2-only: accepts a V2 step-based workflow definition
+ * Accepts a step-based workflow definition
  * ({ workflowKey, name, targetObject, initialState, steps }) and publishes it
- * as a new (or updated) versioned V2 workflow definition.
+ * as a new (or updated) versioned workflow definition.
  */
 export async function POST(
   request: NextRequest,
@@ -154,7 +154,7 @@ export async function POST(
       publishedBy
     );
 
-    writeAuditEvent({
+    await writeAuditEvent({
       workspaceId,
       actorType: ctx.principal?.authMethod === "api_key" ? "api_key" : "user",
       actorId: ctx.principal?.userId ?? "unknown",

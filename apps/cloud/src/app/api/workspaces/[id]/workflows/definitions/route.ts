@@ -25,11 +25,11 @@ interface V2VersionRow {
 }
 
 /**
- * GET /api/workspaces/[id]/workflows/definitions-v2
+ * GET /api/workspaces/[id]/workflows/definitions
  *
- * Returns all published V2 workflow definitions for the workspace, each with
+ * Returns all published workflow definitions for the workspace, each with
  * its active version's parsed step-based definition. This powers the
- * "V2 Workflow Definitions" overview on the workflows page.
+ * "Workflow Definitions" overview on the workflows page.
  */
 export async function GET(
   request: NextRequest,

@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import {
+  businessTable,
   getScheduleEntries,
   queryAll,
   TABLES,
@@ -21,6 +22,20 @@ interface ResourceRow {
   display_name: string;
   resource_type: string;
 }
+
+interface SubjectRow {
+  id: string;
+  title: string | null;
+}
+
+interface SubjectInfo {
+  name: string | null;
+}
+
+const PLANNING_SUBJECT_TABLES: Record<string, string> = {
+  work_order: businessTable("work_order"),
+  service_visit: businessTable("service_visit"),
+};
 
 // GET: Query schedule entries with filters (from, to, resourceIds, subjectType, status)
 // Returns entries with resource info, subject info, status, location
@@ -90,12 +105,38 @@ export async function GET(
       resourceMap = new Map(resourceRows.map((r) => [r.id, r]));
     }
 
+    const subjectMap = new Map<string, SubjectInfo>();
+    const subjectIdsByType = new Map<string, Set<string>>();
+    for (const entry of entries) {
+      if (!PLANNING_SUBJECT_TABLES[entry.subjectType] || !entry.subjectId) continue;
+      const ids = subjectIdsByType.get(entry.subjectType) ?? new Set<string>();
+      ids.add(entry.subjectId);
+      subjectIdsByType.set(entry.subjectType, ids);
+    }
+
+    for (const [entrySubjectType, subjectIds] of subjectIdsByType) {
+      const ids = [...subjectIds];
+      if (ids.length === 0) continue;
+      const table = PLANNING_SUBJECT_TABLES[entrySubjectType];
+      const placeholders = ids.map(() => "?").join(",");
+      const rows = await queryAll<SubjectRow>(
+        `SELECT id, title FROM ${table}
+         WHERE workspace_id = ? AND id IN (${placeholders})`,
+        [workspaceId, ...ids]
+      );
+      for (const row of rows) {
+        subjectMap.set(`${entrySubjectType}:${row.id}`, { name: row.title });
+      }
+    }
+
     const enriched: ScheduleEntryWithResource[] = entries.map((entry) => {
       const resource = resourceMap.get(entry.resourceId);
+      const subject = subjectMap.get(`${entry.subjectType}:${entry.subjectId}`);
       return {
         ...entry,
         resourceName: resource?.display_name ?? null,
         resourceType: resource?.resource_type ?? null,
+        subjectName: subject?.name ?? null,
       };
     });
 

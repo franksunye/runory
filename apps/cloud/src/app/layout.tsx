@@ -4,6 +4,7 @@ import "./globals.css";
 import { DEFAULT_LOCALE, LOCALE_COOKIE, normalizeLocale } from "@/i18n/config";
 import { LocaleProvider } from "@/i18n/locale-provider";
 import { SWRProvider } from "@/lib/swr-provider";
+import PersonaSwitcher from "@/components/PersonaSwitcher";
 
 export const metadata: Metadata = {
   title: "Runory | Composable Agent-native Business Runtime",
@@ -27,7 +28,14 @@ export default async function RootLayout({
 
   return (
     <html lang={locale === "zh" ? "zh-CN" : "en"}>
-      <body><LocaleProvider initialLocale={locale}><SWRProvider>{children}</SWRProvider></LocaleProvider></body>
+      <body>
+        <LocaleProvider initialLocale={locale}>
+          <SWRProvider>
+            {children}
+            <PersonaSwitcher />
+          </SWRProvider>
+        </LocaleProvider>
+      </body>
     </html>
   );
 }

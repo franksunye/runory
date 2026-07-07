@@ -13,10 +13,10 @@ import { successResponse, handleError, getOrCreateRequestId } from "@/lib/http";
 export const dynamic = "force-dynamic";
 
 /**
- * GET /api/workspaces/[id]/workflows/instances-v2/[instanceId]
+ * GET /api/workspaces/[id]/workflows/instances/[instanceId]
  *
- * Returns a V2 workflow instance with its definition, work items, and events.
- * This is the unified detail endpoint for the V2 workflow runtime.
+ * Returns a workflow instance with its definition, work items, and events.
+ * This is the unified detail endpoint for the workflow runtime.
  */
 export async function GET(
   request: NextRequest,
@@ -27,7 +27,7 @@ export async function GET(
     const { id, instanceId } = await params;
     const { ctx, workspaceId } = await requireWorkspaceContext(request, id, "viewer");
 
-    // Fetch the V2 instance
+    // Fetch the instance
     const instance = await queryOne<WorkflowInstanceRow>(
       `SELECT * FROM ${TABLES.workflowInstancesV2}
        WHERE workspace_id = ? AND id = ?`,

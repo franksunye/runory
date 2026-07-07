@@ -15,6 +15,7 @@ import {
   createQuoteDraft,
   triageWorkOrder,
   createVisit,
+  startWorkOrder,
   blockWorkOrder,
   unblockWorkOrder,
   completeWorkOrder,
@@ -73,6 +74,7 @@ const COMMAND_PERMISSIONS: Record<string, string> = {
   // Work Order FSM commands
   "work_order.triage": "work_order.triage",
   "work_order.create_visit": "work_order.triage",
+  "work_order.start": "work_order.start",
   "work_order.block": "work_order.triage",
   "work_order.unblock": "work_order.triage",
   "work_order.complete": "work_order.complete",
@@ -231,6 +233,16 @@ export async function POST(
             scheduledEnd: body.scheduledEnd as string | undefined,
             notes: body.notes as string | undefined,
           },
+          idempotencyKey
+        );
+        break;
+
+      case "work_order.start":
+        result = await startWorkOrder(
+          workspaceId,
+          body.aggregateId,
+          actor,
+          expectedVersion,
           idempotencyKey
         );
         break;

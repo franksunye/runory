@@ -53,6 +53,19 @@ const SUBJECT_LABEL: Record<string, string> = {
   service_report: "Report",
 };
 
+function mobileSubjectRoute(workspaceId: string, item: MyWorkItem): string {
+  if (item.subject_type === "service_visit" && item.subject_id) {
+    return `/m/w/${workspaceId}/visits/${item.subject_id}`;
+  }
+  if (item.subject_type === "work_order" && item.subject_id) {
+    return `/w/${workspaceId}/work-orders/${item.subject_id}`;
+  }
+  if (item.subject_type === "quote" && item.subject_id) {
+    return `/w/${workspaceId}/quotes/${item.subject_id}`;
+  }
+  return `/m/w/${workspaceId}/work/${item.id}`;
+}
+
 // ── Helpers ──
 
 function isOverdue(dueAt: string | null): boolean {
@@ -218,6 +231,7 @@ function MobileTodayPage() {
             {items.map((item) => {
               const KindIcon = KIND_ICON[item.kind] ?? ListChecks;
               const overdue = isOverdue(item.due_at) && item.status !== "completed";
+              const isOperational = item.instance_id === "operational" || Boolean(item.operational_source);
               const kindBadge = KIND_BADGE[item.kind] ?? "bg-slate-100 text-slate-600";
               const statusBadge = STATUS_BADGE[item.status] ?? "bg-slate-100 text-slate-600";
               const kindLabelKey = KIND_LABEL_KEY[item.kind] ?? "myWork.kindHumanTask";
@@ -226,7 +240,7 @@ function MobileTodayPage() {
               return (
                 <button
                   key={item.id}
-                  onClick={() => router.push(`/m/w/${workspaceId}/work/${item.id}`)}
+                  onClick={() => router.push(isOperational ? mobileSubjectRoute(workspaceId, item) : `/m/w/${workspaceId}/work/${item.id}`)}
                   className={`flex w-full items-start gap-3 rounded-xl border bg-white p-4 text-left shadow-sm transition active:scale-[0.98] ${
                     overdue ? "border-red-200" : "border-slate-200"
                   }`}
@@ -253,6 +267,12 @@ function MobileTodayPage() {
                         </span>
                       )}
                     </div>
+
+                    {item.title && (
+                      <p className="mt-2 line-clamp-2 text-sm font-semibold text-slate-900">
+                        {item.title}
+                      </p>
+                    )}
 
                     <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500">
                       {item.due_at && (

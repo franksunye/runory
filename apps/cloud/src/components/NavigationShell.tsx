@@ -11,7 +11,7 @@ import {
   TrendingUp, MessageCircle, UserPlus, ShieldCheck, Inbox,
   MessageSquare, Tag, Target, Heart, AlertTriangle, Gift,
   Headphones, Briefcase, PanelLeftClose, PanelLeftOpen,
-  Building2, ClipboardList, MapPin, GitBranch, Zap,
+  Building2, ClipboardList, MapPin,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { NavigationItem } from "@runory/platform-core";
@@ -454,20 +454,6 @@ export default function NavigationShell({
 
         {/* Activity */}
         {renderNavItem({ id: "activity", label: t("workspace.nav.activity"), route: "/activity", icon: Activity })}
-
-        {/* Platform capabilities (admin/owner only) */}
-        {canManage && (
-          <>
-            {!collapsed && <p className="sidebar-group-label mt-5">{t("workspace.nav.platform")}</p>}
-            <div className={collapsed ? "mt-4 space-y-1" : "space-y-1"}>
-              {renderNavItem({ id: "workflows", label: t("workspace.nav.workflows"), route: "/workflows", icon: GitBranch })}
-              {renderNavItem({ id: "automations", label: t("workspace.nav.automations"), route: "/automations", icon: Zap })}
-              {renderNavItem({ id: "forms", label: t("workspace.nav.forms"), route: "/forms", icon: FileText })}
-              {renderNavItem({ id: "outbox", label: t("workspace.nav.outbox"), route: "/outbox", icon: Inbox })}
-              {renderNavItem({ id: "migration", label: t("workspace.nav.migration"), route: "/migration", icon: ArrowLeft })}
-            </div>
-          </>
-        )}
 
         {/* Management */}
         {!collapsed && <p className="sidebar-group-label mt-5">{t("workspace.nav.management")}</p>}

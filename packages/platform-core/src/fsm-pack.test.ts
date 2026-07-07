@@ -10,6 +10,7 @@ import { getRecords, getNavigation, getInstallations, getInstalledPacks, getRela
 import {
   triageWorkOrder,
   createVisit,
+  startWorkOrder,
   startTravel,
   arriveOnSite,
   submitWork,
@@ -328,6 +329,28 @@ describe("FSM demo data with cross-pack references", () => {
 
     const completedWo = workOrders.find((w) => w.title === "Acme server room HVAC filter replacement");
     expect(completedReport?.work_order_id).toBe(completedWo?.id);
+  });
+
+  it("seeds user-linked resources and operational assignments for dispatch", async () => {
+    await installPack(workspaceId, "crm-lite-pack", { includeDemoData: true });
+    await installPack(workspaceId, "fsm-pack", { includeDemoData: true });
+
+    const linkedResources = await queryAll<{ id: string; user_id: string | null }>(
+      `SELECT id, user_id FROM ${TABLES.resources}
+       WHERE workspace_id = ? AND user_id IS NOT NULL`,
+      [workspaceId]
+    );
+    expect(linkedResources.length).toBeGreaterThan(0);
+
+    const assignments = await queryAll<{ subject_type: string; status: string }>(
+      `SELECT subject_type, status FROM ${TABLES.assignments}
+       WHERE workspace_id = ?
+       ORDER BY created_at ASC`,
+      [workspaceId]
+    );
+    expect(assignments.length).toBeGreaterThanOrEqual(4);
+    expect(assignments.some((a) => a.subject_type === "service_visit" && a.status === "accepted")).toBe(true);
+    expect(assignments.some((a) => a.subject_type === "work_order" && a.status === "proposed")).toBe(true);
   });
 
   it("demo data is idempotent across repeated installs", async () => {
@@ -686,16 +709,14 @@ describe("FSM demo journey (end-to-end trial flow)", () => {
     });
     expect(report.id).toBeDefined();
 
-    // 8. Transition work_order to in_progress (no FSM command for this transition)
-    //    then complete the work order via FSM command
-    await execute(
-      `UPDATE ${businessTable("work_order")} SET status = 'in_progress', updated_at = ? WHERE workspace_id = ? AND id = ?`,
-      [now(), workspaceId, wo.id]
-    );
+    // 8. Start and complete the work order via governed FSM commands.
+    const startResult = await startWorkOrder(workspaceId, wo.id, actor, 3);
+    expect(startResult.status).toBe("succeeded");
+    expect(startResult.newVersion).toBe(4);
 
-    const completeResult = await completeWorkOrder(workspaceId, wo.id, actor, 3, "Repair completed");
+    const completeResult = await completeWorkOrder(workspaceId, wo.id, actor, 4, "Repair completed");
     expect(completeResult.status).toBe("succeeded");
-    expect(completeResult.newVersion).toBe(4);
+    expect(completeResult.newVersion).toBe(5);
 
     // 9. Verify workbench reflects the completed state
     const openCount = await resolveWidgetData(workspaceId, {

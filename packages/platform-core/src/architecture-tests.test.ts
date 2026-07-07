@@ -93,6 +93,9 @@ describe("Architecture: Command Registry", () => {
 
   it("work_order has registered commands", () => {
     const commands = getCommandsForAggregate("work_order");
+    expect(commands).toContain("work_order.triage");
+    expect(commands).toContain("work_order.create_visit");
+    expect(commands).toContain("work_order.start");
     expect(commands).toContain("work_order.complete");
     expect(commands).toContain("work_order.cancel");
     expect(commands).toContain("work_order.reopen");
@@ -207,6 +210,8 @@ describe("Architecture: Spec §13.1 Invariants", () => {
 
     const woCmds = getCommandsForAggregate("work_order");
     expect(woCmds).toContain("work_order.triage");
+    expect(woCmds).toContain("work_order.create_visit");
+    expect(woCmds).toContain("work_order.start");
     expect(woCmds).toContain("work_order.complete");
     expect(woCmds).toContain("work_order.cancel");
     expect(woCmds).toContain("work_order.reopen");

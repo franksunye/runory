@@ -41,7 +41,7 @@ const V2_STEP_KIND_LABEL_KEY: Record<WorkflowStepKind, MessageKey> = {
 
 interface Toast { type: "success" | "error"; message: string }
 
-/** Shape of a single definition returned by the definitions-v2 endpoint. */
+/** Shape of a single definition returned by the definitions endpoint. */
 interface V2DefinitionRow {
   id: string;
   workflowKey: string;
@@ -67,7 +67,7 @@ export default function WorkflowEditorPage() {
   );
 }
 
-// ── V2 Step Editor (the only editor) ──
+// ── Step Editor (the only editor) ──
 
 function V2StepEditor() {
   const workspaceId = useParams().workspaceId as string;
@@ -94,14 +94,14 @@ function V2StepEditor() {
     setTimeout(() => setToast(null), 3500);
   }, []);
 
-  // Load existing V2 definition when editing (?edit={workflowKey}).
-  // Fetches the definitions-v2 list and matches by workflowKey.
+  // Load existing definition when editing (?edit={workflowKey}).
+  // Fetches the definitions list and matches by workflowKey.
   useEffect(() => {
     if (!editKey) return;
     void (async () => {
       try {
         const res = await fetch(
-          `/api/workspaces/${workspaceId}/workflows/definitions-v2`,
+          `/api/workspaces/${workspaceId}/workflows/definitions`,
           { cache: "no-store" }
         );
         const json = await res.json();

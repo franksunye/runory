@@ -167,7 +167,7 @@ dashboard:
         object: service_report
         orderBy: "completed_at desc"
         limit: 5
-        columns: [work_order_id, summary, created_by, completed_at]
+        columns: [summary, created_by, completed_at]
       link: /service-reports
       configurable:
         - path: data.limit

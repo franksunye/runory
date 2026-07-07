@@ -150,6 +150,7 @@ registerGovernedFields("work_order", [
 registerAggregateCommands("work_order", [
   "work_order.triage",
   "work_order.create_visit",
+  "work_order.start",
   "work_order.block",
   "work_order.unblock",
   "work_order.complete",

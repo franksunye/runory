@@ -3,7 +3,7 @@
 import { useState, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { Pencil, Trash2, ArrowLeft } from "lucide-react";
+import { Pencil, Trash2, ArrowLeft, Loader2, Play } from "lucide-react";
 import useSWR from "swr";
 import SchemaForm from "./SchemaForm";
 import RecordWorkflowPanel from "./RecordWorkflowPanel";
@@ -219,6 +219,67 @@ function RelatedRecordsPanel({
   );
 }
 
+interface BusinessCommandAction {
+  command: string;
+  label: string;
+  tone?: "primary" | "secondary" | "danger";
+  reasonPrompt?: string;
+  body?: Record<string, unknown>;
+}
+
+function getBusinessCommandActions(objectKey: string, record: WorkspaceRecord): BusinessCommandAction[] {
+  const status = String(record.status ?? "");
+  if (objectKey === "work_order") {
+    const actions: BusinessCommandAction[] = [];
+    if (status === "new") {
+      actions.push({ command: "work_order.triage", label: "Triage", tone: "primary" });
+    }
+    if (status === "planned" || status === "reopened") {
+      actions.push({ command: "work_order.start", label: "Start work", tone: "primary" });
+    }
+    if (status === "blocked") {
+      actions.push({ command: "work_order.unblock", label: "Unblock", tone: "secondary" });
+    }
+    if (status === "in_progress") {
+      actions.push({ command: "work_order.complete", label: "Complete", tone: "primary" });
+    }
+    if (!["completed", "cancelled", "blocked"].includes(status)) {
+      actions.push({ command: "work_order.block", label: "Block", tone: "secondary", reasonPrompt: "Reason for blocking this work order?" });
+      actions.push({ command: "work_order.cancel", label: "Cancel", tone: "danger", reasonPrompt: "Reason for cancelling this work order?" });
+    }
+    if (status === "completed" || status === "cancelled") {
+      actions.push({ command: "work_order.reopen", label: "Reopen", tone: "secondary", reasonPrompt: "Reason for reopening this work order?" });
+    }
+    return actions;
+  }
+
+  if (objectKey === "service_visit") {
+    const actions: BusinessCommandAction[] = [];
+    if (status === "scheduled") {
+      actions.push({ command: "visit.start_travel", label: "Start travel", tone: "primary" });
+    }
+    if (status === "en_route") {
+      actions.push({ command: "visit.arrive", label: "Arrive on site", tone: "primary" });
+    }
+    if (status === "on_site") {
+      actions.push({ command: "visit.submit_work", label: "Submit work", tone: "secondary" });
+      actions.push({ command: "visit.complete", label: "Complete visit", tone: "primary" });
+    }
+    if (!["completed", "cancelled"].includes(status)) {
+      actions.push({ command: "visit.cancel", label: "Cancel visit", tone: "danger", reasonPrompt: "Reason for cancelling this visit?" });
+    }
+    return actions;
+  }
+
+  return [];
+}
+
+function buttonClassForTone(tone: BusinessCommandAction["tone"]): string {
+  if (tone === "danger") return "app-button-danger";
+  if (tone === "primary") return "app-button-primary";
+  return "app-button-secondary";
+}
+
 export default function ObjectDetailPage({
   objectKey,
   viewKey,
@@ -245,6 +306,7 @@ export default function ObjectDetailPage({
   const [editing, setEditing] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [runningCommand, setRunningCommand] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const loading = loadingObj || loadingViews || loadingRecord;
@@ -349,6 +411,47 @@ export default function ObjectDetailPage({
     }
   };
 
+  const executeBusinessCommand = async (action: BusinessCommandAction) => {
+    if (!record) return;
+    const reason = action.reasonPrompt ? window.prompt(action.reasonPrompt) : undefined;
+    if (action.reasonPrompt && !reason) return;
+
+    setRunningCommand(action.command);
+    setError(null);
+    try {
+      const res = await fetch(
+        `/api/workspaces/${workspaceId}/commands/${action.command}`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-Requested-With": "XMLHttpRequest",
+            "Idempotency-Key": `${action.command}:${recordId}:${Date.now()}`,
+          },
+          body: JSON.stringify({
+            aggregateId: recordId,
+            expectedVersion: Number(record.aggregate_version ?? 1),
+            reason,
+            completionReason: reason,
+            ...(action.body ?? {}),
+          }),
+        }
+      );
+      const json = await res.json();
+      if (!json.success) {
+        setError(json.error?.message ?? "Command failed");
+        return;
+      }
+      await mutateRecord();
+      notifyWorkspaceDataChanged();
+      router.refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Command failed");
+    } finally {
+      setRunningCommand(null);
+    }
+  };
+
   if (loading) {
     return (
       <div className="space-y-6">
@@ -406,6 +509,8 @@ export default function ObjectDetailPage({
     );
   };
 
+  const businessActions = getBusinessCommandActions(objectKey, record);
+
   return (
     <div className="space-y-6 page-enter">
       <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
@@ -455,6 +560,33 @@ export default function ObjectDetailPage({
         />
       ) : (
         <div className="space-y-6">
+          {businessActions.length > 0 && (
+            <div className="app-card flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Business actions</p>
+                <p className="mt-1 text-sm text-slate-600">Advance this record through governed commands.</p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {businessActions.map((action) => (
+                  <button
+                    key={action.command}
+                    type="button"
+                    onClick={() => void executeBusinessCommand(action)}
+                    disabled={runningCommand !== null}
+                    className={buttonClassForTone(action.tone)}
+                  >
+                    {runningCommand === action.command ? (
+                      <Loader2 size={15} className="animate-spin" />
+                    ) : (
+                      <Play size={15} />
+                    )}
+                    {action.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Field sections (grouped cards) */}
           {viewSections.length > 0 ? (
             viewSections.map((section, si) => {
@@ -479,7 +611,7 @@ export default function ObjectDetailPage({
             </div>
           )}
 
-          {/* Workflow panel: fetches its own V2 workflow data */}
+          {/* Workflow panel: fetches its own workflow data */}
           <RecordWorkflowPanel
             workspaceId={workspaceId}
             objectKey={objectKey}
@@ -523,7 +655,6 @@ export default function ObjectDetailPage({
 
           {/* Meta */}
           <div className="text-xs text-slate-400">
-            <p>{t("workspace.recordId", { id: String(record.id ?? "") })}</p>
             <p>{t("workspace.createdAt", { time: String(record.created_at ?? "") })}</p>
             <p>{t("workspace.updatedAt", { time: String(record.updated_at ?? "") })}</p>
           </div>

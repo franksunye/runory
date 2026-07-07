@@ -9,7 +9,7 @@
  *   2. Cleans the .next build cache
  *   3. Starts the dev server (in this process — stays in foreground)
  *   4. Waits for the server to become healthy
- *   5. Seeds the catalog, creates a Demo Workspace, installs CRM Lite + FSM packs with demo data
+ *   5. Seeds the catalog, creates a Demo Workspace, installs CRM Lite + FSM + Sales Quote packs with demo data
  *   6. Prints the workspace URL — start testing
  *   7. Press Ctrl+C to stop the server when done
  *
@@ -28,6 +28,7 @@ const WORKSPACE_NAME = "Demo Workspace";
 const PACKS = [
   { id: "crm-lite-pack", label: "CRM Lite Pack" },
   { id: "fsm-pack", label: "FSM Pack" },
+  { id: "sales-quote-pack", label: "Sales Quote Pack" },
 ];
 
 // ── Step 1 + 2: Clean slate ──

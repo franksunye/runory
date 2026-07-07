@@ -118,6 +118,19 @@ interface DemoResource {
   userIdAlias?: string; // alias of a demo user to link this resource to
 }
 
+interface DemoAssignment {
+  resourceAlias: string;
+  subjectType: string;
+  subjectAlias: string;
+  roleKey?: string;
+  status?: "proposed" | "assigned" | "accepted" | "released" | "rejected";
+  proposedByAlias?: string;
+  acceptedByAlias?: string;
+  effectiveFrom?: string;
+  effectiveTo?: string;
+  rejectionReason?: string;
+}
+
 interface DemoUser {
   alias: string;           // e.g. "user-sales-rep"
   externalId: string;      // e.g. "persona:sales-rep"
@@ -147,6 +160,7 @@ interface PackDemoData {
   // V1 workflows field removed — V2 definitions are published from module JSON files
   // v0.5 demo data extensions
   resources?: DemoResource[];
+  assignments?: DemoAssignment[];
   formDefinitions?: DemoFormDefinition[];
   formSubmissions?: DemoFormSubmission[];
   scheduleEntries?: DemoScheduleEntry[];
@@ -165,6 +179,7 @@ function readPackDemoDataFile(packId: string): PackDemoData | null {
     automations: Array.isArray(raw.automations) ? raw.automations : [],
     // v0.5 extensions
     resources: Array.isArray(raw.resources) ? raw.resources : [],
+    assignments: Array.isArray(raw.assignments) ? raw.assignments : [],
     formDefinitions: Array.isArray(raw.formDefinitions) ? raw.formDefinitions : [],
     formSubmissions: Array.isArray(raw.formSubmissions) ? raw.formSubmissions : [],
     scheduleEntries: Array.isArray(raw.scheduleEntries) ? raw.scheduleEntries : [],
@@ -511,6 +526,61 @@ async function seedPackDemoData(workspaceId: string, packId: string): Promise<nu
         [id, workspaceId, res.resourceType, res.displayName, userId, ts, ts]
       );
       aliases.set(res.alias, { id, ...res });
+      created++;
+    }
+  }
+
+  // ── v0.5: Seed assignments ──
+  if (demo.assignments && demo.assignments.length > 0) {
+    for (const assignment of demo.assignments) {
+      const resourceId = aliases.get(assignment.resourceAlias)?.id as string | undefined;
+      const subjectId = aliases.get(assignment.subjectAlias)?.id as string | undefined;
+      if (!resourceId || !subjectId) {
+        console.warn(`[installer] Demo assignment skipped: missing alias resolution`);
+        continue;
+      }
+
+      const existing = await queryOne<{ id: string }>(
+        `SELECT id FROM ${TABLES.assignments}
+         WHERE workspace_id = ? AND resource_id = ? AND subject_type = ? AND subject_id = ?
+           AND status IN ('proposed', 'assigned', 'accepted')`,
+        [workspaceId, resourceId, assignment.subjectType, subjectId]
+      );
+      if (existing) continue;
+
+      const ts = now();
+      const status = assignment.status ?? "accepted";
+      const proposedBy =
+        (assignment.proposedByAlias ? aliases.get(assignment.proposedByAlias)?.id as string | undefined : undefined)
+        ?? "demo-seed";
+      const acceptedBy =
+        status === "accepted"
+          ? ((assignment.acceptedByAlias ? aliases.get(assignment.acceptedByAlias)?.id as string | undefined : undefined) ?? proposedBy)
+          : null;
+
+      await execute(
+        `INSERT INTO ${TABLES.assignments}
+         (id, workspace_id, subject_type, subject_id, resource_id, role_key,
+          status, proposed_by, accepted_by, rejection_reason, effective_from, effective_to,
+          version, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`,
+        [
+          genId("asgn"),
+          workspaceId,
+          assignment.subjectType,
+          subjectId,
+          resourceId,
+          assignment.roleKey ?? null,
+          status,
+          proposedBy,
+          acceptedBy,
+          assignment.rejectionReason ?? null,
+          assignment.effectiveFrom ? resolveRelativeDate(assignment.effectiveFrom) : ts,
+          assignment.effectiveTo ? resolveRelativeDate(assignment.effectiveTo) : null,
+          ts,
+          ts,
+        ]
+      );
       created++;
     }
   }

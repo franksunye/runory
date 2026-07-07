@@ -325,6 +325,10 @@ export interface MyWorkItem {
   version: number;
   created_at: string;
   updated_at: string;
+  title?: string;
+  description?: string;
+  resource_name?: string | null;
+  operational_source?: string;
 }
 
 export interface MyWorkResponse {
@@ -581,7 +585,7 @@ export function useWorkflowInstanceV2(
   instanceId: string | undefined
 ) {
   const { data, error, isLoading, mutate } = useSWR<WorkflowInstanceDetailV2 | null>(
-    instanceId ? workspaceKey(workspaceId, `workflows/instances-v2/${instanceId}`) : null
+    instanceId ? workspaceKey(workspaceId, `workflows/instances/${instanceId}`) : null
   );
   return { data, error, isLoading, mutate };
 }

@@ -15,7 +15,7 @@
 // - ConflictError has no .code → use rejects.toThrow(/pattern/)
 // - BusinessError has .code → use rejects.toMatchObject({ code })
 // - createRecord does NOT enforce governed field checks (only updateRecord does)
-// - Work order planned -> in_progress transition has no FSM command → use direct SQL
+// - Work order planned -> in_progress transition uses work_order.start
 // - Form must be accepted before completeVisit (which checks for pending submissions)
 
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
@@ -45,6 +45,7 @@ import {
 import {
   triageWorkOrder,
   createVisit,
+  startWorkOrder,
   completeWorkOrder,
   startTravel,
   arriveOnSite,
@@ -637,13 +638,17 @@ describe("v0.5 Commercial FSM Journey", () => {
     expect(visitResult.newVersion).toBe(4);
     expect(visitResult.aggregate.status).toBe("completed");
 
-    // Work order planned -> in_progress has no FSM command; use direct SQL
-    await execute(
-      `UPDATE ${businessTable("work_order")} SET status = 'in_progress', updated_at = ? WHERE workspace_id = ? AND id = ?`,
-      [now(), workspaceId, workOrderId],
+    const startResult = await startWorkOrder(
+      workspaceId,
+      workOrderId,
+      supervisor,
+      woVersion,
     );
+    expect(startResult.newVersion).toBe(4);
+    expect(startResult.aggregate.status).toBe("in_progress");
+    woVersion = 4;
 
-    // Complete work order (expectedVersion=3 since createVisit set woVersion to 3)
+    // Complete work order.
     const woResult = await completeWorkOrder(
       workspaceId,
       workOrderId,
@@ -651,8 +656,9 @@ describe("v0.5 Commercial FSM Journey", () => {
       woVersion,
       "All work completed successfully",
     );
-    expect(woResult.newVersion).toBe(4);
+    expect(woResult.newVersion).toBe(5);
     expect(woResult.aggregate.status).toBe("completed");
+    woVersion = 5;
   });
 
   // ── Test 15: Verify command history and workflow events ──

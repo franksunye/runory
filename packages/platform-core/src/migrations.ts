@@ -205,13 +205,14 @@ async function runMigration(file: MigrationFile, prefix: string, migrationsTable
   }
 
   // Older migrations execute statement-by-statement for libSQL compatibility.
-  // Tolerant migrations skip "no such table" errors (used for ALTER on
-  // optional business tables that are created dynamically by pack installs).
+  // Tolerant migrations skip "no such table" and "duplicate column" errors.
+  // They are used for ALTER on optional business tables that are created
+  // dynamically by pack installs and may differ across local/dev databases.
   for (const stmt of statements) {
     try {
       await db.execute(stmt);
     } catch (err) {
-      if (file.tolerant && isNoSuchTableError(err)) {
+      if (file.tolerant && (isNoSuchTableError(err) || isDuplicateColumnError(err))) {
         continue;
       }
       throw err;
@@ -228,6 +229,11 @@ async function runMigration(file: MigrationFile, prefix: string, migrationsTable
 function isNoSuchTableError(err: unknown): boolean {
   const msg = err instanceof Error ? err.message : String(err);
   return /no such table/i.test(msg);
+}
+
+function isDuplicateColumnError(err: unknown): boolean {
+  const msg = err instanceof Error ? err.message : String(err);
+  return /duplicate column name/i.test(msg);
 }
 
 // ── Main Migration Runner ──

@@ -37,7 +37,7 @@ permissionGroups:
   - key: dispatcher
     label: "Dispatcher"
     description: "Can triage work orders and manage assignments and schedules"
-    permissions: ["work_order.read", "work_order.triage", "assignment.manage", "schedule.manage", "schedule.conflict.override"]
+    permissions: ["work_order.read", "work_order.triage", "work_order.start", "assignment.manage", "schedule.manage", "schedule.conflict.override"]
   - key: field_technician
     label: "Field Technician"
     description: "Can execute assigned visits and submit forms"
@@ -45,7 +45,7 @@ permissionGroups:
   - key: service_supervisor
     label: "Service Supervisor"
     description: "Can complete work orders, review forms, and reopen work"
-    permissions: ["work_order.read", "work_order.complete", "work_order.reopen", "form.review", "workflow.approval.decide"]
+    permissions: ["work_order.read", "work_order.start", "work_order.complete", "work_order.reopen", "form.review", "workflow.approval.decide"]
   - key: workspace_administrator
     label: "Workspace Administrator"
     description: "Full access to all FSM operations"

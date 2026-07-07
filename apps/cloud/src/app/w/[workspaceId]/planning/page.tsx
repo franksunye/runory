@@ -31,6 +31,7 @@ const RESOURCE_COL_WIDTH = 180; // px, sticky left column in resource timeline
 // ── Status styling ──
 
 type StatusBucket = "scheduled" | "in_progress" | "completed" | "cancelled";
+type PlanningRange = "day" | "week" | "month";
 
 interface StatusStyle {
   block: string; // background + text color for entry block
@@ -95,6 +96,12 @@ function statusBucket(status: string): StatusBucket {
 // ── Date helpers ──
 
 /** Monday 00:00 of the week containing `date` (week starts Monday). */
+function startOfDay(date: Date): Date {
+  const d = new Date(date);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
 function startOfWeek(date: Date): Date {
   const d = new Date(date);
   d.setHours(0, 0, 0, 0);
@@ -104,10 +111,43 @@ function startOfWeek(date: Date): Date {
   return d;
 }
 
+function startOfMonth(date: Date): Date {
+  const d = new Date(date);
+  d.setDate(1);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
 function addDays(date: Date, n: number): Date {
   const d = new Date(date);
   d.setDate(d.getDate() + n);
   return d;
+}
+
+function addMonths(date: Date, n: number): Date {
+  const d = new Date(date);
+  d.setMonth(d.getMonth() + n);
+  return d;
+}
+
+function dateKey(date: Date): string {
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+
+function daysBetween(start: Date, endExclusive: Date): Date[] {
+  const result: Date[] = [];
+  for (let d = new Date(start); d < endExclusive; d = addDays(d, 1)) {
+    result.push(d);
+  }
+  return result;
+}
+
+function monthGridDays(monthStart: Date): Date[] {
+  const gridStart = startOfWeek(monthStart);
+  const nextMonth = addMonths(monthStart, 1);
+  const lastVisible = addDays(startOfWeek(nextMonth), 6);
+  const dayCount = Math.max(35, Math.ceil((lastVisible.getTime() - gridStart.getTime()) / 86_400_000) + 1);
+  return Array.from({ length: dayCount }, (_, i) => addDays(gridStart, i));
 }
 
 function sameDay(a: Date, b: Date): boolean {
@@ -287,16 +327,27 @@ export default function PlanningPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
-  const [weekStart, setWeekStart] = useState<Date>(() => startOfWeek(new Date()));
+  const [rangeMode, setRangeMode] = useState<PlanningRange>("week");
+  const [anchorDate, setAnchorDate] = useState<Date>(() => startOfDay(new Date()));
   const [selected, setSelected] = useState<PlanningEntry | null>(null);
   const [view, setView] = useState<"calendar" | "timeline" | "resource" | "map">("calendar");
   const [resources, setResources] = useState<{ id: string; name: string }[]>([]);
   const [resourceDayIdx, setResourceDayIdx] = useState(0);
 
-  const weekEnd = useMemo(() => addDays(weekStart, 7), [weekStart]);
-  const days = useMemo(
-    () => Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)),
-    [weekStart]
+  const rangeStart = useMemo(() => {
+    if (rangeMode === "day") return startOfDay(anchorDate);
+    if (rangeMode === "month") return startOfMonth(anchorDate);
+    return startOfWeek(anchorDate);
+  }, [anchorDate, rangeMode]);
+  const rangeEnd = useMemo(() => {
+    if (rangeMode === "day") return addDays(rangeStart, 1);
+    if (rangeMode === "month") return addMonths(rangeStart, 1);
+    return addDays(rangeStart, 7);
+  }, [rangeMode, rangeStart]);
+  const days = useMemo(() => daysBetween(rangeStart, rangeEnd), [rangeStart, rangeEnd]);
+  const monthGrid = useMemo(
+    () => (rangeMode === "month" ? monthGridDays(rangeStart) : []),
+    [rangeMode, rangeStart]
   );
   const hours = useMemo(
     () => Array.from({ length: HOUR_END - HOUR_START }, (_, i) => HOUR_START + i),
@@ -314,8 +365,8 @@ export default function PlanningPage() {
         setLoading(true);
         setError(null);
         const params = new URLSearchParams({
-          from: weekStart.toISOString(),
-          to: weekEnd.toISOString(),
+          from: rangeStart.toISOString(),
+          to: rangeEnd.toISOString(),
         });
         const res = await fetch(
           `/api/workspaces/${workspaceId}/planning/entries?${params.toString()}`,
@@ -335,7 +386,7 @@ export default function PlanningPage() {
         setLoading(false);
       }
     },
-    [workspaceId, weekStart, weekEnd, showToast]
+    [workspaceId, rangeStart, rangeEnd, showToast]
   );
 
   useEffect(() => {
@@ -380,19 +431,33 @@ export default function PlanningPage() {
   }, [view, workspaceId]);
 
   const entriesByDay = useMemo<PlanningEntry[][]>(() => {
-    const buckets: PlanningEntry[][] = Array.from({ length: 7 }, () => []);
+    const buckets: PlanningEntry[][] = Array.from({ length: days.length }, () => []);
     for (const e of entries) {
       const start = new Date(e.start_at);
       const idx = Math.floor(
-        (start.getTime() - weekStart.getTime()) / 86_400_000
+        (start.getTime() - rangeStart.getTime()) / 86_400_000
       );
-      if (idx >= 0 && idx < 7) buckets[idx].push(e);
+      if (idx >= 0 && idx < days.length) buckets[idx].push(e);
     }
     for (const arr of buckets) {
       arr.sort((a, b) => a.start_at.localeCompare(b.start_at));
     }
     return buckets;
-  }, [entries, weekStart]);
+  }, [days.length, entries, rangeStart]);
+
+  const entriesByDateKey = useMemo(() => {
+    const buckets = new Map<string, PlanningEntry[]>();
+    for (const e of entries) {
+      const key = dateKey(new Date(e.start_at));
+      const arr = buckets.get(key) ?? [];
+      arr.push(e);
+      buckets.set(key, arr);
+    }
+    for (const arr of buckets.values()) {
+      arr.sort((a, b) => a.start_at.localeCompare(b.start_at));
+    }
+    return buckets;
+  }, [entries]);
 
   // Index of "today" within the current week (−1 if not in this week).
   const todayIdx = useMemo(() => {
@@ -406,6 +471,12 @@ export default function PlanningPage() {
       setResourceDayIdx(todayIdx);
     }
   }, [view, todayIdx]);
+
+  useEffect(() => {
+    if (resourceDayIdx >= days.length) {
+      setResourceDayIdx(Math.max(0, days.length - 1));
+    }
+  }, [days.length, resourceDayIdx]);
 
   // Display name lookup for every resource id we know about.
   const resourceNameMap = useMemo(() => {
@@ -472,12 +543,23 @@ export default function PlanningPage() {
 
   const isToday = useCallback((d: Date) => sameDay(d, new Date()), []);
 
-  const weekRangeLabel = useMemo(() => {
-    const end = addDays(weekStart, 6);
-    const s = weekStart.toLocaleDateString(locale, { month: "short", day: "numeric" });
+  const rangeLabel = useMemo(() => {
+    if (rangeMode === "day") {
+      return rangeStart.toLocaleDateString(locale, {
+        weekday: "long",
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      });
+    }
+    if (rangeMode === "month") {
+      return rangeStart.toLocaleDateString(locale, { month: "long", year: "numeric" });
+    }
+    const end = addDays(rangeStart, 6);
+    const s = rangeStart.toLocaleDateString(locale, { month: "short", day: "numeric" });
     const e = end.toLocaleDateString(locale, { month: "short", day: "numeric", year: "numeric" });
     return `${s} – ${e}`;
-  }, [weekStart, locale]);
+  }, [rangeMode, rangeStart, locale]);
 
   const entryLabel = (e: PlanningEntry): string =>
     e.subject_name ?? (e.subject_id ? e.subject_id.slice(0, 8) : "—");
@@ -566,30 +648,63 @@ export default function PlanningPage() {
       </header>
 
       {/* Week navigation */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-1">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex rounded-lg border border-slate-200 bg-white p-0.5">
+            {(["day", "week", "month"] as PlanningRange[]).map((mode) => (
+              <button
+                key={mode}
+                onClick={() => setRangeMode(mode)}
+                className={`rounded-md px-3 py-1.5 text-xs font-semibold transition ${
+                  rangeMode === mode
+                    ? "bg-slate-900 text-white"
+                    : "text-slate-500 hover:text-slate-800"
+                }`}
+              >
+                {t(
+                  mode === "day"
+                    ? "planning.rangeDay"
+                    : mode === "week"
+                      ? "planning.rangeWeek"
+                      : "planning.rangeMonth"
+                )}
+              </button>
+            ))}
+          </div>
           <button
-            onClick={() => setWeekStart((w) => addDays(w, -7))}
+            onClick={() =>
+              setAnchorDate((d) =>
+                rangeMode === "month"
+                  ? addMonths(d, -1)
+                  : addDays(d, rangeMode === "day" ? -1 : -7)
+              )
+            }
             className="app-button-ghost"
-            aria-label="Previous week"
+            aria-label="Previous range"
           >
             <ChevronLeft size={18} />
           </button>
           <button
-            onClick={() => setWeekStart(startOfWeek(new Date()))}
+            onClick={() => setAnchorDate(startOfDay(new Date()))}
             className="app-button-secondary"
           >
             {t("planning.today")}
           </button>
           <button
-            onClick={() => setWeekStart((w) => addDays(w, 7))}
+            onClick={() =>
+              setAnchorDate((d) =>
+                rangeMode === "month"
+                  ? addMonths(d, 1)
+                  : addDays(d, rangeMode === "day" ? 1 : 7)
+              )
+            }
             className="app-button-ghost"
-            aria-label="Next week"
+            aria-label="Next range"
           >
             <ChevronRight size={18} />
           </button>
         </div>
-        <p className="text-sm font-semibold text-slate-600">{weekRangeLabel}</p>
+        <p className="text-sm font-semibold text-slate-600">{rangeLabel}</p>
       </div>
 
       {/* Error */}
@@ -614,13 +729,87 @@ export default function PlanningPage() {
           </div>
           <p className="text-sm font-medium text-slate-500">{t("planning.noEntries")}</p>
         </div>
+      ) : view === "calendar" && rangeMode === "month" ? (
+        <div className="app-card overflow-hidden">
+          <div className="grid grid-cols-7 border-b border-slate-200 bg-slate-50">
+            {Array.from({ length: 7 }, (_, i) => addDays(startOfWeek(new Date()), i)).map((d, i) => (
+              <div
+                key={i}
+                className="border-r border-slate-200 px-2 py-2 text-center text-[10px] font-bold uppercase tracking-wider text-slate-400 last:border-r-0"
+              >
+                {d.toLocaleDateString(locale, { weekday: "short" })}
+              </div>
+            ))}
+          </div>
+          <div className="grid grid-cols-7">
+            {monthGrid.map((d, i) => {
+              const key = dateKey(d);
+              const dayEntries = entriesByDateKey.get(key) ?? [];
+              const inMonth = d.getMonth() === rangeStart.getMonth();
+              const today = isToday(d);
+              return (
+                <div
+                  key={`${key}-${i}`}
+                  className={`min-h-[118px] border-r border-t border-slate-100 p-2 last:border-r-0 ${
+                    inMonth ? "bg-white" : "bg-slate-50/70 text-slate-300"
+                  } ${today ? "ring-1 ring-inset ring-indigo-200" : ""}`}
+                >
+                  <div className="mb-2 flex items-center justify-between">
+                    <span
+                      className={`grid size-6 place-items-center rounded-full text-xs font-bold ${
+                        today
+                          ? "bg-indigo-600 text-white"
+                          : inMonth
+                            ? "text-slate-700"
+                            : "text-slate-300"
+                      }`}
+                    >
+                      {d.getDate()}
+                    </span>
+                    {dayEntries.length > 0 && (
+                      <span className="text-[10px] font-semibold text-slate-400">
+                        {dayEntries.length}
+                      </span>
+                    )}
+                  </div>
+                  <div className="space-y-1">
+                    {dayEntries.slice(0, 3).map((e) => {
+                      const style = STATUS_STYLE[statusBucket(e.status)];
+                      return (
+                        <button
+                          key={e.id}
+                          onClick={() => setSelected(e)}
+                          className={`block w-full truncate rounded border px-1.5 py-1 text-left text-[10px] font-semibold ${style.border} ${style.block}`}
+                          title={`${formatTime(e.start_at)} ${entryLabel(e)}`}
+                        >
+                          {formatTime(e.start_at)} · {entryLabel(e)}
+                        </button>
+                      );
+                    })}
+                    {dayEntries.length > 3 && (
+                      <button
+                        onClick={() => {
+                          setRangeMode("day");
+                          setAnchorDate(d);
+                        }}
+                        className="text-[10px] font-semibold text-indigo-600 hover:text-indigo-800"
+                      >
+                        +{dayEntries.length - 3} more
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
       ) : view === "calendar" ? (
         <div className="overflow-x-auto">
-          <div className="app-card min-w-[760px] overflow-hidden">
+          <div className={`${rangeMode === "day" ? "min-w-[360px]" : "min-w-[760px]"} app-card overflow-hidden`}>
             {/* Day header row */}
             <div
               className="grid border-b border-slate-200"
-              style={{ gridTemplateColumns: "52px repeat(7, minmax(0, 1fr))" }}
+              style={{ gridTemplateColumns: `52px repeat(${days.length}, minmax(0, 1fr))` }}
             >
               <div className="border-r border-slate-200" />
               {days.map((d, i) => {
@@ -650,7 +839,7 @@ export default function PlanningPage() {
             {/* Time grid body */}
             <div
               className="grid"
-              style={{ gridTemplateColumns: "52px repeat(7, minmax(0, 1fr))" }}
+              style={{ gridTemplateColumns: `52px repeat(${days.length}, minmax(0, 1fr))` }}
             >
               {/* Hour labels */}
               <div

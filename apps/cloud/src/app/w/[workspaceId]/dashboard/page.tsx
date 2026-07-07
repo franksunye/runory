@@ -340,14 +340,14 @@ export default function DashboardPage() {
             <p className="text-sm font-bold text-slate-900">{t("onboarding.demoLoadedTitle")}</p>
             <p className="mt-1 text-xs text-slate-600">{t("onboarding.demoLoadedBody")}</p>
             <div className="mt-3 flex flex-wrap gap-2">
-              <Link href={`/w/${workspaceId}/companies`} className="inline-flex items-center gap-1 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50">
-                {t("onboarding.stepInspectRecords")}
+              <Link href={`/w/${workspaceId}/my-work`} className="inline-flex items-center gap-1 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50">
+                {t("onboarding.stepOpenMyWork")}
               </Link>
-              <Link href={`/w/${workspaceId}/customize`} className="inline-flex items-center gap-1 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50">
-                {t("onboarding.stepSafeCustomize")}
+              <Link href={`/w/${workspaceId}/planning`} className="inline-flex items-center gap-1 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50">
+                {t("onboarding.stepOpenPlanning")}
               </Link>
-              <Link href={`/w/${workspaceId}/audit`} className="inline-flex items-center gap-1 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50">
-                {t("onboarding.stepViewAudit")}
+              <Link href={`/w/${workspaceId}/work-orders`} className="inline-flex items-center gap-1 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50">
+                {t("onboarding.stepOpenWorkOrders")}
               </Link>
             </div>
           </div>

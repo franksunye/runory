@@ -4,8 +4,8 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import {
-  CreditCard, Download, GitBranch, Key, Package, ScrollText,
-  Settings, SlidersHorizontal, Trash2, Users, Zap,
+  ArrowLeft, CreditCard, Download, FileText, GitBranch, Inbox, Key,
+  Package, ScrollText, Settings, SlidersHorizontal, Trash2, Users, Zap,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useI18n } from "@/i18n/locale-provider";
@@ -24,6 +24,9 @@ const MANAGE_CARDS: ManageCard[] = [
   { titleKey: "manage.customize", descriptionKey: "manage.customizeDesc", route: "/customize", icon: SlidersHorizontal },
   { titleKey: "manage.workflows", descriptionKey: "manage.workflowsDesc", route: "/workflows", icon: GitBranch },
   { titleKey: "manage.automations", descriptionKey: "manage.automationsDesc", route: "/automations", icon: Zap },
+  { titleKey: "manage.forms", descriptionKey: "manage.formsDesc", route: "/forms", icon: FileText },
+  { titleKey: "manage.outbox", descriptionKey: "manage.outboxDesc", route: "/outbox", icon: Inbox },
+  { titleKey: "manage.migration", descriptionKey: "manage.migrationDesc", route: "/migration", icon: ArrowLeft },
   { titleKey: "manage.members", descriptionKey: "manage.membersDesc", route: "/members", icon: Users },
   { titleKey: "manage.audit", descriptionKey: "manage.auditDesc", route: "/audit", icon: ScrollText },
   { titleKey: "manage.trash", descriptionKey: "manage.trashDesc", route: "/trash", icon: Trash2 },

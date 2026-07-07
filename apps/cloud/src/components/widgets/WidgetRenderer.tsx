@@ -105,6 +105,17 @@ const ACTION_LABEL_KEY: Record<string, MessageKey> = {
   "api_key.revoke": "widget.action.apiKeyRevoke",
 };
 
+const ACTION_FALLBACK_LABEL: Record<string, string> = {
+  "form_submission.submit": "Submitted form",
+  "form_submission.accept": "Accepted form",
+  "form_submission.return": "Returned form",
+  "automation.create": "Created automation",
+  "workflow.start": "Started workflow",
+  "workflow.complete": "Completed workflow",
+  "work_item.create": "Created work item",
+  "work_item.complete": "Completed work item",
+};
+
 type TFunc = (key: MessageKey, params?: Record<string, string | number>) => string;
 
 // ── Main WidgetRenderer ──
@@ -509,11 +520,19 @@ function translateAction(action: string, t: TFunc): { label: string; color: stri
     "extension.rollback": "text-orange-600",
     "api_key.create": "text-slate-600",
     "api_key.revoke": "text-slate-600",
+    "form_submission.submit": "text-purple-600",
+    "form_submission.accept": "text-emerald-600",
+    "form_submission.return": "text-amber-600",
+    "automation.create": "text-blue-600",
+    "workflow.start": "text-indigo-600",
+    "workflow.complete": "text-emerald-600",
+    "work_item.create": "text-cyan-600",
+    "work_item.complete": "text-emerald-600",
   };
   const key = ACTION_LABEL_KEY[action];
   return key
     ? { label: t(key), color: colorMap[action] ?? "text-slate-600" }
-    : { label: action, color: "text-slate-600" };
+    : { label: ACTION_FALLBACK_LABEL[action] ?? humanizeToken(action), color: colorMap[action] ?? "text-slate-600" };
 }
 
 function ActivityFeedWidget({ widget, data }: { widget: WidgetDeclaration; data: WidgetDataResponse }) {
@@ -563,16 +582,32 @@ function ActivityFeedWidget({ widget, data }: { widget: WidgetDeclaration; data:
 }
 
 function getEntityName(event: {
+  action?: string;
+  entityType?: string;
   entityId: string;
   afterJson: string | null;
 }): string {
-  if (!event.afterJson) return event.entityId;
+  const generic = humanizeToken(event.entityType ?? "business event");
+  if (!event.afterJson) return generic;
   try {
     const after = JSON.parse(event.afterJson);
-    return after.name ?? after.title ?? after.label ?? event.entityId;
+    if (after.name || after.title || after.label) return after.name ?? after.title ?? after.label;
+    if (after.subject_type) return `${humanizeToken(after.subject_type)} form`;
+    if (after.form_definition_id) return "Form submission";
+    if (after.return_reason) return "Revision requested";
+    if (event.action?.startsWith("form_submission.")) return "Form submission";
+    return generic;
   } catch {
-    return event.entityId;
+    return generic;
   }
+}
+
+function humanizeToken(value: string): string {
+  return value
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/\b\w/g, (m) => m.toUpperCase());
 }
 
 // ── Skeleton ──

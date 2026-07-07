@@ -533,6 +533,83 @@ export async function unblockWorkOrder(
 }
 
 /**
+ * work_order.start: planned/reopened → in_progress
+ * Marks a planned or reopened work order as actively being executed.
+ */
+export async function startWorkOrder(
+  workspaceId: string,
+  workOrderId: string,
+  actor: CommandActor,
+  expectedVersion: number,
+  commandId?: string
+) {
+  return executeCommand(
+    {
+      commandId: commandId ?? genId("cmd"),
+      workspaceId,
+      commandType: "work_order.start",
+      aggregateType: "work_order",
+      aggregateId: workOrderId,
+      expectedVersion,
+      actor,
+      input: { workOrderId },
+      occurredAt: now(),
+    },
+    async () => {
+      const wo = await readWorkOrder(workspaceId, workOrderId);
+      checkOptimisticLock(wo.aggregate_version, expectedVersion);
+
+      const allowedStatuses = ["planned", "reopened"];
+      if (!allowedStatuses.includes(wo.status)) {
+        throw new BusinessError(
+          ERROR_CODES.INVALID_TRANSITION,
+          `INVALID_TRANSITION: Cannot start work order in status '${wo.status}'. Allowed: ${allowedStatuses.join(", ")}`,
+          409
+        );
+      }
+
+      const ts = now();
+      const newVersion = wo.aggregate_version + 1;
+
+      const statements: Array<{ sql: string; args?: unknown[] }> = [
+        {
+          sql: `UPDATE ${businessTable("work_order")}
+                SET status = 'in_progress',
+                    aggregate_version = ?, updated_at = ?
+                WHERE workspace_id = ? AND id = ?`,
+          args: [newVersion, ts, workspaceId, workOrderId],
+        },
+      ];
+
+      const updatedWo: Partial<WorkOrderRecord> = {
+        ...wo,
+        status: "in_progress",
+        aggregate_version: newVersion,
+      };
+
+      return {
+        statements,
+        events: [{
+          aggregateType: "work_order",
+          aggregateId: workOrderId,
+          eventType: "work_order.started",
+          payload: { workOrderId, startedAt: ts },
+        }],
+        audit: {
+          action: "work_order.start",
+          entityType: "work_order",
+          entityId: workOrderId,
+          before: { status: wo.status, aggregate_version: wo.aggregate_version },
+          after: { status: "in_progress", aggregate_version: newVersion },
+        },
+        aggregate: updatedWo,
+        newVersion,
+      } as CommandHandlerResult<Partial<WorkOrderRecord>>;
+    }
+  );
+}
+
+/**
  * work_order.complete: in_progress → completed
  * Verifies all service visits are completed and no pending work items remain.
  */

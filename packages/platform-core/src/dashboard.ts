@@ -54,6 +54,8 @@ export const PLATFORM_OBJECT_FIELDS: Record<string, Set<string>> = {
     "id", "workspace_id", "subject_type", "subject_id", "resource_id",
     "start_at", "end_at", "timezone", "status", "location_type", "location_id",
     "latitude", "longitude", "conflict_state", "version", "created_at", "updated_at",
+    // Synthetic presentation field resolved from the scheduled subject record.
+    "subject_name",
   ]),
   resources: new Set([
     "id", "workspace_id", "resource_type", "user_id", "display_name",
@@ -406,6 +408,42 @@ export async function resolveWidgetData(
       const orderSql = orderByToSql(orderClauses) || "created_at DESC";
       const limit = Math.min(Math.max(intent.limit ?? 10, 1), 100);
       const columns = (intent.columns ?? ["id"]).map(validateIdentifier);
+      const needsScheduleSubjectName = intent.object === "schedule_entries" && columns.includes("subject_name");
+      const physicalColumns = columns.filter((c) => c !== "subject_name");
+
+      const attachScheduleSubjectNames = async (rows: Array<Record<string, unknown>>) => {
+        if (!needsScheduleSubjectName || rows.length === 0) return rows;
+
+        const idsByType = new Map<string, Set<string>>();
+        for (const row of rows) {
+          const subjectType = String(row.subject_type ?? "");
+          const subjectId = String(row.subject_id ?? "");
+          if (!subjectType || !subjectId) continue;
+          if (subjectType !== "work_order" && subjectType !== "service_visit") continue;
+          const ids = idsByType.get(subjectType) ?? new Set<string>();
+          ids.add(subjectId);
+          idsByType.set(subjectType, ids);
+        }
+
+        const names = new Map<string, string | null>();
+        for (const [subjectType, idsSet] of idsByType) {
+          const ids = [...idsSet];
+          const placeholders = ids.map(() => "?").join(",");
+          const rowsForType = await queryAll<{ id: string; title: string | null }>(
+            `SELECT id, title FROM ${businessTable(subjectType)}
+             WHERE workspace_id = ? AND id IN (${placeholders})`,
+            [workspaceId, ...ids]
+          );
+          for (const subject of rowsForType) {
+            names.set(`${subjectType}:${subject.id}`, subject.title);
+          }
+        }
+
+        return rows.map((row) => ({
+          ...row,
+          subject_name: names.get(`${String(row.subject_type ?? "")}:${String(row.subject_id ?? "")}`) ?? null,
+        }));
+      };
 
       // Optional single LEFT JOIN to a platform runtime object (e.g.
       // schedule_entries → resources.display_name). The base filtering runs
@@ -416,7 +454,10 @@ export async function resolveWidgetData(
         const joinOn = validateIdentifier(intent.join.on);
         const joinSelect = validateIdentifier(intent.join.select);
         const joinAs = validateIdentifier(intent.join.as);
-        const colSql = columns
+        const selectColumns = physicalColumns.length > 0 ? physicalColumns : ["id"];
+        const requiredBaseColumns = needsScheduleSubjectName ? ["subject_type", "subject_id"] : [];
+        const effectiveColumns = [...new Set([...selectColumns, ...requiredBaseColumns])];
+        const colSql = effectiveColumns
           .map((c) => (c === joinAs ? `j.${joinSelect} AS ${joinAs}` : `b.${c}`))
           .join(", ");
         const rows = await queryAll<Record<string, unknown>>(
@@ -425,15 +466,18 @@ export async function resolveWidgetData(
            LEFT JOIN ${joinTable} j ON j.id = b.${joinOn}`,
           [...baseArgs, limit]
         );
-        return { kind: "recent", records: rows };
+        return { kind: "recent", records: await attachScheduleSubjectNames(rows) };
       }
 
-      const colSql = columns.join(", ");
+      const selectColumns = physicalColumns.length > 0 ? physicalColumns : ["id"];
+      const requiredColumns = needsScheduleSubjectName ? ["subject_type", "subject_id"] : [];
+      const effectiveColumns = [...new Set([...selectColumns, ...requiredColumns])];
+      const colSql = effectiveColumns.join(", ");
       const rows = await queryAll<Record<string, unknown>>(
         `SELECT ${colSql} FROM ${table} ${whereFragment} ORDER BY ${orderSql} LIMIT ?`,
         [...baseArgs, limit]
       );
-      return { kind: "recent", records: rows };
+      return { kind: "recent", records: await attachScheduleSubjectNames(rows) };
     }
 
     case "timeseries": {

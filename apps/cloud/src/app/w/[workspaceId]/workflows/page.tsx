@@ -15,7 +15,7 @@ import type { MessageKey } from "@/i18n/messages";
 
 // ── Types ──
 
-/** API response shape for a V2 definition row (from definitions-v2 endpoint). */
+/** API response shape for a definition row (from definitions endpoint). */
 interface V2DefinitionDetail {
   id: string;
   workspaceId: string;
@@ -113,7 +113,7 @@ export default function WorkflowsPage() {
   );
 }
 
-// ── V2 Workflow Definitions Section ──
+// ── Workflow Definitions Section ──
 
 function V2DefinitionsSection({ workspaceId, refreshKey }: { workspaceId: string; refreshKey: number }) {
   const { t } = useI18n();
@@ -127,7 +127,7 @@ function V2DefinitionsSection({ workspaceId, refreshKey }: { workspaceId: string
       setLoading(true);
       setError(null);
       const res = await fetch(
-        `/api/workspaces/${workspaceId}/workflows/definitions-v2`,
+        `/api/workspaces/${workspaceId}/workflows/definitions`,
         { cache: "no-store" }
       );
       const json = await res.json();
@@ -257,7 +257,7 @@ function V2DefinitionsSection({ workspaceId, refreshKey }: { workspaceId: string
   );
 }
 
-// ── V2 Workflow Instances Section ──
+// ── Workflow Instances Section ──
 
 function V2InstancesSection({ workspaceId, refreshKey }: { workspaceId: string; refreshKey: number }) {
   const { t } = useI18n();
@@ -270,7 +270,7 @@ function V2InstancesSection({ workspaceId, refreshKey }: { workspaceId: string; 
     try {
       setLoading(true);
       setError(null);
-      // 1. Fetch my-work items to discover V2 instance IDs
+      // 1. Fetch my-work items to discover instance IDs
       const workRes = await fetch(
         `/api/workspaces/${workspaceId}/my-work?limit=100`,
         { cache: "no-store" }
@@ -280,18 +280,18 @@ function V2InstancesSection({ workspaceId, refreshKey }: { workspaceId: string; 
         throw new Error(workJson.error?.message ?? t("workflowV2.loadFailed"));
       }
       const items: V2WorkItemRow[] = workJson.data?.items ?? [];
-      // 2. Group by instance_id to get unique V2 instance IDs
+      // 2. Group by instance_id to get unique instance IDs
       const instanceIds = [...new Set(items.map((i) => i.instance_id))];
       if (instanceIds.length === 0) {
         setInstances([]);
         return;
       }
-      // 3. Fetch each V2 instance detail (cap at 10 to avoid excessive calls)
+      // 3. Fetch each instance detail (cap at 10 to avoid excessive calls)
       const details = await Promise.all(
         instanceIds.slice(0, 10).map(async (instId) => {
           try {
             const res = await fetch(
-              `/api/workspaces/${workspaceId}/workflows/instances-v2/${instId}`,
+              `/api/workspaces/${workspaceId}/workflows/instances/${instId}`,
               { cache: "no-store" }
             );
             const json = await res.json();
@@ -351,7 +351,7 @@ function V2InstancesSection({ workspaceId, refreshKey }: { workspaceId: string; 
   );
 }
 
-// ── V2 Instance Row ──
+// ── Instance Row ──
 
 interface V2InstanceRowProps {
   instance: V2InstanceDetail;

@@ -43,6 +43,13 @@ const STATUS_LABEL_KEY: Record<string, string> = {
   cancelled: "myWork.statusCompleted",
 };
 
+const SUBJECT_ROUTE: Record<string, string> = {
+  quote: "quotes",
+  work_order: "work-orders",
+  service_visit: "service-visits",
+  service_report: "service-reports",
+};
+
 function isOverdue(dueAt: string | null): boolean {
   if (!dueAt) return false;
   return new Date(dueAt).getTime() < Date.now();
@@ -198,8 +205,7 @@ function MyWorkPage() {
 
   const navigateToSubject = (item: MyWorkItem) => {
     if (!item.subject_type || !item.subject_id) return;
-    const label = SUBJECT_LABEL[item.subject_type] ?? item.subject_type;
-    const slug = label.toLowerCase().replace(/\s+/g, "-");
+    const slug = SUBJECT_ROUTE[item.subject_type] ?? item.subject_type.replace(/_/g, "-");
     router.push(`/w/${workspaceId}/${slug}/${item.subject_id}`);
   };
 
@@ -292,6 +298,7 @@ function MyWorkPage() {
           {items.map((item) => {
             const KindIcon = KIND_ICON[item.kind] ?? ListChecks;
             const overdue = isOverdue(item.due_at) && item.status !== "completed";
+            const isOperational = item.instance_id === "operational" || Boolean(item.operational_source);
             return (
               <div
                 key={item.id}
@@ -324,6 +331,11 @@ function MyWorkPage() {
                         )}
                       </div>
                       <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500">
+                        {item.title && (
+                          <span className="w-full text-sm font-semibold text-slate-900">
+                            {item.title}
+                          </span>
+                        )}
                         {item.due_at && (
                           <span className={`flex items-center gap-1 ${overdue ? "font-semibold text-red-600" : ""}`}>
                             <Clock3 size={12} />
@@ -347,7 +359,16 @@ function MyWorkPage() {
 
                   {/* Right: Actions */}
                   <div className="flex shrink-0 items-center gap-2">
-                    {item.status === "ready" && (
+                    {isOperational && item.subject_type && item.subject_id && (
+                      <button
+                        onClick={() => navigateToSubject(item)}
+                        className="app-button-primary text-xs"
+                      >
+                        Open
+                        <ArrowRight size={14} />
+                      </button>
+                    )}
+                    {!isOperational && item.status === "ready" && (
                       <button
                         onClick={() => void handleClaim(item)}
                         disabled={executing === `claim-${item.id}`}
@@ -359,7 +380,7 @@ function MyWorkPage() {
                         {t("myWork.actionClaim")}
                       </button>
                     )}
-                    {item.kind === "approval" && item.status !== "completed" && (
+                    {!isOperational && item.kind === "approval" && item.status !== "completed" && (
                       <>
                         <button
                           onClick={() => {
@@ -385,7 +406,7 @@ function MyWorkPage() {
                         </button>
                       </>
                     )}
-                    {item.kind === "human_task" && item.status !== "completed" && (
+                    {!isOperational && item.kind === "human_task" && item.status !== "completed" && (
                       <button
                         onClick={() => void handleComplete(item)}
                         disabled={executing === `complete-${item.id}`}
@@ -397,7 +418,7 @@ function MyWorkPage() {
                         {t("myWork.actionComplete")}
                       </button>
                     )}
-                    {item.kind === "form" && item.form_binding_id && item.status !== "completed" && (
+                    {!isOperational && item.kind === "form" && item.form_binding_id && item.status !== "completed" && (
                       <button
                         onClick={() => navigateToSubject(item)}
                         className="app-button-secondary text-xs"

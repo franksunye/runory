@@ -192,6 +192,7 @@ permissions:
   - work_order.read
   - work_order.create
   - work_order.triage
+  - work_order.start
   - work_order.complete
   - work_order.reopen
 
@@ -330,7 +331,7 @@ dashboard:
         where: "status in ('new', 'triaged')"
         orderBy: "priority desc, requested_at asc"
         limit: 8
-        columns: [title, status, priority, company_id, requested_at]
+        columns: [title, status, priority, requested_at]
       link: /work-orders
       configurable:
         - path: data.limit
@@ -376,7 +377,7 @@ dashboard:
         where: "start_at > now and status not in ('completed', 'cancelled')"
         orderBy: "start_at asc"
         limit: 5
-        columns: [resource_name, subject_type, start_at]
+        columns: [resource_name, subject_name, start_at]
         join:
           object: resources
           on: resource_id

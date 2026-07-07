@@ -301,6 +301,7 @@
       "alias": "visit-acme-urgent",
       "match": { "field": "notes", "value": "Scheduled visit for urgent HVAC repair" },
       "data": {
+        "title": "Acme HVAC emergency repair visit",
         "work_order_id": "$wo-acme-hvac-urgent.id",
         "technician_id": "$tech-david.id",
         "scheduled_start": "2026-06-23",
@@ -314,6 +315,7 @@
       "alias": "visit-acme-warehouse",
       "match": { "field": "notes", "value": "Ongoing visit for warehouse HVAC recharge" },
       "data": {
+        "title": "Acme warehouse HVAC recharge visit",
         "work_order_id": "$wo-acme-warehouse-overdue.id",
         "technician_id": "$tech-david.id",
         "scheduled_start": "2026-06-15",
@@ -328,6 +330,7 @@
       "alias": "visit-nova-fridge",
       "match": { "field": "notes", "value": "Scheduled quarterly inspection visit" },
       "data": {
+        "title": "Nova refrigeration inspection visit",
         "work_order_id": "$wo-nova-fridge-check.id",
         "technician_id": "$tech-james.id",
         "scheduled_start": "2026-06-25",
@@ -341,6 +344,7 @@
       "alias": "visit-acme-completed",
       "match": { "field": "notes", "value": "Completed filter replacement visit" },
       "data": {
+        "title": "Acme HVAC filter replacement visit",
         "work_order_id": "$wo-acme-completed.id",
         "technician_id": "$tech-david.id",
         "scheduled_start": "2026-06-05",
@@ -398,6 +402,46 @@
       "displayName": "James Wilson",
       "resourceType": "technician",
       "email": "james@runory.fsm"
+    }
+  ],
+  "assignments": [
+    {
+      "resourceAlias": "res-david",
+      "subjectType": "service_visit",
+      "subjectAlias": "visit-acme-urgent",
+      "roleKey": "technician",
+      "status": "accepted",
+      "proposedByAlias": "user-dispatcher",
+      "acceptedByAlias": "user-technician",
+      "effectiveFrom": "$relativeDate:+1d:09:00"
+    },
+    {
+      "resourceAlias": "res-david",
+      "subjectType": "service_visit",
+      "subjectAlias": "visit-acme-warehouse",
+      "roleKey": "technician",
+      "status": "accepted",
+      "proposedByAlias": "user-dispatcher",
+      "acceptedByAlias": "user-technician",
+      "effectiveFrom": "$relativeDate:0d:08:00"
+    },
+    {
+      "resourceAlias": "res-james",
+      "subjectType": "service_visit",
+      "subjectAlias": "visit-nova-fridge",
+      "roleKey": "technician",
+      "status": "assigned",
+      "proposedByAlias": "user-dispatcher",
+      "effectiveFrom": "$relativeDate:+2d:10:00"
+    },
+    {
+      "resourceAlias": "res-maria",
+      "subjectType": "work_order",
+      "subjectAlias": "wo-vertex-cnc-calibration",
+      "roleKey": "technician",
+      "status": "proposed",
+      "proposedByAlias": "user-dispatcher",
+      "effectiveFrom": "$relativeDate:+3d:08:00"
     }
   ],
   "users": [
