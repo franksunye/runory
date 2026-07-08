@@ -7,19 +7,13 @@ import EarlyAccessBanner from "@/components/EarlyAccessBanner";
 import { WORKSPACE_NAVIGATION_CHANGED } from "@/lib/workspace-events";
 import { useI18n } from "@/i18n/locale-provider";
 import type { NavigationItem } from "@runory/platform-core";
+import type { NavigationApiResponse } from "@/lib/api-hooks";
 
 interface InstalledPackGroup {
   packId: string;
   packName: string;
   category: string;
   installedAt: string;
-}
-
-interface NavigationApiResponse {
-  items: NavigationItem[];
-  packs: InstalledPackGroup[];
-  modulePackMap: Record<string, string>;
-  modulePresentation?: Record<string, { visibility: string; surface?: string; audience?: string[] }>;
 }
 
 export default function WorkspaceLayout({

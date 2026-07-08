@@ -158,6 +158,7 @@ export interface NavigationApiResponse {
   items: NavigationItem[];
   packs: InstalledPackGroup[];
   modulePackMap: Record<string, string>;
+  modulePresentation?: Record<string, { visibility: string; surface?: string; audience?: string[] }>;
 }
 
 export function useNavigation(workspaceId: string) {
@@ -590,8 +591,3 @@ export function useWorkflowInstance(
   return { data, error, isLoading, mutate };
 }
 
-// ── v0.5 Navigation with presentation ──
-
-export interface NavigationApiResponseV2 extends NavigationApiResponse {
-  modulePresentation: Record<string, { visibility: string; surface?: string; audience?: string[] }>;
-}
