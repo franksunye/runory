@@ -12,6 +12,7 @@ import type { AutomationDefinitionInfo } from "@runory/platform-core";
 import { useI18n } from "@/i18n/locale-provider";
 import { useObjects, useFields } from "@/lib/api-hooks";
 import type { MessageKey } from "@/i18n/messages";
+import { apiFetch, apiPost, apiPatch } from "@/lib/api-fetch";
 
 // ── Types & Constants ──
 
@@ -71,8 +72,11 @@ function AutomationEditor() {
     if (!editingId) return;
     void (async () => {
       try {
-        const res = await fetch(`/api/workspaces/${workspaceId}/automations/${editingId}`, { cache: "no-store" });
-        const json = await res.json();
+        const json = await apiFetch<{
+          success: boolean;
+          error?: { message: string };
+          data: AutomationDefinitionInfo;
+        }>(`/api/workspaces/${workspaceId}/automations/${editingId}`, { cache: "no-store" });
         if (!json.success) throw new Error(json.error?.message ?? t("workspace.loadFailed"));
         setExisting(json.data);
       } catch (e) {
@@ -87,18 +91,17 @@ function AutomationEditor() {
     setSubmitting(true);
     try {
       if (existing) {
-        const res = await fetch(`/api/workspaces/${workspaceId}/automations/${existing.automationId}`, {
-          method: "PATCH", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ updates: def }),
-        });
-        const json = await res.json();
+        const json = await apiPatch<{ success: boolean; error?: { message: string } }>(
+          `/api/workspaces/${workspaceId}/automations/${existing.automationId}`,
+          { updates: def }
+        );
         if (!json.success) throw new Error(json.error?.message ?? t("workspace.updateFailed"));
         showToast("success", t("automations.updated", { name: def.name }));
       } else {
-        const res = await fetch(`/api/workspaces/${workspaceId}/automations`, {
-          method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(def),
-        });
-        const json = await res.json();
+        const json = await apiPost<{ success: boolean; error?: { message: string } }>(
+          `/api/workspaces/${workspaceId}/automations`,
+          def
+        );
         if (!json.success) throw new Error(json.error?.message ?? t("workspace.createFailed"));
         showToast("success", t("automations.created", { name: def.name }));
       }

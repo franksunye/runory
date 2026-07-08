@@ -21,6 +21,7 @@ import {
   formatDuration,
   useAdminFetch,
 } from "../../../../_components/shared";
+import { apiPost } from "@/lib/api-fetch";
 
 export default function ValidationPage() {
   const params = useParams<{ versionId: string }>();
@@ -38,12 +39,7 @@ export default function ValidationPage() {
     setRunning(true);
     setRunError(null);
     try {
-      const res = await fetch(`/api/platform/catalog/versions/${versionId}/validate`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "X-Requested-With": "XMLHttpRequest" },
-        body: JSON.stringify({}),
-      });
-      const json = await res.json();
+      const json = await apiPost<{ success: boolean; error?: { message?: string } }>(`/api/platform/catalog/versions/${versionId}/validate`, {});
       if (!json.success) {
         setRunError(json.error?.message ?? "验证失败");
       } else {

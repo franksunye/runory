@@ -5,6 +5,7 @@ import { ChevronDown, ChevronUp, Activity, Loader2 } from "lucide-react";
 import { useI18n } from "@/i18n/locale-provider";
 import { formatRelativeTime } from "./SchemaTable";
 import type { MessageKey } from "@/i18n/messages";
+import { apiFetch } from "@/lib/api-fetch";
 
 // ── Subject type mapping ──
 //
@@ -168,8 +169,7 @@ export default function RecordTimelineSection({
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(buildUrl());
-      const json = (await res.json()) as { success: boolean; data?: TimelineResponse; error?: { message?: string } };
+      const json = await apiFetch<{ success: boolean; data?: TimelineResponse; error?: { message?: string } }>(buildUrl());
       if (json.success && json.data) {
         setEntries(json.data.entries);
         setNextCursor(json.data.nextCursor);
@@ -194,8 +194,7 @@ export default function RecordTimelineSection({
     if (!nextCursor || loadingMore) return;
     setLoadingMore(true);
     try {
-      const res = await fetch(buildUrl(nextCursor));
-      const json = (await res.json()) as { success: boolean; data?: TimelineResponse };
+      const json = await apiFetch<{ success: boolean; data?: TimelineResponse }>(buildUrl(nextCursor));
       if (json.success && json.data) {
         setEntries((prev) => [...prev, ...json.data!.entries]);
         setNextCursor(json.data.nextCursor);

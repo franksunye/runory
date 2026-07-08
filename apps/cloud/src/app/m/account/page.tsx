@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { useI18n } from "@/i18n/locale-provider";
 import { SUPPORTED_LOCALES, type Locale } from "@/i18n/config";
+import { apiFetch } from "@/lib/api-fetch";
 
 export const dynamic = "force-dynamic";
 
@@ -52,8 +53,11 @@ function MobileAccountPage() {
     try {
       setLoading(true);
       setError(null);
-      const res = await fetch(`/api/workspaces/${workspaceId}`, { cache: "no-store" });
-      const json = await res.json();
+      const json = await apiFetch<{
+        success: boolean;
+        error?: { message: string };
+        data?: WorkspaceInfo | null;
+      }>(`/api/workspaces/${workspaceId}`, { cache: "no-store" });
       if (!json.success) {
         throw new Error(json.error?.message ?? t("mobile.errorOccurred"));
       }

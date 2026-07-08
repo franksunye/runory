@@ -9,6 +9,7 @@ import {
 import { useI18n } from "@/i18n/locale-provider";
 import type { MessageKey } from "@/i18n/messages";
 import type { MyWorkItem } from "@/lib/api-hooks";
+import { apiFetch } from "@/lib/api-fetch";
 
 export const dynamic = "force-dynamic";
 
@@ -127,11 +128,15 @@ function MobileTodayPage() {
         } else if (cursor) {
           params.set("cursor", cursor);
         }
-        const res = await fetch(
+        const res = await apiFetch<{
+          success: boolean;
+          error?: { message: string };
+          data?: { items: MyWorkItem[]; nextCursor: string | null };
+        }>(
           `/api/workspaces/${workspaceId}/my-work?${params.toString()}`,
           { cache: "no-store" }
         );
-        const json = await res.json();
+        const json = res;
         if (!json.success) {
           throw new Error(json.error?.message ?? t("mobile.errorOccurred"));
         }

@@ -12,6 +12,7 @@ import { useWorkspaceChangeEvent } from "@/lib/api-hooks";
 import WidgetRenderer, { type WidgetDataResponse } from "@/components/widgets/WidgetRenderer";
 import DashboardEditMode from "@/components/widgets/DashboardEditMode";
 import { useI18n } from "@/i18n/locale-provider";
+import { apiFetch, apiPost } from "@/lib/api-fetch";
 
 const DASHBOARD_ZONES: DashboardZone[] = ["metrics", "trends", "lists", "activity"];
 
@@ -61,12 +62,14 @@ export default function DashboardPage() {
 
   const loadLayout = useCallback(async (): Promise<boolean> => {
     try {
-      const res = await fetch(`/api/workspaces/${workspaceId}/dashboard/layout`);
-      const json = await res.json();
+      const json = await apiFetch<{
+        success: boolean;
+        data?: { layout: LayoutItem[]; availableWidgets: AvailableWidget[] };
+      }>(`/api/workspaces/${workspaceId}/dashboard/layout`);
       if (json.success) {
-        setLayout(json.data.layout);
-        setAvailableWidgets(json.data.availableWidgets);
-        const packInstalled = json.data.layout.length > 0 || json.data.availableWidgets.length > 0;
+        setLayout(json.data!.layout);
+        setAvailableWidgets(json.data!.availableWidgets);
+        const packInstalled = json.data!.layout.length > 0 || json.data!.availableWidgets.length > 0;
         setHasPack(packInstalled);
         if (!packInstalled) {
           setHasData(false);
@@ -82,8 +85,10 @@ export default function DashboardPage() {
 
   const checkHasData = useCallback(async () => {
     try {
-      const res = await fetch(`/api/workspaces/${workspaceId}/objects/company/records?limit=1`, { cache: "no-store" });
-      const json = await res.json();
+      const json = await apiFetch<{
+        success: boolean;
+        data?: unknown[];
+      }>(`/api/workspaces/${workspaceId}/objects/company/records?limit=1`, { cache: "no-store" });
       if (json.success) {
         setHasData(Array.isArray(json.data) && json.data.length > 0);
       }
@@ -104,23 +109,9 @@ export default function DashboardPage() {
     }
     setWidgetsLoading(true);
     try {
-      const res = await fetch(`/api/workspaces/${workspaceId}/widgets/batch`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          items: items.map((i) => ({
-            moduleId: i.moduleId,
-            widgetKey: i.widgetKey,
-            instance: i.instance,
-            zone: i.zone,
-          })),
-        }),
-      });
-      const json = await res.json();
-      if (json.success) {
-        const dataMap: Record<string, WidgetDataResponse | null> = {};
-        const errMap: Record<string, string | null> = {};
-        for (const r of json.data.results as Array<{
+      const json = await apiPost<{
+        success: boolean;
+        data?: { results: Array<{
           key: string;
           ok: boolean;
           widget?: WidgetDeclaration;
@@ -128,7 +119,22 @@ export default function DashboardPage() {
           events?: Array<Record<string, unknown>>;
           sub?: { count: number; label: string } | null;
           error?: string;
-        }>) {
+        }> };
+      }>(
+        `/api/workspaces/${workspaceId}/widgets/batch`,
+        {
+          items: items.map((i) => ({
+            moduleId: i.moduleId,
+            widgetKey: i.widgetKey,
+            instance: i.instance,
+            zone: i.zone,
+          })),
+        }
+      );
+      if (json.success) {
+        const dataMap: Record<string, WidgetDataResponse | null> = {};
+        const errMap: Record<string, string | null> = {};
+        for (const r of json.data!.results) {
           if (r.ok && r.widget) {
             dataMap[r.key] = r.events
               ? { widget: r.widget, data: { kind: "activity_feed", events: r.events as WidgetDataResponse["data"]["events"] } }
@@ -184,12 +190,10 @@ export default function DashboardPage() {
   const handleInstallPack = async () => {
     setInstalling(true); setError(null);
     try {
-      const response = await fetch(`/api/workspaces/${workspaceId}/packs/${CRM_LITE_PACK_ID}/install`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "X-Requested-With": "XMLHttpRequest" },
-        body: JSON.stringify({ includeDemoData: false }),
-      });
-      const json = await response.json();
+      const json = await apiPost<{ success: boolean; error?: { message: string } }>(
+        `/api/workspaces/${workspaceId}/packs/${CRM_LITE_PACK_ID}/install`,
+        { includeDemoData: false }
+      );
       if (!json.success) throw new Error(json.error?.message ?? t("dashboard.installFailed"));
       notifyWorkspaceNavigationChanged(); notifyWorkspaceDataChanged();
       await loadLayout();
@@ -204,12 +208,10 @@ export default function DashboardPage() {
       // Re-install the pack with demo data enabled. installPack is idempotent:
       // already-installed modules are skipped, and demo records use `match`
       // fields so re-running will not create duplicates.
-      const response = await fetch(`/api/workspaces/${workspaceId}/packs/${CRM_LITE_PACK_ID}/install`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "X-Requested-With": "XMLHttpRequest" },
-        body: JSON.stringify({ includeDemoData: true }),
-      });
-      const json = await response.json();
+      const json = await apiPost<{ success: boolean; error?: { message: string } }>(
+        `/api/workspaces/${workspaceId}/packs/${CRM_LITE_PACK_ID}/install`,
+        { includeDemoData: true }
+      );
       if (!json.success) throw new Error(json.error?.message ?? t("dashboard.loadDemoFailed"));
       notifyWorkspaceDataChanged();
       await checkHasData();

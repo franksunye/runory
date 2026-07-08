@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { TABLES, queryAll } from "@runory/platform-core";
-import type { WorkflowDefinitionV2 } from "@runory/contracts";
+import type { WorkflowDefinition } from "@runory/contracts";
 import { requireWorkspaceContext } from "@/lib/auth";
 import { successResponse, handleError, getOrCreateRequestId } from "@/lib/http";
 
@@ -74,9 +74,9 @@ export async function GET(
         if (!r.active_version_id) return null;
         const version = versionMap.get(r.active_version_id);
         if (!version) return null;
-        let definition: WorkflowDefinitionV2 | null = null;
+        let definition: WorkflowDefinition | null = null;
         try {
-          definition = JSON.parse(version.definition_json) as WorkflowDefinitionV2;
+          definition = JSON.parse(version.definition_json) as WorkflowDefinition;
         } catch {
           definition = null;
         }

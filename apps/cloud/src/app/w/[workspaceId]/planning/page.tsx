@@ -17,6 +17,7 @@ import {
 import { useI18n } from "@/i18n/locale-provider";
 import type { MessageKey } from "@/i18n/messages";
 import type { PlanningEntry, WorkspaceRecord } from "@/lib/api-hooks";
+import { apiFetch } from "@/lib/api-fetch";
 
 // ── Constants ──
 
@@ -368,11 +369,14 @@ export default function PlanningPage() {
           from: rangeStart.toISOString(),
           to: rangeEnd.toISOString(),
         });
-        const res = await fetch(
+        const json = await apiFetch<{
+          success: boolean;
+          error?: { message: string };
+          data?: { entries: PlanningEntryRaw[] };
+        }>(
           `/api/workspaces/${workspaceId}/planning/entries?${params.toString()}`,
           { cache: "no-store" }
         );
-        const json = await res.json();
         if (!json.success) {
           throw new Error(json.error?.message ?? "Failed to load planning entries");
         }
@@ -401,11 +405,13 @@ export default function PlanningPage() {
     let cancelled = false;
     void (async () => {
       try {
-        const res = await fetch(
+        const json = await apiFetch<{
+          success: boolean;
+          data?: WorkspaceRecord[];
+        }>(
           `/api/workspaces/${workspaceId}/objects/technician/records?limit=200`,
           { cache: "no-store" }
         );
-        const json = await res.json();
         if (cancelled) return;
         if (!json.success) {
           setResources([]);

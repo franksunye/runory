@@ -7,6 +7,7 @@ import { ArrowLeft, ArrowRight, Bot, Boxes, Check, CheckCircle2, Cloud, Code2, G
 import { MarketingFooter } from "@/components/marketing-footer";
 import { MarketingHeader } from "@/components/marketing-header";
 import { useI18n } from "@/i18n/locale-provider";
+import { apiFetch, apiPost } from "@/lib/api-fetch";
 
 export default function LandingPage() {
   const router = useRouter();
@@ -23,8 +24,7 @@ export default function LandingPage() {
   const [devCode, setDevCode] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch("/api/auth/me", { cache: "no-store" })
-      .then((r) => r.json())
+    apiFetch<{ success: boolean; data?: { authenticated: boolean } }>("/api/auth/me", { cache: "no-store" })
       .then((j) => setAuthed(j.success && j.data?.authenticated === true))
       .catch(() => setAuthed(false));
   }, []);
@@ -36,12 +36,7 @@ export default function LandingPage() {
     setError(null);
     setDevCode(null);
     try {
-      const res = await fetch("/api/auth/request-otp", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "X-Requested-With": "XMLHttpRequest" },
-        body: JSON.stringify({ email: email.trim() }),
-      });
-      const json = await res.json();
+      const json = await apiPost<{ success: boolean; data?: { devCode?: string }; error?: { message?: string } }>("/api/auth/request-otp", { email: email.trim() });
       if (json.success) {
         setStep(2);
         if (json.data?.devCode) setDevCode(json.data.devCode);
@@ -63,12 +58,7 @@ export default function LandingPage() {
     setVerifying(true);
     setError(null);
     try {
-      const res = await fetch("/api/auth/verify-otp", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "X-Requested-With": "XMLHttpRequest" },
-        body: JSON.stringify({ email: email.trim(), code: code.trim() }),
-      });
-      const json = await res.json();
+      const json = await apiPost<{ success: boolean; error?: { message?: string } }>("/api/auth/verify-otp", { email: email.trim(), code: code.trim() });
       if (json.success) {
         // Backend auto-onboards (org + workspace) on first login.
         router.push("/dashboard");
@@ -89,12 +79,7 @@ export default function LandingPage() {
     setCreating(true);
     setError(null);
     try {
-      const res = await fetch("/api/workspaces", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "X-Requested-With": "XMLHttpRequest" },
-        body: JSON.stringify({ name: name.trim() }),
-      });
-      const json = await res.json();
+      const json = await apiPost<{ success: boolean; data?: { slug: string }; error?: { message?: string } }>("/api/workspaces", { name: name.trim() });
       if (json.success && json.data) {
         router.push(`/w/${json.data.slug}/dashboard`);
       } else {

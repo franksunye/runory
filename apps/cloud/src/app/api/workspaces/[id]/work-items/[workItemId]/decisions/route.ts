@@ -17,8 +17,8 @@ export async function POST(
       outcome: "approved" | "rejected" | "returned";
       comment?: string | null;
       expectedVersion?: number;
-      idempotencyKey?: string;
     };
+    const idempotencyKey = request.headers.get("idempotency-key") ?? undefined;
 
     if (!body?.outcome) {
       return handleError(new Error("outcome is required"), requestId);
@@ -45,7 +45,7 @@ export async function POST(
         actor,
         body.comment ?? null,
         body.expectedVersion,
-        body.idempotencyKey,
+        idempotencyKey,
         ctx.requestId,
       );
     } else {
@@ -56,7 +56,7 @@ export async function POST(
         body.outcome,
         body.comment ?? null,
         body.expectedVersion,
-        body.idempotencyKey,
+        idempotencyKey,
         ctx.requestId,
       );
     }

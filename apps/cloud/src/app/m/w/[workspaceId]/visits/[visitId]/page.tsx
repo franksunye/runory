@@ -24,6 +24,7 @@ import { useI18n } from "@/i18n/locale-provider";
 import type { MessageKey } from "@/i18n/messages";
 import type { MyWorkItem } from "@/lib/api-hooks";
 import { notifyWorkspaceDataChanged } from "@/lib/workspace-events";
+import { apiFetch, apiPost } from "@/lib/api-fetch";
 
 export const dynamic = "force-dynamic";
 
@@ -216,30 +217,33 @@ function MobileVisitDetailPage() {
         setError(null);
 
         // Fetch visit record + timeline in parallel.
-        const [visitRes, timelineRes] = await Promise.all([
-          fetch(
+        const [visitJson, timelineJson] = await Promise.all([
+          apiFetch<{
+            success: boolean;
+            error?: { message: string };
+            data?: VisitRecord | null;
+          }>(
             `/api/workspaces/${workspaceId}/objects/service_visit/records/${visitId}`,
             { cache: "no-store" }
           ),
-          fetch(
+          apiFetch<{
+            success: boolean;
+            data?: TimelineResponse;
+          }>(
             `/api/workspaces/${workspaceId}/timeline?subjectType=service_visit&subjectId=${encodeURIComponent(visitId)}`,
             { cache: "no-store" }
-          ),
+          ).catch(() => null),
         ]);
 
-        const visitJson = await visitRes.json();
         if (!visitJson.success) {
           throw new Error(visitJson.error?.message ?? t("mobile.errorOccurred"));
         }
         setVisit(visitJson.data ?? null);
 
         // Timeline may fail independently without blocking the visit view.
-        if (timelineRes.ok) {
-          const timelineJson = await timelineRes.json();
-          if (timelineJson.success) {
-            const data = timelineJson.data as TimelineResponse;
-            setTimeline(data?.entries ?? []);
-          }
+        if (timelineJson?.success) {
+          const data = timelineJson.data as TimelineResponse;
+          setTimeline(data?.entries ?? []);
         }
       } catch (e) {
         setError(e instanceof Error ? e.message : t("mobile.errorOccurred"));
@@ -254,11 +258,13 @@ function MobileVisitDetailPage() {
   // Separate fetch for the linked work item — non-blocking.
   const loadWorkItem = useCallback(async () => {
     try {
-      const res = await fetch(
+      const json = await apiFetch<{
+        success: boolean;
+        data?: { items: MyWorkItem[] };
+      }>(
         `/api/workspaces/${workspaceId}/my-work`,
         { cache: "no-store" }
       );
-      const json = await res.json();
       if (!json.success) return;
       const items: MyWorkItem[] = json.data?.items ?? [];
       // Find an active work item referencing this visit as its subject.
@@ -298,21 +304,13 @@ function MobileVisitDetailPage() {
       setLifecycleExecuting(commandType);
       setLifecycleToast(null);
       try {
-        const res = await fetch(
+        const json = await apiPost<{ success: boolean; error?: { message: string } }>(
           `/api/workspaces/${workspaceId}/commands/${commandType}`,
           {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "X-Requested-With": "XMLHttpRequest",
-            },
-            body: JSON.stringify({
-              recordId: visitId,
-              expectedVersion: visit.version ?? 1,
-            }),
+            recordId: visitId,
+            expectedVersion: visit.version ?? 1,
           }
         );
-        const json = await res.json();
         if (!json.success) {
           throw new Error(json.error?.message ?? t("mobile.actionFailed"));
         }

@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { useI18n } from "@/i18n/locale-provider";
 import type { MessageKey } from "@/i18n/messages";
+import { apiFetch, apiPost } from "@/lib/api-fetch";
 
 interface FormDef {
   id: string;
@@ -65,10 +66,13 @@ function BindingEditor() {
   useEffect(() => {
     void (async () => {
       try {
-        const res = await fetch(`/api/workspaces/${workspaceId}/forms/definitions`, {
+        const json = await apiFetch<{
+          success: boolean;
+          error?: { message: string };
+          data?: FormDef[];
+        }>(`/api/workspaces/${workspaceId}/forms/definitions`, {
           cache: "no-store",
         });
-        const json = await res.json();
         if (!json.success) throw new Error(json.error?.message ?? "Load failed");
         setDefinitions(json.data ?? []);
       } catch (e) {
@@ -86,18 +90,16 @@ function BindingEditor() {
     }
     try {
       setSubmitting(true);
-      const res = await fetch(`/api/workspaces/${workspaceId}/forms/bindings`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      const json = await apiPost<{ success: boolean; error?: { message: string } }>(
+        `/api/workspaces/${workspaceId}/forms/bindings`,
+        {
           formDefinitionId,
           usageType,
           usageKey: usageKey || undefined,
           labelOverride: labelOverride || undefined,
           requirementPolicy,
-        }),
-      });
-      const json = await res.json();
+        }
+      );
       if (!json.success) throw new Error(json.error?.message ?? "Create failed");
       showToast("success", "Form binding created");
       router.push(`/w/${workspaceId}/forms`);

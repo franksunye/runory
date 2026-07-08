@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { useI18n } from "@/i18n/locale-provider";
 import type { MessageKey } from "@/i18n/messages";
+import { apiFetch } from "@/lib/api-fetch";
 
 interface UsageItem {
   metric: string;
@@ -79,19 +80,25 @@ export default function BillingPage() {
     try {
       setError(null);
       // Resolve organizationId from the workspace context
-      const wsRes = await fetch(`/api/workspaces/${workspaceId}`);
-      const wsJson = await wsRes.json();
-      if (!wsJson.success || !wsJson.data.organizationId) {
+      const wsJson = await apiFetch<{
+        success: boolean;
+        error?: { message: string };
+        data?: { organizationId?: string };
+      }>(`/api/workspaces/${workspaceId}`);
+      if (!wsJson.success || !wsJson.data?.organizationId) {
         throw new Error(wsJson.error?.message ?? t("billing.orgInfoFailed"));
       }
       const orgId = wsJson.data.organizationId as string;
 
-      const billingRes = await fetch(`/api/organizations/${orgId}/billing`);
-      const billingJson = await billingRes.json();
+      const billingJson = await apiFetch<{
+        success: boolean;
+        error?: { message: string };
+        data?: BillingData;
+      }>(`/api/organizations/${orgId}/billing`);
       if (!billingJson.success) {
         throw new Error(billingJson.error?.message ?? t("billing.loadFailed"));
       }
-      setData(billingJson.data);
+      setData(billingJson.data ?? null);
     } catch (e) {
       setError(e instanceof Error ? e.message : t("workspace.loadFailed"));
     } finally {

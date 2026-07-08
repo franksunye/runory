@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { apiFetch } from "@/lib/api-fetch";
 import {
   AlertTriangle,
   Ban,
@@ -262,18 +263,13 @@ export function useAdminFetch<T>(
       setLoading(true);
       setError(null);
       try {
-        const res = await fetch(url, { cache: "no-store" });
-        if (res.status === 403) {
+        const json = await apiFetch<{ data?: T }>(url, { cache: "no-store" });
+        if (!cancelled) setData(json.data ?? null);
+      } catch (e) {
+        if (e instanceof Error && e.message.includes("403")) {
           router.replace("/login");
           return;
         }
-        if (!res.ok) {
-          if (!cancelled) setError("加载数据失败");
-          return;
-        }
-        const json = await res.json();
-        if (!cancelled) setData(json.data ?? null);
-      } catch {
         if (!cancelled) setError("加载数据失败");
       } finally {
         if (!cancelled) setLoading(false);

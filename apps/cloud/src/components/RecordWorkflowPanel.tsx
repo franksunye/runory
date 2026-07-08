@@ -5,11 +5,12 @@ import {
   GitBranch, CheckCircle2, Clock3, ChevronDown, ChevronUp,
   Gavel, ListChecks, FileText, User, Loader2, AlertCircle,
 } from "lucide-react";
-import type { WorkflowInstanceV2, WorkItem, WorkflowEvent } from "@runory/contracts";
+import type { WorkflowInstance, WorkItem, WorkflowEvent } from "@runory/contracts";
 import { useI18n } from "@/i18n/locale-provider";
 import type { MessageKey } from "@/i18n/messages";
 import { notifyWorkspaceDataChanged } from "@/lib/workspace-events";
-import { useRecordWorkflowV2 } from "@/lib/api-hooks";
+import { useRecordWorkflow } from "@/lib/api-hooks";
+import { apiPost } from "@/lib/api-fetch";
 
 interface RecordWorkflowPanelProps {
   workspaceId: string;
@@ -30,7 +31,7 @@ export default function RecordWorkflowPanel({
   recordId,
 }: RecordWorkflowPanelProps) {
   const { t } = useI18n();
-  const { data, isLoading, mutate } = useRecordWorkflowV2(workspaceId, objectKey, recordId);
+  const { data, isLoading, mutate } = useRecordWorkflow(workspaceId, objectKey, recordId);
 
   const handleRefresh = useCallback(() => {
     void mutate();
@@ -80,7 +81,7 @@ export default function RecordWorkflowPanel({
         </div>
         <div className="mt-4 flex items-center gap-2 text-xs text-slate-400">
           <AlertCircle size={14} />
-          {t("workflowV2.noWorkflow")}
+          {t("workflow.noWorkflow")}
         </div>
       </div>
     );
@@ -110,7 +111,7 @@ export default function RecordWorkflowPanel({
         {/* Current Step */}
         <div className="mt-4 flex items-center gap-3">
           <span className="text-xs font-medium uppercase tracking-wider text-slate-500">
-            {t("workflowV2.currentStep")}
+            {t("workflow.currentStep")}
           </span>
           <span className="inline-flex items-center gap-1 rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-700">
             {isCompleted ? <CheckCircle2 size={12} /> : <Clock3 size={12} />}
@@ -122,7 +123,7 @@ export default function RecordWorkflowPanel({
         {steps.length > 0 && (
           <div className="mt-3">
             <p className="text-xs font-medium uppercase tracking-wider text-slate-500">
-              {t("workflowV2.stepPipeline")}
+              {t("workflow.stepPipeline")}
             </p>
             <div className="mt-1 flex flex-wrap items-center gap-1">
               {steps.map((step, idx) => (
@@ -219,18 +220,13 @@ function WorkItemsSection({ workspaceId, workItems, onRefresh }: WorkItemsSectio
     try {
       setExecuting(`decide-${item.id}`);
       setError(null);
-      const res = await fetch(
+      const json = await apiPost<{ success: boolean; error?: { message: string } }>(
         `/api/workspaces/${workspaceId}/work-items/${item.id}/decisions`,
         {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "X-Requested-With": "XMLHttpRequest" },
-          body: JSON.stringify({
-            outcome,
-            expectedVersion: item.version,
-          }),
+          outcome,
+          expectedVersion: item.version,
         }
       );
-      const json = await res.json();
       if (!json.success) throw new Error(json.error?.message ?? t("workspace.updateFailed"));
       notifyWorkspaceDataChanged();
       onRefresh();
@@ -245,18 +241,13 @@ function WorkItemsSection({ workspaceId, workItems, onRefresh }: WorkItemsSectio
     try {
       setExecuting(`complete-${item.id}`);
       setError(null);
-      const res = await fetch(
+      const json = await apiPost<{ success: boolean; error?: { message: string } }>(
         `/api/workspaces/${workspaceId}/commands/work_item.complete`,
         {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "X-Requested-With": "XMLHttpRequest" },
-          body: JSON.stringify({
-            workItemId: item.id,
-            expectedVersion: item.version,
-          }),
+          workItemId: item.id,
+          expectedVersion: item.version,
         }
       );
-      const json = await res.json();
       if (!json.success) throw new Error(json.error?.message ?? t("workspace.updateFailed"));
       notifyWorkspaceDataChanged();
       onRefresh();
@@ -271,15 +262,10 @@ function WorkItemsSection({ workspaceId, workItems, onRefresh }: WorkItemsSectio
     try {
       setExecuting(`claim-${item.id}`);
       setError(null);
-      const res = await fetch(
+      const json = await apiPost<{ success: boolean; error?: { message: string } }>(
         `/api/workspaces/${workspaceId}/work-items/${item.id}/claim`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "X-Requested-With": "XMLHttpRequest" },
-          body: JSON.stringify({ expectedVersion: item.version }),
-        }
+        { expectedVersion: item.version }
       );
-      const json = await res.json();
       if (!json.success) throw new Error(json.error?.message ?? t("workspace.updateFailed"));
       notifyWorkspaceDataChanged();
       onRefresh();
@@ -294,7 +280,7 @@ function WorkItemsSection({ workspaceId, workItems, onRefresh }: WorkItemsSectio
     <div className="app-card mt-4 p-5 sm:p-6">
       <div className="flex items-center gap-2">
         <ListChecks size={16} className="text-indigo-500" />
-        <h3 className="text-sm font-bold text-slate-900">{t("workflowV2.workItems")}</h3>
+        <h3 className="text-sm font-bold text-slate-900">{t("workflow.workItems")}</h3>
       </div>
 
       {error && <div className="app-error mt-3">{error}</div>}
@@ -328,11 +314,11 @@ function WorkItemsSection({ workspaceId, workItems, onRefresh }: WorkItemsSectio
                           : t(statusLabelKey)}
                       </span>
                       <span className="app-badge bg-slate-50 text-slate-500">
-                        {t("workflowV2.stepKind")}: {item.stepId}
+                        {t("workflow.stepKind")}: {item.stepId}
                       </span>
                       {item.formBindingId && (
                         <span className="app-badge bg-purple-50 text-purple-700">
-                          {t("workflowV2.formBinding")}: {item.formBindingId.slice(0, 8)}
+                          {t("workflow.formBinding")}: {item.formBindingId.slice(0, 8)}
                         </span>
                       )}
                     </div>
@@ -340,7 +326,7 @@ function WorkItemsSection({ workspaceId, workItems, onRefresh }: WorkItemsSectio
                       {item.assigneeId ? (
                         <span className="flex items-center gap-1">
                           <User size={12} />
-                          {t("workflowV2.assignee")}:{" "}
+                          {t("workflow.assignee")}:{" "}
                           {item.assigneeType === "permission_group"
                             ? item.assigneeId.replace(/_/g, " ")
                             : item.assigneeId}
@@ -348,7 +334,7 @@ function WorkItemsSection({ workspaceId, workItems, onRefresh }: WorkItemsSectio
                       ) : null}
                       <span className={`flex items-center gap-1 ${overdue ? "font-semibold text-red-600" : ""}`}>
                         <Clock3 size={12} />
-                        {t("workflowV2.dueDate")}:{" "}
+                        {t("workflow.dueDate")}:{" "}
                         {item.dueAt ? formatWorkDate(item.dueAt) : t("myWork.noDueDate")}
                       </span>
                     </div>
@@ -458,7 +444,7 @@ function EventsSection({ events }: EventsSectionProps) {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Clock3 size={16} className="text-indigo-500" />
-          <h3 className="text-sm font-bold text-slate-900">{t("workflowV2.recentEvents")}</h3>
+          <h3 className="text-sm font-bold text-slate-900">{t("workflow.recentEvents")}</h3>
         </div>
         {sorted.length > 5 && (
           <button
@@ -473,7 +459,7 @@ function EventsSection({ events }: EventsSectionProps) {
       </div>
 
       {visible.length === 0 ? (
-        <p className="mt-3 text-xs text-slate-400">{t("workflowV2.noEvents")}</p>
+        <p className="mt-3 text-xs text-slate-400">{t("workflow.noEvents")}</p>
       ) : (
         <ol className="mt-3 space-y-2">
           {visible.map((event) => {

@@ -14,6 +14,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { useI18n } from "@/i18n/locale-provider";
+import { apiFetch, apiPost, apiPatch } from "@/lib/api-fetch";
 
 type OrgRole = "owner" | "admin" | "member";
 
@@ -62,8 +63,11 @@ export default function SettingsPage() {
   const loadData = useCallback(async () => {
     setError(null);
     try {
-      const res = await fetch(`/api/workspaces/${workspaceId}`);
-      const json = await res.json();
+      const json = await apiFetch<{
+        success: boolean;
+        error?: { message: string };
+        data: WorkspaceInfo;
+      }>(`/api/workspaces/${workspaceId}`);
       if (json.success) {
         setWorkspace(json.data);
         setNameValue(json.data.name);
@@ -86,12 +90,10 @@ export default function SettingsPage() {
     setSavingName(true);
     setError(null);
     try {
-      const res = await fetch(`/api/workspaces/${workspaceId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json", "X-Requested-With": "XMLHttpRequest" },
-        body: JSON.stringify({ name: nameValue.trim() }),
-      });
-      const json = await res.json();
+      const json = await apiPatch<{ success: boolean; error?: { message: string }; data: WorkspaceInfo }>(
+        `/api/workspaces/${workspaceId}`,
+        { name: nameValue.trim() }
+      );
       if (json.success) {
         setWorkspace(json.data);
         setEditingName(false);
@@ -116,12 +118,10 @@ export default function SettingsPage() {
     setDeleting(true);
     setError(null);
     try {
-      const res = await fetch(`/api/workspaces/${workspaceId}/lifecycle`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "X-Requested-With": "XMLHttpRequest" },
-        body: JSON.stringify({ action: "delete" }),
-      });
-      const json = await res.json();
+      const json = await apiPost<{ success: boolean; error?: { message: string } }>(
+        `/api/workspaces/${workspaceId}/lifecycle`,
+        { action: "delete" }
+      );
       if (json.success) {
         setMessage(t("settings.scheduledDelete"));
         setConfirmDelete(false);

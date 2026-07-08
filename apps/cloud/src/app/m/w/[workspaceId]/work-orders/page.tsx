@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { useI18n } from "@/i18n/locale-provider";
 import type { WorkspaceRecord } from "@/lib/api-hooks";
+import { apiFetch } from "@/lib/api-fetch";
 
 export const dynamic = "force-dynamic";
 
@@ -77,11 +78,14 @@ function MobileWorkOrdersPage() {
         const params = new URLSearchParams();
         if (debouncedSearch) params.set("search", debouncedSearch);
         params.set("limit", "50");
-        const res = await fetch(
+        const json = await apiFetch<{
+          success: boolean;
+          error?: { message: string };
+          data?: WorkspaceRecord[];
+        }>(
           `/api/workspaces/${workspaceId}/objects/work_order/records?${params.toString()}`,
           { cache: "no-store" }
         );
-        const json = await res.json();
         if (!json.success) {
           throw new Error(json.error?.message ?? t("mobile.errorOccurred"));
         }

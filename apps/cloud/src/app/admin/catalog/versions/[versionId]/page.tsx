@@ -30,6 +30,7 @@ import {
   formatDuration,
   useAdminFetch,
 } from "../../../_components/shared";
+import { apiFetch, apiPost } from "@/lib/api-fetch";
 
 export default function VersionDetailPage() {
   const params = useParams<{ versionId: string }>();
@@ -56,13 +57,11 @@ export default function VersionDetailPage() {
   const loadAux = useCallback(async () => {
     if (!version) return;
     try {
-      const [itemRes, releasesRes] = await Promise.all([
-        fetch(`/api/platform/catalog/${version.catalogItemId}`, { cache: "no-store" }),
-        fetch(`/api/platform/releases`, { cache: "no-store" }),
+      const [itemJson, releasesJson] = await Promise.all([
+        apiFetch<{ success: boolean; data?: CatalogItem }>(`/api/platform/catalog/${version.catalogItemId}`, { cache: "no-store" }),
+        apiFetch<{ success: boolean; data?: CatalogRelease[] }>(`/api/platform/releases`, { cache: "no-store" }),
       ]);
-      const itemJson = await itemRes.json();
-      const releasesJson = await releasesRes.json();
-      if (itemJson.success) setItem(itemJson.data);
+      if (itemJson.success) setItem(itemJson.data ?? null);
       if (releasesJson.success) {
         const all: CatalogRelease[] = releasesJson.data ?? [];
         setReleases(all.filter((r) => r.catalogVersionId === versionId));
@@ -78,12 +77,7 @@ export default function VersionDetailPage() {
     setActionLoading(action);
     setActionError(null);
     try {
-      const res = await fetch(`/api/platform/catalog/versions/${versionId}/${action}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "X-Requested-With": "XMLHttpRequest" },
-        body: JSON.stringify(body ?? {}),
-      });
-      const json = await res.json();
+      const json = await apiPost<{ success: boolean; error?: { message?: string } }>(`/api/platform/catalog/versions/${versionId}/${action}`, body ?? {});
       if (!json.success) {
         setActionError(json.error?.message ?? `${action} 失败`);
       } else {
@@ -120,12 +114,7 @@ export default function VersionDetailPage() {
       if (type === "promote" && channel) {
         body.channel = channel;
       }
-      const res = await fetch(`/api/platform/catalog/versions/${versionId}/${type}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "X-Requested-With": "XMLHttpRequest" },
-        body: JSON.stringify(body),
-      });
-      const json = await res.json();
+      const json = await apiPost<{ success: boolean; error?: { message?: string } }>(`/api/platform/catalog/versions/${versionId}/${type}`, body);
       if (!json.success) {
         setActionError(json.error?.message ?? `${type} 失败`);
       } else {

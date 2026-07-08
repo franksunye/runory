@@ -503,7 +503,7 @@ export const workflowDefinitionV2Schema = z.object({
   initialState: z.string(),
   steps: z.array(workflowStepSchema),
 });
-export type WorkflowDefinitionV2 = z.infer<typeof workflowDefinitionV2Schema>;
+export type WorkflowDefinition = z.infer<typeof workflowDefinitionV2Schema>;
 
 export interface WorkflowDefinitionVersion {
   id: string;
@@ -517,7 +517,7 @@ export interface WorkflowDefinitionVersion {
   createdAt: string;
 }
 
-export interface WorkflowInstanceV2 {
+export interface WorkflowInstance {
   id: string;
   workspaceId: string;
   workflowDefinitionId: string;

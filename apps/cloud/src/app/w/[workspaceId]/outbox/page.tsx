@@ -7,6 +7,7 @@ import {
   Inbox, Clock3, AlertCircle,
 } from "lucide-react";
 import { useI18n } from "@/i18n/locale-provider";
+import { apiFetch, apiPost } from "@/lib/api-fetch";
 
 interface OutboxMessage {
   id: string;
@@ -56,8 +57,11 @@ export default function OutboxPage() {
       setLoading(true);
       setError(null);
       const query = filterStatus ? `?status=${filterStatus}` : "";
-      const res = await fetch(`/api/workspaces/${workspaceId}/outbox${query}`, { cache: "no-store" });
-      const json = await res.json();
+      const json = await apiFetch<{
+        success: boolean;
+        error?: { message: string };
+        data?: OutboxMessage[];
+      }>(`/api/workspaces/${workspaceId}/outbox${query}`, { cache: "no-store" });
       if (!json.success) throw new Error(json.error?.message ?? "Failed to load");
       setMessages(json.data ?? []);
     } catch (e) {
@@ -72,12 +76,10 @@ export default function OutboxPage() {
   const handleRetry = async (id: string) => {
     try {
       setExecuting(`retry-${id}`);
-      const res = await fetch(`/api/workspaces/${workspaceId}/outbox`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messageId: id, action: "retry" }),
-      });
-      const json = await res.json();
+      const json = await apiPost<{ success: boolean; error?: { message: string } }>(
+        `/api/workspaces/${workspaceId}/outbox`,
+        { messageId: id, action: "retry" }
+      );
       if (!json.success) throw new Error(json.error?.message ?? "Retry failed");
       showToast("success", "Message queued for retry");
       await load();
@@ -91,12 +93,10 @@ export default function OutboxPage() {
   const handleMarkDelivered = async (id: string) => {
     try {
       setExecuting(`deliver-${id}`);
-      const res = await fetch(`/api/workspaces/${workspaceId}/outbox`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messageId: id, action: "mark_delivered" }),
-      });
-      const json = await res.json();
+      const json = await apiPost<{ success: boolean; error?: { message: string } }>(
+        `/api/workspaces/${workspaceId}/outbox`,
+        { messageId: id, action: "mark_delivered" }
+      );
       if (!json.success) throw new Error(json.error?.message ?? "Mark delivered failed");
       showToast("success", "Message marked as delivered");
       await load();

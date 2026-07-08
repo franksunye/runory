@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { useI18n } from "@/i18n/locale-provider";
 import type { MyWorkItem } from "@/lib/api-hooks";
+import { apiFetch, apiPost } from "@/lib/api-fetch";
 
 interface Toast { type: "success" | "error"; message: string }
 
@@ -111,11 +112,14 @@ function MyWorkPage() {
       if (filterKind) params.set("kind", filterKind);
       if (filterStatus) params.set("status", filterStatus);
       if (initialSubjectType) params.set("subjectType", initialSubjectType);
-      const res = await fetch(
+      const json = await apiFetch<{
+        success: boolean;
+        error?: { message: string };
+        data?: { items: MyWorkItem[] };
+      }>(
         `/api/workspaces/${workspaceId}/my-work?${params.toString()}`,
         { cache: "no-store" }
       );
-      const json = await res.json();
       if (!json.success) throw new Error(json.error?.message ?? "Failed to load");
       setItems(json.data?.items ?? []);
     } catch (e) {
@@ -130,15 +134,10 @@ function MyWorkPage() {
   const handleClaim = async (item: MyWorkItem) => {
     try {
       setExecuting(`claim-${item.id}`);
-      const res = await fetch(
+      const json = await apiPost<{ success: boolean; error?: { message: string } }>(
         `/api/workspaces/${workspaceId}/work-items/${item.id}/claim`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ expectedVersion: item.version }),
-        }
+        { expectedVersion: item.version }
       );
-      const json = await res.json();
       if (!json.success) throw new Error(json.error?.message ?? "Claim failed");
       showToast("success", "Work item claimed");
       await load();
@@ -153,19 +152,14 @@ function MyWorkPage() {
     if (!decisionFor) return;
     try {
       setExecuting(`decide-${decisionFor.id}`);
-      const res = await fetch(
+      const json = await apiPost<{ success: boolean; error?: { message: string } }>(
         `/api/workspaces/${workspaceId}/work-items/${decisionFor.id}/decisions`,
         {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            outcome: decisionOutcome,
-            comment: decisionComment || null,
-            expectedVersion: decisionFor.version,
-          }),
+          outcome: decisionOutcome,
+          comment: decisionComment || null,
+          expectedVersion: decisionFor.version,
         }
       );
-      const json = await res.json();
       if (!json.success) throw new Error(json.error?.message ?? "Decision failed");
       showToast("success", decisionOutcome === "approved" ? "Approved" : "Rejected");
       setDecisionFor(null);
@@ -181,18 +175,13 @@ function MyWorkPage() {
   const handleComplete = async (item: MyWorkItem) => {
     try {
       setExecuting(`complete-${item.id}`);
-      const res = await fetch(
+      const json = await apiPost<{ success: boolean; error?: { message: string } }>(
         `/api/workspaces/${workspaceId}/commands/work_item.complete`,
         {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            workItemId: item.id,
-            expectedVersion: item.version,
-          }),
+          workItemId: item.id,
+          expectedVersion: item.version,
         }
       );
-      const json = await res.json();
       if (!json.success) throw new Error(json.error?.message ?? "Complete failed");
       showToast("success", "Work item completed");
       await load();
@@ -350,7 +339,7 @@ function MyWorkPage() {
                         )}
                         {item.form_binding_id && (
                           <span className="text-purple-600">
-                            {t("workflowV2.formBinding")}: {item.form_binding_id.slice(0, 8)}
+                            {t("workflow.formBinding")}: {item.form_binding_id.slice(0, 8)}
                           </span>
                         )}
                       </div>

@@ -9,6 +9,7 @@ import {
 import { useI18n } from "@/i18n/locale-provider";
 import type { MessageKey } from "@/i18n/messages";
 import { notifyWorkspaceDataChanged } from "@/lib/workspace-events";
+import { apiFetch, apiPost } from "@/lib/api-fetch";
 
 export const dynamic = "force-dynamic";
 
@@ -134,11 +135,14 @@ function MobileWorkItemPage() {
     try {
       setLoading(true);
       setError(null);
-      const res = await fetch(
+      const json = await apiFetch<{
+        success: boolean;
+        error?: { message: string };
+        data?: WorkItemDetail | null;
+      }>(
         `/api/workspaces/${workspaceId}/my-work/${workItemId}`,
         { cache: "no-store" }
       );
-      const json = await res.json();
       if (!json.success) {
         throw new Error(json.error?.message ?? t("mobile.errorOccurred"));
       }
@@ -170,15 +174,10 @@ function MobileWorkItemPage() {
     if (!item) return;
     try {
       setExecuting("claim");
-      const res = await fetch(
+      const json = await apiPost<{ success: boolean; error?: { message: string } }>(
         `/api/workspaces/${workspaceId}/work-items/${item.id}/claim`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ expectedVersion: item.version }),
-        }
+        { expectedVersion: item.version }
       );
-      const json = await res.json();
       if (!json.success) throw new Error(json.error?.message ?? t("mobile.actionFailed"));
       notifyWorkspaceDataChanged();
       showToast("success", t("mobile.actionSuccess"));
@@ -198,15 +197,10 @@ function MobileWorkItemPage() {
     if (!item) return;
     try {
       setExecuting("complete");
-      const res = await fetch(
+      const json = await apiPost<{ success: boolean; error?: { message: string } }>(
         `/api/workspaces/${workspaceId}/work-items/${item.id}/complete`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ expectedVersion: item.version }),
-        }
+        { expectedVersion: item.version }
       );
-      const json = await res.json();
       if (!json.success) throw new Error(json.error?.message ?? t("mobile.actionFailed"));
       notifyWorkspaceDataChanged();
       showToast("success", t("mobile.actionSuccess"));
@@ -226,19 +220,14 @@ function MobileWorkItemPage() {
     if (!item) return;
     try {
       setExecuting(`decide-${outcome}`);
-      const res = await fetch(
+      const json = await apiPost<{ success: boolean; error?: { message: string } }>(
         `/api/workspaces/${workspaceId}/work-items/${item.id}/decisions`,
         {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            outcome,
-            comment: decisionComment || null,
-            expectedVersion: item.version,
-          }),
+          outcome,
+          comment: decisionComment || null,
+          expectedVersion: item.version,
         }
       );
-      const json = await res.json();
       if (!json.success) throw new Error(json.error?.message ?? t("mobile.actionFailed"));
       notifyWorkspaceDataChanged();
       showToast("success", t("mobile.actionSuccess"));
@@ -451,7 +440,7 @@ function MobileWorkItemPage() {
                 {/* Assignee */}
                 {item.assignee_id && (
                   <div className="flex items-center gap-3">
-                    <dt className="w-20 shrink-0 text-xs text-slate-400">{t("workflowV2.assignee")}</dt>
+                    <dt className="w-20 shrink-0 text-xs text-slate-400">{t("workflow.assignee")}</dt>
                     <dd className="min-w-0 flex-1 flex items-center gap-1 text-sm font-medium text-slate-800">
                       <User size={12} className="text-slate-400" />
                       {item.assignee_type === "permission_group"
@@ -464,7 +453,7 @@ function MobileWorkItemPage() {
                 {/* Due date */}
                 {item.due_at && (
                   <div className="flex items-center gap-3">
-                    <dt className="w-20 shrink-0 text-xs text-slate-400">{t("workflowV2.dueDate")}</dt>
+                    <dt className="w-20 shrink-0 text-xs text-slate-400">{t("workflow.dueDate")}</dt>
                     <dd className={`min-w-0 flex-1 text-sm font-medium ${overdue ? "text-red-600" : "text-slate-800"}`}>
                       {formatDateTime(item.due_at)}
                     </dd>

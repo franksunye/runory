@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { RefreshCw, RotateCcw, Trash2, Package } from "lucide-react";
 import { useI18n } from "@/i18n/locale-provider";
+import { apiFetch, apiPatch, apiDelete } from "@/lib/api-fetch";
 
 interface ObjectDef {
   objectKey: string;
@@ -32,8 +33,11 @@ export default function TrashPage() {
   const loadObjects = useCallback(async () => {
     setError(null);
     try {
-      const res = await fetch(`/api/workspaces/${workspaceId}/objects`);
-      const json = await res.json();
+      const json = await apiFetch<{
+        success: boolean;
+        data: ObjectDef[];
+        error?: { message: string };
+      }>(`/api/workspaces/${workspaceId}/objects`);
       if (json.success) {
         setObjects(json.data);
         if (json.data.length > 0 && !selectedObject) {
@@ -53,10 +57,13 @@ export default function TrashPage() {
     setLoadingRecords(true);
     setError(null);
     try {
-      const res = await fetch(
+      const json = await apiFetch<{
+        success: boolean;
+        data: DeletedRecord[];
+        error?: { message: string };
+      }>(
         `/api/workspaces/${workspaceId}/objects/${objectKey}/records?onlyDeleted=true`
       );
-      const json = await res.json();
       if (json.success) {
         setRecords(json.data);
       } else {
@@ -84,15 +91,10 @@ export default function TrashPage() {
     setRestoring(recordId);
     setError(null);
     try {
-      const res = await fetch(
+      const json = await apiPatch<{ success: boolean; error?: { message: string } }>(
         `/api/workspaces/${workspaceId}/objects/${objectKey}/records/${recordId}`,
-        {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json", "X-Requested-With": "XMLHttpRequest" },
-          body: JSON.stringify({ action: "restore" }),
-        }
+        { action: "restore" }
       );
-      const json = await res.json();
       if (json.success) {
         setMessage(t("trash.recordRestored"));
         setRecords((prev) => prev.filter((r) => r.id !== recordId));
@@ -111,14 +113,9 @@ export default function TrashPage() {
     setRestoring(recordId);
     setError(null);
     try {
-      const res = await fetch(
-        `/api/workspaces/${workspaceId}/objects/${objectKey}/records/${recordId}?hard=true`,
-        {
-          method: "DELETE",
-          headers: { "X-Requested-With": "XMLHttpRequest" },
-        }
+      const json = await apiDelete<{ success: boolean; error?: { message: string } }>(
+        `/api/workspaces/${workspaceId}/objects/${objectKey}/records/${recordId}?hard=true`
       );
-      const json = await res.json();
       if (json.success) {
         setMessage(t("trash.recordPurged"));
         setRecords((prev) => prev.filter((r) => r.id !== recordId));

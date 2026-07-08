@@ -21,6 +21,7 @@ import DiffPreview from "./DiffPreview";
 import { notifyWorkspaceDataChanged } from "@/lib/workspace-events";
 import { useI18n } from "@/i18n/locale-provider";
 import type { MessageKey } from "@/i18n/messages";
+import { apiFetch, apiPost } from "@/lib/api-fetch";
 
 type FieldType = "text" | "number" | "date" | "select" | "boolean";
 type Step = 1 | 2 | 3 | 4 | 5;
@@ -112,8 +113,9 @@ export default function AddFieldWizard() {
 
   const loadObjects = useCallback(async () => {
     try {
-      const res = await fetch(`/api/workspaces/${workspaceId}/objects`);
-      const json = await res.json();
+      const json = await apiFetch<{ success: boolean; data: ObjectInfo[] }>(
+        `/api/workspaces/${workspaceId}/objects`
+      );
       if (json.success) setObjects(json.data);
     } catch {
       /* ignore */
@@ -130,10 +132,9 @@ export default function AddFieldWizard() {
     setFormSections([]);
     setFormSection("__default__");
     try {
-      const res = await fetch(
+      const json = await apiFetch<{ success: boolean; data: Array<{ viewKey: string; config?: { sections?: Array<{ title: string }> } }> }>(
         `/api/workspaces/${workspaceId}/objects/${objectKey}/views`
       );
-      const json = await res.json();
       if (json.success) {
         const formView = json.data.find((v: any) => v.viewKey === `${objectKey}_form`);
         const sections: Array<{ title: string }> = formView?.config?.sections ?? [];
@@ -232,12 +233,10 @@ export default function AddFieldWizard() {
     const builtPlan = buildPlan();
     setPlan(builtPlan);
     try {
-      const planRes = await fetch(`/api/workspaces/${workspaceId}/agent/plan`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "X-Requested-With": "XMLHttpRequest" },
-        body: JSON.stringify(builtPlan),
-      });
-      const planJson = await planRes.json();
+      const planJson = await apiPost<{ success: boolean; error?: { message: string }; data: { valid: boolean; errors: string[] } }>(
+        `/api/workspaces/${workspaceId}/agent/plan`,
+        builtPlan
+      );
       if (!planJson.success) {
         setPrepareError(planJson.error?.message ?? t("addField.validationFailedShort"));
         return;
@@ -248,12 +247,10 @@ export default function AddFieldWizard() {
         return;
       }
 
-      const previewRes = await fetch(`/api/workspaces/${workspaceId}/agent/preview`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "X-Requested-With": "XMLHttpRequest" },
-        body: JSON.stringify(builtPlan),
-      });
-      const previewJson = await previewRes.json();
+      const previewJson = await apiPost<{ success: boolean; error?: { message: string }; data: unknown }>(
+        `/api/workspaces/${workspaceId}/agent/preview`,
+        builtPlan
+      );
       if (!previewJson.success) {
         setPrepareError(previewJson.error?.message ?? t("addField.previewFailed"));
         return;
@@ -276,12 +273,10 @@ export default function AddFieldWizard() {
     setApplying(true);
     setApplyError(null);
     try {
-      const res = await fetch(`/api/workspaces/${workspaceId}/agent/apply`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "X-Requested-With": "XMLHttpRequest" },
-        body: JSON.stringify({ plan, createdBy: "ui-user" }),
-      });
-      const json = await res.json();
+      const json = await apiPost<{ success: boolean; error?: { message: string }; data: { version: number } }>(
+        `/api/workspaces/${workspaceId}/agent/apply`,
+        { plan, createdBy: "ui-user" }
+      );
       if (json.success) {
         setAppliedVersion(json.data.version);
         notifyWorkspaceDataChanged();

@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { useI18n } from "@/i18n/locale-provider";
 import type { MessageKey } from "@/i18n/messages";
+import { apiFetch, apiPost } from "@/lib/api-fetch";
 
 type ExportStatus = "pending" | "running" | "completed" | "failed";
 type ExportFormat = "json" | "csv";
@@ -95,17 +96,16 @@ export default function ExportPage() {
   const loadData = useCallback(async () => {
     setError(null);
     try {
-      const [jobsRes, objectsRes] = await Promise.all([
-        fetch(`/api/workspaces/${workspaceId}/export-jobs`),
-        fetch(`/api/workspaces/${workspaceId}/objects`),
+      const [jobsJson, objectsJson] = await Promise.all([
+        apiFetch<{ success: boolean; data?: ExportJob[] }>(`/api/workspaces/${workspaceId}/export-jobs`),
+        apiFetch<{ success: boolean; data?: ObjectDef[] }>(`/api/workspaces/${workspaceId}/objects`),
       ]);
-      const jobsJson = await jobsRes.json();
-      const objectsJson = await objectsRes.json();
-      if (jobsJson.success) setJobs(jobsJson.data);
+      if (jobsJson.success) setJobs(jobsJson.data ?? []);
       if (objectsJson.success) {
-        setObjects(objectsJson.data);
-        if (objectsJson.data.length > 0 && !objectKey) {
-          setObjectKey(objectsJson.data[0].objectKey);
+        const objs = objectsJson.data ?? [];
+        setObjects(objs);
+        if (objs.length > 0 && !objectKey) {
+          setObjectKey(objs[0].objectKey);
         }
       }
     } catch (e) {
@@ -125,11 +125,9 @@ export default function ExportPage() {
     setError(null);
     setMessage(null);
     try {
-      const res = await fetch(`/api/workspaces/${workspaceId}/export-jobs`, {
-        method: "POST",
-        headers: { "X-Requested-With": "XMLHttpRequest" },
-      });
-      const json = await res.json();
+      const json = await apiPost<{ success: boolean; error?: { message: string } }>(
+        `/api/workspaces/${workspaceId}/export-jobs`
+      );
       if (json.success) {
         setMessage(t("exportPage.exportCompleted"));
         await loadData();
@@ -148,8 +146,10 @@ export default function ExportPage() {
     setError(null);
     try {
       // Fetch the latest job state to get manifestJson
-      const res = await fetch(`/api/workspaces/${workspaceId}/export-jobs/${job.id}`);
-      const json = await res.json();
+      const json = await apiFetch<{
+        success: boolean;
+        data?: { manifestJson: string | null };
+      }>(`/api/workspaces/${workspaceId}/export-jobs/${job.id}`);
       if (!json.success || !json.data?.manifestJson) {
         throw new Error(t("exportPage.fetchContentFailed"));
       }
@@ -209,14 +209,12 @@ export default function ExportPage() {
     setImportResult(null);
     try {
       const parsed = JSON.parse(importData);
-      const res = await fetch(`/api/workspaces/${workspaceId}/import`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "X-Requested-With": "XMLHttpRequest" },
-        body: JSON.stringify({ data: parsed, dryRun }),
-      });
-      const json = await res.json();
+      const json = await apiPost<{ success: boolean; error?: { message: string }; data?: NonNullable<typeof importResult> }>(
+        `/api/workspaces/${workspaceId}/import`,
+        { data: parsed, dryRun }
+      );
       if (json.success) {
-        setImportResult(json.data);
+        setImportResult(json.data ?? null);
       } else {
         setError(json.error?.message ?? t("exportPage.importFailed"));
       }

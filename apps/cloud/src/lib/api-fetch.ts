@@ -35,16 +35,17 @@ export async function apiFetch<T = unknown>(
   const res = await fetch(url, init);
 
   if (!res.ok) {
-    // Try to parse a JSON error body; fall back to HTTP status
+    // Try to parse a JSON error body; fall back to HTTP status.
+    // Note: the throw must happen OUTSIDE the try/catch, otherwise the
+    // catch would swallow it and replace it with a generic message.
+    let message: string | null = null;
     try {
       const body = await res.clone().json();
-      const message =
-        body?.error?.message ?? `Request failed (${res.status} ${res.statusText})`;
-      throw new Error(message);
+      message = body?.error?.message ?? null;
     } catch {
-      // Response was not JSON (likely HTML error page) — throw a clean error
-      throw new Error(`Request failed: ${res.status} ${res.statusText}`);
+      // Response was not JSON (likely HTML error page) — fall through
     }
+    throw new Error(message ?? `Request failed: ${res.status} ${res.statusText}`);
   }
 
   const json = await res.json();

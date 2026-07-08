@@ -14,6 +14,7 @@ import type {
 } from "@runory/platform-core";
 import { useI18n } from "@/i18n/locale-provider";
 import type { MessageKey } from "@/i18n/messages";
+import { apiFetch, apiPost, apiPatch, apiDelete } from "@/lib/api-fetch";
 
 interface Toast { type: "success" | "error"; message: string }
 
@@ -65,8 +66,11 @@ export default function AutomationsPage() {
     try {
       setLoading(true);
       setError(null);
-      const res = await fetch(`/api/workspaces/${workspaceId}/automations`, { cache: "no-store" });
-      const json = await res.json();
+      const json = await apiFetch<{
+        success: boolean;
+        error?: { message: string };
+        data: AutomationDefinitionInfo[];
+      }>(`/api/workspaces/${workspaceId}/automations`, { cache: "no-store" });
       if (!json.success) throw new Error(json.error?.message ?? t("workspace.loadFailed"));
       setAutomations(json.data);
     } catch (e) {
@@ -80,11 +84,10 @@ export default function AutomationsPage() {
 
   const handleToggle = async (auto: AutomationDefinitionInfo, enabled: boolean) => {
     try {
-      const res = await fetch(`/api/workspaces/${workspaceId}/automations/${auto.automationId}`, {
-        method: "PATCH", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ enabled }),
-      });
-      const json = await res.json();
+      const json = await apiPatch<{ success: boolean; error?: { message: string } }>(
+        `/api/workspaces/${workspaceId}/automations/${auto.automationId}`,
+        { enabled }
+      );
       if (!json.success) throw new Error(json.error?.message ?? t("automations.toggleFailed"));
       setAutomations(list => list.map(a => a.automationId === auto.automationId ? { ...a, enabled } : a));
       showToast("success", enabled ? t("automations.enabled") : t("automations.disabled"));
@@ -96,8 +99,9 @@ export default function AutomationsPage() {
   const handleDelete = async (auto: AutomationDefinitionInfo) => {
     if (!confirm(t("automations.deleteConfirm", { name: auto.name }))) return;
     try {
-      const res = await fetch(`/api/workspaces/${workspaceId}/automations/${auto.automationId}`, { method: "DELETE" });
-      const json = await res.json();
+      const json = await apiDelete<{ success: boolean; error?: { message: string } }>(
+        `/api/workspaces/${workspaceId}/automations/${auto.automationId}`
+      );
       if (!json.success) throw new Error(json.error?.message ?? t("workspace.deleteFailed"));
       showToast("success", t("automations.deleted", { name: auto.name }));
       await load();
@@ -192,8 +196,11 @@ function AutomationCard({ auto, workspaceId, expanded, onToggleExpand, onToggle,
 
   const loadRuns = useCallback(async () => {
     try {
-      const res = await fetch(`/api/workspaces/${workspaceId}/automations/${auto.automationId}/run?limit=10`, { cache: "no-store" });
-      const json = await res.json();
+      const json = await apiFetch<{
+        success: boolean;
+        error?: { message: string };
+        data: AutomationRun[];
+      }>(`/api/workspaces/${workspaceId}/automations/${auto.automationId}/run?limit=10`, { cache: "no-store" });
       if (!json.success) throw new Error(json.error?.message ?? t("automations.loadHistoryFailed"));
       setRuns(json.data);
       setLoadedRuns(true);
@@ -209,11 +216,10 @@ function AutomationCard({ auto, workspaceId, expanded, onToggleExpand, onToggle,
   const handleDryRun = async () => {
     setBusy(true);
     try {
-      const res = await fetch(`/api/workspaces/${workspaceId}/automations/${auto.automationId}/run`, {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ dryRun: true, triggerPayload: {} }),
-      });
-      const json = await res.json();
+      const json = await apiPost<{ success: boolean; error?: { message: string }; data: DryRunResult }>(
+        `/api/workspaces/${workspaceId}/automations/${auto.automationId}/run`,
+        { dryRun: true, triggerPayload: {} }
+      );
       if (!json.success) throw new Error(json.error?.message ?? t("automations.dryRunFailed"));
       setDryResult(json.data);
       showToast("success", t("automations.dryRunCompleted"));
@@ -228,11 +234,10 @@ function AutomationCard({ auto, workspaceId, expanded, onToggleExpand, onToggle,
   const handleRunNow = async () => {
     setBusy(true);
     try {
-      const res = await fetch(`/api/workspaces/${workspaceId}/automations/${auto.automationId}/run`, {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ dryRun: false, triggerType: "manual" }),
-      });
-      const json = await res.json();
+      const json = await apiPost<{ success: boolean; error?: { message: string } }>(
+        `/api/workspaces/${workspaceId}/automations/${auto.automationId}/run`,
+        { dryRun: false, triggerType: "manual" }
+      );
       if (!json.success) throw new Error(json.error?.message ?? t("automations.runFailed"));
       showToast("success", t("automations.runTriggered"));
       await loadRuns();

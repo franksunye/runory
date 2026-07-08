@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { useI18n } from "@/i18n/locale-provider";
 import type { MessageKey } from "@/i18n/messages";
+import { apiFetch, apiPost, apiPatch, apiDelete } from "@/lib/api-fetch";
 
 type OrgRole = "owner" | "admin" | "member";
 
@@ -113,8 +114,11 @@ export default function MembersPage() {
   const loadData = useCallback(async () => {
     setError(null);
     try {
-      const wsRes = await fetch(`/api/workspaces/${workspaceId}`);
-      const wsJson = await wsRes.json();
+      const wsJson = await apiFetch<{
+        success: boolean;
+        error?: { message: string };
+        data: { organizationId: string; organizationRole?: OrgRole };
+      }>(`/api/workspaces/${workspaceId}`);
       if (!wsJson.success || !wsJson.data.organizationId) {
         throw new Error(wsJson.error?.message ?? t("members.orgInfoFailed"));
       }
@@ -122,25 +126,24 @@ export default function MembersPage() {
       setOrgId(organizationId);
       setCurrentRole((wsJson.data.organizationRole as OrgRole) ?? "member");
 
-      const [membersRes, invitationsRes, groupsRes] = await Promise.all([
-        fetch(`/api/organizations/${organizationId}/members`),
-        fetch(`/api/organizations/${organizationId}/invitations`),
-        fetch(`/api/workspaces/${workspaceId}/permission-groups`),
+      const [membersJson, invitationsJson, groupsJson] = await Promise.all([
+        apiFetch<{ success: boolean; data?: OrgMember[] }>(`/api/organizations/${organizationId}/members`),
+        apiFetch<{ success: boolean; data?: Invitation[] }>(`/api/organizations/${organizationId}/invitations`),
+        apiFetch<{ success: boolean; data?: PermissionGroup[] }>(`/api/workspaces/${workspaceId}/permission-groups`),
       ]);
-      const membersJson = await membersRes.json();
-      const invitationsJson = await invitationsRes.json();
-      const groupsJson = await groupsRes.json();
-      if (membersJson.success) setMembers(membersJson.data);
-      if (invitationsJson.success) setInvitations(invitationsJson.data);
+      if (membersJson.success) setMembers(membersJson.data as OrgMember[]);
+      if (invitationsJson.success) setInvitations(invitationsJson.data as Invitation[]);
       if (groupsJson.success) {
-        setPermGroups(groupsJson.data);
+        const groups = groupsJson.data as PermissionGroup[];
+        setPermGroups(groups);
         // Load assignments for each group
         const assignmentMap: Record<string, GroupAssignment[]> = {};
         await Promise.all(
-          groupsJson.data.map(async (g: PermissionGroup) => {
-            const aRes = await fetch(`/api/workspaces/${workspaceId}/permission-groups/${g.id}/assignments`);
-            const aJson = await aRes.json();
-            if (aJson.success) assignmentMap[g.id] = aJson.data;
+          groups.map(async (g: PermissionGroup) => {
+            const aJson = await apiFetch<{ success: boolean; data?: GroupAssignment[] }>(
+              `/api/workspaces/${workspaceId}/permission-groups/${g.id}/assignments`
+            );
+            if (aJson.success) assignmentMap[g.id] = aJson.data as GroupAssignment[];
           })
         );
         setGroupAssignments(assignmentMap);
@@ -163,12 +166,10 @@ export default function MembersPage() {
     setError(null);
     setMessage(null);
     try {
-      const res = await fetch(`/api/organizations/${orgId}/invitations`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "X-Requested-With": "XMLHttpRequest" },
-        body: JSON.stringify({ email: inviteEmail, organizationRole: inviteRole }),
-      });
-      const json = await res.json();
+      const json = await apiPost<{ success: boolean; error?: { message: string } }>(
+        `/api/organizations/${orgId}/invitations`,
+        { email: inviteEmail, organizationRole: inviteRole }
+      );
       if (json.success) {
         setMessage(t("members.inviteSent", { email: inviteEmail }));
         setInviteEmail("");
@@ -189,11 +190,9 @@ export default function MembersPage() {
     setRevokingId(invId);
     setError(null);
     try {
-      const res = await fetch(
-        `/api/organizations/${orgId}/invitations/${invId}/revoke`,
-        { method: "POST", headers: { "X-Requested-With": "XMLHttpRequest" } }
+      const json = await apiPost<{ success: boolean; error?: { message: string } }>(
+        `/api/organizations/${orgId}/invitations/${invId}/revoke`
       );
-      const json = await res.json();
       if (json.success) {
         setMessage(t("members.inviteRevoked"));
         await loadData();
@@ -212,11 +211,9 @@ export default function MembersPage() {
     setRemovingUserId(userId);
     setError(null);
     try {
-      const res = await fetch(
-        `/api/organizations/${orgId}/members/${userId}`,
-        { method: "DELETE", headers: { "X-Requested-With": "XMLHttpRequest" } }
+      const json = await apiDelete<{ success: boolean; error?: { message: string } }>(
+        `/api/organizations/${orgId}/members/${userId}`
       );
-      const json = await res.json();
       if (json.success) {
         setMessage(t("members.memberRemoved"));
         setConfirmRemove(null);
@@ -236,15 +233,10 @@ export default function MembersPage() {
     setChangingRoleUserId(userId);
     setError(null);
     try {
-      const res = await fetch(
+      const json = await apiPatch<{ success: boolean; error?: { message: string } }>(
         `/api/organizations/${orgId}/members/${userId}`,
-        {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json", "X-Requested-With": "XMLHttpRequest" },
-          body: JSON.stringify({ role: newRole }),
-        }
+        { role: newRole }
       );
-      const json = await res.json();
       if (json.success) {
         setMessage(t("members.roleUpdated"));
         await loadData();
@@ -263,12 +255,10 @@ export default function MembersPage() {
     setAssigningGroupId(groupId);
     setError(null);
     try {
-      const res = await fetch(`/api/workspaces/${workspaceId}/permission-groups/${groupId}/assignments`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "X-Requested-With": "XMLHttpRequest" },
-        body: JSON.stringify({ userId }),
-      });
-      const json = await res.json();
+      const json = await apiPost<{ success: boolean; error?: { message: string } }>(
+        `/api/workspaces/${workspaceId}/permission-groups/${groupId}/assignments`,
+        { userId }
+      );
       if (json.success) {
         await loadData();
       } else {
@@ -285,11 +275,9 @@ export default function MembersPage() {
     setAssigningGroupId(groupId);
     setError(null);
     try {
-      const res = await fetch(
-        `/api/workspaces/${workspaceId}/permission-groups/${groupId}/assignments?userId=${userId}`,
-        { method: "DELETE", headers: { "X-Requested-With": "XMLHttpRequest" } }
+      const json = await apiDelete<{ success: boolean; error?: { message: string } }>(
+        `/api/workspaces/${workspaceId}/permission-groups/${groupId}/assignments?userId=${userId}`
       );
-      const json = await res.json();
       if (json.success) {
         await loadData();
       } else {

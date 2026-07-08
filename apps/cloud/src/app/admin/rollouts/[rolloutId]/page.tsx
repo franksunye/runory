@@ -20,6 +20,7 @@ import {
   formatDateTime,
   useAdminFetch,
 } from "../../_components/shared";
+import { apiPost } from "@/lib/api-fetch";
 
 interface RolloutDetail {
   rollout: ReleaseRollout;
@@ -44,12 +45,7 @@ export default function RolloutDetailPage() {
     try {
       const needsReason = action === "pause" || action === "cancel";
       const body = needsReason ? { reason: `Operator ${action} action` } : {};
-      const res = await fetch(`/api/platform/rollouts/${rolloutId}/${action}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "X-Requested-With": "XMLHttpRequest" },
-        body: JSON.stringify(body),
-      });
-      const json = await res.json();
+      const json = await apiPost<{ success: boolean; error?: { message?: string } }>(`/api/platform/rollouts/${rolloutId}/${action}`, body);
       if (!json.success) {
         setActionError(json.error?.message ?? `${action} 失败`);
       } else {

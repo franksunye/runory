@@ -8,6 +8,7 @@ import {
   RELEASE_BADGE,
   formatDateTime,
 } from "../_components/shared";
+import { apiFetch } from "@/lib/api-fetch";
 
 type Filter = "all" | "internal" | "beta" | "stable";
 
@@ -19,15 +20,14 @@ export default function ReleasesPage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/platform/releases", { cache: "no-store" });
-      if (res.status === 403) {
+      const json = await apiFetch<{ success: boolean; data?: CatalogRelease[] }>("/api/platform/releases", { cache: "no-store" });
+      if (json.success) setReleases(json.data ?? []);
+    } catch (e) {
+      if (e instanceof Error && e.message.includes("403")) {
         window.location.href = "/login";
         return;
       }
-      const json = await res.json();
-      if (json.success) setReleases(json.data ?? []);
-    } catch {
-      // ignore
+      // ignore other errors
     } finally {
       setLoading(false);
     }

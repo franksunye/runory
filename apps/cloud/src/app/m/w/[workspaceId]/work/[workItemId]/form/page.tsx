@@ -22,6 +22,7 @@ import type { FormBlock } from "@runory/contracts";
 import { MobileFormRenderer } from "@/components/forms/MobileFormRenderer";
 import { notifyWorkspaceDataChanged } from "@/lib/workspace-events";
 import { useI18n } from "@/i18n/locale-provider";
+import { apiFetch, apiPost } from "@/lib/api-fetch";
 
 export const dynamic = "force-dynamic";
 
@@ -299,11 +300,14 @@ function MobileFormPage() {
       setErrorMessage(null);
 
       // 1. Fetch the work item
-      const wiRes = await fetch(
+      const wiJson = await apiFetch<{
+        success: boolean;
+        error?: { message: string };
+        data: WorkItemDetail;
+      }>(
         `/api/workspaces/${workspaceId}/my-work/${workItemId}`,
         { cache: "no-store" }
       );
-      const wiJson = await wiRes.json();
       if (!wiJson.success) {
         throw new Error(
           wiJson.error?.message ?? "Failed to load work item"
@@ -319,19 +323,16 @@ function MobileFormPage() {
       }
 
       // 2. Resolve form binding → form definition (fetch both lists in parallel)
-      const [bindingsRes, definitionsRes] = await Promise.all([
-        fetch(
+      const [bindingsJson, definitionsJson] = await Promise.all([
+        apiFetch<{ success: boolean; data: Array<Record<string, unknown>> }>(
           `/api/workspaces/${workspaceId}/forms/bindings`,
           { cache: "no-store" }
         ),
-        fetch(
+        apiFetch<{ success: boolean; data: Array<Record<string, unknown>> }>(
           `/api/workspaces/${workspaceId}/forms/definitions`,
           { cache: "no-store" }
         ),
       ]);
-
-      const bindingsJson = await bindingsRes.json();
-      const definitionsJson = await definitionsRes.json();
 
       if (!bindingsJson.success || !definitionsJson.success) {
         throw new Error("Failed to load form bindings or definitions");
@@ -357,11 +358,14 @@ function MobileFormPage() {
       const formKey = defMeta.form_key as string;
 
       // 3. Fetch the full definition (with schema) by form_key
-      const defRes = await fetch(
+      const defJson = await apiFetch<{
+        success: boolean;
+        error?: { message: string };
+        data: { definition: FormDefinitionMeta; schema: FormSchemaData };
+      }>(
         `/api/workspaces/${workspaceId}/forms/definitions/${formKey}`,
         { cache: "no-store" }
       );
-      const defJson = await defRes.json();
       if (!defJson.success) {
         throw new Error("Failed to load form definition schema");
       }
@@ -381,13 +385,15 @@ function MobileFormPage() {
       setDraftPrompt(null);
       setInitialAnswers(undefined);
       try {
-        const draftRes = await fetch(
+        const draftJson = await apiFetch<{
+          success: boolean;
+          data: Array<Record<string, unknown>>;
+        }>(
           `/api/workspaces/${workspaceId}/forms/submissions?workItemId=${encodeURIComponent(
             workItemId
           )}&status=draft`,
           { cache: "no-store" }
         );
-        const draftJson = await draftRes.json();
         if (
           draftJson.success &&
           Array.isArray(draftJson.data) &&
@@ -443,22 +449,17 @@ function MobileFormPage() {
         const transformed = transformAnswers(schema.blocks, rawAnswers);
 
         // 1. Submit the form (creates an immutable, revisioned submission)
-        const subRes = await fetch(
+        const subJson = await apiPost<{ success: boolean; error?: { message: string } }>(
           `/api/workspaces/${workspaceId}/forms/submissions`,
           {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              formDefinitionId: formDefId,
-              subjectType: workItem.subject_type ?? undefined,
-              subjectId: workItem.subject_id ?? undefined,
-              workItemId: workItem.id,
-              bindingId: workItem.form_binding_id ?? undefined,
-              answers: transformed,
-            }),
+            formDefinitionId: formDefId,
+            subjectType: workItem.subject_type ?? undefined,
+            subjectId: workItem.subject_id ?? undefined,
+            workItemId: workItem.id,
+            bindingId: workItem.form_binding_id ?? undefined,
+            answers: transformed,
           }
         );
-        const subJson = await subRes.json();
         if (!subJson.success) {
           throw new Error(
             subJson.error?.message ?? "Form submission failed"
@@ -466,17 +467,12 @@ function MobileFormPage() {
         }
 
         // 2. Complete the work item to advance the workflow
-        const completeRes = await fetch(
+        const completeJson = await apiPost<{ success: boolean; error?: { message: string } }>(
           `/api/workspaces/${workspaceId}/work-items/${workItem.id}/complete`,
           {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              expectedVersion: workItem.version,
-            }),
+            expectedVersion: workItem.version,
           }
         );
-        const completeJson = await completeRes.json();
         if (!completeJson.success) {
           // The form was submitted but the work item couldn't be completed.
           // Per v0.5.1 Spec §5.4: "The UI MUST never claim a governed action
@@ -514,22 +510,17 @@ function MobileFormPage() {
       if (!workItem || !formDefId || !schema) return false;
       try {
         const transformed = transformAnswers(schema.blocks, rawAnswers);
-        const res = await fetch(
+        const json = await apiPost<{ success: boolean }>(
           `/api/workspaces/${workspaceId}/commands/form_submission.save_draft`,
           {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              formDefinitionId: formDefId,
-              subjectType: workItem.subject_type ?? undefined,
-              subjectId: workItem.subject_id ?? undefined,
-              workItemId: workItem.id,
-              bindingId: workItem.form_binding_id ?? undefined,
-              answers: transformed,
-            }),
+            formDefinitionId: formDefId,
+            subjectType: workItem.subject_type ?? undefined,
+            subjectId: workItem.subject_id ?? undefined,
+            workItemId: workItem.id,
+            bindingId: workItem.form_binding_id ?? undefined,
+            answers: transformed,
           }
         );
-        const json = await res.json();
         return Boolean(json.success);
       } catch {
         return false;

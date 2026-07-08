@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { notifyWorkspaceNavigationChanged } from "@/lib/workspace-events";
 import { useI18n } from "@/i18n/locale-provider";
+import { apiFetch, apiPost, apiDelete } from "@/lib/api-fetch";
 
 interface PackDetail {
   pack: {
@@ -60,8 +61,11 @@ export default function PackDetailPage() {
 
   const loadData = useCallback(async () => {
     try {
-      const res = await fetch(`/api/workspaces/${workspaceId}/packs/${packId}`);
-      const json = await res.json();
+      const json = await apiFetch<{
+        success: boolean;
+        error?: { message: string };
+        data: PackDetail;
+      }>(`/api/workspaces/${workspaceId}/packs/${packId}`);
       if (!json.success) throw new Error(json.error?.message ?? t("workspace.loadFailed"));
       setDetail(json.data);
     } catch (cause) {
@@ -79,13 +83,9 @@ export default function PackDetailPage() {
     setInstalling(true);
     setError(null);
 
-    fetch(
+    apiPost(
       `/api/workspaces/${workspaceId}/packs/${packId}/install`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "X-Requested-With": "XMLHttpRequest" },
-        body: JSON.stringify({ includeDemoData }),
-      }
+      { includeDemoData }
     ).catch(() => {});
 
     let attempts = 0;
@@ -94,8 +94,10 @@ export default function PackDetailPage() {
       if (!mountedRef.current) return;
       attempts++;
       try {
-        const res = await fetch(`/api/workspaces/${workspaceId}/packs/${packId}`);
-        const json = await res.json();
+        const json = await apiFetch<{
+          success: boolean;
+          data: PackDetail;
+        }>(`/api/workspaces/${workspaceId}/packs/${packId}`);
         if (json.success) {
           setDetail(json.data);
           const inst = json.data?.installation;
@@ -131,12 +133,8 @@ export default function PackDetailPage() {
     setLoadingDemo(true);
     setError(null);
 
-    fetch(
-      `/api/workspaces/${workspaceId}/packs/${packId}/demo-data`,
-      {
-        method: "POST",
-        headers: { "X-Requested-With": "XMLHttpRequest" },
-      }
+    apiPost(
+      `/api/workspaces/${workspaceId}/packs/${packId}/demo-data`
     ).catch(() => {});
 
     let attempts = 0;
@@ -145,8 +143,10 @@ export default function PackDetailPage() {
       if (!mountedRef.current) return;
       attempts++;
       try {
-        const res = await fetch(`/api/workspaces/${workspaceId}/packs/${packId}`);
-        const json = await res.json();
+        const json = await apiFetch<{
+          success: boolean;
+          data: PackDetail;
+        }>(`/api/workspaces/${workspaceId}/packs/${packId}`);
         if (json.success) {
           setDetail(json.data);
           const demoStatus = json.data?.installation?.demoDataStatus;
@@ -172,14 +172,10 @@ export default function PackDetailPage() {
     setError(null);
     setShowUninstallConfirm(false);
     try {
-      const res = await fetch(
-        `/api/workspaces/${workspaceId}/packs/${packId}`,
-        {
-          method: "DELETE",
-          headers: { "X-Requested-With": "XMLHttpRequest" },
-        }
-      );
-      const json = await res.json();
+      const json = await apiDelete<{
+        success: boolean;
+        error?: { message: string; requestId?: string };
+      }>(`/api/workspaces/${workspaceId}/packs/${packId}`);
       if (!json.success) {
         setError({ message: json.error?.message ?? t("modules.uninstallFailed"), requestId: json.error?.requestId });
         return;

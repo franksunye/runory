@@ -18,8 +18,8 @@ export async function POST(
       answers?: Record<string, unknown>;
       notes?: string;
       expectedVersion?: number;
-      idempotencyKey?: string;
     };
+    const idempotencyKey = request.headers.get("idempotency-key") ?? undefined;
 
     // Per v0.5.1: expectedVersion MUST be explicitly provided — no silent default.
     if (body.expectedVersion === undefined || body.expectedVersion === null) {
@@ -44,7 +44,7 @@ export async function POST(
       actor,
       body.expectedVersion,
       Object.keys(formData).length > 0 ? formData : undefined,
-      body.idempotencyKey,
+      idempotencyKey,
       ctx.requestId,
     );
     return successResponse(result, 200, ctx.requestId);

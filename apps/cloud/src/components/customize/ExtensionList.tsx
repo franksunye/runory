@@ -12,6 +12,7 @@ import {
 import { notifyWorkspaceDataChanged } from "@/lib/workspace-events";
 import { useI18n } from "@/i18n/locale-provider";
 import type { MessageKey } from "@/i18n/messages";
+import { apiFetch, apiPost } from "@/lib/api-fetch";
 
 interface ExtensionSummary {
   id: string;
@@ -89,17 +90,17 @@ export default function ExtensionList() {
 
   const loadData = useCallback(async () => {
     try {
-      const extRes = await fetch(`/api/workspaces/${workspaceId}/extensions`);
-      const extJson = await extRes.json();
+      const extJson = await apiFetch<{ success: boolean; data: ExtensionSummary[] }>(
+        `/api/workspaces/${workspaceId}/extensions`
+      );
       if (extJson.success) {
         setExtensions(extJson.data);
         const versionsMap: Record<string, ExtensionVersion[]> = {};
         await Promise.all(
           extJson.data.map(async (ext: ExtensionSummary) => {
-            const vRes = await fetch(
+            const vJson = await apiFetch<{ success: boolean; data: ExtensionVersion[] }>(
               `/api/workspaces/${workspaceId}/extensions/${ext.id}/versions`
             );
-            const vJson = await vRes.json();
             if (vJson.success) versionsMap[ext.id] = vJson.data;
           })
         );
@@ -121,12 +122,10 @@ export default function ExtensionList() {
     setRollingBack(true);
     setMessage(null);
     try {
-      const res = await fetch(`/api/workspaces/${workspaceId}/agent/rollback`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "X-Requested-With": "XMLHttpRequest" },
-        body: JSON.stringify({ extensionId: rollbackTarget.id, rolledBy: "ui-user" }),
-      });
-      const json = await res.json();
+      const json = await apiPost<{ success: boolean; error?: { message: string }; data: { version: number | string } }>(
+        `/api/workspaces/${workspaceId}/agent/rollback`,
+        { extensionId: rollbackTarget.id, rolledBy: "ui-user" }
+      );
       if (json.success) {
         setMessage({
           type: "success",

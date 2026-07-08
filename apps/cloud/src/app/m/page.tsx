@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, Building2, ChevronRight, Monitor } from "lucide-react";
 import { useI18n } from "@/i18n/locale-provider";
+import { apiFetch } from "@/lib/api-fetch";
 
 export const dynamic = "force-dynamic";
 
@@ -28,8 +29,11 @@ export default function MobileEntryPage() {
     try {
       setLoading(true);
       setError(null);
-      const res = await fetch(`/api/workspaces`, { cache: "no-store" });
-      const json = await res.json();
+      const json = await apiFetch<{
+        success: boolean;
+        error?: { message: string };
+        data?: { workspaces: WorkspaceEntry[] };
+      }>(`/api/workspaces`, { cache: "no-store" });
       if (!json.success) {
         throw new Error(json.error?.message ?? t("mobile.errorOccurred"));
       }

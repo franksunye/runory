@@ -7,15 +7,16 @@ import {
   Layers, AlertCircle,
 } from "lucide-react";
 import type {
-  WorkflowDefinitionV2, WorkflowStep, WorkflowStepKind,
+  WorkflowDefinition, WorkflowStep, WorkflowStepKind,
 } from "@runory/contracts";
 import { useI18n } from "@/i18n/locale-provider";
 import { useObjects } from "@/lib/api-hooks";
 import type { MessageKey } from "@/i18n/messages";
+import { apiFetch, apiPost } from "@/lib/api-fetch";
 
 // ── Types & Constants ──
 
-interface EditorV2Step {
+interface EditorStep {
   id: string;
   kind: WorkflowStepKind;
   next: string;
@@ -26,33 +27,33 @@ interface EditorV2Step {
   onReject: string;
 }
 
-const V2_STEP_KINDS: WorkflowStepKind[] = [
+const STEP_KINDS: WorkflowStepKind[] = [
   "start", "human_task", "approval", "system_command", "wait", "end",
 ];
 
-const V2_STEP_KIND_LABEL_KEY: Record<WorkflowStepKind, MessageKey> = {
-  start: "workflowV2.stepKindStart",
-  human_task: "workflowV2.stepKindHumanTask",
-  approval: "workflowV2.stepKindApproval",
-  system_command: "workflowV2.stepKindSystemCommand",
-  wait: "workflowV2.stepKindWait",
-  end: "workflowV2.stepKindEnd",
+const STEP_KIND_LABEL_KEY: Record<WorkflowStepKind, MessageKey> = {
+  start: "workflow.stepKindStart",
+  human_task: "workflow.stepKindHumanTask",
+  approval: "workflow.stepKindApproval",
+  system_command: "workflow.stepKindSystemCommand",
+  wait: "workflow.stepKindWait",
+  end: "workflow.stepKindEnd",
 };
 
 interface Toast { type: "success" | "error"; message: string }
 
 /** Shape of a single definition returned by the definitions endpoint. */
-interface V2DefinitionRow {
+interface DefinitionRow {
   id: string;
   workflowKey: string;
   name: string;
   targetObject: string;
   status: string;
   versionNumber: number;
-  definition: WorkflowDefinitionV2 | null;
+  definition: WorkflowDefinition | null;
 }
 
-const EMPTY_STEP: EditorV2Step = {
+const EMPTY_STEP: EditorStep = {
   id: "", kind: "human_task", next: "", command: "",
   formBindingId: "", permissionGroup: "", onApprove: "", onReject: "",
 };
@@ -62,14 +63,14 @@ const EMPTY_STEP: EditorV2Step = {
 export default function WorkflowEditorPage() {
   return (
     <Suspense fallback={<p className="text-sm text-slate-400">Loading...</p>}>
-      <V2StepEditor />
+      <StepEditor />
     </Suspense>
   );
 }
 
 // ── Step Editor (the only editor) ──
 
-function V2StepEditor() {
+function StepEditor() {
   const workspaceId = useParams().workspaceId as string;
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -81,7 +82,7 @@ function V2StepEditor() {
   const [name, setName] = useState("");
   const [targetObject, setTargetObject] = useState("");
   const [initialState, setInitialState] = useState("");
-  const [steps, setSteps] = useState<EditorV2Step[]>([
+  const [steps, setSteps] = useState<EditorStep[]>([
     { ...EMPTY_STEP, id: "start", kind: "start" },
   ]);
   const [submitting, setSubmitting] = useState(false);
@@ -100,18 +101,21 @@ function V2StepEditor() {
     if (!editKey) return;
     void (async () => {
       try {
-        const res = await fetch(
+        const json = await apiFetch<{
+          success: boolean;
+          error?: { message: string };
+          data?: DefinitionRow[];
+        }>(
           `/api/workspaces/${workspaceId}/workflows/definitions`,
           { cache: "no-store" }
         );
-        const json = await res.json();
         if (!json.success) {
-          throw new Error(json.error?.message ?? t("workflowV2.loadFailed"));
+          throw new Error(json.error?.message ?? t("workflow.loadFailed"));
         }
-        const rows: V2DefinitionRow[] = json.data ?? [];
+        const rows: DefinitionRow[] = json.data ?? [];
         const match = rows.find((r) => r.workflowKey === editKey);
         if (!match || !match.definition) {
-          setLoadError(t("workflowV2.loadFailed"));
+          setLoadError(t("workflow.loadFailed"));
           return;
         }
         const def = match.definition;
@@ -119,7 +123,7 @@ function V2StepEditor() {
         setName(def.name ?? "");
         setTargetObject(def.targetObject ?? "");
         setInitialState(def.initialState ?? "");
-        const loadedSteps: EditorV2Step[] = (def.steps ?? []).map((s: WorkflowStep) => ({
+        const loadedSteps: EditorStep[] = (def.steps ?? []).map((s: WorkflowStep) => ({
           id: s.id,
           kind: s.kind,
           next: s.next ?? "",
@@ -131,7 +135,7 @@ function V2StepEditor() {
         }));
         setSteps(loadedSteps.length > 0 ? loadedSteps : [{ ...EMPTY_STEP, id: "start", kind: "start" }]);
       } catch (e) {
-        setLoadError(e instanceof Error ? e.message : t("workflowV2.loadFailed"));
+        setLoadError(e instanceof Error ? e.message : t("workflow.loadFailed"));
       } finally {
         setLoadingExisting(false);
       }
@@ -140,7 +144,7 @@ function V2StepEditor() {
 
   const addStep = () => setSteps((prev) => [...prev, { ...EMPTY_STEP }]);
   const removeStep = (i: number) => setSteps((prev) => prev.filter((_, idx) => idx !== i));
-  const updateStep = (i: number, patch: Partial<EditorV2Step>) =>
+  const updateStep = (i: number, patch: Partial<EditorStep>) =>
     setSteps((prev) => prev.map((s, idx) => (idx === i ? { ...s, ...patch } : s)));
 
   const canSubmit = Boolean(workflowKey && name && targetObject && initialState)
@@ -160,25 +164,23 @@ function V2StepEditor() {
         if (s.onReject) step.onReject = s.onReject;
         return step;
       });
-      const res = await fetch(`/api/workspaces/${workspaceId}/workflows`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      const json = await apiPost<{ success: boolean; error?: { message: string } }>(
+        `/api/workspaces/${workspaceId}/workflows`,
+        {
           workflowKey,
           name,
           targetObject,
           initialState,
           steps: v2Steps,
-        }),
-      });
-      const json = await res.json();
+        }
+      );
       if (!json.success) {
-        throw new Error(json.error?.message ?? t("workflowV2.saveFailed"));
+        throw new Error(json.error?.message ?? t("workflow.saveFailed"));
       }
-      showToast("success", t("workflowV2.saved"));
+      showToast("success", t("workflow.saved"));
       setTimeout(() => router.push(`/w/${workspaceId}/workflows`), 800);
     } catch (e) {
-      showToast("error", e instanceof Error ? e.message : t("workflowV2.saveFailed"));
+      showToast("error", e instanceof Error ? e.message : t("workflow.saveFailed"));
     } finally {
       setSubmitting(false);
     }
@@ -200,14 +202,14 @@ function V2StepEditor() {
           <button
             onClick={() => router.push(`/w/${workspaceId}/workflows`)}
             className="grid size-9 place-items-center rounded-lg border border-slate-200 text-slate-500 transition hover:bg-slate-50 hover:text-slate-700"
-            title={t("workflowV2.editorBack")}
+            title={t("workflow.editorBack")}
           >
             <ArrowLeft size={18} />
           </button>
           <div>
             <p className="app-eyebrow">Step workflows</p>
             <h1 className="mt-1 text-2xl font-bold tracking-[-.025em] text-slate-950">
-              {editKey ? t("workflowV2.editWorkflowTitle", { name }) : t("workflowV2.createWorkflowTitle")}
+              {editKey ? t("workflow.editWorkflowTitle", { name }) : t("workflow.createWorkflowTitle")}
             </h1>
           </div>
         </div>
@@ -233,38 +235,38 @@ function V2StepEditor() {
         <div className="mb-4">
           <h2 className="flex items-center gap-2 text-sm font-bold text-slate-900">
             <Layers size={16} className="text-indigo-600" />
-            {t("workflowV2.stepEditorTitle")}
+            {t("workflow.stepEditorTitle")}
           </h2>
-          <p className="mt-1 text-xs text-slate-500">{t("workflowV2.stepEditorHint")}</p>
+          <p className="mt-1 text-xs text-slate-500">{t("workflow.stepEditorHint")}</p>
         </div>
 
         {/* Basic Info */}
-        <h3 className="mb-3 text-sm font-bold text-slate-900">{t("workflowV2.editorBasicInfo")}</h3>
+        <h3 className="mb-3 text-sm font-bold text-slate-900">{t("workflow.editorBasicInfo")}</h3>
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label={t("workflowV2.workflowKey")}>
+          <Field label={t("workflow.workflowKey")}>
             <input
               className="app-input"
               value={workflowKey}
               onChange={(e) => setWorkflowKey(e.target.value)}
-              placeholder={t("workflowV2.placeholderWorkflowKey")}
+              placeholder={t("workflow.placeholderWorkflowKey")}
               disabled={Boolean(editKey)}
             />
           </Field>
-          <Field label={t("workflowV2.fieldName")}>
+          <Field label={t("workflow.fieldName")}>
             <input
               className="app-input"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder={t("workflowV2.placeholderName")}
+              placeholder={t("workflow.placeholderName")}
             />
           </Field>
-          <Field label={t("workflowV2.fieldTargetObject")}>
+          <Field label={t("workflow.fieldTargetObject")}>
             <select
               className="app-input"
               value={targetObject}
               onChange={(e) => setTargetObject(e.target.value)}
             >
-              <option value="">{t("workflowV2.placeholderTargetObject")}</option>
+              <option value="">{t("workflow.placeholderTargetObject")}</option>
               {objects.map((obj) => (
                 <option key={obj.objectKey} value={obj.objectKey}>
                   {obj.label ?? obj.objectKey}
@@ -272,12 +274,12 @@ function V2StepEditor() {
               ))}
             </select>
           </Field>
-          <Field label={t("workflowV2.initialState")}>
+          <Field label={t("workflow.initialState")}>
             <input
               className="app-input"
               value={initialState}
               onChange={(e) => setInitialState(e.target.value)}
-              placeholder={t("workflowV2.placeholderInitialState")}
+              placeholder={t("workflow.placeholderInitialState")}
             />
           </Field>
         </div>
@@ -285,14 +287,14 @@ function V2StepEditor() {
         {/* Steps */}
         <div className="mt-5">
           <div className="mb-3 flex items-center justify-between">
-            <h3 className="text-sm font-bold text-slate-900">{t("workflowV2.stepPipeline")}</h3>
+            <h3 className="text-sm font-bold text-slate-900">{t("workflow.stepPipeline")}</h3>
             <button onClick={addStep} className="app-button-secondary min-h-8">
-              <Plus size={14} />{t("workflowV2.addStep")}
+              <Plus size={14} />{t("workflow.addStep")}
             </button>
           </div>
           <div className="space-y-3">
             {steps.length === 0 && (
-              <p className="text-xs text-slate-400">{t("workflowV2.noSteps")}</p>
+              <p className="text-xs text-slate-400">{t("workflow.noSteps")}</p>
             )}
             {steps.map((step, i) => (
               <div key={i} className="space-y-2 rounded-lg border border-slate-100 p-3">
@@ -302,16 +304,16 @@ function V2StepEditor() {
                     className="app-input h-9 w-32"
                     value={step.id}
                     onChange={(e) => updateStep(i, { id: e.target.value })}
-                    placeholder={t("workflowV2.placeholderStepId")}
+                    placeholder={t("workflow.placeholderStepId")}
                   />
                   <select
                     className="app-input h-9 w-40"
                     value={step.kind}
                     onChange={(e) => updateStep(i, { kind: e.target.value as WorkflowStepKind })}
                   >
-                    {V2_STEP_KINDS.map((k) => (
+                    {STEP_KINDS.map((k) => (
                       <option key={k} value={k}>
-                        {t(V2_STEP_KIND_LABEL_KEY[k])}
+                        {t(STEP_KIND_LABEL_KEY[k])}
                       </option>
                     ))}
                   </select>
@@ -329,13 +331,13 @@ function V2StepEditor() {
                     className="app-input h-9 min-w-[120px] flex-1"
                     value={step.next}
                     onChange={(e) => updateStep(i, { next: e.target.value })}
-                    placeholder={t("workflowV2.placeholderStepNext")}
+                    placeholder={t("workflow.placeholderStepNext")}
                   />
                   <input
                     className="app-input h-9 min-w-[120px] flex-1"
                     value={step.command}
                     onChange={(e) => updateStep(i, { command: e.target.value })}
-                    placeholder={t("workflowV2.placeholderStepCommand")}
+                    placeholder={t("workflow.placeholderStepCommand")}
                   />
                 </div>
                 {/* Row 3: formBindingId, permissionGroup */}
@@ -344,13 +346,13 @@ function V2StepEditor() {
                     className="app-input h-9 min-w-[120px] flex-1"
                     value={step.formBindingId}
                     onChange={(e) => updateStep(i, { formBindingId: e.target.value })}
-                    placeholder={t("workflowV2.formBinding")}
+                    placeholder={t("workflow.formBinding")}
                   />
                   <input
                     className="app-input h-9 min-w-[120px] flex-1"
                     value={step.permissionGroup}
                     onChange={(e) => updateStep(i, { permissionGroup: e.target.value })}
-                    placeholder={t("workflowV2.placeholderPermissionGroup")}
+                    placeholder={t("workflow.placeholderPermissionGroup")}
                   />
                 </div>
                 {/* Row 4: onApprove, onReject */}
@@ -359,13 +361,13 @@ function V2StepEditor() {
                     className="app-input h-9 min-w-[120px] flex-1"
                     value={step.onApprove}
                     onChange={(e) => updateStep(i, { onApprove: e.target.value })}
-                    placeholder={t("workflowV2.placeholderOnApprove")}
+                    placeholder={t("workflow.placeholderOnApprove")}
                   />
                   <input
                     className="app-input h-9 min-w-[120px] flex-1"
                     value={step.onReject}
                     onChange={(e) => updateStep(i, { onReject: e.target.value })}
-                    placeholder={t("workflowV2.placeholderOnReject")}
+                    placeholder={t("workflow.placeholderOnReject")}
                   />
                 </div>
               </div>

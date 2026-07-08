@@ -11,6 +11,7 @@ import {
 } from "@/lib/api-hooks";
 import { notifyWorkspaceDataChanged } from "@/lib/workspace-events";
 import { useI18n } from "@/i18n/locale-provider";
+import { apiPost } from "@/lib/api-fetch";
 
 export interface ObjectCreatePageProps {
   objectKey: string;
@@ -50,15 +51,10 @@ export default function ObjectCreatePage({
     setSubmitting(true);
     setError(null);
     try {
-      const res = await fetch(
+      const json = await apiPost<{ success: boolean; error?: { message: string } }>(
         `/api/workspaces/${workspaceId}/objects/${objectKey}/records`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "X-Requested-With": "XMLHttpRequest" },
-          body: JSON.stringify(data),
-        }
+        data
       );
-      const json = await res.json();
       if (json.success) {
         notifyWorkspaceDataChanged();
         router.push(basePath);

@@ -13,7 +13,7 @@ import type {
   WorkflowInstanceRow,
 } from "@runory/platform-core";
 import type {
-  WorkflowInstanceV2,
+  WorkflowInstance,
   WorkItem,
   WorkflowEvent,
 } from "@runory/contracts";
@@ -205,18 +205,18 @@ export function useWorkspaceChangeEvent(workspaceId: string): void {
 
 // ── V2 Record Workflow Hook ──
 
-interface RecordWorkflowV2Raw extends WorkflowInstanceRow {
+interface RecordWorkflowRaw extends WorkflowInstanceRow {
   work_items: MyWorkItem[];
-  events: WorkflowEventV2[];
+  events: WorkflowEventRow[];
 }
 
-export interface RecordWorkflowV2Data {
-  instance: WorkflowInstanceV2;
+export interface RecordWorkflowData {
+  instance: WorkflowInstance;
   workItems: WorkItem[];
   events: WorkflowEvent[];
 }
 
-function mapInstanceRow(row: WorkflowInstanceRow): WorkflowInstanceV2 {
+function mapInstanceRow(row: WorkflowInstanceRow): WorkflowInstance {
   return {
     id: row.id,
     workspaceId: row.workspace_id,
@@ -261,7 +261,7 @@ function mapWorkItemRow(row: MyWorkItem): WorkItem {
   };
 }
 
-function mapEventRow(row: WorkflowEventV2): WorkflowEvent {
+function mapEventRow(row: WorkflowEventRow): WorkflowEvent {
   return {
     id: row.id,
     instanceId: row.instance_id,
@@ -280,17 +280,17 @@ function mapEventRow(row: WorkflowEventV2): WorkflowEvent {
  * its work items and event history. Returns null when no V2 workflow is bound
  * to the record. Maps snake_case DB rows to camelCase contract types.
  */
-export function useRecordWorkflowV2(
+export function useRecordWorkflow(
   workspaceId: string,
   objectKey: string,
   recordId: string | undefined
 ) {
-  const { data: raw, error, isLoading, mutate } = useSWR<RecordWorkflowV2Raw | null>(
+  const { data: raw, error, isLoading, mutate } = useSWR<RecordWorkflowRaw | null>(
     recordId
       ? workspaceKey(workspaceId, `objects/${objectKey}/records/${recordId}/workflow`)
       : null
   );
-  const data = useMemo<RecordWorkflowV2Data | null>(() => {
+  const data = useMemo<RecordWorkflowData | null>(() => {
     if (!raw) return null;
     return {
       instance: mapInstanceRow(raw),
@@ -362,7 +362,7 @@ export function useMyWork(workspaceId: string, filters?: MyWorkFilters) {
 
 // ── v0.5 Forms 2.0 Hooks ──
 
-export interface FormDefinitionV2 {
+export interface FormDefinition {
   id: string;
   workspace_id: string;
   form_key: string;
@@ -390,7 +390,7 @@ export interface FormDefinitionDetail {
   };
 }
 
-export interface FormBindingV2 {
+export interface FormBinding {
   id: string;
   workspace_id: string;
   form_definition_id: string;
@@ -405,7 +405,7 @@ export interface FormBindingV2 {
   updated_at: string;
 }
 
-export interface FormSubmissionV2 {
+export interface FormSubmission {
   id: string;
   workspace_id: string;
   form_definition_id: string;
@@ -428,7 +428,7 @@ export interface FormSubmissionV2 {
 }
 
 export function useFormDefinitions(workspaceId: string) {
-  const { data, error, isLoading, mutate } = useSWR<FormDefinitionV2[]>(
+  const { data, error, isLoading, mutate } = useSWR<FormDefinition[]>(
     workspaceKey(workspaceId, "forms/definitions")
   );
   return { data, error, isLoading, mutate };
@@ -442,7 +442,7 @@ export function useFormDefinition(workspaceId: string, formKey: string | undefin
 }
 
 export function useFormBindings(workspaceId: string) {
-  const { data, error, isLoading, mutate } = useSWR<FormBindingV2[]>(
+  const { data, error, isLoading, mutate } = useSWR<FormBinding[]>(
     workspaceKey(workspaceId, "forms/bindings")
   );
   return { data, error, isLoading, mutate };
@@ -464,14 +464,14 @@ export function useFormSubmissions(workspaceId: string, filters?: FormSubmission
   if (filters?.bindingId) params.set("bindingId", filters.bindingId);
   if (filters?.status) params.set("status", filters.status);
   const query = params.toString() ? `?${params.toString()}` : "";
-  const { data, error, isLoading, mutate } = useSWR<FormSubmissionV2[]>(
+  const { data, error, isLoading, mutate } = useSWR<FormSubmission[]>(
     workspaceKey(workspaceId, `forms/submissions${query}`)
   );
   return { data, error, isLoading, mutate };
 }
 
 export function useFormSubmission(workspaceId: string, submissionId: string | undefined) {
-  const { data, error, isLoading, mutate } = useSWR<FormSubmissionV2 | null>(
+  const { data, error, isLoading, mutate } = useSWR<FormSubmission | null>(
     submissionId ? workspaceKey(workspaceId, `forms/submissions/${submissionId}`) : null
   );
   return { data, error, isLoading, mutate };
@@ -547,9 +547,9 @@ export function useOutboxMessages(workspaceId: string, status?: string) {
 
 // ── v0.5 Workflow Instance V2 Hooks ──
 
-export interface WorkflowInstanceDetailV2 extends WorkflowInstanceRow {
+export interface WorkflowInstanceDetail extends WorkflowInstanceRow {
   work_items: MyWorkItem[];
-  events: WorkflowEventV2[];
+  events: WorkflowEventRow[];
   definition: {
     workflowKey: string;
     name: string;
@@ -568,7 +568,7 @@ export interface WorkflowInstanceDetailV2 extends WorkflowInstanceRow {
   };
 }
 
-export interface WorkflowEventV2 {
+export interface WorkflowEventRow {
   id: string;
   instance_id: string;
   sequence: number;
@@ -580,11 +580,11 @@ export interface WorkflowEventV2 {
   occurred_at: string;
 }
 
-export function useWorkflowInstanceV2(
+export function useWorkflowInstance(
   workspaceId: string,
   instanceId: string | undefined
 ) {
-  const { data, error, isLoading, mutate } = useSWR<WorkflowInstanceDetailV2 | null>(
+  const { data, error, isLoading, mutate } = useSWR<WorkflowInstanceDetail | null>(
     instanceId ? workspaceKey(workspaceId, `workflows/instances/${instanceId}`) : null
   );
   return { data, error, isLoading, mutate };

@@ -8,15 +8,16 @@ import {
   Pencil,
 } from "lucide-react";
 import type {
-  WorkflowDefinitionV2, WorkflowStep, WorkflowStepKind,
+  WorkflowDefinition, WorkflowStep, WorkflowStepKind,
 } from "@runory/contracts";
 import { useI18n } from "@/i18n/locale-provider";
 import type { MessageKey } from "@/i18n/messages";
+import { apiFetch } from "@/lib/api-fetch";
 
 // ── Types ──
 
 /** API response shape for a definition row (from definitions endpoint). */
-interface V2DefinitionDetail {
+interface DefinitionDetail {
   id: string;
   workspaceId: string;
   workflowKey: string;
@@ -24,13 +25,13 @@ interface V2DefinitionDetail {
   targetObject: string;
   status: string;
   versionNumber: number;
-  definition: WorkflowDefinitionV2 | null;
+  definition: WorkflowDefinition | null;
   createdAt: string;
   updatedAt: string;
 }
 
 /** API response shape for a V2 instance detail (DB rows are snake_case). */
-interface V2InstanceDetail {
+interface InstanceDetail {
   id: string;
   workflow_definition_id: string;
   object_type: string;
@@ -40,11 +41,11 @@ interface V2InstanceDetail {
   version: number;
   started_at: string;
   completed_at: string | null;
-  work_items: V2WorkItemRow[];
-  definition: WorkflowDefinitionV2 | null;
+  work_items: WorkItemRow[];
+  definition: WorkflowDefinition | null;
 }
 
-interface V2WorkItemRow {
+interface WorkItemRow {
   id: string;
   instance_id: string;
   step_id: string;
@@ -56,13 +57,13 @@ interface V2WorkItemRow {
 
 // ── Constants & Helpers ──
 
-const V2_STEP_KIND_LABEL_KEY: Record<WorkflowStepKind, MessageKey> = {
-  start: "workflowV2.stepKindStart",
-  human_task: "workflowV2.stepKindHumanTask",
-  approval: "workflowV2.stepKindApproval",
-  system_command: "workflowV2.stepKindSystemCommand",
-  wait: "workflowV2.stepKindWait",
-  end: "workflowV2.stepKindEnd",
+const STEP_KIND_LABEL_KEY: Record<WorkflowStepKind, MessageKey> = {
+  start: "workflow.stepKindStart",
+  human_task: "workflow.stepKindHumanTask",
+  approval: "workflow.stepKindApproval",
+  system_command: "workflow.stepKindSystemCommand",
+  wait: "workflow.stepKindWait",
+  end: "workflow.stepKindEnd",
 };
 
 function v2StatusBadgeClass(status: string): string {
@@ -98,27 +99,27 @@ export default function WorkflowsPage() {
       <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="app-eyebrow">Step workflows</p>
-          <h1 className="mt-2 text-3xl font-bold tracking-[-.025em] text-slate-950">{t("workflowV2.pageTitle")}</h1>
-          <p className="mt-2 text-sm text-slate-500">{t("workflowV2.pageSubtitle")}</p>
+          <h1 className="mt-2 text-3xl font-bold tracking-[-.025em] text-slate-950">{t("workflow.pageTitle")}</h1>
+          <p className="mt-2 text-sm text-slate-500">{t("workflow.pageSubtitle")}</p>
         </div>
         <div className="flex items-center gap-2 self-start">
           <button onClick={() => setRefreshKey((k) => k + 1)} className="app-button-secondary"><RefreshCw size={16} />{t("workspace.refresh")}</button>
-          <button onClick={() => router.push(`/w/${workspaceId}/workflows/editor`)} className="app-button-primary"><Plus size={16} />{t("workflowV2.createWorkflow")}</button>
+          <button onClick={() => router.push(`/w/${workspaceId}/workflows/editor`)} className="app-button-primary"><Plus size={16} />{t("workflow.createWorkflow")}</button>
         </div>
       </header>
 
-      <V2DefinitionsSection workspaceId={workspaceId} refreshKey={refreshKey} />
-      <V2InstancesSection workspaceId={workspaceId} refreshKey={refreshKey} />
+      <DefinitionsSection workspaceId={workspaceId} refreshKey={refreshKey} />
+      <InstancesSection workspaceId={workspaceId} refreshKey={refreshKey} />
     </div>
   );
 }
 
 // ── Workflow Definitions Section ──
 
-function V2DefinitionsSection({ workspaceId, refreshKey }: { workspaceId: string; refreshKey: number }) {
+function DefinitionsSection({ workspaceId, refreshKey }: { workspaceId: string; refreshKey: number }) {
   const { t } = useI18n();
   const router = useRouter();
-  const [definitions, setDefinitions] = useState<V2DefinitionDetail[]>([]);
+  const [definitions, setDefinitions] = useState<DefinitionDetail[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -126,17 +127,20 @@ function V2DefinitionsSection({ workspaceId, refreshKey }: { workspaceId: string
     try {
       setLoading(true);
       setError(null);
-      const res = await fetch(
+      const json = await apiFetch<{
+        success: boolean;
+        error?: { message: string };
+        data?: DefinitionDetail[];
+      }>(
         `/api/workspaces/${workspaceId}/workflows/definitions`,
         { cache: "no-store" }
       );
-      const json = await res.json();
       if (!json.success) {
-        throw new Error(json.error?.message ?? t("workflowV2.loadFailed"));
+        throw new Error(json.error?.message ?? t("workflow.loadFailed"));
       }
       setDefinitions(json.data ?? []);
     } catch (e) {
-      setError(e instanceof Error ? e.message : t("workflowV2.loadFailed"));
+      setError(e instanceof Error ? e.message : t("workflow.loadFailed"));
     } finally {
       setLoading(false);
     }
@@ -152,9 +156,9 @@ function V2DefinitionsSection({ workspaceId, refreshKey }: { workspaceId: string
         <div>
           <h3 className="flex items-center gap-2 font-bold text-slate-900">
             <Workflow size={16} className="text-indigo-600" />
-            {t("workflowV2.definitions")}
+            {t("workflow.definitions")}
           </h3>
-          <p className="mt-1 text-xs text-slate-500">{t("workflowV2.definitionsHint")}</p>
+          <p className="mt-1 text-xs text-slate-500">{t("workflow.definitionsHint")}</p>
         </div>
         <button onClick={() => void load()} className="app-button-secondary" disabled={loading}>
           {loading ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
@@ -162,7 +166,7 @@ function V2DefinitionsSection({ workspaceId, refreshKey }: { workspaceId: string
       </div>
 
       {loading && definitions.length === 0 ? (
-        <p className="text-sm text-slate-400">{t("workflowV2.loadingDefinitions")}</p>
+        <p className="text-sm text-slate-400">{t("workflow.loadingDefinitions")}</p>
       ) : error ? (
         <div className="app-error">
           <div className="flex items-start gap-2">
@@ -171,7 +175,7 @@ function V2DefinitionsSection({ workspaceId, refreshKey }: { workspaceId: string
           </div>
         </div>
       ) : definitions.length === 0 ? (
-        <p className="text-sm text-slate-400">{t("workflowV2.noDefinitions")}</p>
+        <p className="text-sm text-slate-400">{t("workflow.noDefinitions")}</p>
       ) : (
         <ul className="space-y-4">
           {definitions.map((def) => {
@@ -187,8 +191,8 @@ function V2DefinitionsSection({ workspaceId, refreshKey }: { workspaceId: string
                       {def.name}
                     </p>
                     <p className="truncate text-xs text-slate-500">
-                      {t("workflowV2.workflowKey")}: <span className="font-mono">{def.workflowKey}</span>
-                      {" · "}{t("workflowV2.targetObject")}: <span className="font-mono">{def.targetObject}</span>
+                      {t("workflow.workflowKey")}: <span className="font-mono">{def.workflowKey}</span>
+                      {" · "}{t("workflow.targetObject")}: <span className="font-mono">{def.targetObject}</span>
                       {" · v"}{def.versionNumber}
                     </p>
                   </div>
@@ -207,7 +211,7 @@ function V2DefinitionsSection({ workspaceId, refreshKey }: { workspaceId: string
                 {/* Step pipeline with form binding & assignee rule badges */}
                 {steps.length > 0 && (
                   <div className="mt-3 pl-12">
-                    <p className="mb-1.5 text-xs font-semibold text-slate-500">{t("workflowV2.stepPipeline")}</p>
+                    <p className="mb-1.5 text-xs font-semibold text-slate-500">{t("workflow.stepPipeline")}</p>
                     <div className="flex flex-wrap items-center gap-1.5">
                       {steps.map((step, i) => {
                         const hasForm = Boolean(step.formBindingId);
@@ -216,29 +220,29 @@ function V2DefinitionsSection({ workspaceId, refreshKey }: { workspaceId: string
                           <span key={`${step.id}-${i}`} className="flex items-center gap-1.5">
                             <span
                               className={`app-badge ${v2StepKindBadgeClass(step.kind)}`}
-                              title={hasForm ? t("workflowV2.formBound") : undefined}
+                              title={hasForm ? t("workflow.formBound") : undefined}
                             >
                               {hasForm && (
                                 <FileText size={11} className="mr-0.5 shrink-0" />
                               )}
-                              {t(V2_STEP_KIND_LABEL_KEY[step.kind])}
+                              {t(STEP_KIND_LABEL_KEY[step.kind])}
                               <span className="font-mono text-[10px] opacity-70">{step.id}</span>
                             </span>
                             {hasForm && (
                               <span
                                 className="app-badge bg-purple-50 text-purple-700"
-                                title={t("workflowV2.stepForm")}
+                                title={t("workflow.stepForm")}
                               >
                                 <FileText size={11} />
-                                {t("workflowV2.stepForm")}: {step.formBindingId}
+                                {t("workflow.stepForm")}: {step.formBindingId}
                               </span>
                             )}
                             {permissionGroup && (
                               <span
                                 className="app-badge bg-slate-100 text-slate-600"
-                                title={t("workflowV2.assigneeRule")}
+                                title={t("workflow.assigneeRule")}
                               >
-                                {t("workflowV2.assigneeRule")}: {permissionGroup}
+                                {t("workflow.assigneeRule")}: {permissionGroup}
                               </span>
                             )}
                             {i < steps.length - 1 && <ArrowRight size={12} className="text-slate-300" />}
@@ -259,10 +263,10 @@ function V2DefinitionsSection({ workspaceId, refreshKey }: { workspaceId: string
 
 // ── Workflow Instances Section ──
 
-function V2InstancesSection({ workspaceId, refreshKey }: { workspaceId: string; refreshKey: number }) {
+function InstancesSection({ workspaceId, refreshKey }: { workspaceId: string; refreshKey: number }) {
   const { t } = useI18n();
   const router = useRouter();
-  const [instances, setInstances] = useState<V2InstanceDetail[]>([]);
+  const [instances, setInstances] = useState<InstanceDetail[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -271,15 +275,18 @@ function V2InstancesSection({ workspaceId, refreshKey }: { workspaceId: string; 
       setLoading(true);
       setError(null);
       // 1. Fetch my-work items to discover instance IDs
-      const workRes = await fetch(
+      const workJson = await apiFetch<{
+        success: boolean;
+        error?: { message: string };
+        data?: { items: WorkItemRow[] };
+      }>(
         `/api/workspaces/${workspaceId}/my-work?limit=100`,
         { cache: "no-store" }
       );
-      const workJson = await workRes.json();
       if (!workJson.success) {
-        throw new Error(workJson.error?.message ?? t("workflowV2.loadFailed"));
+        throw new Error(workJson.error?.message ?? t("workflow.loadFailed"));
       }
-      const items: V2WorkItemRow[] = workJson.data?.items ?? [];
+      const items: WorkItemRow[] = workJson.data?.items ?? [];
       // 2. Group by instance_id to get unique instance IDs
       const instanceIds = [...new Set(items.map((i) => i.instance_id))];
       if (instanceIds.length === 0) {
@@ -290,20 +297,22 @@ function V2InstancesSection({ workspaceId, refreshKey }: { workspaceId: string; 
       const details = await Promise.all(
         instanceIds.slice(0, 10).map(async (instId) => {
           try {
-            const res = await fetch(
+            const json = await apiFetch<{
+              success: boolean;
+              data?: InstanceDetail;
+            }>(
               `/api/workspaces/${workspaceId}/workflows/instances/${instId}`,
               { cache: "no-store" }
             );
-            const json = await res.json();
-            return json.success ? (json.data as V2InstanceDetail) : null;
+            return json.success ? (json.data as InstanceDetail) : null;
           } catch {
             return null;
           }
         })
       );
-      setInstances(details.filter((d): d is V2InstanceDetail => d !== null));
+      setInstances(details.filter((d): d is InstanceDetail => d !== null));
     } catch (e) {
-      setError(e instanceof Error ? e.message : t("workflowV2.loadFailed"));
+      setError(e instanceof Error ? e.message : t("workflow.loadFailed"));
     } finally {
       setLoading(false);
     }
@@ -319,9 +328,9 @@ function V2InstancesSection({ workspaceId, refreshKey }: { workspaceId: string; 
         <div>
           <h3 className="flex items-center gap-2 font-bold text-slate-900">
             <Layers size={16} className="text-indigo-600" />
-            {t("workflowV2.instancesTitle")}
+            {t("workflow.instancesTitle")}
           </h3>
-          <p className="mt-1 text-xs text-slate-500">{t("workflowV2.instancesHint")}</p>
+          <p className="mt-1 text-xs text-slate-500">{t("workflow.instancesHint")}</p>
         </div>
         <button onClick={() => void load()} className="app-button-secondary" disabled={loading}>
           {loading ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
@@ -329,7 +338,7 @@ function V2InstancesSection({ workspaceId, refreshKey }: { workspaceId: string; 
       </div>
 
       {loading && instances.length === 0 ? (
-        <p className="text-sm text-slate-400">{t("workflowV2.loadingInstances")}</p>
+        <p className="text-sm text-slate-400">{t("workflow.loadingInstances")}</p>
       ) : error ? (
         <div className="app-error">
           <div className="flex items-start gap-2">
@@ -338,11 +347,11 @@ function V2InstancesSection({ workspaceId, refreshKey }: { workspaceId: string; 
           </div>
         </div>
       ) : instances.length === 0 ? (
-        <p className="text-sm text-slate-400">{t("workflowV2.noInstances")}</p>
+        <p className="text-sm text-slate-400">{t("workflow.noInstances")}</p>
       ) : (
         <ul className="space-y-4">
           {instances.map((inst) => (
-            <V2InstanceRow key={inst.id} instance={inst}
+            <InstanceRow key={inst.id} instance={inst}
               onOpenRecord={(ot, rid) => router.push(`/w/${workspaceId}/o/${ot}/${rid}`)} />
           ))}
         </ul>
@@ -353,12 +362,12 @@ function V2InstancesSection({ workspaceId, refreshKey }: { workspaceId: string; 
 
 // ── Instance Row ──
 
-interface V2InstanceRowProps {
-  instance: V2InstanceDetail;
+interface InstanceRowProps {
+  instance: InstanceDetail;
   onOpenRecord: (objectType: string, recordId: string) => void;
 }
 
-function V2InstanceRow({ instance, onOpenRecord }: V2InstanceRowProps) {
+function InstanceRow({ instance, onOpenRecord }: InstanceRowProps) {
   const { t } = useI18n();
   const def = instance.definition;
   const steps: WorkflowStep[] = def?.steps ?? [];
@@ -384,25 +393,25 @@ function V2InstanceRow({ instance, onOpenRecord }: V2InstanceRowProps) {
             {def?.name ?? def?.workflowKey ?? instance.workflow_definition_id}
           </p>
           <p className="truncate text-xs text-slate-500">
-            {t("workflowV2.instanceId")}: <span className="font-mono">{instance.id}</span>
+            {t("workflow.instanceId")}: <span className="font-mono">{instance.id}</span>
             {def && (
-              <> · {t("workflowV2.definitionKey")}: <span className="font-mono">{def.workflowKey}</span></>
+              <> · {t("workflow.definitionKey")}: <span className="font-mono">{def.workflowKey}</span></>
             )}
           </p>
         </div>
         <span className={`app-badge ${v2StatusBadgeClass(instance.status)}`}>{instance.status}</span>
         {currentStepId && (
           <span className="app-badge bg-slate-100 text-slate-700">
-            {t("workflowV2.currentStep")}: <span className="font-mono">{currentStepId}</span>
+            {t("workflow.currentStep")}: <span className="font-mono">{currentStepId}</span>
           </span>
         )}
         {hasRecord && (
           <button
             onClick={() => onOpenRecord(instance.object_type, instance.record_id)}
             className="app-button-secondary min-h-8"
-            title={t("workflowV2.record")}
+            title={t("workflow.record")}
           >
-            <ExternalLink size={14} />{t("workflowV2.record")}
+            <ExternalLink size={14} />{t("workflow.record")}
           </button>
         )}
       </div>
@@ -410,7 +419,7 @@ function V2InstanceRow({ instance, onOpenRecord }: V2InstanceRowProps) {
       {/* Step pipeline (horizontal badges) */}
       {steps.length > 0 && (
         <div className="mt-3 pl-12">
-          <p className="mb-1.5 text-xs font-semibold text-slate-500">{t("workflowV2.stepPipeline")}</p>
+          <p className="mb-1.5 text-xs font-semibold text-slate-500">{t("workflow.stepPipeline")}</p>
           <div className="flex flex-wrap items-center gap-1.5">
             {steps.map((step, i) => {
               const isCurrent = step.id === currentStepId;
@@ -419,12 +428,12 @@ function V2InstanceRow({ instance, onOpenRecord }: V2InstanceRowProps) {
                 <span key={`${step.id}-${i}`} className="flex items-center gap-1.5">
                   <span
                     className={`app-badge ${v2StepKindBadgeClass(step.kind)} ${isCurrent ? "ring-2 ring-indigo-400" : ""}`}
-                    title={hasForm ? t("workflowV2.formBound") : undefined}
+                    title={hasForm ? t("workflow.formBound") : undefined}
                   >
                     {hasForm && (
                       <FileText size={11} className="mr-0.5 shrink-0" />
                     )}
-                    {t(V2_STEP_KIND_LABEL_KEY[step.kind])}
+                    {t(STEP_KIND_LABEL_KEY[step.kind])}
                     <span className="font-mono text-[10px] opacity-70">{step.id}</span>
                   </span>
                   {i < steps.length - 1 && <ArrowRight size={12} className="text-slate-300" />}
@@ -439,7 +448,7 @@ function V2InstanceRow({ instance, onOpenRecord }: V2InstanceRowProps) {
       <div className="mt-3 pl-12">
         <p className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold text-slate-500">
           <ListChecks size={13} />
-          {t("workflowV2.workItemsBreakdown")}
+          {t("workflow.workItemsBreakdown")}
           <span className="app-badge bg-slate-100 text-slate-600">{instance.work_items.length}</span>
         </p>
         <div className="flex flex-wrap gap-1.5">
@@ -449,7 +458,7 @@ function V2InstanceRow({ instance, onOpenRecord }: V2InstanceRowProps) {
             </span>
           ))}
           {Object.keys(breakdown).length === 0 && (
-            <span className="text-xs text-slate-400">{t("workflowV2.noInstances")}</span>
+            <span className="text-xs text-slate-400">{t("workflow.noInstances")}</span>
           )}
         </div>
       </div>

@@ -6,6 +6,7 @@ import { RefreshCw } from "lucide-react";
 import type { AuditLog } from "@runory/platform-core";
 import { useI18n } from "@/i18n/locale-provider";
 import type { MessageKey } from "@/i18n/messages";
+import { apiFetch } from "@/lib/api-fetch";
 
 type EventCategory = "create" | "update" | "delete" | "extension" | "system" | "workflow" | "form_submission" | "work_item" | "command";
 
@@ -100,8 +101,11 @@ export default function ActivityPage() {
   const load = useCallback(async () => {
     try {
       setError(null);
-      const res = await fetch(`/api/workspaces/${workspaceId}/audit`);
-      const json = await res.json();
+      const json = await apiFetch<{
+        success: boolean;
+        data: AuditLog[];
+        error?: { message: string };
+      }>(`/api/workspaces/${workspaceId}/audit`);
       if (json.success) {
         setLogs(json.data);
       } else {

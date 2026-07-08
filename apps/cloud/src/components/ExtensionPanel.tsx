@@ -6,6 +6,7 @@ import DiffPreview from "./DiffPreview";
 import { notifyWorkspaceDataChanged } from "@/lib/workspace-events";
 import { useI18n } from "@/i18n/locale-provider";
 import type { MessageKey } from "@/i18n/messages";
+import { apiPost } from "@/lib/api-fetch";
 
 interface ExtensionPanelProps {
   workspaceId: string;
@@ -44,7 +45,7 @@ function buildExamplePlan(t: TFunc) {
 }
 
 interface AppliedSummary {
-  version: number;
+  version: string;
   fields: Array<{ object: string; fieldKey: string; label: string }>;
   affectedViews: string[];
 }
@@ -95,12 +96,10 @@ export default function ExtensionPanel({
     setMessage(null);
     setAppliedSummary(null);
     try {
-      const res = await fetch(`/api/workspaces/${workspaceId}/agent/plan`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "X-Requested-With": "XMLHttpRequest" },
-        body: JSON.stringify(plan),
-      });
-      const json = await res.json();
+      const json = await apiPost<{ success: boolean; error?: { message: string }; data: { valid: boolean; errors: string[] } }>(
+        `/api/workspaces/${workspaceId}/agent/plan`,
+        plan
+      );
       if (json.success) {
         setValidation(json.data);
         setMessage(
@@ -138,12 +137,10 @@ export default function ExtensionPanel({
     setMessage(null);
     setAppliedSummary(null);
     try {
-      const res = await fetch(`/api/workspaces/${workspaceId}/agent/preview`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "X-Requested-With": "XMLHttpRequest" },
-        body: JSON.stringify(plan),
-      });
-      const json = await res.json();
+      const json = await apiPost<{ success: boolean; error?: { message: string }; data: unknown }>(
+        `/api/workspaces/${workspaceId}/agent/preview`,
+        plan
+      );
       if (json.success) {
         setDiff(json.data);
         setMessage({ type: "info", text: t("extensionPanel.previewGenerated") });
@@ -173,12 +170,10 @@ export default function ExtensionPanel({
     setBusy(true);
     setMessage(null);
     try {
-      const res = await fetch(`/api/workspaces/${workspaceId}/agent/apply`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "X-Requested-With": "XMLHttpRequest" },
-        body: JSON.stringify({ plan, createdBy: "ui-user" }),
-      });
-      const json = await res.json();
+      const json = await apiPost<{ success: boolean; error?: { message: string }; data: { version: string } }>(
+        `/api/workspaces/${workspaceId}/agent/apply`,
+        { plan, createdBy: "ui-user" }
+      );
       if (json.success) {
         const addedFields = (plan.customFields ?? []).map((field: any) => ({
           object: field.targetObject,
@@ -220,12 +215,10 @@ export default function ExtensionPanel({
     setBusy(true);
     setMessage(null);
     try {
-      const res = await fetch(`/api/workspaces/${workspaceId}/agent/rollback`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "X-Requested-With": "XMLHttpRequest" },
-        body: JSON.stringify({ extensionId, rolledBy: "ui-user" }),
-      });
-      const json = await res.json();
+      const json = await apiPost<{ success: boolean; error?: { message: string }; data: { version: string } }>(
+        `/api/workspaces/${workspaceId}/agent/rollback`,
+        { extensionId, rolledBy: "ui-user" }
+      );
       if (json.success) {
         setMessage({
           type: "success",

@@ -22,6 +22,7 @@ import { notifyWorkspaceDataChanged } from "@/lib/workspace-events";
 import { useI18n } from "@/i18n/locale-provider";
 import { objectKeyToRouteSegment } from "@/lib/dynamic-object";
 import type { MessageKey } from "@/i18n/messages";
+import { apiFetch, apiDelete } from "@/lib/api-fetch";
 
 // Maps object keys to i18n label keys for backlink panel labels.
 // Without this, backlink panels show the relation's child→parent label
@@ -364,7 +365,7 @@ export default function ObjectDetailPage({
     setSubmitting(true);
     setError(null);
     try {
-      const res = await fetch(
+      const json = await apiFetch<{ success: boolean; error?: { message: string }; data: WorkspaceRecord }>(
         `/api/workspaces/${workspaceId}/objects/${objectKey}/records/${recordId}`,
         {
           method: "PUT",
@@ -372,7 +373,6 @@ export default function ObjectDetailPage({
           body: JSON.stringify(data),
         }
       );
-      const json = await res.json();
       if (json.success) {
         await mutateRecord(json.data);
         notifyWorkspaceDataChanged();
@@ -392,11 +392,9 @@ export default function ObjectDetailPage({
     setDeleting(true);
     setError(null);
     try {
-      const res = await fetch(
-        `/api/workspaces/${workspaceId}/objects/${objectKey}/records/${recordId}`,
-        { method: "DELETE", headers: { "X-Requested-With": "XMLHttpRequest" } }
+      const json = await apiDelete<{ success: boolean; error?: { message: string } }>(
+        `/api/workspaces/${workspaceId}/objects/${objectKey}/records/${recordId}`
       );
-      const json = await res.json();
       if (json.success) {
         notifyWorkspaceDataChanged();
         router.push(basePath);
@@ -419,7 +417,7 @@ export default function ObjectDetailPage({
     setRunningCommand(action.command);
     setError(null);
     try {
-      const res = await fetch(
+      const json = await apiFetch<{ success: boolean; error?: { message: string } }>(
         `/api/workspaces/${workspaceId}/commands/${action.command}`,
         {
           method: "POST",
@@ -437,7 +435,6 @@ export default function ObjectDetailPage({
           }),
         }
       );
-      const json = await res.json();
       if (!json.success) {
         setError(json.error?.message ?? "Command failed");
         return;

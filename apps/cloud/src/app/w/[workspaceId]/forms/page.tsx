@@ -20,10 +20,11 @@ import {
 import { useI18n } from "@/i18n/locale-provider";
 import type { MessageKey } from "@/i18n/messages";
 import type {
-  FormDefinitionV2,
-  FormBindingV2,
-  FormSubmissionV2,
+  FormDefinition,
+  FormBinding,
+  FormSubmission,
 } from "@/lib/api-hooks";
+import { apiFetch, apiPost } from "@/lib/api-fetch";
 
 interface Toast {
   type: "success" | "error";
@@ -115,9 +116,9 @@ export default function FormsPage() {
 
   const [tab, setTab] = useState<TabKey>("definitions");
 
-  const [definitions, setDefinitions] = useState<FormDefinitionV2[]>([]);
-  const [bindings, setBindings] = useState<FormBindingV2[]>([]);
-  const [submissions, setSubmissions] = useState<FormSubmissionV2[]>([]);
+  const [definitions, setDefinitions] = useState<FormDefinition[]>([]);
+  const [bindings, setBindings] = useState<FormBinding[]>([]);
+  const [submissions, setSubmissions] = useState<FormSubmission[]>([]);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -132,7 +133,7 @@ export default function FormsPage() {
 
   // Action state
   const [executing, setExecuting] = useState<string | null>(null);
-  const [returnFor, setReturnFor] = useState<FormSubmissionV2 | null>(null);
+  const [returnFor, setReturnFor] = useState<FormSubmission | null>(null);
   const [returnReason, setReturnReason] = useState("");
 
   const showToast = useCallback((type: Toast["type"], message: string) => {
@@ -144,16 +145,16 @@ export default function FormsPage() {
     try {
       setLoading(true);
       setError(null);
-      const [defsRes, bindsRes] = await Promise.all([
-        fetch(`/api/workspaces/${workspaceId}/forms/definitions`, {
-          cache: "no-store",
-        }),
-        fetch(`/api/workspaces/${workspaceId}/forms/bindings`, {
-          cache: "no-store",
-        }),
+      const [defsJson, bindsJson] = await Promise.all([
+        apiFetch<{ success: boolean; error?: { message: string }; data?: FormDefinition[] }>(
+          `/api/workspaces/${workspaceId}/forms/definitions`,
+          { cache: "no-store" }
+        ),
+        apiFetch<{ success: boolean; error?: { message: string }; data?: FormBinding[] }>(
+          `/api/workspaces/${workspaceId}/forms/bindings`,
+          { cache: "no-store" }
+        ),
       ]);
-      const defsJson = await defsRes.json();
-      const bindsJson = await bindsRes.json();
       if (!defsJson.success)
         throw new Error(defsJson.error?.message ?? t("workspace.loadFailed"));
       if (!bindsJson.success)
@@ -172,11 +173,14 @@ export default function FormsPage() {
       const qs = new URLSearchParams();
       if (filterSubjectType) qs.set("subjectType", filterSubjectType);
       if (filterStatus) qs.set("status", filterStatus);
-      const res = await fetch(
+      const json = await apiFetch<{
+        success: boolean;
+        error?: { message: string };
+        data?: FormSubmission[];
+      }>(
         `/api/workspaces/${workspaceId}/forms/submissions?${qs.toString()}`,
         { cache: "no-store" }
       );
-      const json = await res.json();
       if (!json.success)
         throw new Error(json.error?.message ?? t("workspace.loadFailed"));
       setSubmissions(json.data ?? []);
@@ -196,18 +200,13 @@ export default function FormsPage() {
     if (tab === "submissions") void loadSubmissions();
   }, [tab, loadSubmissions]);
 
-  const handleAccept = async (submission: FormSubmissionV2) => {
+  const handleAccept = async (submission: FormSubmission) => {
     try {
       setExecuting(`accept-${submission.id}`);
-      const res = await fetch(
+      const json = await apiPost<{ success: boolean; error?: { message: string } }>(
         `/api/workspaces/${workspaceId}/forms/submissions/${submission.id}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "accept" }),
-        }
+        { action: "accept" }
       );
-      const json = await res.json();
       if (!json.success)
         throw new Error(json.error?.message ?? "Accept failed");
       showToast("success", t("forms.actionAccept"));
@@ -223,18 +222,13 @@ export default function FormsPage() {
     if (!returnFor) return;
     try {
       setExecuting(`return-${returnFor.id}`);
-      const res = await fetch(
+      const json = await apiPost<{ success: boolean; error?: { message: string } }>(
         `/api/workspaces/${workspaceId}/forms/submissions/${returnFor.id}`,
         {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            action: "return",
-            returnReason: returnReason || undefined,
-          }),
+          action: "return",
+          returnReason: returnReason || undefined,
         }
       );
-      const json = await res.json();
       if (!json.success)
         throw new Error(json.error?.message ?? "Return failed");
       showToast("success", t("forms.actionReturn"));

@@ -10,6 +10,7 @@ import type { WidgetDeclaration } from "@runory/contracts";
 import { useI18n } from "@/i18n/locale-provider";
 import type { MessageKey } from "@/i18n/messages";
 import { formatRelativeTime } from "../SchemaTable";
+import { apiFetch } from "@/lib/api-fetch";
 
 // ── Types ──
 
@@ -145,11 +146,14 @@ export default function WidgetRenderer({
   const loadData = useCallback(async () => {
     try {
       const params = new URLSearchParams({ instance, zone });
-      const res = await fetch(
+      const json = await apiFetch<{
+        success: boolean;
+        error?: { message: string };
+        data: WidgetDataResponse;
+      }>(
         `/api/workspaces/${workspaceId}/widgets/${moduleId}/${widgetKey}?${params}`,
         { cache: "no-store" }
       );
-      const json = await res.json();
       if (!json.success) throw new Error(json.error?.message ?? t("workspace.loadFailed"));
       setData(json.data);
       setError(null);

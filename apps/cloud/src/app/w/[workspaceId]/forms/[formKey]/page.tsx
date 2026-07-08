@@ -18,9 +18,10 @@ import { useI18n } from "@/i18n/locale-provider";
 import type { MessageKey } from "@/i18n/messages";
 import type {
   FormDefinitionDetail,
-  FormBindingV2,
-  FormSubmissionV2,
+  FormBinding,
+  FormSubmission,
 } from "@/lib/api-hooks";
+import { apiFetch } from "@/lib/api-fetch";
 
 interface Toast {
   type: "success" | "error";
@@ -102,8 +103,8 @@ export default function FormDefinitionDetailPage() {
   const { t } = useI18n();
 
   const [detail, setDetail] = useState<FormDefinitionDetail | null>(null);
-  const [bindings, setBindings] = useState<FormBindingV2[]>([]);
-  const [submissions, setSubmissions] = useState<FormSubmissionV2[]>([]);
+  const [bindings, setBindings] = useState<FormBinding[]>([]);
+  const [submissions, setSubmissions] = useState<FormSubmission[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<Toast | null>(null);
@@ -118,22 +119,24 @@ export default function FormDefinitionDetailPage() {
       setLoading(true);
       setError(null);
 
-      const [detailRes, bindsRes, subsRes] = await Promise.all([
-        fetch(
+      const [detailJson, bindsJson, subsJson] = await Promise.all([
+        apiFetch<{
+          success: boolean;
+          error?: { message: string };
+          data?: FormDefinitionDetail | null;
+        }>(
           `/api/workspaces/${workspaceId}/forms/definitions/${formKey}`,
           { cache: "no-store" }
         ),
-        fetch(`/api/workspaces/${workspaceId}/forms/bindings`, {
-          cache: "no-store",
-        }),
-        fetch(`/api/workspaces/${workspaceId}/forms/submissions`, {
-          cache: "no-store",
-        }),
+        apiFetch<{ success: boolean; error?: { message: string }; data?: FormBinding[] }>(
+          `/api/workspaces/${workspaceId}/forms/bindings`,
+          { cache: "no-store" }
+        ),
+        apiFetch<{ success: boolean; error?: { message: string }; data?: FormSubmission[] }>(
+          `/api/workspaces/${workspaceId}/forms/submissions`,
+          { cache: "no-store" }
+        ),
       ]);
-
-      const detailJson = await detailRes.json();
-      const bindsJson = await bindsRes.json();
-      const subsJson = await subsRes.json();
 
       if (!detailJson.success)
         throw new Error(
@@ -154,12 +157,12 @@ export default function FormDefinitionDetailPage() {
       const defId = detailJson.data?.definition?.id;
       setBindings(
         (bindsJson.data ?? []).filter(
-          (b: FormBindingV2) => b.form_definition_id === defId
+          (b: FormBinding) => b.form_definition_id === defId
         )
       );
       setSubmissions(
         (subsJson.data ?? []).filter(
-          (s: FormSubmissionV2) => s.form_definition_id === defId
+          (s: FormSubmission) => s.form_definition_id === defId
         )
       );
     } catch (e) {

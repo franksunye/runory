@@ -10,6 +10,7 @@ import {
 import type { LucideIcon } from "lucide-react";
 import { useI18n } from "@/i18n/locale-provider";
 import type { MessageKey } from "@/i18n/messages";
+import { apiFetch } from "@/lib/api-fetch";
 
 interface ManageCard {
   titleKey: MessageKey;
@@ -45,9 +46,11 @@ export default function ManagePage() {
   useEffect(() => {
     (async () => {
       try {
-        const res = await fetch(`/api/workspaces/${workspaceId}`);
-        const json = await res.json();
-        if (json.success) setRole(json.data.organizationRole ?? "member");
+        const json = await apiFetch<{
+        success: boolean;
+        data?: { organizationRole?: string };
+      }>(`/api/workspaces/${workspaceId}`);
+      if (json.success) setRole(json.data?.organizationRole ?? "member");
       } catch {
         setRole("member");
       } finally {

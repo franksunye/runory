@@ -9,6 +9,7 @@ import type {
 } from "@runory/contracts";
 import { useI18n } from "@/i18n/locale-provider";
 import type { MessageKey } from "@/i18n/messages";
+import { apiPatch, apiDelete } from "@/lib/api-fetch";
 
 // ── Types ──
 
@@ -124,12 +125,14 @@ export default function DashboardEditMode({
     setSaving(true);
     setError(null);
     try {
-      const res = await fetch(`/api/workspaces/${workspaceId}/dashboard/layout`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json", "X-Requested-With": "XMLHttpRequest" },
-        body: JSON.stringify({ updates }),
-      });
-      const json = await res.json();
+      const json = await apiPatch<{
+        success: boolean;
+        error?: { message: string };
+        data: { layout: LayoutItem[] };
+      }>(
+        `/api/workspaces/${workspaceId}/dashboard/layout`,
+        { updates }
+      );
       if (!json.success) throw new Error(json.error?.message ?? t("dashboard.saveFailed"));
       onLayoutChange(json.data.layout);
     } catch (e) {
@@ -217,11 +220,11 @@ export default function DashboardEditMode({
   const handleReset = async () => {
     setSaving(true);
     try {
-      const res = await fetch(`/api/workspaces/${workspaceId}/dashboard/layout`, {
-        method: "DELETE",
-        headers: { "X-Requested-With": "XMLHttpRequest" },
-      });
-      const json = await res.json();
+      const json = await apiDelete<{
+        success: boolean;
+        error?: { message: string };
+        data: { layout: LayoutItem[] };
+      }>(`/api/workspaces/${workspaceId}/dashboard/layout`);
       if (!json.success) throw new Error(json.error?.message ?? t("dashboard.resetFailed"));
       onLayoutChange(json.data.layout);
       onReset();

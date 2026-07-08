@@ -14,6 +14,7 @@ import {
   ChevronDown,
 } from "lucide-react";
 import { useI18n } from "@/i18n/locale-provider";
+import { apiFetch, apiPost } from "@/lib/api-fetch";
 
 // ── Types ──
 
@@ -104,11 +105,14 @@ function FormEditor() {
     if (!editingKey) return;
     void (async () => {
       try {
-        const res = await fetch(
+        const json = await apiFetch<{
+          success: boolean;
+          error?: { message: string };
+          data: Array<Record<string, unknown>>;
+        }>(
           `/api/workspaces/${workspaceId}/forms/definitions`,
           { cache: "no-store" }
         );
-        const json = await res.json();
         if (!json.success) throw new Error(json.error?.message ?? "Load failed");
         const def = (json.data as Array<Record<string, unknown>>).find(
           (d) => d.form_key === editingKey
@@ -122,11 +126,13 @@ function FormEditor() {
         setName(def.name as string);
 
         // Load full definition to get schema (API uses formKey as path param)
-        const detailRes = await fetch(
+        const detailJson = await apiFetch<{
+          success: boolean;
+          data?: { schema?: { blocks?: FormBlockEditor[] } };
+        }>(
           `/api/workspaces/${workspaceId}/forms/definitions/${def.form_key}`,
           { cache: "no-store" }
         );
-        const detailJson = await detailRes.json();
         if (detailJson.success && detailJson.data?.schema) {
           const rawBlocks = detailJson.data.schema.blocks ?? [];
           setBlocks(rawBlocks as FormBlockEditor[]);
@@ -239,28 +245,18 @@ function FormEditor() {
 
       if (existingDefId) {
         // Update existing — publish a new version
-        const res = await fetch(
+        const json = await apiPost<{ success: boolean; error?: { message: string } }>(
           `/api/workspaces/${workspaceId}/forms/definitions`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ formKey, name, schema }),
-          }
+          { formKey, name, schema }
         );
-        const json = await res.json();
         if (!json.success) throw new Error(json.error?.message ?? "Update failed");
         showToast("success", "Form definition updated");
       } else {
         // Create new
-        const res = await fetch(
+        const json = await apiPost<{ success: boolean; error?: { message: string } }>(
           `/api/workspaces/${workspaceId}/forms/definitions`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ formKey, name, schema }),
-          }
+          { formKey, name, schema }
         );
-        const json = await res.json();
         if (!json.success) throw new Error(json.error?.message ?? "Create failed");
         showToast("success", "Form definition created");
       }

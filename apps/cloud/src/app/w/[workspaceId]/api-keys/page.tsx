@@ -15,6 +15,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { useI18n } from "@/i18n/locale-provider";
+import { apiFetch, apiPost, apiDelete } from "@/lib/api-fetch";
 
 interface ApiKey {
   id: string;
@@ -69,8 +70,11 @@ export default function ApiKeysPage() {
   const loadKeys = useCallback(async () => {
     setError(null);
     try {
-      const res = await fetch(`/api/workspaces/${workspaceId}/api-keys`);
-      const json = await res.json();
+      const json = await apiFetch<{
+        success: boolean;
+        data: ApiKey[];
+        error?: { message: string };
+      }>(`/api/workspaces/${workspaceId}/api-keys`);
       if (json.success) setKeys(json.data);
       else setError(json.error?.message ?? t("workspace.loadFailed"));
     } catch (e) {
@@ -91,12 +95,10 @@ export default function ApiKeysPage() {
     setError(null);
     setMessage(null);
     try {
-      const res = await fetch(`/api/workspaces/${workspaceId}/api-keys`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "X-Requested-With": "XMLHttpRequest" },
-        body: JSON.stringify({ name: newKeyName.trim(), scopes: ["workspace:read"] }),
-      });
-      const json = await res.json();
+      const json = await apiPost<{ success: boolean; data: ApiKeyWithToken; error?: { message: string } }>(
+        `/api/workspaces/${workspaceId}/api-keys`,
+        { name: newKeyName.trim(), scopes: ["workspace:read"] }
+      );
       if (json.success) {
         setRevealedKey(json.data);
         setNewKeyName("");
@@ -116,11 +118,9 @@ export default function ApiKeysPage() {
     setRevokingId(keyId);
     setError(null);
     try {
-      const res = await fetch(`/api/workspaces/${workspaceId}/api-keys/${keyId}`, {
-        method: "DELETE",
-        headers: { "X-Requested-With": "XMLHttpRequest" },
-      });
-      const json = await res.json();
+      const json = await apiDelete<{ success: boolean; error?: { message: string } }>(
+        `/api/workspaces/${workspaceId}/api-keys/${keyId}`
+      );
       if (json.success) {
         setMessage(t("apiKeys.revoked"));
         setConfirmRevoke(null);
@@ -139,11 +139,9 @@ export default function ApiKeysPage() {
     setRotatingId(keyId);
     setError(null);
     try {
-      const res = await fetch(`/api/workspaces/${workspaceId}/api-keys/${keyId}/rotate`, {
-        method: "POST",
-        headers: { "X-Requested-With": "XMLHttpRequest" },
-      });
-      const json = await res.json();
+      const json = await apiPost<{ success: boolean; data: ApiKeyWithToken; error?: { message: string } }>(
+        `/api/workspaces/${workspaceId}/api-keys/${keyId}/rotate`
+      );
       if (json.success) {
         setRevealedKey(json.data);
         setMessage(t("apiKeys.rotated"));

@@ -26,6 +26,7 @@ import {
   type CatalogItem,
   ITEM_TYPE_BADGE,
 } from "./_components/shared";
+import { apiFetch, apiPost } from "@/lib/api-fetch";
 
 // ── Stat Cards Config ──
 
@@ -53,17 +54,14 @@ export default function AdminPage() {
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch("/api/admin/stats", { cache: "no-store" });
-        if (res.status === 403) {
+        const json = await apiFetch<{ data?: AdminStats }>("/api/admin/stats", { cache: "no-store" });
+        if (!cancelled) setStats(json.data ?? null);
+      } catch (e) {
+        if (e instanceof Error && e.message.includes("403")) {
           router.replace("/login");
           return;
         }
-        if (res.ok) {
-          const json = await res.json();
-          if (!cancelled) setStats(json.data ?? null);
-        }
-      } catch {
-        // ignore
+        // ignore other errors
       } finally {
         if (!cancelled) setStatsLoading(false);
       }
@@ -117,15 +115,14 @@ function CatalogTab() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/platform/catalog", { cache: "no-store" });
-      if (res.status === 403) {
+      const json = await apiFetch<{ success: boolean; data?: CatalogItem[] }>("/api/platform/catalog", { cache: "no-store" });
+      if (json.success) setItems(json.data ?? []);
+    } catch (e) {
+      if (e instanceof Error && e.message.includes("403")) {
         window.location.href = "/login";
         return;
       }
-      const json = await res.json();
-      if (json.success) setItems(json.data ?? []);
-    } catch {
-      // ignore
+      // ignore other errors
     } finally {
       setLoading(false);
     }
@@ -226,12 +223,7 @@ function ImportModal({ onClose, onImported }: { onClose: () => void; onImported:
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch("/api/platform/catalog", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "X-Requested-With": "XMLHttpRequest" },
-        body: JSON.stringify({ itemId: itemId.trim(), itemType }),
-      });
-      const json = await res.json();
+      const json = await apiPost<{ success: boolean; error?: { message?: string } }>("/api/platform/catalog", { itemId: itemId.trim(), itemType });
       if (json.success) {
         onImported();
       } else {
@@ -308,11 +300,7 @@ function SeedAllModal({ onClose, onSeeded }: { onClose: () => void; onSeeded: ()
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch("/api/platform/catalog/seed", {
-        method: "POST",
-        headers: { "X-Requested-With": "XMLHttpRequest" },
-      });
-      const json = await res.json();
+      const json = await apiPost<{ success: boolean; data?: SeedResult; error?: { message?: string } }>("/api/platform/catalog/seed");
       if (json.success) {
         setResult(json.data ?? null);
       } else {

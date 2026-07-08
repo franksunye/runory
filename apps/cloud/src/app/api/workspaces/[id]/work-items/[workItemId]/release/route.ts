@@ -16,8 +16,8 @@ export async function POST(
     const { ctx, workspaceId } = await requireWorkspaceContext(request, id, "member");
     const body = await request.json().catch(() => ({})) as {
       expectedVersion?: number;
-      idempotencyKey?: string;
     };
+    const idempotencyKey = request.headers.get("idempotency-key") ?? undefined;
 
     // Per v0.5.1: expectedVersion MUST be explicitly provided — no silent default.
     if (body.expectedVersion === undefined || body.expectedVersion === null) {
@@ -37,7 +37,7 @@ export async function POST(
       workItemId,
       actor,
       body.expectedVersion,
-      body.idempotencyKey,
+      idempotencyKey,
       ctx.requestId,
     );
     return successResponse(result, 200, ctx.requestId);

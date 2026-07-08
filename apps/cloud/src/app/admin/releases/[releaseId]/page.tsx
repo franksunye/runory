@@ -22,6 +22,7 @@ import {
   formatDateTime,
   useAdminFetch,
 } from "../../_components/shared";
+import { apiFetch, apiPost } from "@/lib/api-fetch";
 
 export default function ReleaseDetailPage() {
   const params = useParams<{ releaseId: string }>();
@@ -42,9 +43,8 @@ export default function ReleaseDetailPage() {
   const loadVersion = useCallback(async () => {
     if (!release) return;
     try {
-      const res = await fetch(`/api/platform/catalog/versions/${release.catalogVersionId}`, { cache: "no-store" });
-      const json = await res.json();
-      if (json.success) setVersion(json.data);
+      const json = await apiFetch<{ success: boolean; data?: CatalogVersion }>(`/api/platform/catalog/versions/${release.catalogVersionId}`, { cache: "no-store" });
+      if (json.success) setVersion(json.data ?? null);
     } catch {
       // ignore
     }
@@ -60,12 +60,7 @@ export default function ReleaseDetailPage() {
     setActionError(null);
     try {
       const body = needsReason ? { reason: `Operator ${action} action` } : {};
-      const res = await fetch(`/api/platform/rollouts/${rolloutId}/${action}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "X-Requested-With": "XMLHttpRequest" },
-        body: JSON.stringify(body),
-      });
-      const json = await res.json();
+      const json = await apiPost<{ success: boolean; error?: { message?: string } }>(`/api/platform/rollouts/${rolloutId}/${action}`, body);
       if (!json.success) {
         setActionError(json.error?.message ?? `${action} 失败`);
       } else {
@@ -343,12 +338,7 @@ function StartRolloutModal({
         targetConfig.percentage = Number(percentage) / 100;
       }
 
-      const res = await fetch(`/api/platform/releases/${releaseId}/rollout`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "X-Requested-With": "XMLHttpRequest" },
-        body: JSON.stringify({ targetType, targetConfig }),
-      });
-      const json = await res.json();
+      const json = await apiPost<{ success: boolean; error?: { message?: string } }>(`/api/platform/releases/${releaseId}/rollout`, { targetType, targetConfig });
       if (json.success) {
         onCreated();
       } else {

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import type { FieldDefinition } from "@runory/platform-core";
 import { useI18n } from "@/i18n/locale-provider";
+import { apiFetch } from "@/lib/api-fetch";
 
 interface SchemaFieldProps {
   field: FieldDefinition;
@@ -183,10 +184,9 @@ function LookupField({
     if (!workspaceId || !targetObject) return;
     let cancelled = false;
     setLoading(true);
-    fetch(
+    apiFetch<{ success: boolean; data?: Array<Record<string, unknown>> }>(
       `/api/workspaces/${workspaceId}/objects/${targetObject}/records?search=${encodeURIComponent(search)}&limit=20`
     )
-      .then((res) => res.json())
       .then((json) => {
         if (cancelled) return;
         if (json.success && Array.isArray(json.data)) {

@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import TrustIndicators from "@/components/TrustIndicators";
 import { useI18n } from "@/i18n/locale-provider";
+import { apiFetch, apiPatch, apiPost } from "@/lib/api-fetch";
 
 interface WorkspaceEntry {
   workspaceId: string;
@@ -76,12 +77,10 @@ export default function AccountPage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [meRes, sessRes] = await Promise.all([
-        fetch("/api/auth/me", { cache: "no-store" }),
-        fetch("/api/auth/sessions", { cache: "no-store" }),
+      const [meJson, sessJson] = await Promise.all([
+        apiFetch<{ success: boolean; data?: MeResponse }>("/api/auth/me", { cache: "no-store" }),
+        apiFetch<{ success: boolean; data?: SessionInfo[] }>("/api/auth/sessions", { cache: "no-store" }),
       ]);
-      const meJson = await meRes.json();
-      const sessJson = await sessRes.json();
 
       if (!meJson.success || !meJson.data?.authenticated) {
         router.replace("/login");
@@ -89,7 +88,7 @@ export default function AccountPage() {
       }
 
       setMe(meJson.data);
-      setSessions(sessJson.success ? sessJson.data : []);
+      setSessions(sessJson.success ? (sessJson.data ?? []) : []);
       setDisplayName(meJson.data.principal?.displayName ?? "");
     } catch {
       router.replace("/login");
@@ -109,16 +108,11 @@ export default function AccountPage() {
     setError(null);
     setMessage(null);
     try {
-      const res = await fetch("/api/auth/me", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json", "X-Requested-With": "XMLHttpRequest" },
-        body: JSON.stringify({ displayName: displayName.trim() }),
-      });
-      const json = await res.json();
+      const json = await apiPatch<{ success: boolean; data?: { displayName: string }; error?: { message?: string } }>("/api/auth/me", { displayName: displayName.trim() });
       if (json.success) {
         setMessage(t("account.profileUpdated"));
         setMe((prev) =>
-          prev && prev.principal
+          prev && prev.principal && json.data
             ? { ...prev, principal: { ...prev.principal, displayName: json.data.displayName } }
             : prev
         );
@@ -133,7 +127,7 @@ export default function AccountPage() {
   };
 
   const handleLogout = async () => {
-    await fetch("/api/auth/logout", { method: "POST", headers: { "X-Requested-With": "XMLHttpRequest" } });
+    await apiPost("/api/auth/logout").catch(() => {});
     // Clear ephemeral UI state per v0.5.1 Spec §7
     try {
       localStorage.removeItem("runory:sidebar-collapsed");
@@ -147,7 +141,7 @@ export default function AccountPage() {
   };
 
   const handleLogoutAll = async () => {
-    await fetch("/api/auth/sessions", { method: "POST", headers: { "X-Requested-With": "XMLHttpRequest" } });
+    await apiPost("/api/auth/sessions").catch(() => {});
     router.push("/login");
     router.refresh();
   };
@@ -156,11 +150,7 @@ export default function AccountPage() {
     setDeleting(true);
     setError(null);
     try {
-      const res = await fetch("/api/account/delete", {
-        method: "POST",
-        headers: { "X-Requested-With": "XMLHttpRequest" },
-      });
-      const json = await res.json();
+      const json = await apiPost<{ success: boolean; error?: { message?: string } }>("/api/account/delete");
       if (json.success) {
         router.push("/login");
         router.refresh();

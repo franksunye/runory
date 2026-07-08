@@ -7,6 +7,7 @@ import {
   FileText, Play, Search, XCircle,
 } from "lucide-react";
 import { useI18n } from "@/i18n/locale-provider";
+import { apiFetch, apiPost } from "@/lib/api-fetch";
 
 interface Toast { type: "success" | "error"; message: string }
 
@@ -49,8 +50,11 @@ export default function MigrationPage() {
   const runInventory = async () => {
     try {
       setLoading(true);
-      const res = await fetch(`/api/workspaces/${workspaceId}/migration/v04-v05`, { cache: "no-store" });
-      const json = await res.json();
+      const json = await apiFetch<{
+        success: boolean;
+        error?: { message: string };
+        data: MigrationResult;
+      }>(`/api/workspaces/${workspaceId}/migration/v04-v05`, { cache: "no-store" });
       if (!json.success) throw new Error(json.error?.message ?? "Inventory failed");
       setResult(json.data);
       setStep("inventory");
@@ -66,12 +70,10 @@ export default function MigrationPage() {
     try {
       setLoading(true);
       setConfirming(false);
-      const res = await fetch(`/api/workspaces/${workspaceId}/migration/v04-v05`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "migrate" }),
-      });
-      const json = await res.json();
+      const json = await apiPost<{ success: boolean; error?: { message: string }; data: MigrationResult }>(
+        `/api/workspaces/${workspaceId}/migration/v04-v05`,
+        { action: "migrate" }
+      );
       if (!json.success) throw new Error(json.error?.message ?? "Migration failed");
       setResult(json.data);
       setStep("migrated");
@@ -86,12 +88,10 @@ export default function MigrationPage() {
   const runVerify = async () => {
     try {
       setLoading(true);
-      const res = await fetch(`/api/workspaces/${workspaceId}/migration/v04-v05`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "verify" }),
-      });
-      const json = await res.json();
+      const json = await apiPost<{ success: boolean; error?: { message: string }; data: MigrationResult }>(
+        `/api/workspaces/${workspaceId}/migration/v04-v05`,
+        { action: "verify" }
+      );
       if (!json.success) throw new Error(json.error?.message ?? "Verify failed");
       setResult(json.data);
       setStep("verified");
