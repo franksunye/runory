@@ -62,7 +62,7 @@ async function countWorkflowInstances(workspaceId: string): Promise<number> {
     [workspaceId],
   );
   const v2 = await queryOne<{ count: number }>(
-    `SELECT COUNT(*) as count FROM ${TABLES.workflowInstancesV2} WHERE workspace_id = ?`,
+    `SELECT COUNT(*) as count FROM ${TABLES.workflowInstances} WHERE workspace_id = ?`,
     [workspaceId],
   );
   return (v1?.count ?? 0) + (v2?.count ?? 0);

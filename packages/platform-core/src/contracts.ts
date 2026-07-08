@@ -80,8 +80,6 @@ export const TABLES = {
   extensionVersions: `${PREFIXES.runoryRuntime}extension_versions`,
   extensionFieldValues: `${PREFIXES.runoryRuntime}extension_field_values`,
   agentRuns: `${PREFIXES.runoryRuntime}agent_runs`,
-  workflowDefinitions: `${PREFIXES.runoryRuntime}workflow_definitions`,
-  workflowInstances: `${PREFIXES.runoryRuntime}workflow_instances`,
   workspaceDashboardLayout: `${PREFIXES.runoryRuntime}workspace_dashboard_layout`,
   packInstallations: `${PREFIXES.runoryRuntime}pack_installations`,
   packPermissionGroups: `${PREFIXES.runoryRuntime}pack_permission_groups`,
@@ -95,16 +93,16 @@ export const TABLES = {
   domainEvents: `${PREFIXES.runoryRuntime}domain_events`,
   outboxMessages: `${PREFIXES.runoryRuntime}outbox_messages`,
 
-  // v0.5 Workflow V2.
-  workflowDefinitionsV2: `${PREFIXES.runoryRuntime}workflow_definitions_v2`,
+  // Workflow engine.
+  workflowDefinitions: `${PREFIXES.runoryRuntime}workflow_definitions`,
   workflowDefinitionVersions: `${PREFIXES.runoryRuntime}workflow_definition_versions`,
-  workflowInstancesV2: `${PREFIXES.runoryRuntime}workflow_instances_v2`,
+  workflowInstances: `${PREFIXES.runoryRuntime}workflow_instances`,
   workflowEvents: `${PREFIXES.runoryRuntime}workflow_events`,
   workItems: `${PREFIXES.runoryRuntime}work_items`,
   approvalDecisions: `${PREFIXES.runoryRuntime}approval_decisions`,
   workflowTimers: `${PREFIXES.runoryRuntime}workflow_timers`,
 
-  // v0.5 Forms 2.0.
+  // Forms 2.0.
   formDefinitions: `${PREFIXES.runoryRuntime}form_definitions`,
   formDefinitionVersions: `${PREFIXES.runoryRuntime}form_definition_versions`,
   formBindings: `${PREFIXES.runoryRuntime}form_bindings`,

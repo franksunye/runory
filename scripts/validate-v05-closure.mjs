@@ -69,7 +69,7 @@ function main() {
     "saas_workspaces",
     "runory_runtime_pack_installations",
     "runory_runtime_workflow_instances",
-    "runory_runtime_workflow_instances_v2",
+    "runory_runtime_workflow_instances",
     "runory_runtime_work_items",
     "runory_runtime_resources",
     "runory_runtime_assignments",
@@ -126,7 +126,7 @@ function main() {
   const activeV1 = count(`SELECT COUNT(*) FROM runory_runtime_workflow_instances WHERE workspace_id='${ws}' AND ${v1StateColumn} NOT IN ('completed', 'cancelled', 'failed', 'terminal')`);
   check("no active Workflow V1 instances", activeV1 === 0, String(activeV1), failures, warnings);
 
-  const v2Instances = count(`SELECT COUNT(*) FROM runory_runtime_workflow_instances_v2 WHERE workspace_id='${ws}'`);
+  const v2Instances = count(`SELECT COUNT(*) FROM runory_runtime_workflow_instances WHERE workspace_id='${ws}'`);
   console.log(`ⓘ Workflow V2 instances are optional for SMB default execution — ${v2Instances}`);
 
   const workItems = count(`SELECT COUNT(*) FROM runory_runtime_work_items WHERE workspace_id='${ws}'`);

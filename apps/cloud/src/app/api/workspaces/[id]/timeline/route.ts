@@ -203,7 +203,7 @@ async function enforceSubjectVisibility(
 
   // Also check workflow instances (the subject might be a workflow-bound record)
   const wfCheck = await queryOne<{ cnt: number }>(
-    `SELECT COUNT(*) as cnt FROM ${TABLES.workflowInstancesV2}
+    `SELECT COUNT(*) as cnt FROM ${TABLES.workflowInstances}
      WHERE workspace_id = ? AND record_id = ? AND object_type IN (${placeholders})`,
     [workspaceId, subjectId, ...variants]
   );
@@ -235,7 +235,7 @@ function businessTableForSubject(subjectType: string): string | null {
 
 // ── Source 1: Workflow V2 Events ──
 //
-// Join workflow_events → workflow_instances_v2 to resolve object_type/record_id
+// Join workflow_events → workflow_instances to resolve object_type/record_id
 // (the subject_type/subject_id of a workflow event is the instance's bound object).
 
 async function queryWorkflowEvents(
@@ -273,7 +273,7 @@ async function queryWorkflowEvents(
     `SELECT we.id, we.event_type, we.occurred_at, we.actor_id, we.actor_type,
             we.payload_json, wi.object_type, wi.record_id, wi.id AS instance_id
      FROM ${TABLES.workflowEvents} we
-     JOIN ${TABLES.workflowInstancesV2} wi ON wi.id = we.instance_id AND wi.workspace_id = we.workspace_id
+     JOIN ${TABLES.workflowInstances} wi ON wi.id = we.instance_id AND wi.workspace_id = we.workspace_id
      WHERE ${conditions.join(" AND ")}
      ORDER BY we.occurred_at DESC
      LIMIT ?`,

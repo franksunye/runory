@@ -46,7 +46,7 @@ import {
   returnWorkItem,
   cancelWorkItem,
   cancelWorkflow,
-  startWorkflowV2,
+  startWorkflow,
   type CommandActor,
   type CommandHandlerResult,
 } from "@runory/platform-core";
@@ -515,7 +515,7 @@ export async function POST(
         break;
 
       case "workflow.start":
-        result = await startWorkflowV2(
+        result = await startWorkflow(
           workspaceId,
           body.workflowKey as string,
           body.subjectType as string,

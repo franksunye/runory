@@ -34,7 +34,7 @@ export async function GET(
 
     // Find the V2 instance bound to this record.
     const instance = await queryOne<WorkflowInstanceRow>(
-      `SELECT * FROM ${TABLES.workflowInstancesV2}
+      `SELECT * FROM ${TABLES.workflowInstances}
        WHERE workspace_id = ? AND object_type = ? AND record_id = ?
        ORDER BY created_at DESC
        LIMIT 1`,

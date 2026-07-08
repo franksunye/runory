@@ -15,9 +15,9 @@ import { queryAll, queryOne, execute, now } from "./db";
 import { TABLES, businessTable } from "./contracts";
 import {
   publishWorkflowDefinition,
-  startWorkflowV2,
+  startWorkflow,
   approvalDecide,
-} from "./workflow-v2";
+} from "./workflow";
 import type { CommandActor } from "./command-runtime";
 import { getGovernedFields } from "./governed-fields";
 
@@ -288,7 +288,7 @@ export async function migrateQuoteApprovals(
 
       // Idempotency: check if a workflow instance already exists for this quote
       const existingInstance = await queryOne<{ id: string }>(
-        `SELECT id FROM ${TABLES.workflowInstancesV2}
+        `SELECT id FROM ${TABLES.workflowInstances}
          WHERE workspace_id = ? AND object_type = 'quote' AND record_id = ?`,
         [workspaceId, approval.quote_id]
       );
@@ -317,7 +317,7 @@ export async function migrateQuoteApprovals(
       );
 
       // Start a workflow instance (creates the approval work item)
-      const { instanceId } = await startWorkflowV2(
+      const { instanceId } = await startWorkflow(
         workspaceId,
         "quote-approval",
         "quote",
@@ -450,7 +450,7 @@ export async function verifyMigration(workspaceId: string): Promise<{
 
   // Count quotes that have workflow instances
   const wfQuoteRow = await queryOne<{ count: number }>(
-    `SELECT COUNT(DISTINCT record_id) as count FROM ${TABLES.workflowInstancesV2}
+    `SELECT COUNT(DISTINCT record_id) as count FROM ${TABLES.workflowInstances}
      WHERE workspace_id = ? AND object_type = 'quote'`,
     [workspaceId]
   );
@@ -478,7 +478,7 @@ export async function verifyMigration(workspaceId: string): Promise<{
       `SELECT COUNT(*) as count FROM ${businessTable("quote_approval")} qa
        WHERE qa.workspace_id = ?
          AND NOT EXISTS (
-           SELECT 1 FROM ${TABLES.workflowInstancesV2} wi
+           SELECT 1 FROM ${TABLES.workflowInstances} wi
            WHERE wi.workspace_id = qa.workspace_id
              AND wi.object_type = 'quote'
              AND wi.record_id = qa.quote_id
@@ -496,7 +496,7 @@ export async function verifyMigration(workspaceId: string): Promise<{
     `SELECT COUNT(*) as count FROM ${businessTable("quote")} q
      WHERE q.workspace_id = ? AND q.status = 'in_review'
        AND NOT EXISTS (
-         SELECT 1 FROM ${TABLES.workflowInstancesV2} wi
+         SELECT 1 FROM ${TABLES.workflowInstances} wi
          WHERE wi.workspace_id = q.workspace_id
            AND wi.object_type = 'quote'
            AND wi.record_id = q.id

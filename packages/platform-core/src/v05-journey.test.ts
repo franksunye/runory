@@ -69,13 +69,13 @@ import {
   acceptFormSubmission,
   publishFormDefinition,
   createFormBinding,
-} from "./forms-v2";
+} from "./forms";
 import {
   getWorkflowHistory,
   publishWorkflowDefinition,
-  startWorkflowV2,
+  startWorkflow,
   approvalDecide,
-} from "./workflow-v2";
+} from "./workflow";
 import { getCommandHistory, type CommandActor } from "./command-runtime";
 import { requireBusinessPermission } from "./authorization";
 import { createRequestContext } from "./context";
@@ -302,9 +302,9 @@ describe("v0.5 Commercial FSM Journey", () => {
     expect(quoteVersion).toBe(3);
     expect(result.aggregate.status).toBe("in_review");
 
-    // Query workflowInstancesV2 by record_id
+    // Query workflowInstances by record_id
     const wfInstance = await queryOne<{ id: string }>(
-      `SELECT id FROM ${TABLES.workflowInstancesV2} WHERE workspace_id = ? AND record_id = ?`,
+      `SELECT id FROM ${TABLES.workflowInstances} WHERE workspace_id = ? AND record_id = ?`,
       [workspaceId, quoteId],
     );
     expect(wfInstance).toBeDefined();
@@ -746,7 +746,7 @@ describe("v0.5 Contract and Concurrency", () => {
     );
 
     // Start workflow instance
-    const { instanceId } = await startWorkflowV2(
+    const { instanceId } = await startWorkflow(
       workspaceId,
       "self-approval-test-wf",
       "quote",

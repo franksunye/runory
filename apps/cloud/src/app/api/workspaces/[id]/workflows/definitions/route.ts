@@ -43,7 +43,7 @@ export async function GET(
     const rows = await queryAll<V2DefinitionRow>(
       `SELECT id, workspace_id, workflow_key, name, target_object,
               active_version_id, status, created_at, updated_at
-       FROM ${TABLES.workflowDefinitionsV2}
+       FROM ${TABLES.workflowDefinitions}
        WHERE workspace_id = ?
        ORDER BY created_at ASC`,
       [workspaceId]

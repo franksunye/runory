@@ -6,7 +6,7 @@ import { TABLES, MODULES_DIR, PACKS_DIR, TEMPLATES_DIR, businessTable } from "./
 import { renderSqlWithPrefix, getBusinessTablePrefix, getTablePrefix } from "./platform-config";
 import { createRecord, getRecords } from "./metadata";
 import { createAutomation, getAutomations } from "./automation";
-import { publishWorkflowDefinition } from "./workflow-v2";
+import { publishWorkflowDefinition } from "./workflow";
 import {
   moduleManifestSchema,
   packManifestSchema,
@@ -18,8 +18,8 @@ import {
   type PackTerminologyEntry,
   type AutomationDefinition,
 } from "@runory/contracts";
-import { publishFormDefinition, createFormBinding, submitForm, type FormSchema } from "./forms-v2";
-import { startWorkflowV2 } from "./workflow-v2";
+import { publishFormDefinition, createFormBinding, submitForm, type FormSchema } from "./forms";
+import { startWorkflow } from "./workflow";
 import type { CommandActor } from "./command-runtime";
 import { getOutboxMessages } from "./outbox";
 
@@ -673,10 +673,10 @@ async function seedPackDemoData(workspaceId: string, packId: string): Promise<nu
 
         // Apply status transition if not the default "submitted"
         if (result.submissionId && fs.status === "accepted") {
-          const { acceptFormSubmission } = await import("./forms-v2");
+          const { acceptFormSubmission } = await import("./forms");
           await acceptFormSubmission(workspaceId, result.submissionId, "demo-seed");
         } else if (result.submissionId && fs.status === "returned") {
-          const { returnFormSubmission } = await import("./forms-v2");
+          const { returnFormSubmission } = await import("./forms");
           await returnFormSubmission(workspaceId, result.submissionId, "demo-seed", fs.returnReason ?? "Demo: returned for revision");
         }
         created++;
@@ -771,7 +771,7 @@ async function seedPackDemoData(workspaceId: string, packId: string): Promise<nu
 
         // Check if instance already exists (idempotency)
         const existing = await queryOne<{ id: string }>(
-          `SELECT id FROM ${TABLES.workflowInstancesV2}
+          `SELECT id FROM ${TABLES.workflowInstances}
            WHERE workspace_id = ? AND workflow_key = ? AND record_id = ? AND status = 'running'`,
           [workspaceId, wi.workflowKey, recordId]
         );
@@ -781,7 +781,7 @@ async function seedPackDemoData(workspaceId: string, packId: string): Promise<nu
 
         // Start the workflow
         const actor: CommandActor = { type: "system", id: wi.actorId ?? "demo-seed" };
-        const result = await startWorkflowV2(
+        const result = await startWorkflow(
           workspaceId,
           wi.workflowKey,
           alias.objectKey as string,

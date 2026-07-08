@@ -177,7 +177,7 @@ describe("Architecture: Spec §13.1 Invariants", () => {
     // Verify the schema column exists and is non-null for running instances
     // This is a structural test — the migration creates the column
     const { TABLES } = await import("./contracts");
-    expect(TABLES.workflowInstancesV2).toBeDefined();
+    expect(TABLES.workflowInstances).toBeDefined();
     expect(TABLES.workflowDefinitionVersions).toBeDefined();
   });
 

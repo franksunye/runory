@@ -1,10 +1,15 @@
 -- 0023_workflow_v2.sql
--- v0.5 Workflow V2: versioned definitions, pinned instances, append-only events,
+-- Workflow engine: versioned definitions, pinned instances, append-only events,
 -- work items, approval decisions, workflow timers
 -- Per v0.5 Commercial FSM Technical Specification §5.4-5.5
 
+-- Drop legacy V1-era workflow_definitions / workflow_instances (from migration 0012)
+-- so the V2 schema below is created fresh under the canonical (non-_v2) names.
+DROP TABLE IF EXISTS {{RUNORY_RUNTIME_TABLE_PREFIX}}workflow_instances;
+DROP TABLE IF EXISTS {{RUNORY_RUNTIME_TABLE_PREFIX}}workflow_definitions;
+
 -- ── Workflow Definitions (stable identity) ──
-CREATE TABLE IF NOT EXISTS {{RUNORY_RUNTIME_TABLE_PREFIX}}workflow_definitions_v2 (
+CREATE TABLE IF NOT EXISTS {{RUNORY_RUNTIME_TABLE_PREFIX}}workflow_definitions (
   id TEXT PRIMARY KEY,
   workspace_id TEXT NOT NULL,
   workflow_key TEXT NOT NULL,
@@ -17,11 +22,11 @@ CREATE TABLE IF NOT EXISTS {{RUNORY_RUNTIME_TABLE_PREFIX}}workflow_definitions_v
   UNIQUE(workspace_id, workflow_key)
 );
 
-CREATE INDEX IF NOT EXISTS idx_wf_def_v2_workspace
-  ON {{RUNORY_RUNTIME_TABLE_PREFIX}}workflow_definitions_v2(workspace_id);
+CREATE INDEX IF NOT EXISTS idx_wf_def_workspace
+  ON {{RUNORY_RUNTIME_TABLE_PREFIX}}workflow_definitions(workspace_id);
 
-CREATE INDEX IF NOT EXISTS idx_wf_def_v2_target
-  ON {{RUNORY_RUNTIME_TABLE_PREFIX}}workflow_definitions_v2(workspace_id, target_object);
+CREATE INDEX IF NOT EXISTS idx_wf_def_target
+  ON {{RUNORY_RUNTIME_TABLE_PREFIX}}workflow_definitions(workspace_id, target_object);
 
 -- ── Workflow Definition Versions (immutable once published) ──
 CREATE TABLE IF NOT EXISTS {{RUNORY_RUNTIME_TABLE_PREFIX}}workflow_definition_versions (
@@ -41,7 +46,7 @@ CREATE INDEX IF NOT EXISTS idx_wf_def_ver_def
   ON {{RUNORY_RUNTIME_TABLE_PREFIX}}workflow_definition_versions(workflow_definition_id);
 
 -- ── Workflow Instances (pinned to definition version) ──
-CREATE TABLE IF NOT EXISTS {{RUNORY_RUNTIME_TABLE_PREFIX}}workflow_instances_v2 (
+CREATE TABLE IF NOT EXISTS {{RUNORY_RUNTIME_TABLE_PREFIX}}workflow_instances (
   id TEXT PRIMARY KEY,
   workspace_id TEXT NOT NULL,
   workflow_definition_id TEXT NOT NULL,
@@ -58,11 +63,11 @@ CREATE TABLE IF NOT EXISTS {{RUNORY_RUNTIME_TABLE_PREFIX}}workflow_instances_v2 
   updated_at TEXT NOT NULL
 );
 
-CREATE INDEX IF NOT EXISTS idx_wf_inst_v2_workspace
-  ON {{RUNORY_RUNTIME_TABLE_PREFIX}}workflow_instances_v2(workspace_id);
+CREATE INDEX IF NOT EXISTS idx_wf_inst_workspace
+  ON {{RUNORY_RUNTIME_TABLE_PREFIX}}workflow_instances(workspace_id);
 
-CREATE INDEX IF NOT EXISTS idx_wf_inst_v2_record
-  ON {{RUNORY_RUNTIME_TABLE_PREFIX}}workflow_instances_v2(workspace_id, object_type, record_id);
+CREATE INDEX IF NOT EXISTS idx_wf_inst_record
+  ON {{RUNORY_RUNTIME_TABLE_PREFIX}}workflow_instances(workspace_id, object_type, record_id);
 
 -- ── Workflow Events (append-only) ──
 CREATE TABLE IF NOT EXISTS {{RUNORY_RUNTIME_TABLE_PREFIX}}workflow_events (

@@ -23,7 +23,7 @@ import {
   type CommandHandlerResult,
   type CommandResult,
 } from "./command-runtime";
-import { startWorkflowV2, publishWorkflowDefinition } from "./workflow-v2";
+import { startWorkflow, publishWorkflowDefinition } from "./workflow";
 
 // Re-export CommandActor so consumers of quote-commands do not need to depend
 // on command-runtime directly for the actor type.
@@ -179,7 +179,7 @@ export async function submitForApproval(
       );
 
       // Start workflow instance (creates initial work items based on definition steps)
-      const { instanceId } = await startWorkflowV2(
+      const { instanceId } = await startWorkflow(
         workspaceId,
         "quote-approval",
         "quote",

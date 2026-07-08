@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // ── Mock the db module ──
 //
-// All handlers in workflow-v2.ts call queryOne / genId / now from "./db".
+// All handlers in workflow.ts call queryOne / genId / now from "./db".
 // We mock the entire module so no real database connection is needed.
 // genId uses a closure-scoped counter so every call returns a unique id.
 vi.mock("../db", () => {
@@ -35,7 +35,7 @@ import {
   type WorkItemRow,
   type WorkflowInstanceRow,
   type WorkflowDefinitionVersionRow,
-} from "../workflow-v2";
+} from "../workflow";
 import type { CommandActor } from "../command-runtime";
 
 // ── Test Fixtures ──
@@ -202,7 +202,7 @@ describe("approvalDecideHandler", () => {
   it("returns CommandHandlerResult with correct structure", async () => {
     // queryOne is called four times in order:
     //   1. SELECT * FROM work_items            →  approval work item
-    //   2. SELECT * FROM workflow_instances_v2 →  instance
+    //   2. SELECT * FROM workflow_instances →  instance
     //   3. SELECT definition_json ...          →  definition version
     //   4. SELECT MAX(sequence) ...            →  last event sequence
     mockedQueryOne
@@ -241,7 +241,7 @@ describe("returnWorkItemHandler", () => {
   it("creates a new work item (INSERT, not just UPDATE)", async () => {
     // queryOne is called four times in order:
     //   1. SELECT * FROM work_items            →  work item
-    //   2. SELECT * FROM workflow_instances_v2 →  instance
+    //   2. SELECT * FROM workflow_instances →  instance
     //   3. SELECT * FROM workflow_definition_versions →  definition version
     //   4. SELECT MAX(sequence) ...            →  last event sequence
     mockedQueryOne

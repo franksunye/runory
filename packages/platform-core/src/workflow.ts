@@ -123,7 +123,7 @@ export async function publishWorkflowDefinition(
 
   // Find or create the definition record
   let defRow = await queryOne<{ id: string; active_version_id: string | null }>(
-    `SELECT id, active_version_id FROM ${TABLES.workflowDefinitionsV2}
+    `SELECT id, active_version_id FROM ${TABLES.workflowDefinitions}
      WHERE workspace_id = ? AND workflow_key = ?`,
     [workspaceId, def.workflowKey]
   );
@@ -136,7 +136,7 @@ export async function publishWorkflowDefinition(
     versionNumber = 1;
     await batch([
       {
-        sql: `INSERT INTO ${TABLES.workflowDefinitionsV2}
+        sql: `INSERT INTO ${TABLES.workflowDefinitions}
               (id, workspace_id, workflow_key, name, target_object, active_version_id, status, created_at, updated_at)
               VALUES (?, ?, ?, ?, ?, NULL, 'active', ?, ?)`,
         args: [definitionId, workspaceId, def.workflowKey, def.name, def.targetObject, ts, ts],
@@ -165,7 +165,7 @@ export async function publishWorkflowDefinition(
       args: [versionId, workspaceId, definitionId, versionNumber, defJson, publishedBy, ts, ts],
     },
     {
-      sql: `UPDATE ${TABLES.workflowDefinitionsV2}
+      sql: `UPDATE ${TABLES.workflowDefinitions}
             SET active_version_id = ?, updated_at = ?
             WHERE id = ?`,
       args: [versionId, ts, definitionId],
@@ -219,7 +219,7 @@ function computeSlaDueAt(sla: string, baseTs: string): string {
   return sla;
 }
 
-export async function startWorkflowV2(
+export async function startWorkflow(
   workspaceId: string,
   workflowKey: string,
   objectType: string,
@@ -228,7 +228,7 @@ export async function startWorkflowV2(
 ): Promise<{ instanceId: string }> {
   // Get the active version
   const def = await queryOne<{ id: string; active_version_id: string | null }>(
-    `SELECT id, active_version_id FROM ${TABLES.workflowDefinitionsV2}
+    `SELECT id, active_version_id FROM ${TABLES.workflowDefinitions}
      WHERE workspace_id = ? AND workflow_key = ? AND status = 'active'`,
     [workspaceId, workflowKey]
   );
@@ -260,7 +260,7 @@ export async function startWorkflowV2(
   const statements: Array<{ sql: string; args?: unknown[] }> = [
     // Create instance
     {
-      sql: `INSERT INTO ${TABLES.workflowInstancesV2}
+      sql: `INSERT INTO ${TABLES.workflowInstances}
             (id, workspace_id, workflow_definition_id, definition_version_id,
              object_type, record_id, status, current_step_id, version,
              started_by, started_at, created_at, updated_at)
@@ -387,7 +387,7 @@ export async function approvalDecideHandler(
 
   // Read the instance to get definition version
   const instance = await queryOne<WorkflowInstanceRow>(
-    `SELECT * FROM ${TABLES.workflowInstancesV2} WHERE workspace_id = ? AND id = ?`,
+    `SELECT * FROM ${TABLES.workflowInstances} WHERE workspace_id = ? AND id = ?`,
     [workspaceId, workItem.instance_id]
   );
 
@@ -466,7 +466,7 @@ export async function approvalDecideHandler(
     const nextStep = wfDef.steps.find(s => s.id === nextStepId);
     if (nextStep) {
       statements.push({
-        sql: `UPDATE ${TABLES.workflowInstancesV2}
+        sql: `UPDATE ${TABLES.workflowInstances}
               SET current_step_id = ?, version = version + 1, updated_at = ?
               WHERE id = ?`,
         args: [nextStepId, ts, instance.id],
@@ -496,7 +496,7 @@ export async function approvalDecideHandler(
       // If next step is 'end', complete the instance
       if (nextStep.kind === "end") {
         statements.push({
-          sql: `UPDATE ${TABLES.workflowInstancesV2}
+          sql: `UPDATE ${TABLES.workflowInstances}
                 SET status = 'completed', completed_at = ?, version = version + 1, updated_at = ?
                 WHERE id = ?`,
           args: [ts, ts, instance.id],
@@ -575,7 +575,7 @@ export async function returnWorkItemHandler(
   // re-execute with the prior context and return reason.
 
   const instance = await queryOne<WorkflowInstanceRow>(
-    `SELECT * FROM ${TABLES.workflowInstancesV2} WHERE workspace_id = ? AND id = ?`,
+    `SELECT * FROM ${TABLES.workflowInstances} WHERE workspace_id = ? AND id = ?`,
     [workspaceId, workItem.instance_id]
   );
   if (!instance) {
@@ -709,7 +709,7 @@ export async function cancelWorkflow(
   const ts = now();
 
   const instance = await queryOne<WorkflowInstanceRow>(
-    `SELECT * FROM ${TABLES.workflowInstancesV2} WHERE workspace_id = ? AND id = ?`,
+    `SELECT * FROM ${TABLES.workflowInstances} WHERE workspace_id = ? AND id = ?`,
     [workspaceId, instanceId]
   );
 
@@ -735,7 +735,7 @@ export async function cancelWorkflow(
   await batch([
     // Cancel instance
     {
-      sql: `UPDATE ${TABLES.workflowInstancesV2}
+      sql: `UPDATE ${TABLES.workflowInstances}
             SET status = 'cancelled', completed_at = ?, version = version + 1, updated_at = ?
             WHERE id = ?`,
       args: [ts, ts, instanceId],
@@ -1230,7 +1230,7 @@ export async function completeWorkItemHandler(
 
   // Read the instance to get the definition version
   const instance = await queryOne<WorkflowInstanceRow>(
-    `SELECT * FROM ${TABLES.workflowInstancesV2} WHERE workspace_id = ? AND id = ?`,
+    `SELECT * FROM ${TABLES.workflowInstances} WHERE workspace_id = ? AND id = ?`,
     [workspaceId, workItem.instance_id]
   );
 
@@ -1292,7 +1292,7 @@ export async function completeWorkItemHandler(
     const nextStep = wfDef.steps.find(s => s.id === nextStepId);
     if (nextStep) {
       statements.push({
-        sql: `UPDATE ${TABLES.workflowInstancesV2}
+        sql: `UPDATE ${TABLES.workflowInstances}
               SET current_step_id = ?, version = version + 1, updated_at = ?
               WHERE id = ?`,
         args: [nextStepId, ts, instance.id],
@@ -1335,7 +1335,7 @@ export async function completeWorkItemHandler(
       // If next step is 'end', complete the instance
       if (nextStep.kind === "end") {
         statements.push({
-          sql: `UPDATE ${TABLES.workflowInstancesV2}
+          sql: `UPDATE ${TABLES.workflowInstances}
                 SET status = 'completed', completed_at = ?, version = version + 1, updated_at = ?
                 WHERE id = ?`,
           args: [ts, ts, instance.id],
@@ -1345,7 +1345,7 @@ export async function completeWorkItemHandler(
   } else if (currentStep.kind === "end") {
     // No next step and current step is end — complete the instance
     statements.push({
-      sql: `UPDATE ${TABLES.workflowInstancesV2}
+      sql: `UPDATE ${TABLES.workflowInstances}
             SET status = 'completed', completed_at = ?, version = version + 1, updated_at = ?
             WHERE id = ?`,
       args: [ts, ts, instance.id],

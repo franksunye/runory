@@ -8,7 +8,7 @@
 // definitions.
 //
 // Answer conventions (must match `validateAnswers` in
-// @runory/platform-core/src/forms-v2.ts):
+// @runory/platform-core/src/forms.ts):
 //   - field blocks:      answers[field_key ?? id] = typed value
 //   - checklist blocks:  answers[block.id] = { [itemId]: "pass"|"fail"|"na" }
 //   - evidence blocks:   answers[block.id] = { attachments: string[] }

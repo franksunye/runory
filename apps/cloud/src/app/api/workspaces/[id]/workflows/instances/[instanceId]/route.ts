@@ -29,7 +29,7 @@ export async function GET(
 
     // Fetch the instance
     const instance = await queryOne<WorkflowInstanceRow>(
-      `SELECT * FROM ${TABLES.workflowInstancesV2}
+      `SELECT * FROM ${TABLES.workflowInstances}
        WHERE workspace_id = ? AND id = ?`,
       [workspaceId, instanceId]
     );
