@@ -30,20 +30,24 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Not available" }, { status: 403 });
   }
 
-  const body = await request.json();
-  const personaId = body.personaId as string;
+  try {
+    const body = await request.json();
+    const personaId = body.personaId as string;
 
-  if (!personaId) {
-    return NextResponse.json({ error: "personaId required" }, { status: 400 });
+    if (!personaId) {
+      return NextResponse.json({ error: "personaId required" }, { status: 400 });
+    }
+
+    const response = NextResponse.json({ success: true, personaId });
+    response.cookies.set("dev-persona", personaId, {
+      path: "/",
+      httpOnly: true,
+      sameSite: "lax",
+      maxAge: 60 * 60 * 24 * 7, // 7 days
+    });
+
+    return response;
+  } catch {
+    return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
   }
-
-  const response = NextResponse.json({ success: true, personaId });
-  response.cookies.set("dev-persona", personaId, {
-    path: "/",
-    httpOnly: true,
-    sameSite: "lax",
-    maxAge: 60 * 60 * 24 * 7, // 7 days
-  });
-
-  return response;
 }
