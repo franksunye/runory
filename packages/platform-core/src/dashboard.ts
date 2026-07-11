@@ -22,7 +22,7 @@ export const PLATFORM_WIDGETS: WidgetDeclaration[] = [
   {
     key: "business_activity_feed",
     type: "activity_feed",
-    label: "业务动态",
+    label: "Activity",
     icon: "activity",
     tone: "slate",
     data: { kind: "count", object: "_audit" }, // sentinel; resolved specially

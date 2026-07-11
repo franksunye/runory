@@ -34,6 +34,7 @@ import {
 } from "@/lib/api-hooks";
 import { notifyWorkspaceDataChanged } from "@/lib/workspace-events";
 import { useI18n } from "@/i18n/locale-provider";
+import type { Locale } from "@/i18n/config";
 import { objectKeyToRouteSegment } from "@/lib/dynamic-object";
 import type { MessageKey } from "@/i18n/messages";
 import { apiFetch, apiDelete } from "@/lib/api-fetch";
@@ -82,6 +83,23 @@ const OBJECT_KEY_LABEL: Record<string, MessageKey> = {
 function getObjectLabel(objectKey: string, t: (key: MessageKey) => string): string {
   const key = OBJECT_KEY_LABEL[objectKey];
   return key ? t(key) : objectKey;
+}
+
+function formatMetaDate(value: string | number | boolean | null | undefined, locale: Locale): string {
+  if (value === null || value === undefined || value === "") return "—";
+  try {
+    const date = new Date(String(value));
+    if (Number.isNaN(date.getTime())) return String(value);
+    return date.toLocaleString(locale === "zh" ? "zh-CN" : "en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  } catch {
+    return String(value);
+  }
 }
 
 export interface ParentLinkConfig {
@@ -336,7 +354,7 @@ export default function ObjectDetailPage({
   const router = useRouter();
   const workspaceId = params.workspaceId as string;
   const recordId = params.id as string;
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
 
   const { data: objDetail, isLoading: loadingObj } = useFields(workspaceId, objectKey);
   const { data: views = [], isLoading: loadingViews } = useViews(workspaceId, objectKey);
@@ -524,6 +542,38 @@ export default function ObjectDetailPage({
   const renderFieldRow = (field: FieldDefinition) => {
     const value = record[field.fieldKey];
     const isExtension = field.ownership === "workspace_extension";
+    const isDateType = field.type === "date" || field.type === "datetime";
+    let displayValue: React.ReactNode;
+    if (field.type === "boolean") {
+      displayValue = value ? t("workspace.yes") : t("workspace.no");
+    } else if (value === null || value === undefined || value === "") {
+      displayValue = "—";
+    } else if (isDateType) {
+      try {
+        const date = new Date(String(value));
+        if (Number.isNaN(date.getTime())) {
+          displayValue = String(value);
+        } else if (field.type === "datetime") {
+          displayValue = date.toLocaleString(locale === "zh" ? "zh-CN" : "en-US", {
+            year: "numeric",
+            month: "short",
+            day: "numeric",
+            hour: "2-digit",
+            minute: "2-digit",
+          });
+        } else {
+          displayValue = date.toLocaleDateString(locale === "zh" ? "zh-CN" : "en-US", {
+            year: "numeric",
+            month: "short",
+            day: "numeric",
+          });
+        }
+      } catch {
+        displayValue = String(value);
+      }
+    } else {
+      displayValue = String(value);
+    }
     return (
       <div key={field.id}>
         <dt className="flex items-center gap-1 text-xs font-bold uppercase tracking-wider text-slate-500">
@@ -534,15 +584,7 @@ export default function ObjectDetailPage({
             </span>
           )}
         </dt>
-        <dd className="mt-1 text-sm text-slate-900">
-          {field.type === "boolean"
-            ? value
-              ? t("workspace.yes")
-              : t("workspace.no")
-            : value === null || value === undefined || value === ""
-              ? "—"
-              : String(value)}
-        </dd>
+        <dd className="mt-1 text-sm text-slate-900">{displayValue}</dd>
       </div>
     );
   };
@@ -696,8 +738,8 @@ export default function ObjectDetailPage({
 
           {/* Meta */}
           <div className="text-xs text-slate-400">
-            <p>{t("workspace.createdAt", { time: String(record.created_at ?? "") })}</p>
-            <p>{t("workspace.updatedAt", { time: String(record.updated_at ?? "") })}</p>
+            <p>{t("workspace.createdAt", { time: formatMetaDate(record.created_at, locale) })}</p>
+            <p>{t("workspace.updatedAt", { time: formatMetaDate(record.updated_at, locale) })}</p>
           </div>
         </div>
       )}

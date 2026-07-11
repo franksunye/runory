@@ -323,10 +323,10 @@
       "alias": "q-acme-deal-v2",
       "match": {
         "field": "quote_number",
-        "value": "Q-2026-001-V2"
+        "value": "Q-2026-001-R1"
       },
       "data": {
-        "quote_number": "Q-2026-001-V2",
+        "quote_number": "Q-2026-001-R1",
         "title": "Acme Expansion Plan Quote (Revised)",
         "status": "sent",
         "version": 2,
