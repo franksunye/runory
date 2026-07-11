@@ -9,7 +9,7 @@
  * This validator is intentionally read-only. It is a pre-manual-acceptance
  * signal for local development, not a replacement for browser/user testing.
  */
-import { existsSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import path from "node:path";
 
@@ -56,6 +56,19 @@ function quote(value) {
   return String(value).replaceAll("'", "''");
 }
 
+function findFilesByName(dir, fileName, results = []) {
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    if (entry.name === "node_modules" || entry.name === ".git" || entry.name === ".next" || entry.name === ".next-dev") continue;
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      findFilesByName(full, fileName, results);
+    } else if (entry.name === fileName) {
+      results.push(full);
+    }
+  }
+  return results;
+}
+
 function main() {
   console.log("\n=== Runory v0.5 SMB Closure Validator ===\n");
   console.log(`Database: ${DB_PATH}`);
@@ -68,7 +81,6 @@ function main() {
   const requiredTables = [
     "saas_workspaces",
     "runory_runtime_pack_installations",
-    "runory_runtime_workflow_instances",
     "runory_runtime_workflow_instances",
     "runory_runtime_work_items",
     "runory_runtime_resources",
@@ -122,12 +134,12 @@ function main() {
     check(`${label} >= ${min}`, n >= min, String(n), failures, warnings);
   }
 
-  const v1StateColumn = columnExists("runory_runtime_workflow_instances", "status") ? "status" : "current_state";
-  const activeV1 = count(`SELECT COUNT(*) FROM runory_runtime_workflow_instances WHERE workspace_id='${ws}' AND ${v1StateColumn} NOT IN ('completed', 'cancelled', 'failed', 'terminal')`);
-  check("no active Workflow V1 instances", activeV1 === 0, String(activeV1), failures, warnings);
+  const stateColumn = columnExists("runory_runtime_workflow_instances", "status") ? "status" : "current_state";
+  const activeInstances = count(`SELECT COUNT(*) FROM runory_runtime_workflow_instances WHERE workspace_id='${ws}' AND ${stateColumn} NOT IN ('completed', 'cancelled', 'failed', 'terminal')`);
+  check("no active Workflow instances", activeInstances === 0, String(activeInstances), failures, warnings);
 
-  const v2Instances = count(`SELECT COUNT(*) FROM runory_runtime_workflow_instances WHERE workspace_id='${ws}'`);
-  console.log(`ⓘ Workflow V2 instances are optional for SMB default execution — ${v2Instances}`);
+  const totalInstances = count(`SELECT COUNT(*) FROM runory_runtime_workflow_instances WHERE workspace_id='${ws}'`);
+  console.log(`ⓘ Workflow instances are optional for SMB default execution — ${totalInstances}`);
 
   const workItems = count(`SELECT COUNT(*) FROM runory_runtime_work_items WHERE workspace_id='${ws}'`);
   console.log(`ⓘ Workflow-backed Work Items are optional when schedule-backed My Work is available — ${workItems}`);
@@ -163,6 +175,68 @@ function main() {
   const forms = count(`SELECT COUNT(*) FROM runory_runtime_form_definitions WHERE workspace_id='${ws}'`);
   check("form definitions exist", forms > 0, String(forms), failures, warnings);
 
+  const formSubmissions = count(`SELECT COUNT(*) FROM runory_runtime_form_submissions WHERE workspace_id='${ws}'`);
+  check("form submissions exist", formSubmissions > 0, String(formSubmissions), failures, warnings);
+
+  const evidenceSubmissions = count(`
+    SELECT COUNT(*)
+    FROM runory_runtime_form_submissions
+    WHERE workspace_id='${ws}'
+      AND answers_json LIKE '%"evi-photos"%'
+      AND answers_json LIKE '%"attachments"%'
+  `);
+  check("field evidence exists in form submissions", evidenceSubmissions > 0, String(evidenceSubmissions), failures, warnings);
+
+  const returnedSubmissions = count(`SELECT COUNT(*) FROM runory_runtime_form_submissions WHERE workspace_id='${ws}' AND status='returned'`);
+  check("returned form submission example exists", returnedSubmissions > 0, String(returnedSubmissions), failures, warnings);
+
+  const reportsWithPhotos = count(`
+    SELECT COUNT(*)
+    FROM runory_business_service_report
+    WHERE workspace_id='${ws}'
+      AND photos IS NOT NULL
+      AND photos <> ''
+  `);
+  check("service reports include evidence references", reportsWithPhotos > 0, String(reportsWithPhotos), failures, warnings);
+
+  const geolocatedSchedules = count(`
+    SELECT COUNT(*)
+    FROM runory_runtime_schedule_entries
+    WHERE workspace_id='${ws}'
+      AND location_type='customer_site'
+      AND latitude IS NOT NULL
+      AND longitude IS NOT NULL
+  `);
+  check("planning map has geolocated customer-site entries", geolocatedSchedules > 0, String(geolocatedSchedules), failures, warnings);
+
+  const conflictSchedules = count(`
+    SELECT COUNT(*)
+    FROM runory_runtime_schedule_entries
+    WHERE workspace_id='${ws}'
+      AND conflict_state='conflict'
+  `);
+  check("planning conflict example exists", conflictSchedules > 0, String(conflictSchedules), failures, warnings);
+
+  const staleOpenVisits = count(`
+    SELECT COUNT(*)
+    FROM runory_business_service_visit
+    WHERE workspace_id='${ws}'
+      AND status NOT IN ('completed', 'cancelled')
+      AND scheduled_start IS NOT NULL
+      AND datetime(scheduled_start) < datetime('now', '-7 days')
+  `);
+  check("open service visits are current-date-safe", staleOpenVisits === 0, String(staleOpenVisits), failures, warnings);
+
+  const staleOpenWorkOrders = count(`
+    SELECT COUNT(*)
+    FROM runory_business_work_order
+    WHERE workspace_id='${ws}'
+      AND status NOT IN ('completed', 'cancelled')
+      AND scheduled_start IS NOT NULL
+      AND datetime(scheduled_start) < datetime('now', '-7 days')
+  `);
+  check("open work orders are current-date-safe", staleOpenWorkOrders === 0, String(staleOpenWorkOrders), failures, warnings);
+
   const rawRelationIds = count(`
     SELECT COUNT(*)
     FROM runory_business_work_order wo
@@ -170,6 +244,30 @@ function main() {
     WHERE wo.workspace_id='${ws}' AND wo.company_id IS NOT NULL AND c.id IS NULL
   `);
   check("work order company relations resolve", rawRelationIds === 0, String(rawRelationIds), failures, warnings);
+
+  const activeQuoteApprovalModuleInstalls = count(`
+    SELECT COUNT(*)
+    FROM runory_runtime_installations
+    WHERE workspace_id='${ws}'
+      AND module_id='runory.quote-approval'
+  `);
+  check("quote approval retired module is not installed", activeQuoteApprovalModuleInstalls === 0, String(activeQuoteApprovalModuleInstalls), failures, warnings);
+
+  const quoteApprovalsRoutePage = path.join(ROOT, "apps/cloud/src/app/w/[workspaceId]/quote-approvals/page.tsx");
+  check("quote approvals has no standalone route page", !existsSync(quoteApprovalsRoutePage), "", failures, warnings);
+
+  const salesQuoteTemplate = readFileSync(
+    path.join(ROOT, "catalog/templates/small-business-sales-quote/manifest.yaml"),
+    "utf8"
+  );
+  const templateHasQuoteApproval =
+    salesQuoteTemplate.includes("quote-approvals") ||
+    salesQuoteTemplate.includes("runory.quote-approval") ||
+    salesQuoteTemplate.includes("quote_approval");
+  check("sales quote template does not expose quote approvals", !templateHasQuoteApproval, "", failures, warnings);
+
+  const dsStoreFiles = findFilesByName(path.join(ROOT, "apps/cloud/src"), ".DS_Store");
+  check(".DS_Store files removed from source app tree", dsStoreFiles.length === 0, String(dsStoreFiles.length), failures, warnings);
 
   console.log("\nSummary:");
   console.log(`  failures: ${failures.length}`);
@@ -186,7 +284,7 @@ function main() {
     process.exit(1);
   }
 
-  console.log("\n✓ v0.5 local database passes the SMB closure preflight gate.\n");
+  console.log("\n✓ v0.5.1 local database passes the SMB closure and acceptance-hardening preflight gate.\n");
 }
 
 main();
