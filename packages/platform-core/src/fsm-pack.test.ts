@@ -329,6 +329,7 @@ describe("FSM demo data with cross-pack references", () => {
 
     const completedWo = workOrders.find((w) => w.title === "Acme server room HVAC filter replacement");
     expect(completedReport?.work_order_id).toBe(completedWo?.id);
+    expect(String(completedReport?.photos ?? "")).toContain("att_acme_hvac_before");
   });
 
   it("seeds user-linked resources and operational assignments for dispatch", async () => {
@@ -351,6 +352,22 @@ describe("FSM demo data with cross-pack references", () => {
     expect(assignments.length).toBeGreaterThanOrEqual(4);
     expect(assignments.some((a) => a.subject_type === "service_visit" && a.status === "accepted")).toBe(true);
     expect(assignments.some((a) => a.subject_type === "work_order" && a.status === "proposed")).toBe(true);
+
+    const geolocatedSchedules = await queryAll<{ id: string }>(
+      `SELECT id FROM ${TABLES.scheduleEntries}
+       WHERE workspace_id = ?
+         AND latitude IS NOT NULL
+         AND longitude IS NOT NULL`,
+      [workspaceId]
+    );
+    expect(geolocatedSchedules.length).toBeGreaterThanOrEqual(3);
+
+    const conflictSchedules = await queryAll<{ id: string }>(
+      `SELECT id FROM ${TABLES.scheduleEntries}
+       WHERE workspace_id = ? AND conflict_state = 'conflict'`,
+      [workspaceId]
+    );
+    expect(conflictSchedules.length).toBeGreaterThanOrEqual(1);
   });
 
   it("demo data is idempotent across repeated installs", async () => {
@@ -364,9 +381,14 @@ describe("FSM demo data with cross-pack references", () => {
     const technicians = await getRecords(workspaceId, "technician");
     const sites = await getRecords(workspaceId, "service_site");
     const workOrders = await getRecords(workspaceId, "work_order");
+    const schedules = await queryAll<{ id: string }>(
+      `SELECT id FROM ${TABLES.scheduleEntries} WHERE workspace_id = ?`,
+      [workspaceId]
+    );
     expect(technicians.length).toBe(3);
     expect(sites.length).toBe(4);
     expect(workOrders.length).toBe(6);
+    expect(schedules.length).toBe(6);
   });
 
   it("includes required demo scenarios from the plan", async () => {
@@ -381,11 +403,16 @@ describe("FSM demo data with cross-pack references", () => {
     // One urgent work order
     expect(workOrders.some((w) => w.priority === "urgent")).toBe(true);
 
-    // One overdue work order (SLA due date in the past, not completed)
-    const overdue = workOrders.find(
-      (w) => w.status === "in_progress" && String(w.sla_due_at) < "2026-06-23"
+    // One active high-priority work order for the current walkthrough.
+    // Demo dates are relative-date based, so this should validate the scenario
+    // instead of relying on a stale fixed calendar date.
+    const activeHighPriority = workOrders.find(
+      (w) =>
+        w.status === "in_progress" &&
+        w.priority === "high" &&
+        String(w.title).includes("Acme warehouse HVAC refrigerant recharge")
     );
-    expect(overdue).toBeDefined();
+    expect(activeHighPriority).toBeDefined();
 
     // One completed work order with service report
     const completedWo = workOrders.find((w) => w.status === "completed");

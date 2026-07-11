@@ -1,10 +1,10 @@
 "use client";
 
-// Forms 2.0 (V2) public form renderer.
+// Public form renderer (block-based forms).
 //
 // Renders a form definition's blocks (header / field / checklist / evidence /
 // signature) and submits the answers to the existing public submit endpoint
-// (`/api/public/forms/[formId]/submit`), which already understands V2 form
+// (`/api/public/forms/[formId]/submit`), which already understands form
 // definitions.
 //
 // Answer conventions (must match `validateAnswers` in

@@ -19,6 +19,23 @@ onboardingChecklist:
     label: "Load sample data to explore"
     route: "/modules"
 
+mobileNavigation:
+  - key: today
+    label: Today
+    route: /
+    icon: home
+    order: 10
+  - key: schedule
+    label: Schedule
+    route: /schedule
+    icon: calendar
+    order: 40
+  - key: work-orders
+    label: Work Orders
+    route: /work-orders
+    icon: clipboard-list
+    order: 50
+
 # FSM Pack composes shared business modules (company, contact, task) with
 # FSM-specific modules. Shared modules are reused, not duplicated.
 modules:

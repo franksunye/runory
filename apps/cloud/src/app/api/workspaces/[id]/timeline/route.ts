@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { queryAll, queryOne, TABLES, InvalidInputError, BusinessError, ERROR_CODES } from "@runory/platform-core";
+import { queryAll, queryOne, TABLES, InvalidInputError, BusinessError, ERROR_CODES, businessTable } from "@runory/platform-core";
 import { requireWorkspaceContext } from "@/lib/auth";
 import { successResponse, handleError, getOrCreateRequestId } from "@/lib/http";
 
@@ -219,16 +219,18 @@ async function enforceSubjectVisibility(
 }
 
 function businessTableForSubject(subjectType: string): string | null {
-  // Map subject types to their business table names
+  // Map subject types to their current module-owned business table names.
+  // Do not use legacy plural table names here; module migrations create
+  // `runory_business_${object_key}` tables such as `runory_business_service_visit`.
   const mapping: Record<string, string> = {
-    company: "business_companies",
-    service_site: "business_service_sites",
-    asset: "business_assets",
-    work_order: "business_work_orders",
-    visit: "business_service_visits",
-    service_visit: "business_service_visits",
-    quote: "business_quotes",
-    deal: "business_deals",
+    company: businessTable("company"),
+    service_site: businessTable("service_site"),
+    asset: businessTable("asset"),
+    work_order: businessTable("work_order"),
+    visit: businessTable("service_visit"),
+    service_visit: businessTable("service_visit"),
+    quote: businessTable("quote"),
+    deal: businessTable("deal"),
   };
   return mapping[subjectType] ?? null;
 }

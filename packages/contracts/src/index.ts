@@ -307,6 +307,17 @@ export const packPermissionGroupSchema = z.object({
 });
 export type PackPermissionGroup = z.infer<typeof packPermissionGroupSchema>;
 
+export const packMobileNavigationItemSchema = z.object({
+  key: z.string(),
+  label: z.string(),
+  route: z.string(),
+  icon: z.string().default("circle"),
+  order: z.number().default(100),
+  audience: z.array(z.string()).optional(),
+  requires: z.array(z.string()).optional(),
+});
+export type PackMobileNavigationItem = z.infer<typeof packMobileNavigationItemSchema>;
+
 export const packManifestSchema = z.object({
   id: z.string(),
   name: z.string(),
@@ -330,6 +341,10 @@ export const packManifestSchema = z.object({
   onboardingChecklist: z.array(onboardingChecklistItemSchema).optional(),
   // v0.3.6 — Pack-aware permission groups
   permissionGroups: z.array(packPermissionGroupSchema).optional(),
+  // v0.5.1 — Mobile/PWA navigation contributions.
+  // Packs contribute mobile execution tabs; the mobile shell composes installed
+  // pack contributions instead of hardcoding a single industry workflow.
+  mobileNavigation: z.array(packMobileNavigationItemSchema).optional(),
 });
 
 export type PackManifest = z.infer<typeof packManifestSchema>;

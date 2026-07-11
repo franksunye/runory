@@ -3,9 +3,20 @@
 import { useCallback, useEffect, useState } from "react";
 import { useParams, usePathname } from "next/navigation";
 import Link from "next/link";
-import { Home, Calendar, ClipboardList, User, WifiOff, RefreshCw } from "lucide-react";
+import {
+  Building2,
+  Calendar,
+  Circle,
+  ClipboardList,
+  FileText,
+  Home,
+  LayoutGrid,
+  RefreshCw,
+  User,
+  WifiOff,
+} from "lucide-react";
 import { useI18n } from "@/i18n/locale-provider";
-import type { MessageKey } from "@/i18n/messages";
+import { apiFetch } from "@/lib/api-fetch";
 import { initPerformanceMeasurement } from "@/lib/performance";
 
 // Bump this when sw.js cache policy changes to force a clean update.
@@ -22,6 +33,7 @@ export default function MobileLayout({
   const { t } = useI18n();
 
   const workspaceId = params?.workspaceId as string | undefined;
+  const [mobileNavigation, setMobileNavigation] = useState<MobileTabContribution[] | null>(null);
 
   // ── Online / offline detection (v0.5.1 Spec §5.6: visible online/offline state) ──
   const [isOffline, setIsOffline] = useState(false);
@@ -142,6 +154,37 @@ export default function MobileLayout({
     });
   }, []);
 
+  useEffect(() => {
+    if (!workspaceId) {
+      setMobileNavigation(null);
+      return;
+    }
+
+    let cancelled = false;
+    void apiFetch<{
+      success: boolean;
+      data?: Array<{
+        packId: string;
+        installed: boolean;
+        mobileNavigation?: MobileTabContribution[];
+      }>;
+    }>(`/api/workspaces/${workspaceId}/packs`, { cache: "no-store" })
+      .then((json) => {
+        if (cancelled) return;
+        const contributions = (json.data ?? [])
+          .filter((pack) => pack.installed)
+          .flatMap((pack) => pack.mobileNavigation ?? []);
+        setMobileNavigation(contributions);
+      })
+      .catch(() => {
+        if (!cancelled) setMobileNavigation(null);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [workspaceId]);
+
   // Reload the page so the new service worker controls all subsequent fetches.
   const handleRefresh = useCallback(() => {
     if (typeof window !== "undefined") {
@@ -154,33 +197,32 @@ export default function MobileLayout({
   const showBottomNav = Boolean(workspaceId);
 
   interface TabDef {
-    labelKey: MessageKey;
-    icon: typeof Home;
+    key: string;
+    label: string;
+    icon: IconType;
     href: string;
     matchPrefix: string;
   }
 
+  const configuredTabs = buildMobileTabs(workspaceId, mobileNavigation);
+  const primaryTabs = configuredTabs.slice(0, 3);
+  const hasExplore = configuredTabs.length > primaryTabs.length;
   const tabs: TabDef[] = [
+    ...primaryTabs,
+    ...(hasExplore
+      ? [
+          {
+            key: "explore",
+            label: "Explore",
+            icon: LayoutGrid,
+            href: `/m/w/${workspaceId}/explore`,
+            matchPrefix: `/m/w/${workspaceId}/explore`,
+          },
+        ]
+      : []),
     {
-      labelKey: "mobile.tabToday",
-      icon: Home,
-      href: `/m/w/${workspaceId}`,
-      matchPrefix: `/m/w/${workspaceId}`,
-    },
-    {
-      labelKey: "mobile.tabSchedule",
-      icon: Calendar,
-      href: `/m/w/${workspaceId}/schedule`,
-      matchPrefix: `/m/w/${workspaceId}/schedule`,
-    },
-    {
-      labelKey: "mobile.tabWorkOrders",
-      icon: ClipboardList,
-      href: `/m/w/${workspaceId}/work-orders`,
-      matchPrefix: `/m/w/${workspaceId}/work-orders`,
-    },
-    {
-      labelKey: "mobile.tabMe",
+      key: "me",
+      label: t("mobile.tabMe"),
       icon: User,
       href: `/m/account`,
       matchPrefix: `/m/account`,
@@ -271,7 +313,7 @@ export default function MobileLayout({
 
               return (
                 <Link
-                  key={tab.href}
+                  key={tab.key}
                   href={tab.href}
                   className={`flex min-h-[44px] flex-1 flex-col items-center justify-center gap-1 py-2 transition ${
                     isActive
@@ -285,7 +327,7 @@ export default function MobileLayout({
                     strokeWidth={isActive ? 2.4 : 2}
                   />
                   <span className="text-[10px] font-semibold leading-none">
-                    {t(tab.labelKey)}
+                    {tab.label}
                   </span>
                 </Link>
               );
@@ -295,4 +337,73 @@ export default function MobileLayout({
       )}
     </div>
   );
+}
+
+type IconType = typeof Home;
+
+interface MobileTabContribution {
+  key: string;
+  label: string;
+  route: string;
+  icon?: string;
+  order?: number;
+}
+
+const ICONS: Record<string, IconType> = {
+  building: Building2,
+  calendar: Calendar,
+  "clipboard-list": ClipboardList,
+  "file-text": FileText,
+  home: Home,
+  "layout-grid": LayoutGrid,
+};
+
+function buildMobileTabs(
+  workspaceId: string | undefined,
+  contributions: MobileTabContribution[] | null
+): Array<{
+  key: string;
+  label: string;
+  icon: IconType;
+  href: string;
+  matchPrefix: string;
+}> {
+  if (!workspaceId) return [];
+
+  const base: MobileTabContribution[] =
+    contributions && contributions.length > 0
+      ? contributions
+      : [
+          {
+            key: "today",
+            label: "Today",
+            route: "/",
+            icon: "home",
+            order: 10,
+          },
+        ];
+
+  const deduped = new Map<string, MobileTabContribution>();
+  for (const item of base) {
+    if (!item.key || !item.route) continue;
+    const existing = deduped.get(item.key);
+    if (!existing || (item.order ?? 100) < (existing.order ?? 100)) {
+      deduped.set(item.key, item);
+    }
+  }
+
+  return [...deduped.values()]
+    .sort((a, b) => (a.order ?? 100) - (b.order ?? 100))
+    .map((item) => {
+      const normalizedRoute =
+        item.route === "/" ? "" : item.route.startsWith("/") ? item.route : `/${item.route}`;
+      const href = `/m/w/${workspaceId}${normalizedRoute}`;
+      return {
+        key: item.key,
+        label: item.label,
+        icon: ICONS[item.icon ?? ""] ?? Circle,
+        href,
+        matchPrefix: href,
+      };
+    });
 }

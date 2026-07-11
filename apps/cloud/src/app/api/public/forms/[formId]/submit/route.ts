@@ -37,16 +37,16 @@ interface FormRecord {
   campaign_id: string | null;
 }
 
-// ── Forms 2.0 lookup ──
+// ── Form definition lookup ──
 //
 // Per Spec Decision 10 ("Public endpoint is a form usage/channel policy, not a
-// second product"), public submissions for Forms 2.0 forms flow through a
+// second product"), public submissions for form definitions flow through a
 // `form_bindings` row with `usage_type = "public_endpoint"` and are persisted
 // via `submitForm()` from @runory/platform-core — never written directly to the
 // legacy `submission` business table.
 //
-// `formId` from the URL may be either a Forms 2.0 definition ID or a legacy
-// v1.0 form record ID. Definition IDs are globally unique, so we resolve the
+// `formId` from the URL may be either a form definition ID or a legacy
+// form record ID. Definition IDs are globally unique, so we resolve the
 // definition without a workspace filter first, then use the official
 // `getFormDefinition` API to fetch its active (published) version + schema.
 
@@ -81,7 +81,7 @@ async function findFormsV2Definition(
   if (!def.active_version_id) return null;
 
   // Fetch the active version (definition + parsed schema) via the official
-  // Forms 2.0 API. Returns undefined if the definition/version is missing or
+  // form definition API. Returns undefined if the definition/version is missing or
   // the schema cannot be resolved.
   const active = await getFormDefinition(def.workspace_id, def.form_key);
   if (!active) return null;
@@ -94,7 +94,7 @@ async function findFormsV2Definition(
   };
 }
 
-// Find an active `public_endpoint` binding for a Forms 2.0 form definition.
+// Find an active `public_endpoint` binding for a form definition.
 // A form is only submittable through this public endpoint if such a binding
 // exists; otherwise the form is not available for public submission.
 //
@@ -236,8 +236,8 @@ export async function POST(
       });
     }
 
-    // ── Forms 2.0 path ──
-    // Try Forms 2.0 first; fall back to the legacy v1.0 form table below.
+    // ── Form definition path ──
+    // Try form definitions first; fall back to the legacy form table below.
     const v2Definition = await findFormsV2Definition(formId);
     if (v2Definition) {
       // A form is only publicly submittable if it has an active
@@ -259,7 +259,7 @@ export async function POST(
         );
       }
 
-      // Forms 2.0 validation (required fields, checklists, evidence,
+      // Form definition validation (required fields, checklists, evidence,
       // signatures) happens inside submitForm via validateAnswers.
       try {
         const idempotencyKey = request.headers.get("idempotency-key") ?? undefined;

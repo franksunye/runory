@@ -105,6 +105,10 @@ interface DemoScheduleEntry {
   endAt: string;
   status: string;
   notes?: string;
+  locationType?: string;
+  locationId?: string;
+  latitude?: number;
+  longitude?: number;
   // Override the conflict_state column (defaults to "none"). Use "conflict" or
   // "warning" to seed demo entries that demonstrate conflict detection.
   conflictState?: string;
@@ -250,6 +254,7 @@ async function ensureSoftDeleteColumns(tableName: string): Promise<void> {
 
 function resolveDemoValue(value: unknown, aliases: Map<string, Record<string, unknown>>): unknown {
   if (typeof value !== "string" || !value.startsWith("$")) return value;
+  if (value.startsWith("$relativeDate:")) return resolveRelativeDate(value);
   const match = /^\$([A-Za-z0-9_-]+)\.([A-Za-z0-9_]+)$/.exec(value);
   if (!match) return value;
   const [, alias, field] = match;
@@ -366,7 +371,44 @@ async function seedPackDemoData(workspaceId: string, packId: string): Promise<nu
     }
 
     const row = existing ?? (await createRecord(workspaceId, record.object, data));
-    if (!existing) created++;
+    if (!existing) {
+      created++;
+    } else if (record.object === "work_order" || record.object === "service_visit") {
+      const dateFields = [
+        "requested_at",
+        "scheduled_start",
+        "scheduled_end",
+        "actual_start",
+        "actual_end",
+        "sla_due_at",
+      ].filter((field) => data[field] !== undefined);
+      if (dateFields.length > 0) {
+        const assignments = dateFields.map((field) => `${validateIdentifier(field)} = ?`).join(", ");
+        await execute(
+          `UPDATE ${businessTable(record.object)}
+           SET ${assignments}, updated_at = ?
+           WHERE workspace_id = ? AND id = ?`,
+          [...dateFields.map((field) => data[field]), now(), workspaceId, row.id]
+        );
+        for (const field of dateFields) row[field] = data[field];
+      }
+    } else if (record.object === "service_report" && (typeof data.photos === "string" || data.completed_at !== undefined)) {
+      // v0.5.1 acceptance hardening: older local demo workspaces may already
+      // have service reports created before evidence was added to the demo
+      // story or before current-date-safe report dates. Patch demo-only
+      // presentation fields in place so the same workspace can still pass the
+      // commercial walkthrough without deleting and recreating records.
+      await execute(
+        `UPDATE ${businessTable("service_report")}
+         SET photos = COALESCE(NULLIF(photos, ''), ?),
+             completed_at = COALESCE(?, completed_at),
+             updated_at = ?
+         WHERE workspace_id = ? AND id = ?`,
+        [data.photos ?? null, data.completed_at ?? null, now(), workspaceId, row.id]
+      );
+      row.photos = row.photos || data.photos;
+      row.completed_at = data.completed_at || row.completed_at;
+    }
     if (record.alias) aliases.set(record.alias, { ...row, objectKey: record.object });
   }
 
@@ -476,7 +518,14 @@ async function seedPackDemoData(workspaceId: string, packId: string): Promise<nu
                   );
                 }
               } else {
-                console.warn(`[installer] Permission group not found: pack=${pg.packId} key=${pg.groupKey} (may not be installed yet)`);
+                const packInstalled = await queryOne<{ id: string }>(
+                  `SELECT id FROM ${TABLES.packInstallations}
+                   WHERE workspace_id = ? AND pack_id = ?`,
+                  [workspaceId, pg.packId]
+                );
+                if (packInstalled) {
+                  console.warn(`[installer] Permission group not found: pack=${pg.packId} key=${pg.groupKey}`);
+                }
               }
             } catch (e) {
               console.warn(`[installer] Failed to assign permission group ${pg.groupKey}: ${e instanceof Error ? e.message : String(e)}`);
@@ -655,12 +704,40 @@ async function seedPackDemoData(workspaceId: string, packId: string): Promise<nu
           subjectId = aliases.get(fs.subjectAlias)!.id as string;
         }
         if (subjectId) {
-          const existingSub = await queryOne<{ id: string }>(
-            `SELECT id FROM ${TABLES.formSubmissions}
+          const existingSub = await queryOne<{ id: string; answers_json: string }>(
+            `SELECT id, answers_json FROM ${TABLES.formSubmissions}
              WHERE workspace_id = ? AND form_definition_id = ? AND subject_id = ? AND status = ?`,
             [workspaceId, def.id, subjectId, fs.status ?? "submitted"]
           );
-          if (existingSub) continue;
+          if (existingSub) {
+            // v0.5.1 acceptance hardening: patch missing evidence answers into
+            // existing demo submissions. This is intentionally scoped to demo
+            // data seeding; normal submissions remain immutable through the
+            // product command path.
+            const nextAnswers = fs.answers as Record<string, unknown>;
+            if (nextAnswers["evi-photos"] !== undefined) {
+              let currentAnswers: Record<string, unknown> = {};
+              try {
+                currentAnswers = JSON.parse(existingSub.answers_json) as Record<string, unknown>;
+              } catch {
+                currentAnswers = {};
+              }
+              if (currentAnswers["evi-photos"] === undefined) {
+                await execute(
+                  `UPDATE ${TABLES.formSubmissions}
+                   SET answers_json = ?, updated_at = ?
+                   WHERE workspace_id = ? AND id = ?`,
+                  [
+                    JSON.stringify({ ...currentAnswers, "evi-photos": nextAnswers["evi-photos"] }),
+                    now(),
+                    workspaceId,
+                    existingSub.id,
+                  ]
+                );
+              }
+            }
+            continue;
+          }
         }
 
         const result = await submitForm(workspaceId, {
@@ -702,19 +779,69 @@ async function seedPackDemoData(workspaceId: string, packId: string): Promise<nu
       // Check for existing entry to avoid duplicates
       const existing = await queryOne<{ id: string }>(
         `SELECT id FROM ${TABLES.scheduleEntries}
-         WHERE workspace_id = ? AND resource_id = ? AND subject_id = ? AND start_at = ?`,
-        [workspaceId, resourceId, subjectId, startAt]
+         WHERE workspace_id = ?
+           AND resource_id = ?
+           AND subject_type = ?
+           AND subject_id = ?`,
+        [workspaceId, resourceId, se.subjectType, subjectId]
       );
-      if (existing) continue;
+      if (existing) {
+        // v0.5.1 acceptance hardening: demo schedules are relative-date based,
+        // so re-running the seed on a later day must update the same demo
+        // schedule instead of creating duplicate My Work / Planning rows.
+        await execute(
+          `UPDATE ${TABLES.scheduleEntries}
+           SET start_at = ?,
+               end_at = ?,
+               status = ?,
+               location_type = ?,
+               location_id = ?,
+               latitude = ?,
+               longitude = ?,
+               conflict_state = ?,
+               updated_at = ?
+           WHERE workspace_id = ? AND id = ?`,
+          [
+            startAt,
+            endAt,
+            se.status,
+            se.locationType ?? null,
+            se.locationId ?? null,
+            se.latitude ?? null,
+            se.longitude ?? null,
+            se.conflictState ?? "none",
+            now(),
+            workspaceId,
+            existing.id,
+          ]
+        );
+        continue;
+      }
 
       const id = genId("sch");
       const ts = now();
       const conflictState = se.conflictState ?? "none";
       await execute(
         `INSERT INTO ${TABLES.scheduleEntries}
-         (id, workspace_id, resource_id, subject_type, subject_id, start_at, end_at, status, conflict_state, version, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`,
-        [id, workspaceId, resourceId, se.subjectType, subjectId, startAt, endAt, se.status, conflictState, ts, ts]
+         (id, workspace_id, resource_id, subject_type, subject_id, start_at, end_at, status, location_type, location_id, latitude, longitude, conflict_state, version, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`,
+        [
+          id,
+          workspaceId,
+          resourceId,
+          se.subjectType,
+          subjectId,
+          startAt,
+          endAt,
+          se.status,
+          se.locationType ?? null,
+          se.locationId ?? null,
+          se.latitude ?? null,
+          se.longitude ?? null,
+          conflictState,
+          ts,
+          ts,
+        ]
       );
       created++;
     }

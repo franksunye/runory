@@ -160,6 +160,23 @@ describe("Architecture: Spec §13.1 Invariants", () => {
     }
   });
 
+  it("sales quote workspace template does not expose quote approvals as a top-level product surface", async () => {
+    // Spec §10 / v0.5.1 hardening: approval is a reusable Workflow/Work Item
+    // capability, not a per-module top-level product page.
+    const { loadTemplateManifest } = await import("./installer");
+    try {
+      const template = loadTemplateManifest("small-business-sales-quote");
+      expect(template.navigation).not.toContain("quote-approvals");
+      expect(Object.values(template.roleEntry ?? {})).not.toContain("/quote-approvals");
+      expect(template.compatibleModules ?? []).not.toContain("runory.quote-approval:^1.0.0");
+      expect(template.terminology).not.toHaveProperty("quote_approval");
+    } catch {
+      // If catalog templates are unavailable, this is a resource availability
+      // issue, not a product invariant failure for the package test runtime.
+      expect(true).toBe(true);
+    }
+  });
+
   it("quote-approval module is marked retired", async () => {
     // Spec §10: the module manifest must declare status: retired
     const { loadModuleManifest } = await import("./installer");

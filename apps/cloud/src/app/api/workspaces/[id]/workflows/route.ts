@@ -19,19 +19,27 @@ export const dynamic = "force-dynamic";
 interface V2DefinitionRow {
   id: string;
   workspace_id: string;
-  workflow_key: string;
+  workflow_id: string;
   name: string;
   target_object: string;
-  active_version_id: string | null;
-  status: string;
+  definition_json: string;
   created_at: string;
   updated_at: string;
 }
 
 interface V2VersionRow {
   id: string;
+  workflow_definition_id: string;
   definition_json: string;
   version_number: number;
+}
+
+function parseDefinition(raw: string): WorkflowDefinition | null {
+  try {
+    return JSON.parse(raw) as WorkflowDefinition;
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -51,8 +59,8 @@ export async function GET(
     const { ctx, workspaceId } = await requireWorkspaceContext(request, id, "viewer");
 
     const rows = await queryAll<V2DefinitionRow>(
-      `SELECT id, workspace_id, workflow_key, name, target_object,
-              active_version_id, status, created_at, updated_at
+      `SELECT id, workspace_id, workflow_id, name, target_object,
+              definition_json, created_at, updated_at
        FROM ${TABLES.workflowDefinitions}
        WHERE workspace_id = ?
        ORDER BY created_at ASC`,
@@ -63,42 +71,38 @@ export async function GET(
       return successResponse([], 200, ctx.requestId);
     }
 
-    // Fetch the active version definition_json for each definition.
-    const versionIds = rows
-      .map((r) => r.active_version_id)
-      .filter((v): v is string => Boolean(v));
+    // The local v0.5 database stores the latest definition JSON on the
+    // definition row, and keeps published snapshots in a versions table.
+    // There is intentionally no `workflow_key` or `active_version_id` column
+    // in this schema, so resolve the latest version by definition id.
+    const versionRows = await queryAll<V2VersionRow>(
+      `SELECT id, workflow_definition_id, definition_json, version_number
+       FROM ${TABLES.workflowDefinitionVersions}
+       WHERE workspace_id = ?
+       ORDER BY workflow_definition_id ASC, version_number DESC`,
+      [workspaceId]
+    );
 
-    const versionRows = versionIds.length
-      ? await queryAll<V2VersionRow>(
-          `SELECT id, definition_json, version_number
-           FROM ${TABLES.workflowDefinitionVersions}
-           WHERE id IN (${versionIds.map(() => "?").join(", ")})`,
-          versionIds
-        )
-      : [];
-
-    const versionMap = new Map(versionRows.map((v) => [v.id, v]));
+    const latestVersionByDefinitionId = new Map<string, V2VersionRow>();
+    for (const version of versionRows) {
+      if (!latestVersionByDefinitionId.has(version.workflow_definition_id)) {
+        latestVersionByDefinitionId.set(version.workflow_definition_id, version);
+      }
+    }
 
     const merged = rows
       .map((r) => {
-        if (!r.active_version_id) return null;
-        const version = versionMap.get(r.active_version_id);
-        if (!version) return null;
-        let definition: WorkflowDefinition | null = null;
-        try {
-          definition = JSON.parse(version.definition_json) as WorkflowDefinition;
-        } catch {
-          definition = null;
-        }
+        const version = latestVersionByDefinitionId.get(r.id);
+        const definition = parseDefinition(version?.definition_json ?? r.definition_json);
         if (!definition) return null;
         return {
           id: r.id,
           workspaceId: r.workspace_id,
-          workflowKey: r.workflow_key,
-          name: r.name,
-          targetObject: r.target_object,
-          status: r.status,
-          versionNumber: version.version_number,
+          workflowKey: definition.workflowKey ?? r.workflow_id,
+          name: definition.name ?? r.name,
+          targetObject: definition.targetObject ?? r.target_object,
+          status: "active",
+          versionNumber: version?.version_number ?? 1,
           definition,
           createdAt: r.created_at,
           updatedAt: r.updated_at,

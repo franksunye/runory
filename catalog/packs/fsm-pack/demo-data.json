@@ -185,10 +185,10 @@
         "service_site_id": "$site-acme-hq.id",
         "asset_id": "$asset-acme-hvac.id",
         "assigned_to": "$tech-david.id",
-        "requested_at": "2026-06-20",
-        "scheduled_start": "2026-06-23",
-        "scheduled_end": "2026-06-23",
-        "sla_due_at": "2026-06-24",
+        "requested_at": "$relativeDate:-1d:01:00",
+        "scheduled_start": "$relativeDate:+1d:01:00",
+        "scheduled_end": "$relativeDate:+1d:05:00",
+        "sla_due_at": "$relativeDate:+1d:09:00",
         "source": "customer_call",
         "notes": "Customer reports temperature alarm triggered twice in last 24 hours."
       }
@@ -207,10 +207,10 @@
         "service_site_id": "$site-acme-warehouse.id",
         "asset_id": "$asset-acme-warehouse-hvac.id",
         "assigned_to": "$tech-david.id",
-        "requested_at": "2026-06-10",
-        "scheduled_start": "2026-06-15",
-        "scheduled_end": "2026-06-18",
-        "sla_due_at": "2026-06-20",
+        "requested_at": "$relativeDate:-2d:02:00",
+        "scheduled_start": "$relativeDate:0d:00:00",
+        "scheduled_end": "$relativeDate:0d:09:00",
+        "sla_due_at": "$relativeDate:0d:10:00",
         "source": "preventive_maintenance",
         "notes": "SLA breached. Customer has been notified of delay."
       }
@@ -229,10 +229,10 @@
         "service_site_id": "$site-nova-store.id",
         "asset_id": "$asset-nova-fridge.id",
         "assigned_to": "$tech-james.id",
-        "requested_at": "2026-06-18",
-        "scheduled_start": "2026-06-25",
-        "scheduled_end": "2026-06-25",
-        "sla_due_at": "2026-06-30",
+        "requested_at": "$relativeDate:-1d:03:00",
+        "scheduled_start": "$relativeDate:+2d:02:00",
+        "scheduled_end": "$relativeDate:+2d:07:00",
+        "sla_due_at": "$relativeDate:+2d:09:00",
         "source": "preventive_maintenance"
       }
     },
@@ -249,8 +249,8 @@
         "contact_id": { "$lookup": { "object": "contact", "field": "email", "value": "sara@vertexmfg.example" } },
         "service_site_id": "$site-vertex-plant.id",
         "asset_id": "$asset-vertex-cnc.id",
-        "requested_at": "2026-06-22",
-        "sla_due_at": "2026-07-10",
+        "requested_at": "$relativeDate:0d:01:30",
+        "sla_due_at": "$relativeDate:+3d:09:00",
         "source": "preventive_maintenance"
       }
     },
@@ -289,9 +289,9 @@
         "contact_id": { "$lookup": { "object": "contact", "field": "email", "value": "jon@novaretail.example" } },
         "service_site_id": "$site-nova-store.id",
         "assigned_to": "$tech-james.id",
-        "requested_at": "2026-06-15",
-        "scheduled_start": "2026-06-22",
-        "sla_due_at": "2026-06-28",
+        "requested_at": "$relativeDate:0d:02:00",
+        "scheduled_start": "$relativeDate:+3d:02:00",
+        "sla_due_at": "$relativeDate:+3d:09:00",
         "source": "customer_call",
         "notes": "Waiting for replacement power supply unit. ETA 2 days."
       }
@@ -304,8 +304,8 @@
         "title": "Acme HVAC emergency repair visit",
         "work_order_id": "$wo-acme-hvac-urgent.id",
         "technician_id": "$tech-david.id",
-        "scheduled_start": "2026-06-23",
-        "scheduled_end": "2026-06-23",
+        "scheduled_start": "$relativeDate:+1d:01:00",
+        "scheduled_end": "$relativeDate:+1d:05:00",
         "status": "scheduled",
         "notes": "Scheduled visit for urgent HVAC repair"
       }
@@ -318,9 +318,9 @@
         "title": "Acme warehouse HVAC recharge visit",
         "work_order_id": "$wo-acme-warehouse-overdue.id",
         "technician_id": "$tech-david.id",
-        "scheduled_start": "2026-06-15",
-        "scheduled_end": "2026-06-18",
-        "actual_start": "2026-06-15",
+        "scheduled_start": "$relativeDate:0d:06:00",
+        "scheduled_end": "$relativeDate:0d:09:00",
+        "actual_start": "$relativeDate:0d:06:15",
         "status": "on_site",
         "notes": "Ongoing visit for warehouse HVAC recharge"
       }
@@ -333,8 +333,8 @@
         "title": "Nova refrigeration inspection visit",
         "work_order_id": "$wo-nova-fridge-check.id",
         "technician_id": "$tech-james.id",
-        "scheduled_start": "2026-06-25",
-        "scheduled_end": "2026-06-25",
+        "scheduled_start": "$relativeDate:+2d:02:00",
+        "scheduled_end": "$relativeDate:+2d:07:00",
         "status": "scheduled",
         "notes": "Scheduled quarterly inspection visit"
       }
@@ -365,6 +365,7 @@
         "summary": "HVAC filter replacement completed",
         "resolution": "Replaced primary and secondary filters. System tested and operating within normal parameters. Temperature stable at 68°F.",
         "customer_signature": "Maya Chen",
+        "photos": "att_acme_hvac_before,att_acme_hvac_after",
         "created_by": "David Park",
         "completed_at": "2026-06-05"
       }
@@ -378,8 +379,9 @@
         "service_visit_id": "$visit-acme-warehouse.id",
         "summary": "Warehouse HVAC refrigerant recharge in progress",
         "resolution": "Identified refrigerant leak at condenser coil joint. Recharge in progress. Additional visit may be required for full repair.",
+        "photos": "att_acme_warehouse_leak",
         "created_by": "David Park",
-        "completed_at": "2026-06-18"
+        "completed_at": "$relativeDate:0d:09:00"
       }
     }
   ],
@@ -680,6 +682,9 @@
           "cl-3": "pass",
           "cl-4": "pass"
         },
+        "evi-photos": {
+          "attachments": ["att_acme_hvac_before", "att_acme_hvac_after"]
+        },
         "sig-customer": {
           "acknowledged": true,
           "signed_by": "Maya Chen",
@@ -701,6 +706,9 @@
           "cl-2": "pass",
           "cl-3": "pass",
           "cl-4": "na"
+        },
+        "evi-photos": {
+          "attachments": ["att_acme_warehouse_leak", "att_acme_warehouse_recharge"]
         }
       }
     },
@@ -748,48 +756,57 @@
       "resourceAlias": "res-david",
       "subjectType": "service_visit",
       "subjectAlias": "visit-acme-urgent",
-      "startAt": "$relativeDate:+1d:09:00",
-      "endAt": "$relativeDate:+1d:13:00",
-      "status": "confirmed"
+      "startAt": "$relativeDate:+1d:01:00",
+      "endAt": "$relativeDate:+1d:05:00",
+      "status": "confirmed",
+      "locationType": "customer_site",
+      "latitude": 37.7898,
+      "longitude": -122.3942
     },
     {
       "resourceAlias": "res-david",
       "subjectType": "service_visit",
       "subjectAlias": "visit-acme-warehouse",
-      "startAt": "$relativeDate:+1d:14:00",
-      "endAt": "$relativeDate:+1d:17:00",
-      "status": "confirmed"
+      "startAt": "$relativeDate:0d:06:00",
+      "endAt": "$relativeDate:0d:09:00",
+      "status": "confirmed",
+      "locationType": "customer_site",
+      "latitude": 37.7347,
+      "longitude": -122.2146
     },
     {
       "resourceAlias": "res-james",
       "subjectType": "service_visit",
       "subjectAlias": "visit-nova-fridge",
-      "startAt": "$relativeDate:+2d:10:00",
-      "endAt": "$relativeDate:+2d:15:00",
-      "status": "tentative"
+      "startAt": "$relativeDate:+2d:02:00",
+      "endAt": "$relativeDate:+2d:07:00",
+      "status": "tentative",
+      "locationType": "customer_site",
+      "latitude": 40.7484,
+      "longitude": -73.9857
     },
     {
       "resourceAlias": "res-maria",
       "subjectType": "work_order",
       "subjectAlias": "wo-vertex-cnc-calibration",
-      "startAt": "$relativeDate:+3d:08:00",
-      "endAt": "$relativeDate:+3d:16:00",
+      "startAt": "$relativeDate:+3d:00:00",
+      "endAt": "$relativeDate:+3d:08:00",
       "status": "tentative"
     },
     {
       "resourceAlias": "res-david",
       "subjectType": "work_order",
       "subjectAlias": "wo-acme-warehouse-overdue",
-      "startAt": "$relativeDate:0d:08:00",
-      "endAt": "$relativeDate:0d:12:00",
+      "startAt": "$relativeDate:0d:00:00",
+      "endAt": "$relativeDate:0d:04:00",
       "status": "confirmed"
     },
     {
       "resourceAlias": "res-maria",
       "subjectType": "work_order",
       "subjectAlias": "wo-nova-blocked",
-      "startAt": "$relativeDate:+3d:10:00",
-      "endAt": "$relativeDate:+3d:14:00",
+      "startAt": "$relativeDate:+3d:02:00",
+      "endAt": "$relativeDate:+3d:06:00",
       "status": "confirmed",
       "conflictState": "conflict",
       "notes": "Overlaps with Vertex CNC calibration — demonstrates conflict detection"

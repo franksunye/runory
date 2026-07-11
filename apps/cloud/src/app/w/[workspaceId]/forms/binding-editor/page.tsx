@@ -146,7 +146,7 @@ function BindingEditor() {
           <ArrowLeft size={20} />
         </button>
         <div className="flex-1">
-          <p className="app-eyebrow">Forms 2.0</p>
+          <p className="app-eyebrow">{t("forms.eyebrow")}</p>
           <h1 className="mt-1 text-2xl font-bold tracking-tight text-slate-950">
             {t("forms.createBinding")}
           </h1>

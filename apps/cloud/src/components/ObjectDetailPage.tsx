@@ -3,7 +3,21 @@
 import { useState, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { Pencil, Trash2, ArrowLeft, Loader2, Play } from "lucide-react";
+import {
+  ArrowLeft,
+  Ban,
+  CheckCircle2,
+  ClipboardList,
+  Loader2,
+  MapPin,
+  Navigation,
+  Pencil,
+  Play,
+  RotateCcw,
+  Send,
+  Trash2,
+  XCircle,
+} from "lucide-react";
 import useSWR from "swr";
 import SchemaForm from "./SchemaForm";
 import RecordWorkflowPanel from "./RecordWorkflowPanel";
@@ -279,6 +293,33 @@ function buttonClassForTone(tone: BusinessCommandAction["tone"]): string {
   if (tone === "danger") return "app-button-danger";
   if (tone === "primary") return "app-button-primary";
   return "app-button-secondary";
+}
+
+function iconForBusinessCommand(command: string): typeof Play {
+  switch (command) {
+    case "work_order.complete":
+    case "visit.complete":
+      return CheckCircle2;
+    case "work_order.block":
+      return Ban;
+    case "work_order.cancel":
+    case "visit.cancel":
+      return XCircle;
+    case "work_order.reopen":
+    case "work_order.unblock":
+      return RotateCcw;
+    case "work_order.triage":
+      return ClipboardList;
+    case "visit.start_travel":
+      return Navigation;
+    case "visit.arrive":
+      return MapPin;
+    case "visit.submit_work":
+      return Send;
+    case "work_order.start":
+    default:
+      return Play;
+  }
 }
 
 export default function ObjectDetailPage({
@@ -564,22 +605,25 @@ export default function ObjectDetailPage({
                 <p className="mt-1 text-sm text-slate-600">Advance this record through governed commands.</p>
               </div>
               <div className="flex flex-wrap gap-2">
-                {businessActions.map((action) => (
-                  <button
-                    key={action.command}
-                    type="button"
-                    onClick={() => void executeBusinessCommand(action)}
-                    disabled={runningCommand !== null}
-                    className={buttonClassForTone(action.tone)}
-                  >
-                    {runningCommand === action.command ? (
-                      <Loader2 size={15} className="animate-spin" />
-                    ) : (
-                      <Play size={15} />
-                    )}
-                    {action.label}
-                  </button>
-                ))}
+                {businessActions.map((action) => {
+                  const ActionIcon = iconForBusinessCommand(action.command);
+                  return (
+                    <button
+                      key={action.command}
+                      type="button"
+                      onClick={() => void executeBusinessCommand(action)}
+                      disabled={runningCommand !== null}
+                      className={buttonClassForTone(action.tone)}
+                    >
+                      {runningCommand === action.command ? (
+                        <Loader2 size={15} className="animate-spin" />
+                      ) : (
+                        <ActionIcon size={15} />
+                      )}
+                      {action.label}
+                    </button>
+                  );
+                })}
               </div>
             </div>
           )}

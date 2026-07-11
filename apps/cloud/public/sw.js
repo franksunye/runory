@@ -16,7 +16,7 @@
 // responses. Deployment MUST set sw.js to no-cache, no-store, must-revalidate,
 // clean old named caches, and expose a safe update/reload path.
 
-const SW_VERSION = "runory-field-v0.5.1-v1";
+const SW_VERSION = "runory-field-v0.5.1-v2";
 const STATIC_CACHE = `${SW_VERSION}-static`;
 const APP_SHELL_CACHE = `${SW_VERSION}-shell`;
 
@@ -106,6 +106,18 @@ self.addEventListener("fetch", (event) => {
 
   // Only intercept same-origin requests.
   if (url.origin !== self.location.origin) return;
+
+  // In local development, Next.js app chunks are not a stable production
+  // deployment artifact. Cache-firsting them can keep old mobile route code
+  // alive after source edits, which breaks local acceptance testing. Production
+  // still gets the content-hash bounded static cache below.
+  const isLocalDev =
+    url.hostname === "localhost" ||
+    url.hostname === "127.0.0.1" ||
+    url.hostname === "::1";
+  if (isLocalDev && url.pathname.startsWith("/_next/static/chunks/")) {
+    return;
+  }
 
   // ── Rule: NEVER cache API, auth, RSC/Flight, or command responses ──
   // Per §5.3: "API, auth, command responses → network-only, no-store"

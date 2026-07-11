@@ -2,6 +2,7 @@
 
 import { Suspense, useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
+import Link from "next/link";
 import {
   ArrowLeft, Loader2, AlertTriangle, CheckCircle2, Clock3,
   Gavel, ListChecks, FileText, User, ChevronRight, AlertCircle, RefreshCw,
@@ -583,10 +584,10 @@ function MobileWorkItemPage() {
                     </>
                   )}
 
-                  {/* Form: link to subject */}
+                  {/* Form: stay inside the mobile execution shell */}
                   {item.kind === "form" && item.form_binding_id && item.subject_type && (
-                    <a
-                      href={`/w/${workspaceId}/${item.subject_type.replace(/_/g, "-")}s/${item.subject_id}`}
+                    <Link
+                      href={`/m/w/${workspaceId}/work/${item.id}/form`}
                       className="flex min-h-[48px] w-full items-center justify-between gap-2 rounded-xl border border-indigo-300 bg-indigo-50 px-4 py-3 text-sm font-semibold text-indigo-700 active:bg-indigo-100"
                     >
                       <span className="flex items-center gap-2">
@@ -594,7 +595,7 @@ function MobileWorkItemPage() {
                         {t("forms.actionSubmit")}
                       </span>
                       <ChevronRight size={16} />
-                    </a>
+                    </Link>
                   )}
                 </div>
               )}

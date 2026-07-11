@@ -59,10 +59,7 @@ function mobileSubjectRoute(workspaceId: string, item: MyWorkItem): string {
     return `/m/w/${workspaceId}/visits/${item.subject_id}`;
   }
   if (item.subject_type === "work_order" && item.subject_id) {
-    return `/w/${workspaceId}/work-orders/${item.subject_id}`;
-  }
-  if (item.subject_type === "quote" && item.subject_id) {
-    return `/w/${workspaceId}/quotes/${item.subject_id}`;
+    return `/m/w/${workspaceId}/work-orders/${item.subject_id}`;
   }
   return `/m/w/${workspaceId}/work/${item.id}`;
 }

@@ -8,14 +8,12 @@ terminology:
   deal: Opportunity
   quote: Quote
   quote_line: Quote Line
-  quote_approval: Quote Approval
   product_service: Product/Service
   price_book: Price Book
 
 navigation:
   - dashboard
   - quotes
-  - quote-approvals
   - quote-lines
   - product-services
   - price-books
@@ -33,7 +31,7 @@ homepage:
 roleEntry:
   owner: /dashboard
   sales: /quotes
-  manager: /quote-approvals
+  manager: /quotes
 
 compatiblePacks:
   - "sales-quote-pack:^1.0.0"
@@ -45,4 +43,3 @@ compatibleModules:
   - "runory.product-service:^1.0.0"
   - "runory.price-book:^1.0.0"
   - "runory.quote:^1.0.0"
-  - "runory.quote-approval:^1.0.0"

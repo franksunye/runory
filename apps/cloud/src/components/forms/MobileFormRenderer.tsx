@@ -1,9 +1,9 @@
 "use client";
 
-// ── Mobile Forms 2.0 Renderer (v0.5.1) ──
+// ── Mobile Form Renderer (v0.5.1) ──
 //
 // Per v0.5.1 Mobile Field-Work Spec §4.2 & §5.5:
-// Renders Forms 2.0 blocks (header, field, checklist, evidence, signature) in a
+// Renders form definition blocks (header, field, checklist, evidence, signature) in a
 // mobile-first, card-based layout with large touch targets and inline
 // validation.  File inputs support direct camera capture where the browser
 // permits it.  Signatures record signer label, capturer, and timestamp.

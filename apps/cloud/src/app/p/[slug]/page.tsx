@@ -57,10 +57,10 @@ async function getForm(formId: string): Promise<FormRecord | null> {
   return rows[0] ?? null;
 }
 
-// ── Forms 2.0 (V2) lookup ──
+// ── Form definition lookup ──
 //
-// A landing page's form_id may reference either a legacy V1 form record
-// (businessTable("form")) or a Forms 2.0 form definition
+// A landing page's form_id may reference either a legacy form record
+// (businessTable("form")) or a form definition
 // (TABLES.formDefinitions). Definition IDs are globally unique, so we resolve
 // without a workspace filter, then load the active published version's schema
 // via the official getFormDefinition API.
@@ -119,8 +119,8 @@ export default async function PublicLandingPage({
     notFound();
   }
 
-  // Resolve the form attached to this landing page. Try Forms 2.0 first
-  // (definition-based blocks); fall back to the legacy V1 form table.
+  // Resolve the form attached to this landing page. Try form definitions first
+  // (definition-based blocks); fall back to the legacy form table.
   let v2Form: V2FormDefinition | null = null;
   let form: FormRecord | null = null;
   let formFields: FormField[] = [];
@@ -168,7 +168,7 @@ export default async function PublicLandingPage({
         />
       )}
 
-      {/* V2 Form section (Forms 2.0 block-based forms) */}
+      {/* Form definition section (block-based forms) */}
       {v2Form && v2Form.blocks.length > 0 && (
         <section className="mx-auto max-w-2xl px-6 py-12">
           <div className="rounded-2xl border border-slate-200 bg-white p-8 shadow-lg">

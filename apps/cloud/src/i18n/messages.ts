@@ -1344,7 +1344,8 @@ export const en = {
   "myWork.filterKind": "Type",
   "myWork.filterStatus": "Status",
 
-  // v0.5 Forms 2.0
+  // v0.5 Forms
+  "forms.eyebrow": "Forms",
   "forms.title": "Forms",
   "forms.definitions": "Form Definitions",
   "forms.bindings": "Form Bindings",
@@ -1970,7 +1971,8 @@ export const zh: Messages = {
   "myWork.filterKind": "类型",
   "myWork.filterStatus": "状态",
 
-  // v0.5 Forms 2.0
+  // v0.5 Forms
+  "forms.eyebrow": "表单",
   "forms.title": "表单",
   "forms.definitions": "表单定义",
   "forms.bindings": "表单绑定",

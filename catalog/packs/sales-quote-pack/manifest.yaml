@@ -15,6 +15,23 @@ onboardingChecklist:
     label: "Create a quote"
     route: "/quotes/new"
 
+mobileNavigation:
+  - key: today
+    label: Today
+    route: /
+    icon: home
+    order: 10
+  - key: customers
+    label: Customers
+    route: /customers
+    icon: building
+    order: 20
+  - key: quotes
+    label: Quotes
+    route: /quotes
+    icon: file-text
+    order: 30
+
 # Sales Quote Pack composes shared business modules (company, contact, deal)
 # with FSM-owned modules (work_order, service_site, asset) and Quote-specific
 # modules. Shared and FSM modules are reused, not duplicated.

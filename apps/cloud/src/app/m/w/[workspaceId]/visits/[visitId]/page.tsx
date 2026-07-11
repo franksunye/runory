@@ -48,6 +48,17 @@ interface TimelineResponse {
   nextCursor: string | null;
 }
 
+interface VisitContext {
+  workOrder: VisitRecord | null;
+  technician: VisitRecord | null;
+  customer: VisitRecord | null;
+  contact: VisitRecord | null;
+  site: VisitRecord | null;
+  asset: VisitRecord | null;
+  scheduleEntry: VisitRecord | null;
+  serviceReports: VisitRecord[];
+}
+
 // ── Status styling ──
 
 type VisitStatus =
@@ -143,9 +154,28 @@ function formatDateLabel(iso: string | null | undefined): string {
   });
 }
 
+function sameCalendarDay(a: string, b: string): boolean {
+  const da = new Date(a);
+  const db = new Date(b);
+  if (Number.isNaN(da.getTime()) || Number.isNaN(db.getTime())) return false;
+  return (
+    da.getFullYear() === db.getFullYear() &&
+    da.getMonth() === db.getMonth() &&
+    da.getDate() === db.getDate()
+  );
+}
+
 function str(val: unknown): string {
   if (val === null || val === undefined) return "";
   return String(val);
+}
+
+function pickFirst(...values: unknown[]): string {
+  for (const value of values) {
+    const s = str(value).trim();
+    if (s) return s;
+  }
+  return "";
 }
 
 function toTimelineSummary(entry: TimelineEntry): string {
@@ -176,6 +206,100 @@ function toTimelineSourceLabel(entry: TimelineEntry): string {
   }
 }
 
+async function fetchRecordOrNull(
+  workspaceId: string,
+  objectKey: string,
+  recordId: string | null | undefined
+): Promise<VisitRecord | null> {
+  const id = str(recordId);
+  if (!id) return null;
+  try {
+    const json = await apiFetch<{
+      success: boolean;
+      data?: VisitRecord | null;
+    }>(
+      `/api/workspaces/${workspaceId}/objects/${objectKey}/records/${encodeURIComponent(id)}`,
+      { cache: "no-store" }
+    );
+    return json.success ? json.data ?? null : null;
+  } catch {
+    return null;
+  }
+}
+
+async function loadVisitContext(
+  workspaceId: string,
+  visitId: string,
+  visit: VisitRecord | null
+): Promise<VisitContext> {
+  if (!visit) {
+    return {
+      workOrder: null,
+      technician: null,
+      customer: null,
+      contact: null,
+      site: null,
+      asset: null,
+      scheduleEntry: null,
+      serviceReports: [],
+    };
+  }
+
+  const windowStart = new Date();
+  windowStart.setDate(windowStart.getDate() - 30);
+  const windowEnd = new Date();
+  windowEnd.setDate(windowEnd.getDate() + 30);
+
+  const [workOrder, technician, reportJson, scheduleJson] = await Promise.all([
+    fetchRecordOrNull(workspaceId, "work_order", str(visit.work_order_id)),
+    fetchRecordOrNull(workspaceId, "technician", str(visit.technician_id)),
+    apiFetch<{
+      success: boolean;
+      data?: VisitRecord[];
+    }>(
+      `/api/workspaces/${workspaceId}/objects/service_report/records?limit=100`,
+      { cache: "no-store" }
+    ).catch(() => null),
+    apiFetch<{
+      success: boolean;
+      data?: { entries?: VisitRecord[] };
+    }>(
+      `/api/workspaces/${workspaceId}/planning/entries?subjectType=service_visit&from=${encodeURIComponent(windowStart.toISOString())}&to=${encodeURIComponent(windowEnd.toISOString())}`,
+      { cache: "no-store" }
+    ).catch(() => null),
+  ]);
+
+  const [customer, contact, site, asset] = await Promise.all([
+    fetchRecordOrNull(workspaceId, "company", str(workOrder?.company_id)),
+    fetchRecordOrNull(workspaceId, "contact", str(workOrder?.contact_id)),
+    fetchRecordOrNull(workspaceId, "service_site", str(workOrder?.service_site_id)),
+    fetchRecordOrNull(workspaceId, "asset", str(workOrder?.asset_id)),
+  ]);
+
+  const allReports = reportJson?.success && Array.isArray(reportJson.data)
+    ? reportJson.data
+    : [];
+  const serviceReports = allReports.filter(
+    (report) =>
+      str(report.service_visit_id) === visitId ||
+      (workOrder?.id && str(report.work_order_id) === str(workOrder.id))
+  );
+  const scheduleEntry = scheduleJson?.success && Array.isArray(scheduleJson.data?.entries)
+    ? scheduleJson.data.entries.find((entry) => str(entry.subjectId ?? entry.subject_id) === visitId) ?? null
+    : null;
+
+  return {
+    workOrder,
+    technician,
+    customer,
+    contact,
+    site,
+    asset,
+    scheduleEntry,
+    serviceReports,
+  };
+}
+
 // ── Page (Suspense wrapper) ──
 
 export default function MobileVisitDetailPageWrapper() {
@@ -200,6 +324,16 @@ function MobileVisitDetailPage() {
   const { t } = useI18n();
 
   const [visit, setVisit] = useState<VisitRecord | null>(null);
+  const [visitContext, setVisitContext] = useState<VisitContext>({
+    workOrder: null,
+    technician: null,
+    customer: null,
+    contact: null,
+    site: null,
+    asset: null,
+    scheduleEntry: null,
+    serviceReports: [],
+  });
   const [timeline, setTimeline] = useState<TimelineEntry[]>([]);
   const [workItem, setWorkItem] = useState<MyWorkItem | null>(null);
   const [loading, setLoading] = useState(true);
@@ -238,7 +372,9 @@ function MobileVisitDetailPage() {
         if (!visitJson.success) {
           throw new Error(visitJson.error?.message ?? t("mobile.errorOccurred"));
         }
-        setVisit(visitJson.data ?? null);
+        const loadedVisit = visitJson.data ?? null;
+        setVisit(loadedVisit);
+        setVisitContext(await loadVisitContext(workspaceId, visitId, loadedVisit));
 
         // Timeline may fail independently without blocking the visit view.
         if (timelineJson?.success) {
@@ -335,8 +471,31 @@ function MobileVisitDetailPage() {
   const status = visit ? str(visit.status) || "unplanned" : "unplanned";
   const statusStyle = getStatusStyle(status);
 
-  const scheduledStart = visit ? str(visit.scheduled_start) : "";
-  const scheduledEnd = visit ? str(visit.scheduled_end) : "";
+  // Prefer the schedule-backed My Work appointment when present. Demo visit
+  // records may carry historical scheduled_* fields, while v0.5.1 Planning/My
+  // Work are current-date-safe through schedule entries.
+  const timelineSchedule = timeline.find(
+    (entry) => entry.metadata?.source === "schedule" && entry.metadata?.start_at
+  );
+  const scheduledStart = pickFirst(
+    visitContext.scheduleEntry?.startAt,
+    visitContext.scheduleEntry?.start_at,
+    workItem?.due_at,
+    timelineSchedule?.metadata?.start_at,
+    visit?.scheduled_start
+  );
+  const rawScheduledEnd = visit ? str(visit.scheduled_end) : "";
+  const contextScheduledEnd = pickFirst(
+    visitContext.scheduleEntry?.endAt,
+    visitContext.scheduleEntry?.end_at,
+    timelineSchedule?.metadata?.end_at
+  );
+  const scheduledEnd = pickFirst(
+    contextScheduledEnd,
+    scheduledStart && rawScheduledEnd && sameCalendarDay(scheduledStart, rawScheduledEnd)
+      ? rawScheduledEnd
+      : ""
+  );
   const actualStart = visit ? str(visit.actual_start) : "";
 
   // Determine which lifecycle buttons to show based on current status
@@ -383,14 +542,35 @@ function MobileVisitDetailPage() {
 
   // Customer / site / asset context — these may be denormalized onto the visit
   // record or provided via extensions. We read defensively.
-  const customerName = str(visit?.customer_name);
-  const contactName = str(visit?.contact_name);
-  const contactPhone = str(visit?.contact_phone);
-  const contactEmail = str(visit?.contact_email);
-  const siteName = str(visit?.site_name);
-  const siteAddress = str(visit?.site_address);
-  const assetName = str(visit?.asset_name);
-  const instructions = str(visit?.instructions) || notes;
+  const customerName = pickFirst(visit?.customer_name, visitContext.customer?.name, visitContext.workOrder?.company_name);
+  const contactName = pickFirst(visit?.contact_name, visitContext.contact?.name, visitContext.contact?.full_name);
+  const contactPhone = pickFirst(visit?.contact_phone, visitContext.contact?.phone);
+  const contactEmail = pickFirst(visit?.contact_email, visitContext.contact?.email);
+  const siteName = pickFirst(visit?.site_name, visitContext.site?.name);
+  const siteAddress = pickFirst(
+    visit?.site_address,
+    visitContext.site?.address
+      ? [
+          visitContext.site.address,
+          visitContext.site.city,
+          visitContext.site.region,
+          visitContext.site.postal_code,
+        ]
+          .map(str)
+          .filter(Boolean)
+          .join(", ")
+      : ""
+  );
+  const assetName = pickFirst(visit?.asset_name, visitContext.asset?.name);
+  const technicianName = pickFirst(visit?.technician_name, visitContext.technician?.name, technicianId);
+  const workOrderTitle = pickFirst(visitContext.workOrder?.title, workOrderId);
+  const instructions = pickFirst(
+    visit?.instructions,
+    notes,
+    visitContext.workOrder?.description,
+    visitContext.site?.service_notes,
+    visitContext.asset?.notes
+  );
 
   const hasCustomerContext = Boolean(customerName || contactName || contactPhone || contactEmail);
   const hasSiteContext = Boolean(siteName || siteAddress);
@@ -517,7 +697,7 @@ function MobileVisitDetailPage() {
                       {t("mobile.visitTechnician")}
                     </dt>
                     <dd className="min-w-0 flex-1 truncate text-sm font-medium text-slate-800">
-                      {technicianId}
+                      {technicianName}
                     </dd>
                   </div>
                 )}
@@ -529,8 +709,8 @@ function MobileVisitDetailPage() {
                       <ClipboardList size={12} />
                       {t("mobile.visitWorkOrder")}
                     </dt>
-                    <dd className="min-w-0 flex-1 text-sm font-mono text-slate-600">
-                      {workOrderId}
+                    <dd className="min-w-0 flex-1 text-sm font-medium text-slate-800">
+                      {workOrderTitle}
                     </dd>
                   </div>
                 )}
@@ -678,6 +858,55 @@ function MobileVisitDetailPage() {
                 <p className="whitespace-pre-wrap text-sm leading-relaxed text-slate-600">
                   {outcome}
                 </p>
+              </ContextCard>
+            )}
+
+            {/* Service reports / evidence */}
+            {visitContext.serviceReports.length > 0 && (
+              <ContextCard
+                icon={FileText}
+                title={t("workspace.nav.objectServiceReport")}
+              >
+                <div className="space-y-3">
+                  {visitContext.serviceReports.map((report) => {
+                    const photos = str(report.photos)
+                      .split(",")
+                      .map((p) => p.trim())
+                      .filter(Boolean);
+                    return (
+                      <div
+                        key={str(report.id)}
+                        className="rounded-lg border border-slate-100 bg-slate-50 p-3"
+                      >
+                        <p className="text-sm font-bold text-slate-800">
+                          {pickFirst(report.summary, t("workspace.nav.objectServiceReport"))}
+                        </p>
+                        {report.resolution && (
+                          <p className="mt-1 whitespace-pre-wrap text-xs leading-relaxed text-slate-600">
+                            {str(report.resolution)}
+                          </p>
+                        )}
+                        <div className="mt-2 flex flex-wrap gap-2 text-[11px] text-slate-500">
+                          {report.customer_signature && (
+                            <span className="rounded-full bg-white px-2 py-1">
+                              {t("mobile.visitContact")}: {str(report.customer_signature)}
+                            </span>
+                          )}
+                          {photos.length > 0 && (
+                            <span className="rounded-full bg-white px-2 py-1">
+                              {t("forms.blockEvidence")}: {photos.length}
+                            </span>
+                          )}
+                          {report.completed_at && (
+                            <span className="rounded-full bg-white px-2 py-1">
+                              {formatDateTime(str(report.completed_at))}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               </ContextCard>
             )}
 

@@ -263,7 +263,7 @@ export default function FormsPage() {
       {/* Header */}
       <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="app-eyebrow">Forms 2.0</p>
+          <p className="app-eyebrow">{t("forms.eyebrow")}</p>
           <h1 className="mt-2 text-2xl font-bold tracking-tight text-slate-950">
             {t("forms.title")}
           </h1>

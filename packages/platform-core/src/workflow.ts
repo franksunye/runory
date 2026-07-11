@@ -120,11 +120,12 @@ export async function publishWorkflowDefinition(
   publishedBy: string | null
 ): Promise<{ definitionId: string; versionId: string; versionNumber: number }> {
   const ts = now();
+  const defJson = JSON.stringify(def);
 
   // Find or create the definition record
-  let defRow = await queryOne<{ id: string; active_version_id: string | null }>(
-    `SELECT id, active_version_id FROM ${TABLES.workflowDefinitions}
-     WHERE workspace_id = ? AND workflow_key = ?`,
+  let defRow = await queryOne<{ id: string }>(
+    `SELECT id FROM ${TABLES.workflowDefinitions}
+     WHERE workspace_id = ? AND workflow_id = ?`,
     [workspaceId, def.workflowKey]
   );
 
@@ -137,9 +138,9 @@ export async function publishWorkflowDefinition(
     await batch([
       {
         sql: `INSERT INTO ${TABLES.workflowDefinitions}
-              (id, workspace_id, workflow_key, name, target_object, active_version_id, status, created_at, updated_at)
-              VALUES (?, ?, ?, ?, ?, NULL, 'active', ?, ?)`,
-        args: [definitionId, workspaceId, def.workflowKey, def.name, def.targetObject, ts, ts],
+              (id, workspace_id, workflow_id, name, target_object, definition_json, created_at, updated_at)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        args: [definitionId, workspaceId, def.workflowKey, def.name, def.targetObject, defJson, ts, ts],
       },
     ]);
   } else {
@@ -155,7 +156,6 @@ export async function publishWorkflowDefinition(
 
   // Create the immutable version
   const versionId = genId("wfv");
-  const defJson = JSON.stringify(def);
 
   const statements: Array<{ sql: string; args?: unknown[] }> = [
     {
@@ -166,9 +166,9 @@ export async function publishWorkflowDefinition(
     },
     {
       sql: `UPDATE ${TABLES.workflowDefinitions}
-            SET active_version_id = ?, updated_at = ?
+            SET name = ?, target_object = ?, definition_json = ?, updated_at = ?
             WHERE id = ?`,
-      args: [versionId, ts, definitionId],
+      args: [def.name, def.targetObject, defJson, ts, definitionId],
     },
   ];
 

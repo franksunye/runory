@@ -55,6 +55,15 @@ interface PackSummary {
     route?: string;
     description?: string;
   }>;
+  mobileNavigation: Array<{
+    key: string;
+    label: string;
+    route: string;
+    icon: string;
+    order: number;
+    audience?: string[];
+    requires?: string[];
+  }>;
   marketplace: { category: string; license: string; publisher: string } | null;
   demoDataAvailable: boolean;
   installed: boolean;
@@ -114,6 +123,7 @@ export async function GET(
         description: manifest.description ?? null,
         recommended: manifest.recommended ?? false,
         onboardingChecklist: manifest.onboardingChecklist ?? [],
+        mobileNavigation: manifest.mobileNavigation ?? [],
         marketplace: manifest.marketplace ?? null,
         demoDataAvailable: hasPackDemoData(packId),
         installed: !!installation,

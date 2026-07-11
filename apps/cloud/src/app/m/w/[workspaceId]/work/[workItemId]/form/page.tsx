@@ -3,7 +3,7 @@
 // ── Mobile Form Submission Page (v0.5.1) ──
 //
 // Per v0.5.1 Mobile Field-Work Spec §4.2 & §5.5:
-// Fetches the work item, resolves its form binding to a Forms 2.0 definition,
+// Fetches the work item, resolves its form binding to a form definition,
 // renders the MobileFormRenderer, and on submit creates an immutable form
 // submission then completes the work item.
 
@@ -580,7 +580,7 @@ function MobileFormPage() {
             <ArrowLeft size={20} />
           </button>
           <div className="min-w-0 flex-1">
-            <p className="app-eyebrow">Forms 2.0</p>
+            <p className="app-eyebrow">{t("forms.eyebrow")}</p>
             <h1 className="mt-0.5 truncate text-base font-bold text-slate-900">
               {formName || "Form"}
             </h1>

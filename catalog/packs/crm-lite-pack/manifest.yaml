@@ -19,6 +19,18 @@ onboardingChecklist:
     label: "Load sample data to explore"
     route: "/modules"
 
+mobileNavigation:
+  - key: today
+    label: Today
+    route: /
+    icon: home
+    order: 10
+  - key: customers
+    label: Customers
+    route: /customers
+    icon: building
+    order: 20
+
 modules:
   - "runory.company:^1.0.0"
   - "runory.contact:^2.0.0"

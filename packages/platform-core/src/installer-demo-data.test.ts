@@ -2,9 +2,9 @@ import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { existsSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 
-import { db, execute, genId, now } from "./db";
+import { db, execute, genId, now, queryAll } from "./db";
 import { runMigrations } from "./migrations";
-import { TABLES } from "./contracts";
+import { TABLES, businessTable } from "./contracts";
 import { installPack, loadPackDemoData, hasPackDemoData, updatePackDemoDataStatus } from "./installer";
 import { getRecords, getInstalledPacks } from "./metadata";
 
@@ -172,6 +172,39 @@ describe("demo data status tracking (v0.3.4)", () => {
     expect(hasPackDemoData("crm-lite-pack")).toBe(true);
     expect(hasPackDemoData("fsm-pack")).toBe(true);
     expect(hasPackDemoData("nonexistent-pack")).toBe(false);
+  });
+
+  it("FSM demo data includes field evidence, service-report photos, and geolocated schedule entries", async () => {
+    await installPack(workspaceId, "crm-lite-pack", { includeDemoData: true });
+    await installPack(workspaceId, "fsm-pack", { includeDemoData: true });
+
+    const evidenceSubmissions = await queryAll<{ id: string }>(
+      `SELECT id FROM ${TABLES.formSubmissions}
+       WHERE workspace_id = ?
+         AND answers_json LIKE '%"evi-photos"%'
+         AND answers_json LIKE '%"attachments"%'`,
+      [workspaceId]
+    );
+    expect(evidenceSubmissions.length).toBeGreaterThanOrEqual(2);
+
+    const reportsWithPhotos = await queryAll<{ id: string }>(
+      `SELECT id FROM ${businessTable("service_report")}
+       WHERE workspace_id = ?
+         AND photos IS NOT NULL
+         AND photos <> ''`,
+      [workspaceId]
+    );
+    expect(reportsWithPhotos.length).toBeGreaterThanOrEqual(2);
+
+    const geolocatedSchedules = await queryAll<{ id: string }>(
+      `SELECT id FROM ${TABLES.scheduleEntries}
+       WHERE workspace_id = ?
+         AND location_type = 'customer_site'
+         AND latitude IS NOT NULL
+         AND longitude IS NOT NULL`,
+      [workspaceId]
+    );
+    expect(geolocatedSchedules.length).toBeGreaterThanOrEqual(3);
   });
 
   it("updatePackDemoDataStatus updates the status directly", async () => {
