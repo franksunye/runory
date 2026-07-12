@@ -897,10 +897,20 @@ async function seedPackDemoData(workspaceId: string, packId: string): Promise<nu
         const recordId = alias.id as string;
 
         // Check if instance already exists (idempotency)
+        // Resolve workflow definition ID first, then check by definition + record
+        const wfDef = await queryOne<{ id: string }>(
+          `SELECT id FROM ${TABLES.workflowDefinitions}
+           WHERE workspace_id = ? AND workflow_id = ?`,
+          [workspaceId, wi.workflowKey]
+        );
+        if (!wfDef) {
+          console.warn(`[installer] Workflow instance skipped: definition "${wi.workflowKey}" not found`);
+          continue;
+        }
         const existing = await queryOne<{ id: string }>(
           `SELECT id FROM ${TABLES.workflowInstances}
-           WHERE workspace_id = ? AND workflow_key = ? AND record_id = ? AND status = 'running'`,
-          [workspaceId, wi.workflowKey, recordId]
+           WHERE workspace_id = ? AND workflow_definition_id = ? AND record_id = ? AND status = 'running'`,
+          [workspaceId, wfDef.id, recordId]
         );
         if (existing) {
           continue; // Already started

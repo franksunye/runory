@@ -227,24 +227,25 @@ export async function startWorkflow(
   actor: CommandActor
 ): Promise<{ instanceId: string }> {
   // Get the active version
-  const def = await queryOne<{ id: string; active_version_id: string | null }>(
-    `SELECT id, active_version_id FROM ${TABLES.workflowDefinitions}
-     WHERE workspace_id = ? AND workflow_key = ? AND status = 'active'`,
+  const def = await queryOne<{ id: string; definition_json: string }>(
+    `SELECT id, definition_json FROM ${TABLES.workflowDefinitions}
+     WHERE workspace_id = ? AND workflow_id = ?`,
     [workspaceId, workflowKey]
   );
 
-  if (!def || !def.active_version_id) {
+  if (!def) {
     throw new NotFoundError(`No active workflow definition found for key: ${workflowKey}`);
   }
 
   const versionRow = await queryOne<{ id: string; definition_json: string }>(
     `SELECT id, definition_json FROM ${TABLES.workflowDefinitionVersions}
-     WHERE id = ?`,
-    [def.active_version_id]
+     WHERE workflow_definition_id = ?
+     ORDER BY version_number DESC LIMIT 1`,
+    [def.id]
   );
 
   if (!versionRow) {
-    throw new NotFoundError(`Workflow definition version not found: ${def.active_version_id}`);
+    throw new NotFoundError(`Workflow definition version not found for definition: ${def.id}`);
   }
 
   const wfDef = JSON.parse(versionRow.definition_json) as WorkflowDefinition;

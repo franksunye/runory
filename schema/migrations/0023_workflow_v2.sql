@@ -12,14 +12,13 @@ DROP TABLE IF EXISTS {{RUNORY_RUNTIME_TABLE_PREFIX}}workflow_definitions;
 CREATE TABLE IF NOT EXISTS {{RUNORY_RUNTIME_TABLE_PREFIX}}workflow_definitions (
   id TEXT PRIMARY KEY,
   workspace_id TEXT NOT NULL,
-  workflow_key TEXT NOT NULL,
+  workflow_id TEXT NOT NULL,
   name TEXT NOT NULL,
   target_object TEXT NOT NULL,
-  active_version_id TEXT,
-  status TEXT NOT NULL DEFAULT 'draft',
+  definition_json TEXT NOT NULL,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL,
-  UNIQUE(workspace_id, workflow_key)
+  UNIQUE(workspace_id, workflow_id)
 );
 
 CREATE INDEX IF NOT EXISTS idx_wf_def_workspace
