@@ -66,6 +66,9 @@ const MIGRATION_FILENAME = /^(\d{4})_([a-z0-9_]+)\.sql$/i;
 //      deal/task tables for cloud-mode pre-creation.
 // 0011 was edited in v0.2.2: removed the contact table repair section since 0008
 // now creates the correct contact schema. The platform table renames are unchanged.
+// 0023 was edited in v0.5.1: corrected workflow_definitions schema to match the
+// actual code queries (workflow_key → workflow_id, removed active_version_id/status,
+// added definition_json). Existing dev databases applied the prior version.
 // Unknown checksum changes still fail.
 const ACCEPTED_HISTORICAL_CHECKSUMS: Readonly<Record<string, readonly string[]>> = {
   "0008": [
@@ -73,6 +76,7 @@ const ACCEPTED_HISTORICAL_CHECKSUMS: Readonly<Record<string, readonly string[]>>
     "ef1274f395990fb639796db16d25e1cd13762a10cb1b07d39cac1bf14fa50517",
   ],
   "0011": ["22d273441f560b0d2f1bf39f5d147901bdf053e21073a07a81207eb8a810a5ad"],
+  "0023": ["23b3e17bbb2b4e6321d62f3c7c84d167554f7cc37d2b4e208616e32b44fd13bb"],
 };
 
 function checksumMatches(file: MigrationFile, stored: string): boolean {
