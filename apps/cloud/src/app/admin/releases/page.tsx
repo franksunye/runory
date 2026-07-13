@@ -9,10 +9,12 @@ import {
   formatDateTime,
 } from "../_components/shared";
 import { apiFetch } from "@/lib/api-fetch";
+import { useI18n } from "@/i18n/locale-provider";
 
 type Filter = "all" | "internal" | "beta" | "stable";
 
 export default function ReleasesPage() {
+  const { t } = useI18n();
   const [releases, setReleases] = useState<CatalogRelease[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<Filter>("all");
@@ -39,8 +41,8 @@ export default function ReleasesPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold tracking-tight text-slate-950">Releases</h1>
-      <p className="mt-1 text-sm text-slate-600">查看所有发布记录及其通道状态。</p>
+      <h1 className="text-2xl font-bold tracking-tight text-slate-950">{t("admin.releases.title")}</h1>
+      <p className="mt-1 text-sm text-slate-600">{t("admin.releases.description")}</p>
 
       <div className="mt-4 flex gap-2">
         {(["all", "internal", "beta", "stable"] as const).map((f) => (
@@ -51,28 +53,28 @@ export default function ReleasesPage() {
               filter === f ? "bg-slate-950 text-white" : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-50"
             }`}
           >
-            {f === "all" ? "全部" : RELEASE_BADGE[f].label}
+            {f === "all" ? t("admin.releases.all") : t(RELEASE_BADGE[f].label)}
           </button>
         ))}
       </div>
 
       {loading ? (
-        <p className="mt-4 text-sm text-slate-500">加载中...</p>
+        <p className="mt-4 text-sm text-slate-500">{t("admin.common.loading")}</p>
       ) : filtered.length === 0 ? (
         <div className="mt-4 rounded-2xl border border-dashed border-slate-300 bg-white p-12 text-center">
           <ArrowUpCircle size={32} className="mx-auto text-slate-300" />
-          <p className="mt-3 text-sm text-slate-500">暂无发布记录。</p>
+          <p className="mt-3 text-sm text-slate-500">{t("admin.releases.empty")}</p>
         </div>
       ) : (
         <div className="mt-4 overflow-hidden rounded-2xl border border-slate-200 bg-white">
           <table className="w-full text-sm">
             <thead className="border-b border-slate-200 bg-slate-50">
               <tr>
-                <th className="px-4 py-3 text-left font-semibold text-slate-600">通道</th>
-                <th className="px-4 py-3 text-left font-semibold text-slate-600">状态</th>
-                <th className="px-4 py-3 text-left font-semibold text-slate-600">版本 ID</th>
-                <th className="px-4 py-3 text-left font-semibold text-slate-600">发布时间</th>
-                <th className="px-4 py-3 text-left font-semibold text-slate-600">批准人</th>
+                <th className="px-4 py-3 text-left font-semibold text-slate-600">{t("admin.releases.channel")}</th>
+                <th className="px-4 py-3 text-left font-semibold text-slate-600">{t("admin.releases.status")}</th>
+                <th className="px-4 py-3 text-left font-semibold text-slate-600">{t("admin.releases.versionId")}</th>
+                <th className="px-4 py-3 text-left font-semibold text-slate-600">{t("admin.releases.releasedAt")}</th>
+                <th className="px-4 py-3 text-left font-semibold text-slate-600">{t("admin.releases.approvedBy")}</th>
                 <th className="px-4 py-3"></th>
               </tr>
             </thead>
@@ -82,7 +84,7 @@ export default function ReleasesPage() {
                   <td className="px-4 py-3">
                     <Link href={`/admin/releases/${release.id}`} className="hover:underline">
                       <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${RELEASE_BADGE[release.channel].color}`}>
-                        {RELEASE_BADGE[release.channel].label}
+                        {t(RELEASE_BADGE[release.channel].label)}
                       </span>
                     </Link>
                   </td>

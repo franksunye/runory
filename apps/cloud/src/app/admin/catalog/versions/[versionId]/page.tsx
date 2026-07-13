@@ -31,8 +31,10 @@ import {
   useAdminFetch,
 } from "../../../_components/shared";
 import { apiFetch, apiPost } from "@/lib/api-fetch";
+import { useI18n } from "@/i18n/locale-provider";
 
 export default function VersionDetailPage() {
+  const { t } = useI18n();
   const params = useParams<{ versionId: string }>();
   const versionId = params.versionId;
 
@@ -79,13 +81,13 @@ export default function VersionDetailPage() {
     try {
       const json = await apiPost<{ success: boolean; error?: { message?: string } }>(`/api/platform/catalog/versions/${versionId}/${action}`, body ?? {});
       if (!json.success) {
-        setActionError(json.error?.message ?? `${action} 失败`);
+        setActionError(json.error?.message ?? t("admin.common.actionFailed", { action }));
       } else {
         reloadVersion();
         if (action === "validate") reloadValidation();
       }
     } catch {
-      setActionError(`${action} 失败`);
+      setActionError(t("admin.common.actionFailed", { action }));
     } finally {
       setActionLoading(null);
     }
@@ -116,7 +118,7 @@ export default function VersionDetailPage() {
       }
       const json = await apiPost<{ success: boolean; error?: { message?: string } }>(`/api/platform/catalog/versions/${versionId}/${type}`, body);
       if (!json.success) {
-        setActionError(json.error?.message ?? `${type} 失败`);
+        setActionError(json.error?.message ?? t("admin.common.actionFailed", { action: type }));
       } else {
         setConfirmAction(null);
         setConfirmReason("");
@@ -124,24 +126,24 @@ export default function VersionDetailPage() {
         loadAux();
       }
     } catch {
-      setActionError(`${type} 失败`);
+      setActionError(t("admin.common.actionFailed", { action: type }));
     } finally {
       setConfirmBusy(false);
     }
   };
 
   if (versionLoading) {
-    return <p className="text-sm text-slate-500">加载中...</p>;
+    return <p className="text-sm text-slate-500">{t("admin.common.loading")}</p>;
   }
 
   if (versionError || !version) {
     return (
       <div>
         <Link href="/admin?tab=catalog" className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-700">
-          <ArrowLeft size={15} /> 返回 Catalog
+          <ArrowLeft size={15} /> {t("admin.catalog.detail.backToCatalog")}
         </Link>
         <div className="mt-4 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">
-          {versionError ?? "未找到版本"}
+          {versionError ?? t("admin.catalog.version.notFound")}
         </div>
       </div>
     );
@@ -155,7 +157,7 @@ export default function VersionDetailPage() {
     <div>
       {/* Breadcrumb */}
       <div className="flex items-center gap-2 text-sm text-slate-500">
-        <Link href="/admin?tab=catalog" className="hover:text-slate-700">Catalog</Link>
+        <Link href="/admin?tab=catalog" className="hover:text-slate-700">{t("admin.nav.catalog")}</Link>
         <ChevronRight size={14} />
         {item ? (
           <Link href={`/admin/catalog/${item.id}`} className="hover:text-slate-700">{item.name}</Link>
@@ -170,11 +172,11 @@ export default function VersionDetailPage() {
       <div className="mt-4 flex items-center gap-3">
         <h1 className="font-mono text-2xl font-bold tracking-tight text-slate-950">v{version.version}</h1>
         <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold ${badge.color}`}>
-          <badge.icon size={12} /> {badge.label}
+          <badge.icon size={12} /> {t(badge.label)}
         </span>
         {versionReleases.map((rel) => (
           <span key={rel.id} className={`rounded-full px-2 py-0.5 text-xs font-semibold ${RELEASE_BADGE[rel.channel].color}`}>
-            {RELEASE_BADGE[rel.channel].label} · {rel.status}
+            {t(RELEASE_BADGE[rel.channel].label)} · {rel.status}
           </span>
         ))}
       </div>
@@ -186,31 +188,31 @@ export default function VersionDetailPage() {
       {/* Metadata */}
       <div className="mt-6 grid gap-4 lg:grid-cols-2">
         <div className="rounded-xl border border-slate-200 bg-white p-4">
-          <h3 className="text-sm font-bold text-slate-900">版本元数据</h3>
+          <h3 className="text-sm font-bold text-slate-900">{t("admin.catalog.version.metadata")}</h3>
           <dl className="mt-3 space-y-2 text-sm">
-            <MetaRow label="Schema 版本" value={version.manifestSchemaVersion} />
-            <MetaRow label="生命周期" value={badge.label} />
-            <MetaRow label="创建者" value={version.createdBy} mono />
-            <MetaRow label="创建时间" value={formatDateTime(version.createdAt)} />
-            {version.frozenAt && <MetaRow label="冻结时间" value={formatDateTime(version.frozenAt)} />}
+            <MetaRow label={t("admin.catalog.version.schemaVersion")} value={version.manifestSchemaVersion} />
+            <MetaRow label={t("admin.catalog.version.lifecycle")} value={t(badge.label)} />
+            <MetaRow label={t("admin.catalog.version.createdBy")} value={version.createdBy} mono />
+            <MetaRow label={t("admin.common.createdAt")} value={formatDateTime(version.createdAt)} />
+            {version.frozenAt && <MetaRow label={t("admin.catalog.version.frozenAt")} value={formatDateTime(version.frozenAt)} />}
           </dl>
         </div>
 
         <div className="rounded-xl border border-slate-200 bg-white p-4">
-          <h3 className="text-sm font-bold text-slate-900">Provenance & Artifact</h3>
+          <h3 className="text-sm font-bold text-slate-900">{t("admin.catalog.version.provenanceArtifact")}</h3>
           <dl className="mt-3 space-y-2 text-sm">
-            {version.sourceRepository && <MetaRow label="源仓库" value={version.sourceRepository} mono />}
-            {version.sourceCommit && <MetaRow label="源 Commit" value={version.sourceCommit} mono />}
-            {version.buildId && <MetaRow label="Build ID" value={version.buildId} mono />}
-            {version.artifactUri && <MetaRow label="Artifact URI" value={version.artifactUri} mono />}
+            {version.sourceRepository && <MetaRow label={t("admin.catalog.version.sourceRepository")} value={version.sourceRepository} mono />}
+            {version.sourceCommit && <MetaRow label={t("admin.catalog.version.sourceCommit")} value={version.sourceCommit} mono />}
+            {version.buildId && <MetaRow label={t("admin.catalog.version.buildId")} value={version.buildId} mono />}
+            {version.artifactUri && <MetaRow label={t("admin.catalog.version.artifactUri")} value={version.artifactUri} mono />}
             {version.artifactChecksum && (
               <div>
-                <dt className="text-xs font-semibold text-slate-500">Artifact Checksum (SHA-256)</dt>
+                <dt className="text-xs font-semibold text-slate-500">{t("admin.catalog.version.artifactChecksum")}</dt>
                 <dd className="mt-0.5 break-all font-mono text-xs text-slate-600">{version.artifactChecksum}</dd>
               </div>
             )}
             {!version.sourceRepository && !version.artifactUri && (
-              <p className="text-xs text-slate-400">无 provenance 信息</p>
+              <p className="text-xs text-slate-400">{t("admin.catalog.version.noProvenance")}</p>
             )}
           </dl>
         </div>
@@ -221,23 +223,23 @@ export default function VersionDetailPage() {
         <ManifestSections manifest={manifest} itemType={item?.itemType} />
       ) : (
         <div className="mt-6 rounded-lg border border-red-100 bg-red-50 p-3 text-sm text-red-700">
-          Manifest 无法解析。
+          {t("admin.catalog.version.manifestParseError")}
         </div>
       )}
 
       {/* Validation runs */}
       <div className="mt-8">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-bold text-slate-950">验证记录</h2>
+          <h2 className="text-lg font-bold text-slate-950">{t("admin.catalog.version.validationRuns")}</h2>
           <Link
             href={`/admin/catalog/versions/${versionId}/validation`}
             className="text-sm font-semibold text-slate-600 hover:text-slate-900"
           >
-            查看全部
+            {t("admin.catalog.version.viewAll")}
           </Link>
         </div>
         {(validationRuns ?? []).length === 0 ? (
-          <p className="mt-2 text-sm text-slate-500">暂无验证记录。</p>
+          <p className="mt-2 text-sm text-slate-500">{t("admin.catalog.version.noValidationRuns")}</p>
         ) : (
           <div className="mt-3 space-y-2">
             {(validationRuns ?? []).slice(0, 3).map((run) => {
@@ -249,13 +251,13 @@ export default function VersionDetailPage() {
                   className="flex items-center justify-between rounded-xl border border-slate-200 bg-white p-3 transition hover:border-slate-300"
                 >
                   <div className="flex items-center gap-3">
-                    <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${statusBadge.color}`}>{statusBadge.label}</span>
+                    <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${statusBadge.color}`}>{t(statusBadge.label)}</span>
                     <span className="font-mono text-xs text-slate-500">{run.id}</span>
                     {run.validatorVersion && <span className="text-xs text-slate-400">v{run.validatorVersion}</span>}
                   </div>
                   <div className="flex items-center gap-3 text-xs text-slate-400">
                     <span>{formatDateTime(run.createdAt)}</span>
-                    <span>耗时 {formatDuration(run.startedAt, run.completedAt)}</span>
+                    <span>{t("admin.catalog.version.duration", { duration: formatDuration(run.startedAt, run.completedAt) })}</span>
                   </div>
                 </Link>
               );
@@ -266,24 +268,24 @@ export default function VersionDetailPage() {
 
       {/* Action buttons */}
       <div className="mt-8">
-        <h2 className="text-lg font-bold text-slate-950">操作</h2>
+        <h2 className="text-lg font-bold text-slate-950">{t("admin.catalog.version.actions")}</h2>
         <div className="mt-3 flex flex-wrap gap-2">
           {version.lifecycleStatus === "draft" && (
             <>
               <ActionButton
-                label="验证"
+                label={t("admin.catalog.version.actionValidate")}
                 icon={ShieldCheck}
                 loading={actionLoading === "validate"}
                 onClick={() => doAction("validate")}
               />
               <ActionButton
-                label="冻结"
+                label={t("admin.catalog.version.actionFreeze")}
                 icon={Snowflake}
                 loading={actionLoading === "freeze"}
                 onClick={() => doAction("freeze")}
               />
               <ActionButton
-                label="拒绝"
+                label={t("admin.catalog.version.actionReject")}
                 icon={XCircle}
                 variant="danger"
                 loading={actionLoading === "reject"}
@@ -294,33 +296,33 @@ export default function VersionDetailPage() {
           {version.lifecycleStatus === "ready" && (
             <>
               <ActionButton
-                label="发布 Internal"
+                label={t("admin.catalog.version.actionPromoteInternal")}
                 icon={ArrowUpCircle}
                 loading={actionLoading === "promote:internal"}
                 onClick={() => openConfirm("promote", "internal")}
               />
               <ActionButton
-                label="发布 Beta"
+                label={t("admin.catalog.version.actionPromoteBeta")}
                 icon={ArrowUpCircle}
                 loading={actionLoading === "promote:beta"}
                 onClick={() => openConfirm("promote", "beta")}
               />
               <ActionButton
-                label="发布 Stable"
+                label={t("admin.catalog.version.actionPromoteStable")}
                 icon={ArrowUpCircle}
                 variant="success"
                 loading={actionLoading === "promote:stable"}
                 onClick={() => openConfirm("promote", "stable")}
               />
               <ActionButton
-                label="废弃"
+                label={t("admin.catalog.version.actionDeprecate")}
                 icon={AlertTriangle}
                 variant="warning"
                 loading={actionLoading === "deprecate"}
                 onClick={() => openConfirm("deprecate")}
               />
               <ActionButton
-                label="撤回"
+                label={t("admin.catalog.version.actionWithdraw")}
                 icon={Ban}
                 variant="danger"
                 loading={actionLoading === "withdraw"}
@@ -328,7 +330,7 @@ export default function VersionDetailPage() {
               />
               {item?.itemType === "pack" && (
                 <ActionButton
-                  label="解析 Pack Lock"
+                  label={t("admin.catalog.version.actionParsePackLock")}
                   icon={Package}
                   loading={actionLoading === "lock"}
                   onClick={() => doAction("lock")}
@@ -338,7 +340,7 @@ export default function VersionDetailPage() {
           )}
           {version.lifecycleStatus === "deprecated" && (
             <ActionButton
-              label="撤回"
+              label={t("admin.catalog.version.actionWithdraw")}
               icon={Ban}
               variant="danger"
               loading={actionLoading === "withdraw"}
@@ -346,7 +348,7 @@ export default function VersionDetailPage() {
             />
           )}
           {(version.lifecycleStatus === "validating" || version.lifecycleStatus === "rejected" || version.lifecycleStatus === "withdrawn") && (
-            <p className="text-sm text-slate-400">当前状态无可用操作。</p>
+            <p className="text-sm text-slate-400">{t("admin.catalog.version.noActionsAvailable")}</p>
           )}
         </div>
       </div>
@@ -386,6 +388,7 @@ function ManifestSections({
   manifest: Record<string, unknown>;
   itemType?: "module" | "pack" | "template";
 }) {
+  const { t } = useI18n();
   const m = manifest as any;
   const objects = toList(m.objects);
   const views = toList(m.views);
@@ -404,7 +407,7 @@ function ManifestSections({
     <div className="mt-6 space-y-4">
       {/* Objects */}
       {objects.length > 0 && (
-        <Section title="Objects & Fields">
+        <Section title={t("admin.catalog.version.objectsFields")}>
           <div className="space-y-3">
             {objects.map((object: any, index: number) => {
               const fields = toList(object.fields);
@@ -418,16 +421,16 @@ function ManifestSections({
                     </p>
                   </div>
                   {fields.length === 0 ? (
-                    <p className="px-3 py-2 text-xs text-slate-500">无字段声明</p>
+                    <p className="px-3 py-2 text-xs text-slate-500">{t("admin.catalog.version.noFields")}</p>
                   ) : (
                     <div className="overflow-x-auto">
                       <table className="w-full text-xs">
                         <thead className="bg-slate-50 text-slate-500">
                           <tr>
-                            <th className="px-3 py-2 text-left font-semibold">Field</th>
-                            <th className="px-3 py-2 text-left font-semibold">Label</th>
-                            <th className="px-3 py-2 text-left font-semibold">Type</th>
-                            <th className="px-3 py-2 text-left font-semibold">Required</th>
+                            <th className="px-3 py-2 text-left font-semibold">{t("admin.catalog.version.field")}</th>
+                            <th className="px-3 py-2 text-left font-semibold">{t("admin.catalog.version.fieldLabel")}</th>
+                            <th className="px-3 py-2 text-left font-semibold">{t("admin.catalog.version.fieldType")}</th>
+                            <th className="px-3 py-2 text-left font-semibold">{t("admin.catalog.version.fieldRequired")}</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
@@ -452,7 +455,7 @@ function ManifestSections({
 
       {/* Views */}
       {views.length > 0 && (
-        <Section title="Views">
+        <Section title={t("admin.catalog.version.views")}>
           <div className="space-y-2">
             {views.map((view: any, index: number) => {
               const viewKey = String(view.key ?? view.viewKey ?? view.name ?? `view-${index + 1}`);
@@ -467,16 +470,16 @@ function ManifestSections({
                   </div>
                   <div className="mt-2 grid gap-2 text-xs text-slate-600 sm:grid-cols-3">
                     <div>
-                      <span className="font-semibold text-slate-500">Columns:</span> {columns.length}
+                      <span className="font-semibold text-slate-500">{t("admin.catalog.version.columns")}</span> {columns.length}
                       {columns.length > 0 && (
                         <span className="ml-1 font-mono">({columns.map((c: any) => String(c.key ?? c)).join(", ")})</span>
                       )}
                     </div>
                     <div>
-                      <span className="font-semibold text-slate-500">Sections:</span> {sections.length}
+                      <span className="font-semibold text-slate-500">{t("admin.catalog.version.sections")}</span> {sections.length}
                     </div>
                     <div>
-                      <span className="font-semibold text-slate-500">Actions:</span> {actions.length}
+                      <span className="font-semibold text-slate-500">{t("admin.catalog.version.actionsCount")}</span> {actions.length}
                       {actions.length > 0 && (
                         <span className="ml-1 font-mono">({actions.map((a: any) => String(a.key ?? a.label ?? a)).join(", ")})</span>
                       )}
@@ -491,7 +494,7 @@ function ManifestSections({
 
       {/* Permissions */}
       {permissions.length > 0 && (
-        <Section title="Permissions">
+        <Section title={t("admin.catalog.version.permissions")}>
           <ul className="space-y-1 text-xs text-slate-600">
             {permissions.map((permission: string) => (
               <li key={permission} className="rounded bg-slate-50 px-2 py-1 font-mono">{permission}</li>
@@ -502,28 +505,28 @@ function ManifestSections({
 
       {/* Extension Points */}
       {extensionPoints && (
-        <Section title="Extension Points">
+        <Section title={t("admin.catalog.version.extensionPoints")}>
           <ExtensionPointsView data={extensionPoints} />
         </Section>
       )}
 
       {/* Migrations */}
       {migrations && (
-        <Section title="Migrations">
+        <Section title={t("admin.catalog.version.migrations")}>
           <MigrationsView data={migrations} />
         </Section>
       )}
 
       {/* UI / Navigation */}
       {ui && (
-        <Section title="UI & Navigation">
+        <Section title={t("admin.catalog.version.uiNavigation")}>
           <UiView data={ui} />
         </Section>
       )}
 
       {/* Pack composition */}
       {itemType === "pack" && modules.length > 0 && (
-        <Section title="Pack Modules">
+        <Section title={t("admin.catalog.version.packModules")}>
           <ul className="grid gap-2 sm:grid-cols-2">
             {modules.map((moduleRef) => (
               <li key={String(moduleRef)} className="rounded-lg bg-slate-50 px-3 py-2 font-mono text-xs text-slate-700">
@@ -536,7 +539,7 @@ function ManifestSections({
 
       {/* Template packs */}
       {itemType === "template" && packs.length > 0 && (
-        <Section title="Template Packs">
+        <Section title={t("admin.catalog.version.templatePacks")}>
           <ul className="grid gap-2 sm:grid-cols-2">
             {packs.map((packRef) => (
               <li key={String(packRef)} className="rounded-lg bg-slate-50 px-3 py-2 font-mono text-xs text-slate-700">
@@ -548,7 +551,7 @@ function ManifestSections({
       )}
 
       {/* Raw manifest */}
-      <Section title="原始 Manifest (JSON)">
+      <Section title={t("admin.catalog.version.rawManifest")}>
         <pre className="max-h-96 overflow-auto rounded bg-slate-950 p-3 text-xs text-slate-100">
           {JSON.stringify(manifest, null, 2)}
         </pre>
@@ -567,6 +570,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 }
 
 function ExtensionPointsView({ data }: { data: unknown }) {
+  const { t } = useI18n();
   const d = data as any;
   const entities = toList(d.entities);
   const viewSlots = toList(d.views);
@@ -575,7 +579,7 @@ function ExtensionPointsView({ data }: { data: unknown }) {
     <div className="space-y-3">
       {entities.length > 0 && (
         <div>
-          <p className="text-xs font-semibold text-slate-500">Entities (customFields)</p>
+          <p className="text-xs font-semibold text-slate-500">{t("admin.catalog.version.entities")}</p>
           <ul className="mt-1 space-y-1">
             {entities.map((entity: any, index: number) => (
               <li key={String(entity.entity ?? entity.key ?? index)} className="rounded bg-slate-50 px-2 py-1 text-xs text-slate-600">
@@ -590,7 +594,7 @@ function ExtensionPointsView({ data }: { data: unknown }) {
       )}
       {viewSlots.length > 0 && (
         <div>
-          <p className="text-xs font-semibold text-slate-500">Views (slots)</p>
+          <p className="text-xs font-semibold text-slate-500">{t("admin.catalog.version.viewSlots")}</p>
           <ul className="mt-1 space-y-1">
             {viewSlots.map((view: any, index: number) => (
               <li key={String(view.view ?? view.key ?? index)} className="rounded bg-slate-50 px-2 py-1 text-xs text-slate-600">
@@ -609,6 +613,7 @@ function ExtensionPointsView({ data }: { data: unknown }) {
 }
 
 function MigrationsView({ data }: { data: unknown }) {
+  const { t } = useI18n();
   const d = data as any;
   const install = d.install;
   const upgrades = toList(d.upgrade);
@@ -617,7 +622,7 @@ function MigrationsView({ data }: { data: unknown }) {
     <div className="space-y-3">
       {install && (
         <div>
-          <p className="text-xs font-semibold text-slate-500">Install Script</p>
+          <p className="text-xs font-semibold text-slate-500">{t("admin.catalog.version.installScript")}</p>
           <pre className="mt-1 overflow-auto rounded bg-slate-950 p-3 text-xs text-slate-100">
             {typeof install === "string" ? install : JSON.stringify(install, null, 2)}
           </pre>
@@ -625,7 +630,7 @@ function MigrationsView({ data }: { data: unknown }) {
       )}
       {upgrades.length > 0 && (
         <div>
-          <p className="text-xs font-semibold text-slate-500">Upgrade Steps</p>
+          <p className="text-xs font-semibold text-slate-500">{t("admin.catalog.version.upgradeSteps")}</p>
           <ul className="mt-1 space-y-1">
             {upgrades.map((step: any, index: number) => (
               <li key={index} className="rounded bg-slate-50 px-2 py-1 text-xs text-slate-600">
@@ -644,6 +649,7 @@ function MigrationsView({ data }: { data: unknown }) {
 }
 
 function UiView({ data }: { data: unknown }) {
+  const { t } = useI18n();
   const d = data as any;
   const navItems = toList(d.navigation);
 
@@ -651,7 +657,7 @@ function UiView({ data }: { data: unknown }) {
     <div className="space-y-3">
       {navItems.length > 0 && (
         <div>
-          <p className="text-xs font-semibold text-slate-500">Navigation Items</p>
+          <p className="text-xs font-semibold text-slate-500">{t("admin.catalog.version.navigationItems")}</p>
           <ul className="mt-1 space-y-1">
             {navItems.map((item: any, index: number) => (
               <li key={String(item.key ?? item.label ?? index)} className="rounded bg-slate-50 px-2 py-1 text-xs text-slate-600">

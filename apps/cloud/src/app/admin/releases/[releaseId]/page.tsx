@@ -23,8 +23,10 @@ import {
   useAdminFetch,
 } from "../../_components/shared";
 import { apiFetch, apiPost } from "@/lib/api-fetch";
+import { useI18n } from "@/i18n/locale-provider";
 
 export default function ReleaseDetailPage() {
+  const { t } = useI18n();
   const params = useParams<{ releaseId: string }>();
   const releaseId = params.releaseId;
 
@@ -62,29 +64,29 @@ export default function ReleaseDetailPage() {
       const body = needsReason ? { reason: `Operator ${action} action` } : {};
       const json = await apiPost<{ success: boolean; error?: { message?: string } }>(`/api/platform/rollouts/${rolloutId}/${action}`, body);
       if (!json.success) {
-        setActionError(json.error?.message ?? `${action} 失败`);
+        setActionError(json.error?.message ?? t("admin.common.actionFailed", { action }));
       } else {
         reloadRollouts();
       }
     } catch {
-      setActionError(`${action} 失败`);
+      setActionError(t("admin.common.actionFailed", { action }));
     } finally {
       setActionLoading(null);
     }
   };
 
   if (releaseLoading) {
-    return <p className="text-sm text-slate-500">加载中...</p>;
+    return <p className="text-sm text-slate-500">{t("admin.common.loading")}</p>;
   }
 
   if (releaseError || !release) {
     return (
       <div>
         <Link href="/admin/releases" className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-700">
-          <ArrowLeft size={15} /> 返回 Releases
+          <ArrowLeft size={15} /> {t("admin.releases.detail.backToReleases")}
         </Link>
         <div className="mt-4 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">
-          {releaseError ?? "未找到发布记录"}
+          {releaseError ?? t("admin.releases.detail.notFound")}
         </div>
       </div>
     );
@@ -96,15 +98,15 @@ export default function ReleaseDetailPage() {
     <div>
       {/* Breadcrumb */}
       <div className="flex items-center gap-2 text-sm text-slate-500">
-        <Link href="/admin/releases" className="hover:text-slate-700">Releases</Link>
+        <Link href="/admin/releases" className="hover:text-slate-700">{t("admin.nav.releases")}</Link>
         <ChevronRight size={14} />
         <span className="font-mono text-slate-700">{release.id}</span>
       </div>
 
       {/* Header */}
       <div className="mt-4 flex items-center gap-3">
-        <h1 className="text-2xl font-bold tracking-tight text-slate-950">发布详情</h1>
-        <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${channelBadge.color}`}>{channelBadge.label}</span>
+        <h1 className="text-2xl font-bold tracking-tight text-slate-950">{t("admin.releases.detail.title")}</h1>
+        <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${channelBadge.color}`}>{t(channelBadge.label)}</span>
         <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
           release.status === "active" ? "bg-emerald-100 text-emerald-700" :
           release.status === "superseded" ? "bg-slate-100 text-slate-500" :
@@ -122,18 +124,18 @@ export default function ReleaseDetailPage() {
       {/* Metadata */}
       <div className="mt-6 grid gap-4 lg:grid-cols-2">
         <div className="rounded-xl border border-slate-200 bg-white p-4">
-          <h3 className="text-sm font-bold text-slate-900">发布元数据</h3>
+          <h3 className="text-sm font-bold text-slate-900">{t("admin.releases.detail.metadata")}</h3>
           <dl className="mt-3 space-y-2 text-sm">
-            <MetaRow label="Release ID" value={release.id} mono />
-            <MetaRow label="通道" value={channelBadge.label} />
-            <MetaRow label="状态" value={release.status} />
-            <MetaRow label="批准人" value={release.approvedBy ?? "—"} mono />
-            <MetaRow label="发布时间" value={formatDateTime(release.releasedAt)} />
-            <MetaRow label="创建时间" value={formatDateTime(release.createdAt)} />
+            <MetaRow label={t("admin.releases.detail.releaseId")} value={release.id} mono />
+            <MetaRow label={t("admin.releases.channel")} value={t(channelBadge.label)} />
+            <MetaRow label={t("admin.common.status")} value={release.status} />
+            <MetaRow label={t("admin.releases.approvedBy")} value={release.approvedBy ?? "—"} mono />
+            <MetaRow label={t("admin.releases.releasedAt")} value={formatDateTime(release.releasedAt)} />
+            <MetaRow label={t("admin.common.createdAt")} value={formatDateTime(release.createdAt)} />
           </dl>
           {release.releaseNotes && (
             <div className="mt-3 border-t border-slate-100 pt-3">
-              <p className="text-xs font-semibold text-slate-500">发布说明</p>
+              <p className="text-xs font-semibold text-slate-500">{t("admin.releases.detail.releaseNotes")}</p>
               <p className="mt-1 text-sm text-slate-700">{release.releaseNotes}</p>
             </div>
           )}
@@ -141,7 +143,7 @@ export default function ReleaseDetailPage() {
 
         {/* Included version */}
         <div className="rounded-xl border border-slate-200 bg-white p-4">
-          <h3 className="text-sm font-bold text-slate-900">包含版本</h3>
+          <h3 className="text-sm font-bold text-slate-900">{t("admin.releases.detail.includedVersion")}</h3>
           {version ? (
             <div className="mt-3">
               <Link
@@ -150,19 +152,19 @@ export default function ReleaseDetailPage() {
               >
                 <div>
                   <p className="font-mono text-sm font-semibold text-slate-900">v{version.version}</p>
-                  <p className="mt-0.5 text-xs text-slate-500">Schema {version.manifestSchemaVersion}</p>
+                  <p className="mt-0.5 text-xs text-slate-500">{t("admin.releases.detail.schemaVersion", { version: version.manifestSchemaVersion })}</p>
                 </div>
                 <ChevronRight size={18} className="text-slate-400" />
               </Link>
               {version.artifactChecksum && (
                 <div className="mt-3">
-                  <p className="text-xs font-semibold text-slate-500">Artifact Checksum</p>
+                  <p className="text-xs font-semibold text-slate-500">{t("admin.releases.detail.artifactChecksum")}</p>
                   <p className="mt-0.5 break-all font-mono text-xs text-slate-600">{version.artifactChecksum}</p>
                 </div>
               )}
             </div>
           ) : (
-            <p className="mt-3 text-sm text-slate-500">加载中...</p>
+            <p className="mt-3 text-sm text-slate-500">{t("admin.common.loading")}</p>
           )}
         </div>
       </div>
@@ -170,22 +172,22 @@ export default function ReleaseDetailPage() {
       {/* Rollouts */}
       <div className="mt-8">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-bold text-slate-950">Rollout 状态</h2>
+          <h2 className="text-lg font-bold text-slate-950">{t("admin.releases.detail.rolloutStatus")}</h2>
           {!activeRollout && release.status === "active" && (
             <button
               onClick={() => setShowStartForm(true)}
               className="app-button-primary"
             >
-              <Play size={16} /> 启动 Rollout
+              <Play size={16} /> {t("admin.releases.detail.startRollout")}
             </button>
           )}
         </div>
 
         {rolloutsLoading ? (
-          <p className="mt-3 text-sm text-slate-500">加载中...</p>
+          <p className="mt-3 text-sm text-slate-500">{t("admin.common.loading")}</p>
         ) : rolloutList.length === 0 ? (
           <div className="mt-3 rounded-2xl border border-dashed border-slate-300 bg-white p-12 text-center">
-            <p className="text-sm text-slate-500">暂无 Rollout 记录。</p>
+            <p className="text-sm text-slate-500">{t("admin.releases.detail.noRollouts")}</p>
           </div>
         ) : (
           <div className="mt-3 space-y-3">
@@ -237,6 +239,7 @@ function RolloutCard({
   onResume: () => void;
   onCancel: () => void;
 }) {
+  const { t } = useI18n();
   const badge = ROLLOUT_STATUS_BADGE[rollout.status];
   const config = (() => { try { return JSON.parse(rollout.targetConfigJson) as Record<string, unknown>; } catch { return null; } })();
 
@@ -247,30 +250,30 @@ function RolloutCard({
     <div className="rounded-2xl border border-slate-200 bg-white p-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${badge.color}`}>{badge.label}</span>
-          <span className="text-xs text-slate-500">类型: {rollout.targetType}</span>
+          <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${badge.color}`}>{t(badge.label)}</span>
+          <span className="text-xs text-slate-500">{t("admin.common.type")}: {rollout.targetType}</span>
           <span className="text-xs text-slate-400">{formatDateTime(rollout.createdAt)}</span>
         </div>
         <Link
           href={`/admin/rollouts/${rollout.id}`}
           className="text-sm font-semibold text-slate-600 hover:text-slate-900"
         >
-          查看详情 <ChevronRight size={14} className="inline" />
+          {t("admin.releases.detail.viewDetail")} <ChevronRight size={14} className="inline" />
         </Link>
       </div>
 
       <div className="mt-3 grid gap-3 sm:grid-cols-3 text-sm">
         <div>
-          <span className="text-xs font-semibold text-slate-500">成功阈值:</span>{" "}
+          <span className="text-xs font-semibold text-slate-500">{t("admin.rollouts.successThreshold")}:</span>{" "}
           <span className="text-slate-700">{(rollout.successThreshold * 100).toFixed(0)}%</span>
         </div>
         <div>
-          <span className="text-xs font-semibold text-slate-500">失败阈值:</span>{" "}
+          <span className="text-xs font-semibold text-slate-500">{t("admin.rollouts.failureThreshold")}:</span>{" "}
           <span className="text-slate-700">{(rollout.failureThreshold * 100).toFixed(0)}%</span>
         </div>
         {config && (
           <div>
-            <span className="text-xs font-semibold text-slate-500">目标配置:</span>{" "}
+            <span className="text-xs font-semibold text-slate-500">{t("admin.rollouts.targetConfig")}:</span>{" "}
             <span className="font-mono text-xs text-slate-600">{JSON.stringify(config)}</span>
           </div>
         )}
@@ -285,7 +288,7 @@ function RolloutCard({
               className="inline-flex items-center gap-1.5 rounded-lg border border-amber-300 bg-white px-3 py-1.5 text-xs font-semibold text-amber-700 transition hover:bg-amber-50 disabled:opacity-50"
             >
               {actionLoading === `${rollout.id}:pause` ? <Loader2 size={14} className="animate-spin" /> : <Pause size={14} />}
-              暂停
+              {t("admin.common.pause")}
             </button>
           )}
           {isPaused && (
@@ -295,7 +298,7 @@ function RolloutCard({
               className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-300 bg-white px-3 py-1.5 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-50 disabled:opacity-50"
             >
               {actionLoading === `${rollout.id}:resume` ? <Loader2 size={14} className="animate-spin" /> : <Play size={14} />}
-              恢复
+              {t("admin.common.resume")}
             </button>
           )}
           <button
@@ -304,7 +307,7 @@ function RolloutCard({
             className="inline-flex items-center gap-1.5 rounded-lg border border-red-300 bg-white px-3 py-1.5 text-xs font-semibold text-red-700 transition hover:bg-red-50 disabled:opacity-50"
           >
             {actionLoading === `${rollout.id}:cancel` ? <Loader2 size={14} className="animate-spin" /> : <Ban size={14} />}
-            取消
+            {t("admin.common.cancel")}
           </button>
         </div>
       )}
@@ -323,6 +326,7 @@ function StartRolloutModal({
   onCreated: () => void;
   onError: (msg: string) => void;
 }) {
+  const { t } = useI18n();
   const [targetType, setTargetType] = useState<"allowlist" | "percentage" | "all_eligible">("all_eligible");
   const [workspaceIds, setWorkspaceIds] = useState("");
   const [percentage, setPercentage] = useState("100");
@@ -342,10 +346,10 @@ function StartRolloutModal({
       if (json.success) {
         onCreated();
       } else {
-        onError(json.error?.message ?? "启动 Rollout 失败");
+        onError(json.error?.message ?? t("admin.releases.detail.startRolloutFailed"));
       }
     } catch {
-      onError("启动 Rollout 失败");
+      onError(t("admin.releases.detail.startRolloutFailed"));
     } finally {
       setLoading(false);
     }
@@ -355,22 +359,22 @@ function StartRolloutModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30" onClick={onClose}>
       <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-bold text-slate-950">启动 Rollout</h2>
+          <h2 className="text-lg font-bold text-slate-950">{t("admin.releases.detail.startRollout")}</h2>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-700"><X size={20} /></button>
         </div>
 
         <div className="mt-4 space-y-3">
           <div>
-            <label className="mb-1.5 block text-sm font-semibold text-slate-700">目标类型</label>
+            <label className="mb-1.5 block text-sm font-semibold text-slate-700">{t("admin.rollouts.targetType")}</label>
             <select className="app-input" value={targetType} onChange={(e) => setTargetType(e.target.value as typeof targetType)}>
-              <option value="all_eligible">全部符合条件的 Workspace</option>
-              <option value="allowlist">白名单</option>
-              <option value="percentage">百分比</option>
+              <option value="all_eligible">{t("admin.releases.detail.allEligibleWorkspaces")}</option>
+              <option value="allowlist">{t("admin.releases.detail.allowlist")}</option>
+              <option value="percentage">{t("admin.releases.detail.percentage")}</option>
             </select>
           </div>
           {targetType === "allowlist" && (
             <div>
-              <label className="mb-1.5 block text-sm font-semibold text-slate-700">Workspace IDs (逗号分隔)</label>
+              <label className="mb-1.5 block text-sm font-semibold text-slate-700">{t("admin.releases.detail.workspaceIds")}</label>
               <input
                 className="app-input"
                 value={workspaceIds}
@@ -381,7 +385,7 @@ function StartRolloutModal({
           )}
           {targetType === "percentage" && (
             <div>
-              <label className="mb-1.5 block text-sm font-semibold text-slate-700">百分比 (%)</label>
+              <label className="mb-1.5 block text-sm font-semibold text-slate-700">{t("admin.releases.detail.percentageLabel")}</label>
               <input
                 type="number"
                 min="1"
@@ -395,7 +399,7 @@ function StartRolloutModal({
         </div>
 
         <button onClick={handleStart} disabled={loading} className="app-button-primary mt-5 w-full">
-          {loading ? "启动中..." : "启动"}
+          {loading ? t("admin.releases.detail.starting") : t("admin.releases.detail.start")}
         </button>
       </div>
     </div>

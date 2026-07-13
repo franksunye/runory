@@ -223,6 +223,24 @@ function ImportModal({ onClose, onImported }: { onClose: () => void; onImported:
   const [itemType, setItemType] = useState<"module" | "pack" | "template">("module");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [catalogItems, setCatalogItems] = useState<CatalogItem[]>([]);
+  const [catalogLoading, setCatalogLoading] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setCatalogLoading(true);
+      try {
+        const json = await apiFetch<{ success: boolean; data?: CatalogItem[] }>("/api/platform/catalog", { cache: "no-store" });
+        if (!cancelled && json.success) setCatalogItems(json.data ?? []);
+      } catch {
+        // ignore — available items are an optional hint
+      } finally {
+        if (!cancelled) setCatalogLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const handleImport = async () => {
     if (!itemId.trim()) return setError("请输入制品 ID");
@@ -274,9 +292,38 @@ function ImportModal({ onClose, onImported }: { onClose: () => void; onImported:
           </div>
           <div className="rounded-lg bg-slate-50 p-3 text-xs text-slate-500">
             <p className="font-semibold text-slate-600">{t("admin.catalog.available")}：</p>
-            <p className="mt-1">Module: <code>runory.customer</code>, <code>runory.contact</code></p>
-            <p>Pack: <code>crm-lite-pack</code></p>
-            <p>Template: <code>small-business-crm</code></p>
+            {catalogLoading ? (
+              <p className="mt-1 text-slate-400">加载中...</p>
+            ) : catalogItems.length === 0 ? (
+              <p className="mt-1 text-slate-400">—</p>
+            ) : (
+              <div className="mt-2 space-y-2">
+                {(["module", "pack", "template"] as const).map((type) => {
+                  const grouped = catalogItems.filter((i) => i.itemType === type);
+                  if (grouped.length === 0) return null;
+                  const badge = ITEM_TYPE_BADGE[type];
+                  return (
+                    <div key={type} className="flex flex-wrap items-center gap-1.5">
+                      <span className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${badge.color}`}>{badge.label}</span>
+                      {grouped.map((item) => (
+                        <button
+                          key={item.id}
+                          type="button"
+                          onClick={() => { setItemId(item.id); setItemType(type); }}
+                          className={`rounded-full border px-2 py-0.5 font-mono text-[11px] transition hover:bg-slate-200 ${
+                            itemId === item.id && itemType === type
+                              ? "border-slate-900 bg-slate-200 text-slate-900"
+                              : "border-slate-200 bg-white text-slate-600"
+                          }`}
+                        >
+                          {item.id}
+                        </button>
+                      ))}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
 

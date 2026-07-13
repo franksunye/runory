@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import * as Avatar from "@radix-ui/react-avatar";
 
 type AvatarSize = "xs" | "sm" | "md" | "lg" | "xl";
 type Presence = "online" | "busy" | "offline";
@@ -53,36 +53,33 @@ export default function UserAvatar({
   presence?: Presence;
   className?: string;
 }) {
-  const [imageFailed, setImageFailed] = useState(false);
-
-  useEffect(() => setImageFailed(false), [avatarUrl]);
-
   return (
-    <span
+    <Avatar.Root
       className={`relative inline-grid shrink-0 place-items-center overflow-visible rounded-full font-bold ${SIZE_CLASS[size]} ${className}`}
       title={name}
+      role="img"
       aria-label={name}
     >
-      {avatarUrl && !imageFailed ? (
-        // Demo avatars are local, optimized square assets. The native image
-        // keeps this primitive usable in tables, maps, and fixed overlays.
-        <img
+      {avatarUrl && (
+        <Avatar.Image
           src={avatarUrl}
           alt=""
           className="size-full rounded-full object-cover ring-1 ring-black/5"
-          onError={() => setImageFailed(true)}
         />
-      ) : (
-        <span className={`grid size-full place-items-center rounded-full ${fallbackColor(name)}`}>
-          {initials(name)}
-        </span>
       )}
+      <Avatar.Fallback
+        className={`grid size-full place-items-center rounded-full ${fallbackColor(name)}`}
+        delayMs={avatarUrl ? 150 : 0}
+        aria-hidden="true"
+      >
+        {initials(name)}
+      </Avatar.Fallback>
       {presence && (
         <span
           className={`absolute bottom-0 right-0 size-[28%] min-h-2 min-w-2 rounded-full border-2 border-white ${PRESENCE_CLASS[presence]}`}
           aria-hidden="true"
         />
       )}
-    </span>
+    </Avatar.Root>
   );
 }

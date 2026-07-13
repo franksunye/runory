@@ -13,10 +13,12 @@
     "test": "vitest run",
     "db:status": "node scripts/db-status.mjs",
     "db:reset": "node scripts/db-reset.mjs",
+    "avatars:generate": "node scripts/generate-demo-avatars.mjs",
     "bootstrap:demo": "node scripts/bootstrap-demo.mjs"
   },
   "dependencies": {
     "@libsql/client": "^0.17.3",
+    "@radix-ui/react-avatar": "^1.2.2",
     "@runory/contracts": "workspace:*",
     "@runory/platform-core": "workspace:*",
     "lucide-react": "^1.21.0",
@@ -29,6 +31,8 @@
     "zod": "^3.25.76"
   },
   "devDependencies": {
+    "@dicebear/core": "9.4.2",
+    "@dicebear/notionists-neutral": "9.4.2",
     "@tailwindcss/postcss": "^4.1.11",
     "@types/node": "^24.10.1",
     "@types/react": "^19.1.0",

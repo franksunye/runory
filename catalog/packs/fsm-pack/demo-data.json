@@ -457,7 +457,7 @@
       "externalId": "persona:sales-rep",
       "email": "sales.rep@runory.demo",
       "displayName": "Sarah Chen",
-      "avatarUrl": "/demo/avatars/sarah-chen.png",
+      "avatarUrl": "/demo/avatars/sarah-chen.svg",
       "role": "member",
       "permissionGroups": [
         { "packId": "crm-lite-pack", "groupKey": "sales_agent" },
@@ -469,7 +469,7 @@
       "externalId": "persona:sales-manager",
       "email": "sales.manager@runory.demo",
       "displayName": "Michael Torres",
-      "avatarUrl": "/demo/avatars/michael-torres.png",
+      "avatarUrl": "/demo/avatars/michael-torres.svg",
       "role": "member",
       "permissionGroups": [
         { "packId": "sales-quote-pack", "groupKey": "sales_manager" }
@@ -480,7 +480,7 @@
       "externalId": "persona:dispatcher",
       "email": "dispatcher@runory.demo",
       "displayName": "Lisa Wang",
-      "avatarUrl": "/demo/avatars/lisa-wang.png",
+      "avatarUrl": "/demo/avatars/lisa-wang.svg",
       "role": "member",
       "permissionGroups": [
         { "packId": "fsm-pack", "groupKey": "dispatcher" }
@@ -491,7 +491,7 @@
       "externalId": "persona:technician",
       "email": "technician@runory.demo",
       "displayName": "David Park",
-      "avatarUrl": "/demo/avatars/david-park.png",
+      "avatarUrl": "/demo/avatars/david-park.svg",
       "role": "member",
       "permissionGroups": [
         { "packId": "fsm-pack", "groupKey": "field_technician" }
@@ -503,7 +503,7 @@
       "externalId": "persona:supervisor",
       "email": "supervisor@runory.demo",
       "displayName": "Robert Kim",
-      "avatarUrl": "/demo/avatars/robert-kim.png",
+      "avatarUrl": "/demo/avatars/robert-kim.svg",
       "role": "member",
       "permissionGroups": [
         { "packId": "fsm-pack", "groupKey": "service_supervisor" }
@@ -514,7 +514,7 @@
       "externalId": "persona:technician-james",
       "email": "james@runory.demo",
       "displayName": "James Wilson",
-      "avatarUrl": "/demo/avatars/james-wilson.png",
+      "avatarUrl": "/demo/avatars/james-wilson.svg",
       "role": "member",
       "permissionGroups": [
         { "packId": "fsm-pack", "groupKey": "field_technician" }
@@ -526,7 +526,7 @@
       "externalId": "persona:technician-maria",
       "email": "maria@runory.demo",
       "displayName": "Maria Garcia",
-      "avatarUrl": "/demo/avatars/maria-garcia.png",
+      "avatarUrl": "/demo/avatars/maria-garcia.svg",
       "role": "member",
       "permissionGroups": [
         { "packId": "fsm-pack", "groupKey": "field_technician" }
