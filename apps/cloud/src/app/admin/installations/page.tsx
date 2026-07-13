@@ -4,32 +4,43 @@ import { useI18n } from "@/i18n/locale-provider";
 import { useAdminFetch, formatDateTime } from "../_components/shared";
 
 interface Installation {
-  id: string;
-  pack: string;
-  workspace: string;
-  status: "installed" | "error" | "installing";
-  demoData: "loaded" | "not_loaded" | "error";
+  packId: string;
+  workspaceId: string;
+  workspaceName: string | null;
+  status: string;
+  demoDataStatus: string;
   installedAt: string | null;
-  error: string | null;
+  errorMessage: string | null;
 }
 
-const STATUS_BADGE: Record<
-  Installation["status"],
-  { label: string; color: string }
-> = {
-  installed: { label: "installed", color: "bg-emerald-100 text-emerald-700" },
-  error: { label: "error", color: "bg-red-100 text-red-700" },
-  installing: { label: "installing", color: "bg-blue-100 text-blue-700" },
-};
+function StatusBadge({ status }: { status: string }) {
+  const config: Record<string, { color: string }> = {
+    installed: { color: "bg-emerald-100 text-emerald-700" },
+    error: { color: "bg-red-100 text-red-700" },
+    installing: { color: "bg-blue-100 text-blue-700" },
+  };
+  const c = config[status] ?? { color: "bg-slate-100 text-slate-500" };
+  return (
+    <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${c.color}`}>
+      {status}
+    </span>
+  );
+}
 
-const DEMO_DATA_BADGE: Record<
-  Installation["demoData"],
-  { label: string; color: string }
-> = {
-  loaded: { label: "loaded", color: "bg-emerald-100 text-emerald-700" },
-  not_loaded: { label: "not_loaded", color: "bg-slate-100 text-slate-500" },
-  error: { label: "error", color: "bg-red-100 text-red-700" },
-};
+function DemoDataBadge({ status }: { status: string }) {
+  const config: Record<string, { color: string }> = {
+    loaded: { color: "bg-emerald-100 text-emerald-700" },
+    not_loaded: { color: "bg-slate-100 text-slate-500" },
+    loading: { color: "bg-blue-100 text-blue-700" },
+    error: { color: "bg-red-100 text-red-700" },
+  };
+  const c = config[status] ?? { color: "bg-slate-100 text-slate-500" };
+  return (
+    <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${c.color}`}>
+      {status}
+    </span>
+  );
+}
 
 export default function InstallationsPage() {
   const { t } = useI18n();
@@ -47,7 +58,7 @@ export default function InstallationsPage() {
       </p>
 
       {loading ? (
-        <p className="mt-4 text-sm text-slate-500">加载中...</p>
+        <p className="mt-4 text-sm text-slate-500">{t("admin.common.loading")}</p>
       ) : error ? (
         <p className="mt-4 text-sm text-red-600">{error}</p>
       ) : !installations || installations.length === 0 ? (
@@ -82,33 +93,25 @@ export default function InstallationsPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {installations.map((installation) => (
-                <tr key={installation.id} className="hover:bg-slate-50">
+              {installations.map((inst, i) => (
+                <tr key={`${inst.packId}-${inst.workspaceId}-${i}`} className="hover:bg-slate-50">
                   <td className="px-4 py-3 font-medium text-slate-700">
-                    {installation.pack}
+                    {inst.packId}
                   </td>
                   <td className="px-4 py-3 font-mono text-xs text-slate-600">
-                    {installation.workspace}
+                    {inst.workspaceName ?? inst.workspaceId}
                   </td>
                   <td className="px-4 py-3">
-                    <span
-                      className={`rounded-full px-2 py-0.5 text-xs font-semibold ${STATUS_BADGE[installation.status].color}`}
-                    >
-                      {STATUS_BADGE[installation.status].label}
-                    </span>
+                    <StatusBadge status={inst.status} />
                   </td>
                   <td className="px-4 py-3">
-                    <span
-                      className={`rounded-full px-2 py-0.5 text-xs font-semibold ${DEMO_DATA_BADGE[installation.demoData].color}`}
-                    >
-                      {DEMO_DATA_BADGE[installation.demoData].label}
-                    </span>
+                    <DemoDataBadge status={inst.demoDataStatus} />
                   </td>
                   <td className="px-4 py-3 text-slate-500">
-                    {formatDateTime(installation.installedAt)}
+                    {formatDateTime(inst.installedAt)}
                   </td>
                   <td className="px-4 py-3 text-xs text-red-600">
-                    {installation.error ?? "—"}
+                    {inst.errorMessage ?? "—"}
                   </td>
                 </tr>
               ))}
