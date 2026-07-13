@@ -49,7 +49,7 @@ const OPERATIONAL_OBJECTS = new Set([
 ]);
 
 // Objects that are shared customer data — visible to all members who have
-// read permission. These don't get row-level filtering.
+// any operational access. These don't get row-level filtering.
 const SHARED_OBJECTS = new Set([
   "company",
   "contact",
@@ -57,6 +57,27 @@ const SHARED_OBJECTS = new Set([
   "asset",
   "task",
 ]);
+
+/**
+ * Mapping from object key to the set of permissions that grant read access.
+ *
+ * The permission system is action-based, not purely object-based. For example,
+ * `visit.execute` implies the ability to read service_visit records, and
+ * `work_order.read` implies the ability to read associated customer data.
+ *
+ * If the user has ANY permission in the set (or `*`), they can read the object.
+ */
+const OBJECT_READ_PERMISSIONS: Record<string, string[]> = {
+  work_order: ["work_order.read", "work_order.triage", "work_order.start", "work_order.complete", "work_order.reopen"],
+  service_visit: ["visit.execute", "service_visit.read"],
+  service_report: ["service_report.read", "work_order.read", "work_order.complete"],
+  quote: ["quote.read", "quote.create", "quote.send", "quote.accept", "quote.reject"],
+  company: ["company.read", "work_order.read", "visit.execute", "quote.read", "quote.create"],
+  contact: ["contact.read", "company.read", "work_order.read", "visit.execute"],
+  service_site: ["service_site.read", "company.read", "work_order.read", "visit.execute"],
+  asset: ["asset.read", "company.read", "work_order.read", "visit.execute"],
+  task: ["task.read", "work_order.read", "visit.execute"],
+};
 
 // ── Permission resolution ──
 
@@ -90,13 +111,22 @@ export async function resolveUserPermissions(
 
 /**
  * Check if the user has read permission for an object.
- * Permission can be `{objectKey}.read` or `*`.
+ * Uses OBJECT_READ_PERMISSIONS mapping to account for action-based permissions
+ * (e.g., visit.execute grants read access to service_visit records).
  */
 export function canReadObject(
   permissions: Set<string>,
   objectKey: string
 ): boolean {
   if (permissions.has("*")) return true;
+  // Check for explicit {objectKey}.read
+  if (permissions.has(`${objectKey}.read`)) return true;
+  // Check against the permission mapping
+  const allowed = OBJECT_READ_PERMISSIONS[objectKey];
+  if (allowed) {
+    return allowed.some((p) => permissions.has(p));
+  }
+  // Unknown object — require explicit read permission
   return permissions.has(`${objectKey}.read`);
 }
 
