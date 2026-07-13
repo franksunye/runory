@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   Activity, ArrowLeft, ChevronDown, ChevronRight,
   ContactRound, FileText, LayoutDashboard, Menu, Settings,
@@ -12,9 +12,11 @@ import {
   MessageSquare, Tag, Target, Heart, AlertTriangle, Gift,
   Headphones, Briefcase, PanelLeftClose, PanelLeftOpen,
   Building2, ClipboardList, MapPin,
+  ChevronUp, LogOut,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { NavigationItem } from "@runory/platform-core";
+import type { WorkspaceSurfaceKey } from "@runory/contracts";
 import { useI18n } from "@/i18n/locale-provider";
 import type { MessageKey } from "@/i18n/messages";
 
@@ -32,6 +34,7 @@ interface NavigationShellProps {
   packs: InstalledPackGroup[];
   modulePackMap: Record<string, string>;
   modulePresentation?: Record<string, { visibility: string; surface?: string; audience?: string[] }>;
+  platformSurfaces: WorkspaceSurfaceKey[];
   workspaceId: string;
   workspaceName: string;
   role?: string;
@@ -140,6 +143,7 @@ const CATEGORY_LABEL_KEY: Record<string, MessageKey> = {
   crm: "workspace.nav.categoryCrm",
   field_service: "workspace.nav.categoryFieldService",
   sales: "workspace.nav.categorySales",
+  sales_quote: "workspace.nav.categorySales",
   marketing: "workspace.nav.categoryMarketing",
   ai_visibility: "workspace.nav.categoryAiVisibility",
   customer_service: "workspace.nav.categoryCustomerService",
@@ -211,6 +215,7 @@ export default function NavigationShell({
   packs,
   modulePackMap,
   modulePresentation,
+  platformSurfaces,
   workspaceId,
   workspaceName,
   role = "member",
@@ -218,11 +223,16 @@ export default function NavigationShell({
   children,
 }: NavigationShellProps) {
   const pathname = usePathname();
+  const router = useRouter();
   const { t } = useI18n();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const [groupsInitialized, setGroupsInitialized] = useState(false);
+  const [accountMenuOpen, setAccountMenuOpen] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
+  const accountMenuRef = useRef<HTMLDivElement>(null);
+  const accountMenuButtonRef = useRef<HTMLButtonElement>(null);
   const canManage = role === "owner" || role === "admin";
   const hasFsm = packs.some((p) => p.category === "field_service");
 
@@ -240,6 +250,29 @@ export default function NavigationShell({
   useEffect(() => {
     localStorage.setItem("runory:sidebar-collapsed", String(collapsed));
   }, [collapsed]);
+
+  useEffect(() => {
+    if (!accountMenuOpen) return;
+    const handlePointerDown = (event: PointerEvent) => {
+      if (!accountMenuRef.current?.contains(event.target as Node)) setAccountMenuOpen(false);
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setAccountMenuOpen(false);
+        accountMenuButtonRef.current?.focus();
+      }
+    };
+    document.addEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [accountMenuOpen]);
+
+  useEffect(() => {
+    setAccountMenuOpen(false);
+  }, [pathname]);
 
   // Start with installed business packs expanded so local/demo workspaces show
   // the available product surface immediately.
@@ -263,15 +296,12 @@ export default function NavigationShell({
     }
   }, [pathname, navigation, packs, modulePackMap]);
 
-  const isManageActive = () => {
-    if (canManage) {
-      return MANAGEMENT_ROUTES.some((r) => {
-        const full = `/w/${workspaceId}${r}`;
-        return pathname === full || pathname.startsWith(`${full}/`);
-      });
-    }
-    return isActiveRoute("/settings");
-  };
+  const isAdministrationActive = () => canManage && MANAGEMENT_ROUTES
+    .filter((route) => route !== "/settings")
+    .some((route) => {
+      const full = `/w/${workspaceId}${route}`;
+      return pathname === full || pathname.startsWith(`${full}/`);
+    });
 
   const toggleGroup = (packId: string) => {
     setExpandedGroups((prev) => {
@@ -280,6 +310,24 @@ export default function NavigationShell({
       else next.add(packId);
       return next;
     });
+  };
+
+  const handleLogout = async () => {
+    setLoggingOut(true);
+    try {
+      await fetch("/api/auth/logout", {
+        method: "POST",
+        headers: { "X-Requested-With": "XMLHttpRequest" },
+      });
+      localStorage.removeItem("runory:sidebar-collapsed");
+      localStorage.removeItem("runory:extension-notice-dismissed");
+      localStorage.removeItem("runory:early-access-dismissed");
+      router.push("/login");
+      router.refresh();
+    } finally {
+      setLoggingOut(false);
+      setAccountMenuOpen(false);
+    }
   };
 
   // ── Build navigation structure ──
@@ -339,10 +387,8 @@ export default function NavigationShell({
     })
     .sort((a, b) => a.sortOrder - b.sortOrder);
 
-  // Management items
-  const managementItems = canManage
-    ? [{ id: "manage", label: t("workspace.nav.manage"), route: "/manage", icon: Settings, sortOrder: 90 }]
-    : [{ id: "settings", label: t("workspace.nav.settings"), route: "/settings", icon: Settings, sortOrder: 90 }];
+  const hasPlatformSurfaces = platformSurfaces.length > 0;
+  const hasBusinessNavigation = packGroups.some(({ items }) => items.length > 0) || ungroupedItems.length > 0;
 
   const roleDisplay = getRoleDisplay(role, t);
   const userName = currentUser?.displayName || t("workspace.nav.currentUserFallback");
@@ -416,8 +462,23 @@ export default function NavigationShell({
         {/* Dashboard */}
         {renderNavItem({ id: "dashboard", label: t("workspace.nav.dashboard"), route: "/dashboard", icon: LayoutDashboard })}
 
+        {/* Cross-Pack work surfaces stay flat and high in the hierarchy. */}
+        {hasPlatformSurfaces && (
+          <div className="mt-1 space-y-0.5">
+            {platformSurfaces.includes("my_work")
+              && renderNavItem({ id: "my-work", label: t("workspace.nav.myWork"), route: "/my-work", icon: CheckSquare })}
+            {platformSurfaces.includes("planning")
+              && renderNavItem({ id: "planning", label: t("workspace.nav.planning"), route: "/planning", icon: Calendar })}
+            {platformSurfaces.includes("activity")
+              && renderNavItem({ id: "activity", label: t("workspace.nav.activity"), route: "/activity", icon: Activity })}
+          </div>
+        )}
+
+        {/* A quiet spatial boundary separates shared work surfaces from installed applications. */}
+        {hasBusinessNavigation && <div className={collapsed ? "mx-2 my-4 border-t border-slate-200" : "mx-2 my-4 border-t border-slate-200/80"} />}
+
         {/* Pack Groups */}
-        <div className={collapsed ? "mt-4 space-y-1" : "space-y-1"}>
+        <div className={collapsed ? "space-y-1" : "space-y-1"}>
           {packGroups.map(({ pack, items }) => {
             if (items.length === 0) return null;
             const groupLabel = getCategoryLabel(pack.category, t) ?? pack.packName;
@@ -431,16 +492,16 @@ export default function NavigationShell({
             }
 
             return (
-              <div key={pack.packId}>
+              <div key={pack.packId} className="pt-3 first:pt-0">
                 <button
                   onClick={() => toggleGroup(pack.packId)}
-                  className="sidebar-group-label mt-5 flex w-full items-center gap-1.5"
+                  className="sidebar-group-label flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 transition hover:bg-slate-50 hover:text-slate-600"
                 >
                   {isExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
                   <span>{groupLabel}</span>
                 </button>
                 {isExpanded && (
-                  <div className="space-y-0.5">
+                  <div className="ml-3 space-y-0.5 border-l border-slate-200 pl-2">
                     {items.map((item) =>
                       renderNavItem(item, pack.category, `${pack.packId}-${item.id}`)
                     )}
@@ -452,79 +513,104 @@ export default function NavigationShell({
 
           {/* Ungrouped items */}
           {ungroupedItems.length > 0 && (
-            <div className="pt-1">
+            <div className="ml-3 border-l border-slate-200 pl-2 pt-1">
               {ungroupedItems.map((item) => renderNavItem(item, undefined, `ungrouped-${item.id}`))}
             </div>
           )}
         </div>
-
-        {/* v0.5 Personal surfaces — visible to all users */}
-        {renderNavItem({ id: "my-work", label: t("workspace.nav.myWork"), route: "/my-work", icon: CheckSquare })}
-        {renderNavItem({ id: "planning", label: t("workspace.nav.planning"), route: "/planning", icon: Calendar })}
-
-        {/* Activity */}
-        {renderNavItem({ id: "activity", label: t("workspace.nav.activity"), route: "/activity", icon: Activity })}
-
-        {/* Management */}
-        {!collapsed && <p className="sidebar-group-label mt-5">{t("workspace.nav.management")}</p>}
-        <div className={collapsed ? "mt-4 space-y-1" : "space-y-1"}>
-          {managementItems.map((item) => {
-            const href = `/w/${workspaceId}${item.route}`;
-            const active = isManageActive();
-            const Icon = item.icon;
-            return (
-              <Link
-                key={item.id}
-                href={href}
-                onClick={() => setMobileOpen(false)}
-                className={`sidebar-nav-item relative ${active ? "sidebar-nav-item-active" : "sidebar-nav-item-default"} ${collapsed ? "justify-center px-0" : ""}`}
-                title={collapsed ? item.label : undefined}
-              >
-                <Icon size={18} strokeWidth={active ? 2.3 : 1.9} />
-                {!collapsed && <span>{item.label}</span>}
-                {collapsed && (
-                  <span className="sidebar-collapsed-tooltip group-hover:opacity-100">{item.label}</span>
-                )}
-              </Link>
-            );
-          })}
-        </div>
       </nav>
 
-      {/* Footer */}
-      <div className="border-t border-slate-200/80 px-3 py-3" style={{ minHeight: "var(--sidebar-footer-h)" }}>
-        {/* Return to workspaces */}
-        <Link
-          href="/dashboard"
-          onClick={() => setMobileOpen(false)}
-          className={`mb-2 flex items-center gap-2 rounded-lg px-2 py-2 text-xs font-semibold text-slate-500 transition hover:bg-slate-50 hover:text-slate-900 ${collapsed ? "justify-center" : ""}`}
-          title={collapsed ? t("workspace.nav.myWorkspaces") : undefined}
+      {/* Compact identity / workspace utility menu. */}
+      <div ref={accountMenuRef} className="relative border-t border-slate-200/80 p-2">
+        <button
+          ref={accountMenuButtonRef}
+          type="button"
+          aria-label={t("workspace.nav.accountMenu")}
+          aria-expanded={accountMenuOpen}
+          onClick={() => setAccountMenuOpen((open) => !open)}
+          className={`flex min-h-12 w-full items-center gap-3 rounded-xl px-2 text-left transition hover:bg-slate-100 ${collapsed ? "justify-center" : ""}`}
+          title={collapsed ? `${userName} · ${roleDisplay.label}` : undefined}
         >
-          <ArrowLeft size={14} />
-          {!collapsed && <span>{t("workspace.nav.myWorkspaces")}</span>}
-        </Link>
-
-        {/* Role display */}
-        <div
-          className={`flex items-center gap-3 rounded-xl p-2 hover:bg-slate-50 ${collapsed ? "justify-center" : ""}`}
-          title={`${userName} · ${roleDisplay.label}`}
-        >
-          <div className="grid size-8 shrink-0 place-items-center rounded-lg bg-slate-900 text-xs font-bold text-white">
+          <div className="grid size-8 shrink-0 place-items-center rounded-full bg-slate-900 text-xs font-bold text-white">
             {userInitial}
           </div>
           {!collapsed && (
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-semibold">{userName}</p>
-              <p className="truncate text-xs text-slate-500">{userSecondary} · {roleDisplay.label}</p>
-            </div>
+            <>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-semibold text-slate-950">{userName}</p>
+                <p className="truncate text-xs text-slate-500">{workspaceName} · {roleDisplay.label}</p>
+              </div>
+              {accountMenuOpen ? <ChevronDown size={17} className="text-slate-400" /> : <ChevronUp size={17} className="text-slate-400" />}
+            </>
           )}
-        </div>
+        </button>
 
-        {/* Data boundary notice */}
-        {!collapsed && (
-          <p className="mt-2 px-2 text-[10px] leading-relaxed text-slate-400">
-            {t("workspace.nav.dataBoundary")}
-          </p>
+        {accountMenuOpen && (
+          <div
+            role="group"
+            aria-label={t("workspace.nav.accountMenu")}
+            className={`absolute bottom-[calc(100%+8px)] z-50 overflow-hidden rounded-2xl border border-slate-200 bg-white p-2 shadow-[0_18px_50px_rgba(15,23,42,.18)] ${collapsed ? "left-2 w-72" : "left-2 right-2"}`}
+          >
+            <Link
+              href="/account"
+              onClick={() => { setAccountMenuOpen(false); setMobileOpen(false); }}
+              className="flex items-center gap-3 rounded-xl px-3 py-3 hover:bg-slate-50"
+            >
+              <div className="grid size-10 shrink-0 place-items-center rounded-full bg-slate-900 text-sm font-bold text-white">
+                {userInitial}
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-semibold text-slate-950">{userName}</p>
+                <p className="truncate text-xs text-slate-500">{userSecondary}</p>
+              </div>
+              <ChevronRight size={17} className="text-slate-400" />
+            </Link>
+
+            <div className="my-1 border-t border-slate-100" />
+
+            {canManage && (
+              <Link
+                href={`/w/${workspaceId}/manage`}
+                onClick={() => { setAccountMenuOpen(false); setMobileOpen(false); }}
+                className={`flex min-h-10 items-center gap-3 rounded-lg px-3 text-sm font-medium ${isAdministrationActive() ? "bg-indigo-50 text-indigo-700" : "text-slate-700 hover:bg-slate-50"}`}
+              >
+                <ShieldCheck size={18} />
+                <span>{t("workspace.nav.manage")}</span>
+              </Link>
+            )}
+            <Link
+              href={`/w/${workspaceId}/settings`}
+              onClick={() => { setAccountMenuOpen(false); setMobileOpen(false); }}
+              className={`flex min-h-10 items-center gap-3 rounded-lg px-3 text-sm font-medium ${isActiveRoute("/settings") ? "bg-indigo-50 text-indigo-700" : "text-slate-700 hover:bg-slate-50"}`}
+            >
+              <Settings size={18} />
+              <span>{t("workspace.nav.workspaceSettings")}</span>
+            </Link>
+            <Link
+              href="/dashboard"
+              onClick={() => { setAccountMenuOpen(false); setMobileOpen(false); }}
+              className="flex min-h-10 items-center gap-3 rounded-lg px-3 text-sm font-medium text-slate-700 hover:bg-slate-50"
+            >
+              <ArrowLeft size={18} />
+              <span>{t("workspace.nav.myWorkspaces")}</span>
+            </Link>
+
+            <div className="my-1 border-t border-slate-100" />
+
+            <button
+              type="button"
+              disabled={loggingOut}
+              onClick={() => void handleLogout()}
+              className="flex min-h-10 w-full items-center gap-3 rounded-lg px-3 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+            >
+              <LogOut size={18} />
+              <span>{t("switcher.logout")}</span>
+            </button>
+
+            <p className="mt-1 border-t border-slate-100 px-3 pt-2 text-[10px] leading-relaxed text-slate-400">
+              {t("workspace.nav.dataBoundary")}
+            </p>
+          </div>
         )}
       </div>
     </>
