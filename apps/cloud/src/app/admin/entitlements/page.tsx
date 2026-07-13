@@ -4,8 +4,9 @@ import { useI18n } from "@/i18n/locale-provider";
 import { useAdminFetch, formatDateTime } from "../_components/shared";
 
 interface Entitlement {
-  id: string;
-  organization: string;
+  organizationId: string;
+  organizationName: string | null;
+  organizationSlug: string | null;
   plan: string;
   status: string;
   quotasJson: string;
@@ -78,9 +79,9 @@ export default function EntitlementsPage() {
               {entitlements.map((entitlement) => {
                 const quotas = parseQuotas(entitlement.quotasJson);
                 return (
-                  <tr key={entitlement.id} className="hover:bg-slate-50">
+                  <tr key={entitlement.organizationId} className="hover:bg-slate-50">
                     <td className="px-4 py-3 font-medium text-slate-700">
-                      {entitlement.organization}
+                      {entitlement.organizationName ?? entitlement.organizationId}
                     </td>
                     <td className="px-4 py-3 text-slate-600">
                       {entitlement.plan}

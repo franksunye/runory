@@ -6,12 +6,14 @@ import { useAdminFetch, formatDateTime } from "../_components/shared";
 
 interface AuditEvent {
   id: string;
-  time: string;
-  workspace: string;
+  workspaceId: string;
   action: string;
-  actor: string;
-  entity: string;
+  actorType: string;
+  actorId: string;
+  entityType: string;
+  entityId: string;
   label: string;
+  createdAt: string;
 }
 
 export default function AuditPage() {
@@ -56,7 +58,7 @@ export default function AuditPage() {
       </div>
 
       {loading ? (
-        <p className="mt-4 text-sm text-slate-500">加载中...</p>
+        <p className="mt-4 text-sm text-slate-500">{t("admin.common.loading")}</p>
       ) : error ? (
         <p className="mt-4 text-sm text-red-600">{error}</p>
       ) : !events || events.length === 0 ? (
@@ -92,10 +94,10 @@ export default function AuditPage() {
               {events.map((event) => (
                 <tr key={event.id} className="hover:bg-slate-50">
                   <td className="px-4 py-3 text-slate-500">
-                    {formatDateTime(event.time)}
+                    {formatDateTime(event.createdAt)}
                   </td>
                   <td className="px-4 py-3 font-mono text-xs text-slate-600">
-                    {event.workspace}
+                    {event.workspaceId}
                   </td>
                   <td className="px-4 py-3">
                     <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-700">
@@ -103,10 +105,10 @@ export default function AuditPage() {
                     </span>
                   </td>
                   <td className="px-4 py-3 font-mono text-xs text-slate-600">
-                    {event.actor}
+                    {event.actorId}
                   </td>
                   <td className="px-4 py-3 font-mono text-xs text-slate-600">
-                    {event.entity}
+                    {event.entityType}:{event.entityId}
                   </td>
                   <td className="px-4 py-3 text-slate-600">
                     {event.label || "—"}
