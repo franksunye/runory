@@ -75,7 +75,7 @@ export default function MembersPage() {
               {members.map((member) => {
                 const badge = ROLE_BADGE[member.orgRole] ?? FALLBACK_BADGE;
                 return (
-                  <tr key={`${member.id}`} className="hover:bg-slate-50">
+                  <tr key={`${member.id}-${member.orgName ?? "no-org"}`} className="hover:bg-slate-50">
                     <td className="px-4 py-3 font-medium text-slate-700">
                       {member.email ?? "—"}
                     </td>
