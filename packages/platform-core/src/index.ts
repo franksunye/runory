@@ -38,3 +38,4 @@ export * from "./assignment";
 export * from "./schedule";
 export * from "./fsm-commands";
 export * from "./migration-v04-v05";
+export * from "./visibility";

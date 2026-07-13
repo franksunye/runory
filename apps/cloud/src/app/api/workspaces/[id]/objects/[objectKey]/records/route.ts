@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { getRecords, createRecord, writeAuditEvent, enforceQuota, type GetRecordsOptions } from "@runory/platform-core";
+import { getRecords, createRecord, writeAuditEvent, enforceQuota, type GetRecordsOptions, type VisibilityScope } from "@runory/platform-core";
 import { requireWorkspaceContext } from "@/lib/auth";
 import { successResponse, handleError, invalidInput, getOrCreateRequestId } from "@/lib/http";
 
@@ -22,6 +22,16 @@ export async function GET(
 
     const url = new URL(request.url);
     const sortOrderParam = url.searchParams.get("sortOrder");
+    const filters: Record<string, string> = {};
+    for (const [key, value] of url.searchParams) {
+      if (key.startsWith("filter.")) filters[key.slice("filter.".length)] = value;
+    }
+
+    // Build visibility scope from request context (v0.5.2)
+    const visibilityScope: VisibilityScope | undefined = ctx.principal
+      ? { userId: ctx.principal.userId, role: ctx.workspaceRole, organizationRole: ctx.organizationRole }
+      : undefined;
+
     const options: GetRecordsOptions = {
       search: url.searchParams.get("search") ?? undefined,
       sortBy: url.searchParams.get("sortBy") ?? undefined,
@@ -30,6 +40,8 @@ export async function GET(
       offset: parsePositiveInt(url.searchParams.get("offset")),
       includeDeleted: url.searchParams.get("includeDeleted") === "true",
       onlyDeleted: url.searchParams.get("onlyDeleted") === "true",
+      filters: Object.keys(filters).length > 0 ? filters : undefined,
+      visibilityScope,
     };
 
     const records = await getRecords(workspaceId, objectKey, options);

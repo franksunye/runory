@@ -2,6 +2,7 @@ import { queryAll, queryOne, execute, genId, now, validateIdentifier } from "./d
 import { TABLES, businessTable } from "./contracts";
 import { provisionWorkspaceTenant, type ActorIdentity } from "./tenancy";
 import { assertNotGovernedUpdate } from "./governed-fields";
+import { resolveRecordVisibility, type VisibilityScope } from "./visibility";
 import { AsyncLocalStorage } from "node:async_hooks";
 
 // ── Automation trigger recursion guard (v0.3.5) ──
@@ -319,12 +320,43 @@ export async function getFields(workspaceId: string, objectKey: string): Promise
     }
   }
 
+  // Derive lookup cascades from the relation graph. If this object and a lookup
+  // target both reference the same parent object, the target candidates must
+  // match the value already selected on this form. This keeps the rule in
+  // metadata rather than hard-coding Company → Contact/Site/Asset in a page.
+  const cascadeFilters = new Map<string, Array<{ field: string; targetField: string }>>();
+  const targetRelationCache = new Map<string, Awaited<ReturnType<typeof getRelations>>>();
+  for (const relation of relations) {
+    if (relation.relationType !== "many_to_one") continue;
+    let targetRelations = targetRelationCache.get(relation.targetObjectKey);
+    if (!targetRelations) {
+      targetRelations = await getRelations(workspaceId, relation.targetObjectKey);
+      targetRelationCache.set(relation.targetObjectKey, targetRelations);
+    }
+    const filters = targetRelations
+      .filter((targetRelation) => targetRelation.relationType === "many_to_one")
+      .flatMap((targetRelation) => {
+        const parentRelation = relations.find(
+          (candidate) =>
+            candidate.foreignKey !== relation.foreignKey &&
+            candidate.relationType === "many_to_one" &&
+            candidate.targetObjectKey === targetRelation.targetObjectKey
+        );
+        return parentRelation
+          ? [{ field: parentRelation.foreignKey, targetField: targetRelation.foreignKey }]
+          : [];
+      });
+    if (filters.length > 0) cascadeFilters.set(relation.foreignKey, filters);
+  }
+
   return rows.map(r => {
     const targetObject = fkMap.get(r.field_key) ?? null;
     const isLookup = targetObject !== null;
     const validation = r.validation_json ? JSON.parse(r.validation_json) as Record<string, unknown> : {};
     if (isLookup) {
       validation.targetObject = targetObject;
+      const filters = cascadeFilters.get(r.field_key);
+      if (filters?.length) validation.lookupFilters = filters;
     }
     return {
       id: r.id, workspaceId: r.workspace_id, objectKey: r.object_key, fieldKey: r.field_key,
@@ -505,6 +537,11 @@ export interface GetRecordsOptions {
   includeDeleted?: boolean;
   /** Only return soft-deleted records (v0.3.6). Default: false. */
   onlyDeleted?: boolean;
+  /** Exact-match filters for module-owned fields, used by dependent lookups. */
+  filters?: Record<string, string>;
+  /** Row-level visibility scope (v0.5.2). When provided, non-admin users
+   *  only see records they have permission and assignment to read. */
+  visibilityScope?: VisibilityScope;
 }
 
 const SEARCHABLE_FIELD_TYPES = new Set(["text", "email", "phone"]);
@@ -532,6 +569,19 @@ export async function getRecords(
   const whereClauses: string[] = ["workspace_id = ?"];
   const whereArgs: unknown[] = [workspaceId];
 
+  // ── Row-level visibility (v0.5.2) ──
+  if (options.visibilityScope) {
+    const visibility = await resolveRecordVisibility(workspaceId, objectKey, options.visibilityScope);
+    if (!visibility.canRead) {
+      // User has no read permission for this object — return empty
+      return [];
+    }
+    if (visibility.rowFilterSql) {
+      whereClauses.push(visibility.rowFilterSql);
+      whereArgs.push(...visibility.rowFilterArgs);
+    }
+  }
+
   if (softDelete.deletedAt) {
     if (options.onlyDeleted) {
       whereClauses.push("deleted_at IS NOT NULL");
@@ -549,6 +599,15 @@ export async function getRecords(
       whereClauses.push(`(${searchClauses.join(" OR ")})`);
       const term = `%${options.search}%`;
       whereArgs.push(...searchableFields.map(() => term));
+    }
+  }
+
+  if (options.filters) {
+    const filterableFields = new Set(moduleFields.map((field) => field.fieldKey));
+    for (const [field, value] of Object.entries(options.filters)) {
+      if (!filterableFields.has(field)) continue;
+      whereClauses.push(`${validateIdentifier(field)} = ?`);
+      whereArgs.push(value);
     }
   }
 
@@ -580,7 +639,7 @@ export async function getRecords(
   }
 
   const rows = await queryAll<Record<string, unknown>>(
-    `SELECT ${columns} FROM ${tableName} WHERE ${whereClauses.join(" AND ")} ORDER BY ${orderBy}${limitSql}`,
+    `SELECT ${columns} FROM ${tableName} AS t WHERE ${whereClauses.join(" AND ")} ORDER BY ${orderBy}${limitSql}`,
     [...whereArgs, ...limitArgs]
   );
 

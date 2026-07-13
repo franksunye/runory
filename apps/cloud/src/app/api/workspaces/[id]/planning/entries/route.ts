@@ -3,6 +3,7 @@ import {
   businessTable,
   getScheduleEntries,
   queryAll,
+  resolveUserResourceIds,
   TABLES,
   type ScheduleEntry,
 } from "@runory/platform-core";
@@ -64,11 +65,26 @@ export async function GET(
       ? resourceIdsParam.split(",").map((r) => r.trim()).filter(Boolean)
       : undefined;
 
+    // ── Row-level visibility (v0.5.2) ──
+    // Non-admin/owner users only see schedule entries for their own resources
+    // unless they explicitly request specific resource IDs (admin action).
+    let effectiveResourceIds = resourceIds;
+    const isAdmin = ctx.workspaceRole === "admin" || ctx.organizationRole === "owner";
+    if (!isAdmin && ctx.principal && !resourceIdsParam) {
+      const userResourceIds = await resolveUserResourceIds(workspaceId, ctx.principal.userId);
+      if (userResourceIds.length > 0) {
+        effectiveResourceIds = userResourceIds;
+      } else {
+        // No resource linked — see nothing
+        return successResponse({ entries: [], total: 0 }, 200, ctx.requestId);
+      }
+    }
+
     // If multiple resource IDs are specified, query for each and merge
     let entries: ScheduleEntry[];
-    if (resourceIds && resourceIds.length > 1) {
+    if (effectiveResourceIds && effectiveResourceIds.length > 1) {
       const allEntries: ScheduleEntry[] = [];
-      for (const resourceId of resourceIds) {
+      for (const resourceId of effectiveResourceIds) {
         const partial = await getScheduleEntries(workspaceId, {
           resourceId,
           subjectType,
@@ -82,7 +98,7 @@ export async function GET(
       entries = allEntries.sort((a, b) => a.startAt.localeCompare(b.startAt));
     } else {
       entries = await getScheduleEntries(workspaceId, {
-        resourceId: resourceIds?.[0],
+        resourceId: effectiveResourceIds?.[0],
         subjectType,
         status,
         from,
