@@ -20,9 +20,11 @@ export async function GET(request: NextRequest) {
       organization_name: string | null;
       created_at: string;
     }>(
-      `SELECT w.id, w.name, w.slug, w.status, w.organization_id, o.name as organization_name, w.created_at
+      `SELECT w.id, w.name, w.slug, w.status,
+              wt.organization_id, o.name as organization_name, w.created_at
        FROM ${TABLES.workspaces} w
-       LEFT JOIN ${TABLES.organizations} o ON w.organization_id = o.id
+       LEFT JOIN ${TABLES.workspaceTenants} wt ON w.id = wt.workspace_id
+       LEFT JOIN ${TABLES.organizations} o ON wt.organization_id = o.id
        ORDER BY w.created_at DESC LIMIT 500`
     );
 

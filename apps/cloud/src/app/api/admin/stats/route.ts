@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { isPlatformAdmin, queryOne, queryAll, TABLES, getTableNamespacePrefixes } from "@runory/platform-core";
-import { getCurrentPrincipal } from "@/lib/auth";
+import { getCurrentPrincipal, isDevBootstrapEnabled } from "@/lib/auth";
 import { successResponse, handleError, forbidden, getOrCreateRequestId } from "@/lib/http";
 
 export const dynamic = "force-dynamic";
@@ -11,7 +11,10 @@ export async function GET(request: NextRequest) {
   try {
     const principal = await getCurrentPrincipal(request);
     if (!principal || !isPlatformAdmin(principal.email)) {
-      return forbidden("Platform admin access required", requestId);
+      // Dev bootstrap fallback — allow local dev owner to access stats
+      if (!isDevBootstrapEnabled()) {
+        return forbidden("Platform admin access required", requestId);
+      }
     }
 
     const countOf = async (sql: string): Promise<number> => {

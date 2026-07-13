@@ -84,7 +84,7 @@ function principalFromDevActor(actor: ActorIdentity): Principal {
 // an explicit opt-in flag rather than NODE_ENV. This prevents accidental
 // unauthenticated access when NODE_ENV is unset or set to a non-production value
 // like "staging" or "test".
-function isDevBootstrapEnabled(): boolean {
+export function isDevBootstrapEnabled(): boolean {
   return process.env.PLATFORM_DEV_BOOTSTRAP === "true";
 }
 
