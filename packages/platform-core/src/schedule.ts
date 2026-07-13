@@ -148,6 +148,29 @@ export async function planSchedule(
     );
   }
 
+  const hasLatitude = params.latitude !== undefined;
+  const hasLongitude = params.longitude !== undefined;
+  if (hasLatitude !== hasLongitude) {
+    throw new BusinessError(
+      ERROR_CODES.INVALID_INPUT,
+      "INVALID_INPUT: latitude and longitude must be provided together.",
+      400
+    );
+  }
+  if (
+    hasLatitude &&
+    (!Number.isFinite(params.latitude) ||
+      !Number.isFinite(params.longitude) ||
+      Math.abs(params.latitude!) > 90 ||
+      Math.abs(params.longitude!) > 180)
+  ) {
+    throw new BusinessError(
+      ERROR_CODES.INVALID_INPUT,
+      "INVALID_INPUT: coordinates must be finite values within latitude ±90 and longitude ±180.",
+      400
+    );
+  }
+
   // Detect conflicts against confirmed entries
   const conflicts = await detectConflicts(
     workspaceId,

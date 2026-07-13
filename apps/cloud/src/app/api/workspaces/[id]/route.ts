@@ -1,8 +1,8 @@
 import { NextRequest } from "next/server";
 import { z } from "zod";
-import { getWorkspace, updateWorkspaceName, writeAuditEvent, NotFoundError } from "@runory/platform-core";
+import { getWorkspace, getVisibilitySummary, updateWorkspaceName, writeAuditEvent, NotFoundError } from "@runory/platform-core";
 import { requireWorkspaceContext } from "@/lib/auth";
-import { successResponse, handleError, notFound, invalidInput, getOrCreateRequestId, METADATA_CACHE } from "@/lib/http";
+import { successResponse, handleError, notFound, invalidInput, getOrCreateRequestId } from "@/lib/http";
 
 export const dynamic = "force-dynamic";
 
@@ -13,20 +13,39 @@ export async function GET(
   const requestId = getOrCreateRequestId(request.headers.get("x-request-id"));
   try {
     const { id } = await params;
-    const { ctx } = await requireWorkspaceContext(request, id, "viewer");
+    const { ctx, workspaceId } = await requireWorkspaceContext(request, id, "viewer");
     const workspace = await getWorkspace(id);
     if (!workspace) {
       return notFound(`Workspace ${id} not found`, ctx.requestId);
     }
+    const accessSummary = ctx.principal
+      ? await getVisibilitySummary(workspaceId, {
+          userId: ctx.principal.userId,
+          role: ctx.workspaceRole,
+          organizationRole: ctx.organizationRole,
+        })
+      : null;
     return successResponse(
       {
         ...workspace,
         organizationId: ctx.organizationId,
+        workspaceRole: ctx.workspaceRole,
         organizationRole: ctx.organizationRole,
+        accessSummary,
+        currentUser: ctx.principal
+          ? {
+              userId: ctx.principal.userId,
+              displayName: ctx.principal.displayName,
+              email: ctx.principal.email ?? null,
+              authMethod: ctx.principal.authMethod,
+            }
+          : null,
       },
       200,
       ctx.requestId,
-      METADATA_CACHE
+      // Includes the caller's roles, permission groups, and data scope.
+      // It must never be reused after an identity switch.
+      "no-store"
     );
   } catch (e) {
     return handleError(e, requestId);

@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 // ── Field Types ──
-export const fieldTypes = ["text", "email", "phone", "number", "date", "select", "boolean", "lookup"] as const;
+export const fieldTypes = ["text", "email", "phone", "number", "date", "select", "boolean", "lookup", "user"] as const;
 export type FieldType = (typeof fieldTypes)[number];
 
 // ── Module Manifest ──
@@ -304,6 +304,11 @@ export const packPermissionGroupSchema = z.object({
   label: z.string(),                          // e.g. "销售管理员"
   description: z.string().optional(),
   permissions: z.array(z.string()).default([]),  // e.g. ["deal.read", "deal.create"]
+  businessRole: z.object({
+    key: z.string(),
+    label: z.string(),
+    description: z.string().optional(),
+  }).optional(),
 });
 export type PackPermissionGroup = z.infer<typeof packPermissionGroupSchema>;
 

@@ -13,7 +13,7 @@
         "end_date": "2026-08-31",
         "budget": 50000,
         "currency": "CNY",
-        "owner": "Sam",
+        "owner": "$user-sales-manager.id",
         "notes": "Summer service promotion for SMEs"
       }
     },
@@ -30,7 +30,7 @@
         "end_date": "2026-07-15",
         "budget": 20000,
         "currency": "CNY",
-        "owner": "Alex",
+        "owner": "$user-sales-rep.id",
         "notes": "Google Ads search promotion"
       }
     },
@@ -47,7 +47,7 @@
         "end_date": "2026-09-30",
         "budget": 80000,
         "currency": "CNY",
-        "owner": "Sam",
+        "owner": "$user-sales-manager.id",
         "notes": "LinkedIn targeted advertising"
       }
     },
@@ -64,7 +64,7 @@
         "end_date": "2026-05-31",
         "budget": 30000,
         "currency": "CNY",
-        "owner": "Alex",
+        "owner": "$user-sales-rep.id",
         "notes": "Completed spring promotion"
       }
     },
@@ -81,7 +81,7 @@
         "end_date": "2026-12-31",
         "budget": 15000,
         "currency": "CNY",
-        "owner": "Sam",
+        "owner": "$user-sales-manager.id",
         "notes": "Year-round customer referral incentives"
       }
     },
@@ -164,7 +164,7 @@
         "campaign_id": "$camp-summer-2026.id",
         "meta_description": "Summer service promotion - professional equipment maintenance and repair service",
         "published_at": "2026-06-01",
-        "owner": "Sam"
+        "owner": "$user-sales-manager.id"
       }
     },
     {
@@ -183,7 +183,7 @@
         "campaign_id": "$camp-hvac-awareness.id",
         "meta_description": "HVAC professional maintenance service - certified engineers, fast response",
         "published_at": "2026-06-15",
-        "owner": "Alex"
+        "owner": "$user-sales-rep.id"
       }
     },
     {
@@ -201,7 +201,7 @@
         "form_id": "$form-demo-request.id",
         "campaign_id": "$camp-q3-enterprise.id",
         "meta_description": "Enterprise solution demo - one-on-one customized presentation",
-        "owner": "Sam"
+        "owner": "$user-sales-manager.id"
       }
     },
     {
@@ -220,7 +220,7 @@
         "campaign_id": "$camp-spring-recap.id",
         "meta_description": "Spring promotion campaign (ended)",
         "published_at": "2026-03-01",
-        "owner": "Alex"
+        "owner": "$user-sales-rep.id"
       }
     },
     {

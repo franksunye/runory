@@ -79,7 +79,7 @@ objects:
         description: "JSON array of covered items"
       - key: owner
         label: Owner
-        type: text
+        type: user
         ownership: module_owned
       - key: notes
         label: Notes

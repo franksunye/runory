@@ -12,7 +12,7 @@
         "industry": "technology",
         "size": "51-200",
         "source": "referral",
-        "owner": "Alex",
+        "owner": "$user-sales-rep.id",
         "lifecycle_stage": "customer",
         "address": "San Francisco, CA"
       }
@@ -29,7 +29,7 @@
         "industry": "retail",
         "size": "201-1000",
         "source": "website",
-        "owner": "Sam",
+        "owner": "$user-sales-manager.id",
         "lifecycle_stage": "customer",
         "address": "New York, NY"
       }
@@ -46,7 +46,7 @@
         "industry": "manufacturing",
         "size": "51-200",
         "source": "event",
-        "owner": "Alex",
+        "owner": "$user-sales-rep.id",
         "lifecycle_stage": "opportunity",
         "address": "Chicago, IL"
       }
@@ -63,7 +63,7 @@
         "industry": "services",
         "size": "11-50",
         "source": "partner",
-        "owner": "Sam",
+        "owner": "$user-sales-manager.id",
         "lifecycle_stage": "sales_qualified",
         "address": "Seattle, WA"
       }
@@ -80,7 +80,7 @@
         "industry": "healthcare",
         "size": "11-50",
         "source": "cold_outreach",
-        "owner": "Alex",
+        "owner": "$user-sales-rep.id",
         "lifecycle_stage": "lead",
         "address": "Boston, MA"
       }
@@ -97,7 +97,7 @@
         "industry": "technology",
         "size": "1-10",
         "source": "referral",
-        "owner": "Sam",
+        "owner": "$user-sales-manager.id",
         "lifecycle_stage": "marketing_qualified",
         "address": "Palo Alto, CA"
       }
@@ -114,7 +114,7 @@
         "role": "Operations Lead",
         "primary_company_id": "$company-acme.id",
         "source": "referral",
-        "owner": "Alex",
+        "owner": "$user-sales-rep.id",
         "lifecycle_stage": "customer"
       }
     },
@@ -130,7 +130,7 @@
         "role": "Marketing",
         "primary_company_id": "$company-acme.id",
         "source": "referral",
-        "owner": "Alex",
+        "owner": "$user-sales-rep.id",
         "lifecycle_stage": "customer"
       }
     },
@@ -146,7 +146,7 @@
         "role": "Retail Operations",
         "primary_company_id": "$company-nova.id",
         "source": "website",
-        "owner": "Sam",
+        "owner": "$user-sales-manager.id",
         "lifecycle_stage": "customer"
       }
     },
@@ -162,7 +162,7 @@
         "role": "Technology",
         "primary_company_id": "$company-vertex.id",
         "source": "event",
-        "owner": "Alex",
+        "owner": "$user-sales-rep.id",
         "lifecycle_stage": "opportunity"
       }
     },
@@ -178,7 +178,7 @@
         "role": "Operations",
         "primary_company_id": "$company-harbor.id",
         "source": "partner",
-        "owner": "Sam",
+        "owner": "$user-sales-manager.id",
         "lifecycle_stage": "sales_qualified"
       }
     },
@@ -194,7 +194,7 @@
         "role": "Clinical",
         "primary_company_id": "$company-pine.id",
         "source": "cold_outreach",
-        "owner": "Alex",
+        "owner": "$user-sales-rep.id",
         "lifecycle_stage": "lead"
       }
     },
@@ -210,7 +210,7 @@
         "role": "R&D",
         "primary_company_id": "$company-quantum.id",
         "source": "referral",
-        "owner": "Sam",
+        "owner": "$user-sales-manager.id",
         "lifecycle_stage": "marketing_qualified"
       }
     },
@@ -225,7 +225,7 @@
         "title": "Independent Consultant",
         "role": "Consultant",
         "source": "event",
-        "owner": "Alex",
+        "owner": "$user-sales-rep.id",
         "lifecycle_stage": "lead"
       }
     },
@@ -242,7 +242,7 @@
         "probability": 70,
         "company_id": "$company-acme.id",
         "primary_contact_id": "$contact-maya.id",
-        "owner": "Alex",
+        "owner": "$user-sales-rep.id",
         "source": "referral"
       }
     },
@@ -259,7 +259,7 @@
         "probability": 40,
         "company_id": "$company-vertex.id",
         "primary_contact_id": "$contact-sara.id",
-        "owner": "Alex",
+        "owner": "$user-sales-rep.id",
         "source": "event"
       }
     },
@@ -276,7 +276,7 @@
         "probability": 50,
         "company_id": "$company-harbor.id",
         "primary_contact_id": "$contact-eric.id",
-        "owner": "Sam",
+        "owner": "$user-sales-manager.id",
         "source": "partner"
       }
     },
@@ -293,7 +293,7 @@
         "probability": 100,
         "company_id": "$company-nova.id",
         "primary_contact_id": "$contact-jon.id",
-        "owner": "Sam",
+        "owner": "$user-sales-manager.id",
         "source": "website"
       }
     },
@@ -310,7 +310,7 @@
         "probability": 20,
         "company_id": "$company-pine.id",
         "primary_contact_id": "$contact-anna.id",
-        "owner": "Alex",
+        "owner": "$user-sales-rep.id",
         "source": "cold_outreach"
       }
     },
@@ -327,7 +327,7 @@
         "probability": 0,
         "company_id": "$company-quantum.id",
         "primary_contact_id": "$contact-kevin.id",
-        "owner": "Sam",
+        "owner": "$user-sales-manager.id",
         "source": "referral",
         "notes": "Lost to competitor due to budget constraints."
       }
@@ -342,7 +342,7 @@
         "status": "in_progress",
         "priority": "high",
         "due_date": "2026-07-03",
-        "assignee": "Alex",
+        "assignee": "$user-sales-rep.id",
         "company_id": "$company-acme.id",
         "contact_id": "$contact-maya.id",
         "deal_id": "$deal-acme-expand.id"
@@ -358,7 +358,7 @@
         "status": "todo",
         "priority": "medium",
         "due_date": "2026-07-08",
-        "assignee": "Sam",
+        "assignee": "$user-sales-manager.id",
         "company_id": "$company-nova.id",
         "contact_id": "$contact-jon.id",
         "deal_id": "$deal-nova-rollout.id"
@@ -374,7 +374,7 @@
         "status": "todo",
         "priority": "urgent",
         "due_date": "2026-06-28",
-        "assignee": "Alex",
+        "assignee": "$user-sales-rep.id",
         "company_id": "$company-vertex.id",
         "contact_id": "$contact-sara.id",
         "deal_id": "$deal-vertex-platform.id"
@@ -390,7 +390,7 @@
         "status": "in_progress",
         "priority": "high",
         "due_date": "2026-07-05",
-        "assignee": "Sam",
+        "assignee": "$user-sales-manager.id",
         "company_id": "$company-harbor.id",
         "contact_id": "$contact-eric.id",
         "deal_id": "$deal-harbor-onboarding.id"
@@ -406,7 +406,7 @@
         "status": "todo",
         "priority": "low",
         "due_date": "2026-07-12",
-        "assignee": "Alex",
+        "assignee": "$user-sales-rep.id",
         "company_id": "$company-pine.id",
         "contact_id": "$contact-anna.id",
         "deal_id": "$deal-pine-pilot.id"
@@ -422,11 +422,65 @@
         "status": "done",
         "priority": "medium",
         "due_date": "2026-06-15",
-        "assignee": "Sam",
+        "assignee": "$user-sales-manager.id",
         "company_id": "$company-quantum.id",
         "contact_id": "$contact-kevin.id",
         "deal_id": "$deal-quantum-research.id"
       }
+    }
+  ],
+  "users": [
+    {
+      "alias": "user-sales-rep",
+      "externalId": "persona:sales-rep",
+      "email": "sales.rep@runory.demo",
+      "displayName": "Sarah Chen",
+      "role": "member",
+      "permissionGroups": [
+        { "packId": "crm-lite-pack", "groupKey": "sales_agent" }
+      ]
+    },
+    {
+      "alias": "user-sales-manager",
+      "externalId": "persona:sales-manager",
+      "email": "sales.manager@runory.demo",
+      "displayName": "Michael Torres",
+      "role": "member"
+    },
+    {
+      "alias": "user-dispatcher",
+      "externalId": "persona:dispatcher",
+      "email": "dispatcher@runory.demo",
+      "displayName": "Lisa Wang",
+      "role": "member"
+    },
+    {
+      "alias": "user-technician",
+      "externalId": "persona:technician",
+      "email": "technician@runory.demo",
+      "displayName": "David Park",
+      "role": "member"
+    },
+    {
+      "alias": "user-supervisor",
+      "externalId": "persona:supervisor",
+      "email": "supervisor@runory.demo",
+      "displayName": "Robert Kim",
+      "role": "member"
+    },
+    {
+      "alias": "user-technician-james",
+      "externalId": "persona:technician-james",
+      "email": "james@runory.demo",
+      "displayName": "James Wilson",
+      "role": "member"
+    },
+    {
+      "alias": "user-technician-maria",
+      "externalId": "persona:technician-maria",
+      "email": "maria@runory.demo",
+      "displayName": "Maria Garcia",
+      "role": "member"
     }
   ],
   "automations": [

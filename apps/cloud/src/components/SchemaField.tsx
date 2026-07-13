@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import type { FieldDefinition } from "@runory/platform-core";
 import { useI18n } from "@/i18n/locale-provider";
 import { apiFetch } from "@/lib/api-fetch";
@@ -8,19 +8,32 @@ import { apiFetch } from "@/lib/api-fetch";
 interface SchemaFieldProps {
   field: FieldDefinition;
   value: any;
+  /** Human-readable label already returned with a stored reference value. */
+  displayValue?: string | null;
   onChange: (value: any) => void;
   workspaceId?: string;
+  /** Current form values let metadata-driven lookups apply cascade filters. */
+  formValues?: Record<string, unknown>;
   /** When true, the field renders as read-only static text with a badge. */
   readOnly?: boolean;
   /** Optional reason text shown in the badge when readOnly. */
   readOnlyReason?: string;
 }
 
-export default function SchemaField({ field, value, onChange, workspaceId, readOnly, readOnlyReason }: SchemaFieldProps) {
+export default function SchemaField({ field, value, displayValue, onChange, workspaceId, formValues, readOnly, readOnlyReason }: SchemaFieldProps) {
   const { t } = useI18n();
   const baseClass = "app-input";
 
   const enterPlaceholder = t("workspace.field.enterPlaceholder", { label: field.label });
+  const lookupFilters = useMemo(() => Array.isArray(field.validation?.lookupFilters)
+    ? field.validation.lookupFilters
+        .filter((filter): filter is { field: string; targetField: string } =>
+          typeof filter === "object" && filter !== null &&
+          typeof (filter as Record<string, unknown>).field === "string" &&
+          typeof (filter as Record<string, unknown>).targetField === "string"
+        )
+        .map((filter) => ({ ...filter, value: formValues?.[filter.field] }))
+    : [], [field.validation?.lookupFilters, formValues]);
 
   // Read-only mode: render as static text with a badge
   if (readOnly) {
@@ -88,7 +101,7 @@ export default function SchemaField({ field, value, onChange, workspaceId, readO
           <input
             type="date"
             className={baseClass}
-            value={value ?? ""}
+            value={toDateInputValue(value)}
             onChange={(e) => onChange(e.target.value)}
           />
         );
@@ -127,12 +140,27 @@ export default function SchemaField({ field, value, onChange, workspaceId, readO
             workspaceId={workspaceId}
             targetObject={targetObject}
             value={value}
+            initialLabel={displayValue}
             onChange={onChange}
             placeholder={t("workspace.field.lookupPlaceholder", { label: field.label })}
+            filters={lookupFilters}
             t={t}
           />
         );
       }
+      case "user":
+        return (
+          <LookupField
+            workspaceId={workspaceId}
+            targetObject="__people"
+            value={value}
+            initialLabel={displayValue}
+            onChange={onChange}
+            placeholder={t("workspace.field.lookupPlaceholder", { label: field.label })}
+            filters={EMPTY_LOOKUP_FILTERS}
+            t={t}
+          />
+        );
       case "text":
       default:
         return (
@@ -160,57 +188,128 @@ export default function SchemaField({ field, value, onChange, workspaceId, readO
 // when workspaceId or targetObject is unavailable.
 
 type TFunc = (key: import("@/i18n/messages").MessageKey, params?: Record<string, string | number>) => string;
+type LookupOption = { id: string; label: string };
+const EMPTY_LOOKUP_FILTERS: Array<{ field: string; targetField: string; value: unknown }> = [];
+
+/**
+ * Native date inputs only accept an ISO calendar date. Records can contain a
+ * full timestamp (for example schedule commands persist an ISO instant), which
+ * browsers otherwise render as an empty date field without reporting an error.
+ */
+function toDateInputValue(value: unknown): string {
+  if (value === null || value === undefined || value === "") return "";
+  const text = String(value);
+  const calendarDate = text.match(/^\d{4}-\d{2}-\d{2}/)?.[0];
+  return calendarDate ?? "";
+}
+
+function toLookupOption(record: Record<string, unknown>): LookupOption {
+  return {
+    id: String(record.id),
+    label: String(record.displayName ?? record.name ?? record.title ?? record.subject ?? record.summary ?? record.number ?? record.code ?? record.email ?? record.label ?? record.id),
+  };
+}
 
 function LookupField({
   workspaceId,
   targetObject,
   value,
+  initialLabel,
   onChange,
   placeholder,
   t,
+  filters,
 }: {
   workspaceId?: string;
   targetObject: string;
   value: any;
+  initialLabel?: string | null;
   onChange: (value: any) => void;
   placeholder: string;
   t: TFunc;
+  filters: Array<{ field: string; targetField: string; value: unknown }>;
 }) {
-  const [options, setOptions] = useState<Array<{ id: string; label: string }>>([]);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const resultsId = useId();
+  const [options, setOptions] = useState<LookupOption[]>([]);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState("");
+  const [selectedLabel, setSelectedLabel] = useState("");
+  const [open, setOpen] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(-1);
 
+  // Keep the selected record name independent from the transient search list.
   useEffect(() => {
     if (!workspaceId || !targetObject) return;
+    if (!value) {
+      setSelectedLabel("");
+      return;
+    }
     let cancelled = false;
-    setLoading(true);
-    apiFetch<{ success: boolean; data?: Array<Record<string, unknown>> }>(
-      `/api/workspaces/${workspaceId}/objects/${targetObject}/records?search=${encodeURIComponent(search)}&limit=20`
-    )
-      .then((json) => {
-        if (cancelled) return;
-        if (json.success && Array.isArray(json.data)) {
-          setOptions(
-            json.data.map((r: Record<string, unknown>) => ({
-              id: String(r.id),
-              label: String(
-                r.name ?? r.title ?? r.subject ?? r.summary ??
-                r.number ?? r.code ?? r.email ?? r.label ?? r.id
-              ),
-            }))
-          );
+    setSelectedLabel(initialLabel ?? String(value));
+    const isPeopleLookup = targetObject === "__people";
+    const selectedUrl = isPeopleLookup
+      ? `/api/workspaces/${workspaceId}/people`
+      : `/api/workspaces/${workspaceId}/objects/${targetObject}/records/${encodeURIComponent(String(value))}`;
+    apiFetch<{ success: boolean; data?: Record<string, unknown> | Array<Record<string, unknown>> }>(selectedUrl).then((json) => {
+      if (cancelled || !json.success || !json.data) return;
+      const selected = Array.isArray(json.data)
+        ? json.data.find((item) => String(item.id) === String(value))
+        : json.data;
+      if (selected) setSelectedLabel(toLookupOption(selected).label);
+    }).catch(() => undefined);
+    return () => { cancelled = true; };
+  }, [workspaceId, targetObject, value, initialLabel]);
+
+  useEffect(() => {
+    if (!open || !workspaceId || !targetObject) return;
+    let cancelled = false;
+    const timer = window.setTimeout(() => {
+      setLoading(true);
+      const params = new URLSearchParams({ search, limit: "20" });
+      for (const filter of filters) {
+        if (filter.value !== null && filter.value !== undefined && filter.value !== "") {
+          params.set(`filter.${filter.targetField}`, String(filter.value));
         }
-      })
-      .catch(() => {
+      }
+      const optionsUrl = targetObject === "__people"
+        ? `/api/workspaces/${workspaceId}/people`
+        : `/api/workspaces/${workspaceId}/objects/${targetObject}/records?${params.toString()}`;
+      apiFetch<{ success: boolean; data?: Array<Record<string, unknown>> }>(
+        optionsUrl
+      ).then((json) => {
+        if (!cancelled) {
+          const normalized = json.success && Array.isArray(json.data) ? json.data.map(toLookupOption) : [];
+          const needle = search.trim().toLowerCase();
+          setOptions(needle ? normalized.filter((option) => option.label.toLowerCase().includes(needle)) : normalized);
+        }
+      }).catch(() => {
         if (!cancelled) setOptions([]);
-      })
-      .finally(() => {
+      }).finally(() => {
         if (!cancelled) setLoading(false);
       });
-    return () => {
-      cancelled = true;
+    }, 250);
+    return () => { cancelled = true; window.clearTimeout(timer); };
+  }, [workspaceId, targetObject, search, open, filters]);
+
+  useEffect(() => {
+    const closeOnOutsideClick = (event: MouseEvent) => {
+      if (rootRef.current && !rootRef.current.contains(event.target as Node)) {
+        setOpen(false);
+        setActiveIndex(-1);
+      }
     };
-  }, [workspaceId, targetObject, search]);
+    document.addEventListener("mousedown", closeOnOutsideClick);
+    return () => document.removeEventListener("mousedown", closeOnOutsideClick);
+  }, []);
+
+  const choose = (option: LookupOption) => {
+    setSelectedLabel(option.label);
+    onChange(option.id);
+    setSearch("");
+    setOpen(false);
+    setActiveIndex(-1);
+  };
 
   if (!workspaceId || !targetObject) {
     return (
@@ -218,56 +317,76 @@ function LookupField({
         type="text"
         className="app-input"
         value={value ?? ""}
-        onChange={(e) => onChange(e.target.value)}
+        onChange={(event) => onChange(event.target.value)}
         placeholder={placeholder}
       />
     );
   }
 
   return (
-    <div className="space-y-1">
-      {value && (
-        <div className="flex items-center justify-between rounded-md bg-slate-50 px-3 py-1.5 text-sm">
-          <span className="text-slate-700">
-            {options.find((o) => o.id === String(value))?.label ?? String(value)}
-          </span>
+    <div ref={rootRef} className="relative">
+      <div className="relative">
+        <input
+          type="search"
+          className="app-input pr-20"
+          role="combobox"
+          aria-autocomplete="list"
+          aria-expanded={open}
+          aria-controls={resultsId}
+          value={open ? search : selectedLabel}
+          onFocus={() => { setOpen(true); setSearch(""); }}
+          onChange={(event) => { setSearch(event.target.value); setOpen(true); setActiveIndex(-1); }}
+          onKeyDown={(event) => {
+            if (event.key === "ArrowDown") {
+              event.preventDefault();
+              setOpen(true);
+              setActiveIndex((index) => Math.min(index + 1, options.length - 1));
+            } else if (event.key === "ArrowUp") {
+              event.preventDefault();
+              setActiveIndex((index) => Math.max(index - 1, 0));
+            } else if (event.key === "Enter" && open && activeIndex >= 0 && options[activeIndex]) {
+              event.preventDefault();
+              choose(options[activeIndex]);
+            } else if (event.key === "Escape") {
+              setOpen(false);
+              setSearch("");
+              setActiveIndex(-1);
+            }
+          }}
+          placeholder={placeholder}
+        />
+        {value && (
           <button
             type="button"
-            onClick={() => onChange(null)}
-            className="text-xs text-slate-400 hover:text-red-600"
+            onClick={() => { onChange(null); setSearch(""); setSelectedLabel(""); }}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-medium text-slate-400 hover:text-red-600"
           >
             {t("workspace.field.clear")}
           </button>
-        </div>
-      )}
-      <input
-        type="search"
-        className="app-input"
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        placeholder={t("workspace.field.searchToSelect")}
-      />
-      {loading && <p className="text-xs text-slate-400">{t("workspace.loading")}</p>}
-      {!loading && options.length > 0 && (
-        <ul className="max-h-40 overflow-y-auto rounded-md border border-slate-200 bg-white">
-          {options.map((opt) => (
-            <li key={opt.id}>
+        )}
+      </div>
+      {open && (
+        <div id={resultsId} role="listbox" className="absolute z-30 mt-1 max-h-60 w-full overflow-y-auto rounded-lg border border-slate-200 bg-white py-1 shadow-lg">
+          {loading ? (
+            <p className="px-3 py-2 text-xs text-slate-400">{t("workspace.loading")}</p>
+          ) : options.length > 0 ? (
+            options.map((option, index) => (
               <button
+                key={option.id}
                 type="button"
-                onClick={() => {
-                  onChange(opt.id);
-                  setSearch("");
-                }}
-                className="block w-full px-3 py-1.5 text-left text-sm text-slate-700 hover:bg-blue-50"
+                role="option"
+                aria-selected={option.id === String(value)}
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={() => choose(option)}
+                className={`block w-full px-3 py-2 text-left text-sm text-slate-700 ${index === activeIndex ? "bg-indigo-50 text-indigo-900" : "hover:bg-slate-50"}`}
               >
-                {opt.label}
+                {option.label}
               </button>
-            </li>
-          ))}
-        </ul>
-      )}
-      {!loading && options.length === 0 && search && (
-        <p className="text-xs text-slate-400">{t("workspace.field.noMatchFound")}</p>
+            ))
+          ) : (
+            <p className="px-3 py-2 text-xs text-slate-400">{t("workspace.field.noMatchFound")}</p>
+          )}
+        </div>
       )}
     </div>
   );

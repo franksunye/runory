@@ -84,6 +84,7 @@ export const TABLES = {
   packInstallations: `${PREFIXES.runoryRuntime}pack_installations`,
   packPermissionGroups: `${PREFIXES.runoryRuntime}pack_permission_groups`,
   packPermissionAssignments: `${PREFIXES.runoryRuntime}pack_permission_assignments`,
+  businessRoleAssignments: `${PREFIXES.runoryRuntime}business_role_assignments`,
   relationDefinitions: `${PREFIXES.runoryRuntime}relation_definitions`,
   automationDefinitions: `${PREFIXES.runoryRuntime}automation_definitions`,
   automationRuns: `${PREFIXES.runoryRuntime}automation_runs`,

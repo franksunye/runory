@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { queryAll, queryOne, TABLES, InvalidInputError, BusinessError, ERROR_CODES, businessTable } from "@runory/platform-core";
+import { queryAll, queryOne, getRecord, TABLES, InvalidInputError, BusinessError, ERROR_CODES, businessTable, type VisibilityScope } from "@runory/platform-core";
 import { requireWorkspaceContext } from "@/lib/auth";
 import { successResponse, handleError, getOrCreateRequestId } from "@/lib/http";
 
@@ -101,7 +101,9 @@ export async function GET(
     // "The API MUST enforce relation-level visibility; it MUST NOT return the
     // entire customer graph and rely on the client to hide it."
     // Verify the subject record exists in this workspace before returning events.
-    await enforceSubjectVisibility(workspaceId, subjectType, subjectId);
+    await enforceSubjectVisibility(workspaceId, subjectType, subjectId, ctx.principal
+      ? { userId: ctx.principal.userId, role: ctx.workspaceRole, organizationRole: ctx.organizationRole }
+      : undefined);
 
     // ── Query each source table in parallel ──
     // Each source fetches up to MAX_FETCH entries (not `limit`) to avoid
@@ -173,20 +175,27 @@ export async function GET(
 async function enforceSubjectVisibility(
   workspaceId: string,
   subjectType: string,
-  subjectId: string
+  subjectId: string,
+  visibilityScope: VisibilityScope | undefined
 ): Promise<void> {
   // For entity types that are stored as records in business tables, verify
   // the record exists in this workspace.
   const variants = getSubjectTypeVariants(subjectType);
-  const tableCandidates = variants.map((v) => businessTableForSubject(v));
-
-  for (const table of tableCandidates) {
-    if (!table) continue;
-    const row = await queryOne<{ id: string }>(
-      `SELECT id FROM ${table} WHERE id = ? AND workspace_id = ? AND deleted_at IS NULL`,
+  for (const variant of variants) {
+    const objectKey = objectKeyForSubject(variant);
+    if (!objectKey) continue;
+    const exists = await queryOne<{ id: string }>(
+      `SELECT id FROM ${businessTable(objectKey)} WHERE id = ? AND workspace_id = ? AND deleted_at IS NULL`,
       [subjectId, workspaceId]
     );
-    if (row) return; // Found — visibility confirmed
+    if (!exists) continue;
+    const row = await getRecord(workspaceId, objectKey, subjectId, { visibilityScope });
+    if (row) return; // Exists and is readable by this identity.
+    throw new BusinessError(
+      ERROR_CODES.NOT_FOUND,
+      `Subject ${subjectType}/${subjectId} not found in this workspace`,
+      404
+    );
   }
 
   // If the subject type is not a business-table entity (e.g., "deal" might
@@ -233,6 +242,11 @@ function businessTableForSubject(subjectType: string): string | null {
     deal: businessTable("deal"),
   };
   return mapping[subjectType] ?? null;
+}
+
+function objectKeyForSubject(subjectType: string): string | null {
+  if (subjectType === "visit") return "service_visit";
+  return businessTableForSubject(subjectType) ? subjectType : null;
 }
 
 // ── Source 1: Workflow V2 Events ──

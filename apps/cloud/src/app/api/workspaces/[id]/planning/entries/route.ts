@@ -4,6 +4,7 @@ import {
   getScheduleEntries,
   queryAll,
   resolveUserResourceIds,
+  hasOperationalTeamAccess,
   TABLES,
   type ScheduleEntry,
 } from "@runory/platform-core";
@@ -69,11 +70,24 @@ export async function GET(
     // Non-admin/owner users only see schedule entries for their own resources
     // unless they explicitly request specific resource IDs (admin action).
     let effectiveResourceIds = resourceIds;
-    const isAdmin = ctx.workspaceRole === "admin" || ctx.organizationRole === "owner";
-    if (!isAdmin && ctx.principal && !resourceIdsParam) {
+    const hasTeamScope = ctx.principal
+      ? await hasOperationalTeamAccess(workspaceId, {
+          userId: ctx.principal.userId,
+          role: ctx.workspaceRole,
+          organizationRole: ctx.organizationRole,
+        })
+      : false;
+    if (!hasTeamScope && ctx.principal) {
       const userResourceIds = await resolveUserResourceIds(workspaceId, ctx.principal.userId);
       if (userResourceIds.length > 0) {
-        effectiveResourceIds = userResourceIds;
+        // A query parameter is a filter, never an authorization grant. Members
+        // may only narrow their own resources, not request someone else's.
+        effectiveResourceIds = resourceIds
+          ? resourceIds.filter((resourceId) => userResourceIds.includes(resourceId))
+          : userResourceIds;
+        if (effectiveResourceIds.length === 0) {
+          return successResponse({ entries: [], total: 0 }, 200, ctx.requestId);
+        }
       } else {
         // No resource linked — see nothing
         return successResponse({ entries: [], total: 0 }, 200, ctx.requestId);

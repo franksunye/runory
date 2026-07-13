@@ -19,6 +19,12 @@ interface PersonaApiResponse {
   current: string;
 }
 
+interface AccessSummary {
+  recordScope: "all" | "assigned";
+  permissionGroups: Array<{ label: string }>;
+  resourceIds: string[];
+}
+
 // Map persona colors to Tailwind classes for the badge dot
 const COLOR_CLASSES: Record<string, string> = {
   slate: "bg-slate-400",
@@ -44,6 +50,8 @@ const PERSONA_DESCRIPTION_KEYS: Record<string, MessageKey> = {
   "persona:sales-manager": "persona.desc.salesManager",
   "persona:dispatcher": "persona.desc.dispatcher",
   "persona:technician": "persona.desc.technician",
+  "persona:technician-james": "persona.desc.technician",
+  "persona:technician-maria": "persona.desc.technician",
   "persona:supervisor": "persona.desc.supervisor",
 };
 
@@ -55,7 +63,10 @@ export default function PersonaSwitcher() {
   const [open, setOpen] = useState(false);
   const [switching, setSwitching] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  const [workspaceRole, setWorkspaceRole] = useState<string | null>(null);
+  const [accessSummary, setAccessSummary] = useState<AccessSummary | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const workspaceId = pathname?.match(/^\/w\/([^/]+)/)?.[1] ?? null;
 
   const fetchPersonas = useCallback(async () => {
     try {
@@ -73,6 +84,25 @@ export default function PersonaSwitcher() {
   useEffect(() => {
     void fetchPersonas();
   }, [fetchPersonas]);
+
+  useEffect(() => {
+    if (!workspaceId) {
+      setWorkspaceRole(null);
+      setAccessSummary(null);
+      return;
+    }
+    let cancelled = false;
+    fetch(`/api/workspaces/${workspaceId}`, { cache: "no-store" })
+      .then((res) => res.ok ? res.json() : null)
+      .then((data: { success?: boolean; data?: { workspaceRole?: string; organizationRole?: string; accessSummary?: AccessSummary | null } } | null) => {
+        if (!cancelled) {
+          setWorkspaceRole(data?.success ? data.data?.workspaceRole ?? data.data?.organizationRole ?? null : null);
+          setAccessSummary(data?.success ? data.data?.accessSummary ?? null : null);
+        }
+      })
+      .catch(() => { if (!cancelled) { setWorkspaceRole(null); setAccessSummary(null); } });
+    return () => { cancelled = true; };
+  }, [workspaceId]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -119,6 +149,15 @@ export default function PersonaSwitcher() {
   if (!loaded) return null;
 
   const currentPersona = personas.find((p) => p.id === current) ?? personas[0];
+  const roleLabelKey: Record<string, MessageKey> = {
+    owner: "workspace.nav.roleOwner",
+    admin: "workspace.nav.roleAdmin",
+    member: "workspace.nav.roleMember",
+    viewer: "workspace.nav.roleViewer",
+  };
+  const currentRoleLabel = workspaceRole && roleLabelKey[workspaceRole]
+    ? t(roleLabelKey[workspaceRole])
+    : null;
   const isMobileWorkspace = pathname?.startsWith("/m/w/");
 
   return (
@@ -136,6 +175,23 @@ export default function PersonaSwitcher() {
             <p className="mt-0.5 text-[11px] text-slate-400">
               {t("persona.hint")}
             </p>
+            {currentRoleLabel && (
+              <p className="mt-2 rounded-md bg-indigo-50 px-2 py-1.5 text-[11px] font-semibold text-indigo-700">
+                {t("persona.workspaceAccess", { role: currentRoleLabel })}
+              </p>
+            )}
+            {accessSummary && (
+              <div className="mt-2 rounded-md border border-slate-100 bg-slate-50 px-2 py-1.5 text-[11px] text-slate-600">
+                <p className="font-semibold text-slate-700">
+                  {accessSummary.recordScope === "all" ? t("persona.dataScopeAll") : t("persona.dataScopeAssigned")}
+                </p>
+                {accessSummary.permissionGroups.length > 0 && (
+                  <p className="mt-0.5 truncate text-slate-500">
+                    {t("persona.permissionGroups", { groups: accessSummary.permissionGroups.map((group) => group.label).join(", ") })}
+                  </p>
+                )}
+              </div>
+            )}
           </div>
           <ul className="max-h-80 overflow-y-auto py-1">
             {personas.map((persona) => {

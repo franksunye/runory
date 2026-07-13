@@ -397,13 +397,15 @@
       "alias": "res-maria",
       "displayName": "Maria Garcia",
       "resourceType": "technician",
-      "email": "maria@runory.fsm"
+      "email": "maria@runory.fsm",
+      "userIdAlias": "user-technician-maria"
     },
     {
       "alias": "res-james",
       "displayName": "James Wilson",
       "resourceType": "technician",
-      "email": "james@runory.fsm"
+      "email": "james@runory.fsm",
+      "userIdAlias": "user-technician-james"
     }
   ],
   "assignments": [
@@ -454,7 +456,7 @@
       "displayName": "Sarah Chen",
       "role": "member",
       "permissionGroups": [
-        { "packId": "crm-lite-pack", "groupKey": "sales_admin" },
+        { "packId": "crm-lite-pack", "groupKey": "sales_agent" },
         { "packId": "sales-quote-pack", "groupKey": "sales_representative" }
       ]
     },
@@ -498,6 +500,28 @@
       "permissionGroups": [
         { "packId": "fsm-pack", "groupKey": "service_supervisor" }
       ]
+    },
+    {
+      "alias": "user-technician-james",
+      "externalId": "persona:technician-james",
+      "email": "james@runory.demo",
+      "displayName": "James Wilson",
+      "role": "member",
+      "permissionGroups": [
+        { "packId": "fsm-pack", "groupKey": "field_technician" }
+      ],
+      "resourceAlias": "res-james"
+    },
+    {
+      "alias": "user-technician-maria",
+      "externalId": "persona:technician-maria",
+      "email": "maria@runory.demo",
+      "displayName": "Maria Garcia",
+      "role": "member",
+      "permissionGroups": [
+        { "packId": "fsm-pack", "groupKey": "field_technician" }
+      ],
+      "resourceAlias": "res-maria"
     }
   ],
   "formDefinitions": [

@@ -339,12 +339,139 @@ async function resolveDemoLookup(
   return (found?.id as string) ?? null;
 }
 
+async function seedDemoUsers(
+  workspaceId: string,
+  users: DemoUser[],
+  aliases: Map<string, Record<string, unknown>>
+): Promise<number> {
+  let created = 0;
+  for (const du of users) {
+    try {
+      const nowTs = now();
+      const existing = await queryOne<{ id: string }>(
+        `SELECT id FROM ${TABLES.users} WHERE external_id = ?`,
+        [du.externalId]
+      );
+      const actualUserId = existing?.id ?? genId("usr");
+      if (!existing) {
+        await execute(
+          `INSERT INTO ${TABLES.users}
+           (id, external_id, email, display_name, status, created_at, updated_at)
+           VALUES (?, ?, ?, ?, 'active', ?, ?)`,
+          [actualUserId, du.externalId, du.email ?? null, du.displayName, nowTs, nowTs]
+        );
+        created++;
+      }
+
+      if (du.email) {
+        const emailNormalized = du.email.trim().toLowerCase();
+        const existingIdentity = await queryOne<{ id: string }>(
+          `SELECT id FROM ${TABLES.authIdentities}
+           WHERE method = 'email_otp' AND email_normalized = ?`,
+          [emailNormalized]
+        );
+        if (!existingIdentity) {
+          await execute(
+            `INSERT INTO ${TABLES.authIdentities}
+             (id, user_id, method, email_normalized, email_display, verified, verified_at, created_at, updated_at)
+             VALUES (?, ?, 'email_otp', ?, ?, 1, ?, ?, ?)`,
+            [genId("auth"), actualUserId, emailNormalized, du.email, nowTs, nowTs, nowTs]
+          );
+        }
+      }
+
+      const existingMembership = await queryOne<{ id: string }>(
+        `SELECT id FROM ${TABLES.workspaceMemberships}
+         WHERE workspace_id = ? AND user_id = ?`,
+        [workspaceId, actualUserId]
+      );
+      if (!existingMembership) {
+        await execute(
+          `INSERT INTO ${TABLES.workspaceMemberships}
+           (id, workspace_id, user_id, role, status, created_at, updated_at)
+           VALUES (?, ?, ?, ?, 'active', ?, ?)`,
+          [genId("wsmem"), workspaceId, actualUserId, du.role ?? "member", nowTs, nowTs]
+        );
+      }
+
+      aliases.set(du.alias, { id: actualUserId, objectKey: "user" });
+
+      for (const pg of du.permissionGroups ?? []) {
+        const group = await queryOne<{ id: string; business_role_key: string | null }>(
+          `SELECT id, business_role_key FROM ${TABLES.packPermissionGroups}
+           WHERE workspace_id = ? AND pack_id = ? AND group_key = ?`,
+          [workspaceId, pg.packId, pg.groupKey]
+        );
+        // Stable business-role assignments must not depend on Pack install
+        // order. Demo/template data may declare a role contribution before
+        // the contributing Pack is installed; resolve its manifest contract
+        // and keep the role dormant until that Pack arrives.
+        const declaredRoleKey = group?.business_role_key
+          ?? loadPackManifest(pg.packId).permissionGroups
+            ?.find((candidate) => candidate.key === pg.groupKey)
+            ?.businessRole?.key
+          ?? null;
+        if (declaredRoleKey) {
+          const existingRoleAssignment = await queryOne<{ id: string }>(
+            `SELECT id FROM ${TABLES.businessRoleAssignments}
+             WHERE workspace_id = ? AND role_key = ? AND user_id = ?`,
+            [workspaceId, declaredRoleKey, actualUserId]
+          );
+          if (!existingRoleAssignment) {
+            await execute(
+              `INSERT INTO ${TABLES.businessRoleAssignments}
+               (id, workspace_id, role_key, user_id, assigned_by, assigned_at)
+               VALUES (?, ?, ?, ?, ?, ?)`,
+              [genId("bra"), workspaceId, declaredRoleKey, actualUserId, "demo-seed", nowTs]
+            );
+          }
+          continue;
+        }
+        if (!group) continue;
+        const existingAssignment = await queryOne<{ id: string }>(
+          `SELECT id FROM ${TABLES.packPermissionAssignments}
+           WHERE workspace_id = ? AND group_id = ? AND user_id = ?`,
+          [workspaceId, group.id, actualUserId]
+        );
+        if (!existingAssignment) {
+          await execute(
+            `INSERT INTO ${TABLES.packPermissionAssignments}
+             (id, workspace_id, group_id, user_id, assigned_by, assigned_at)
+             VALUES (?, ?, ?, ?, ?, ?)`,
+            [genId("pa"), workspaceId, group.id, actualUserId, "demo-seed", nowTs]
+          );
+        }
+      }
+
+      console.log(`[installer] Seeded user ${du.alias} → ${actualUserId}`);
+    } catch (error) {
+      console.warn(`[installer] Failed to seed user ${du.alias}: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+  return created;
+}
+
 async function seedPackDemoData(workspaceId: string, packId: string): Promise<number> {
   const demo = readPackDemoDataFile(packId);
   if (!demo) return 0;
 
   let created = 0;
   const aliases = new Map<string, Record<string, unknown>>();
+
+  // User identity is a platform primitive. Hydrate aliases created by earlier
+  // packs, then seed this pack's users before business records so owner fields
+  // can persist canonical user IDs rather than display-name strings.
+  const existingDemoUsers = await queryAll<{ id: string; external_id: string }>(
+    `SELECT u.id, u.external_id
+     FROM ${TABLES.users} u
+     JOIN ${TABLES.workspaceMemberships} wm ON wm.user_id = u.id
+     WHERE wm.workspace_id = ? AND wm.status = 'active' AND u.external_id LIKE 'persona:%'`,
+    [workspaceId]
+  );
+  for (const user of existingDemoUsers) {
+    aliases.set(`user-${user.external_id.slice("persona:".length)}`, { id: user.id, objectKey: "user" });
+  }
+  created += await seedDemoUsers(workspaceId, demo.users ?? [], aliases);
 
   for (const record of demo.records) {
     validateIdentifier(record.object);
@@ -426,119 +553,6 @@ async function seedPackDemoData(workspaceId: string, packId: string): Promise<nu
 
   // V1 workflow seeding removed — V2 workflow definitions are published
   // from module `workflows/*.workflow.json` files during installModule().
-
-  // ── Persona identity: Seed demo users ──
-  // Creates users, workspace memberships, and permission group assignments.
-  // Must run BEFORE resource seeding so resources can reference user aliases.
-  if (demo.users && demo.users.length > 0) {
-    for (const du of demo.users) {
-      try {
-        const nowTs = now();
-
-        // Check if user already exists by external_id (idempotency)
-        const existing = await queryOne<{ id: string }>(
-          `SELECT id FROM ${TABLES.users} WHERE external_id = ?`,
-          [du.externalId]
-        );
-
-        let actualUserId: string;
-        let isNewUser = false;
-        if (existing) {
-          actualUserId = existing.id;
-        } else {
-          actualUserId = genId("usr");
-          await execute(
-            `INSERT INTO ${TABLES.users}
-             (id, external_id, email, display_name, status, created_at, updated_at)
-             VALUES (?, ?, ?, ?, 'active', ?, ?)`,
-            [actualUserId, du.externalId, du.email ?? null, du.displayName, nowTs, nowTs]
-          );
-          created++;
-          isNewUser = true;
-        }
-
-        // Create auth_identity so this persona can log in via OTP
-        if (du.email && isNewUser) {
-          const emailNormalized = du.email.trim().toLowerCase();
-          const existingIdentity = await queryOne<{ id: string }>(
-            `SELECT id FROM ${TABLES.authIdentities}
-             WHERE method = 'email_otp' AND email_normalized = ?`,
-            [emailNormalized]
-          );
-          if (!existingIdentity) {
-            await execute(
-              `INSERT INTO ${TABLES.authIdentities}
-               (id, user_id, method, email_normalized, email_display, verified, verified_at, created_at, updated_at)
-               VALUES (?, ?, 'email_otp', ?, ?, 1, ?, ?, ?)`,
-              [genId("auth"), actualUserId, emailNormalized, du.email, nowTs, nowTs, nowTs]
-            );
-          }
-        }
-
-        // Create workspace membership (idempotent)
-        const existingMembership = await queryOne<{ id: string }>(
-          `SELECT id FROM ${TABLES.workspaceMemberships}
-           WHERE workspace_id = ? AND user_id = ?`,
-          [workspaceId, actualUserId]
-        );
-        if (!existingMembership) {
-          await execute(
-            `INSERT INTO ${TABLES.workspaceMemberships}
-             (id, workspace_id, user_id, role, status, created_at, updated_at)
-             VALUES (?, ?, ?, ?, 'active', ?, ?)`,
-            [genId("wsmem"), workspaceId, actualUserId, du.role ?? "member", nowTs, nowTs]
-          );
-        }
-
-        // Store in aliases map for resource linking
-        aliases.set(du.alias, { id: actualUserId, objectKey: "user" });
-
-        // Assign permission groups
-        if (du.permissionGroups) {
-          for (const pg of du.permissionGroups) {
-            try {
-              const group = await queryOne<{ id: string }>(
-                `SELECT id FROM ${TABLES.packPermissionGroups}
-                 WHERE workspace_id = ? AND pack_id = ? AND group_key = ?`,
-                [workspaceId, pg.packId, pg.groupKey]
-              );
-              if (group) {
-                // Check if assignment already exists (idempotent)
-                const existingAssign = await queryOne<{ id: string }>(
-                  `SELECT id FROM ${TABLES.packPermissionAssignments}
-                   WHERE workspace_id = ? AND group_id = ? AND user_id = ?`,
-                  [workspaceId, group.id, actualUserId]
-                );
-                if (!existingAssign) {
-                  await execute(
-                    `INSERT INTO ${TABLES.packPermissionAssignments}
-                     (id, workspace_id, group_id, user_id, assigned_by, assigned_at)
-                     VALUES (?, ?, ?, ?, ?, ?)`,
-                    [genId("pa"), workspaceId, group.id, actualUserId, "demo-seed", nowTs]
-                  );
-                }
-              } else {
-                const packInstalled = await queryOne<{ id: string }>(
-                  `SELECT id FROM ${TABLES.packInstallations}
-                   WHERE workspace_id = ? AND pack_id = ?`,
-                  [workspaceId, pg.packId]
-                );
-                if (packInstalled) {
-                  console.warn(`[installer] Permission group not found: pack=${pg.packId} key=${pg.groupKey}`);
-                }
-              }
-            } catch (e) {
-              console.warn(`[installer] Failed to assign permission group ${pg.groupKey}: ${e instanceof Error ? e.message : String(e)}`);
-            }
-          }
-        }
-
-        console.log(`[installer] Seeded user ${du.alias} → ${actualUserId}`);
-      } catch (e) {
-        console.warn(`[installer] Failed to seed user ${du.alias}: ${e instanceof Error ? e.message : String(e)}`);
-      }
-    }
-  }
 
   // ── v0.5: Seed resources ──
   if (demo.resources && demo.resources.length > 0) {
@@ -1479,10 +1493,20 @@ export async function uninstallPack(
     }
   }
 
-  // 8. Clean up pack permission group assignments
+  // 8. Remove Pack-specific contributions and their legacy assignments.
+  // Stable business-role assignments intentionally remain dormant so a later
+  // reinstall reactivates the Pack's capabilities without rebuilding access.
   try {
     await execute(
       `DELETE FROM ${TABLES.packPermissionAssignments}
+       WHERE workspace_id = ? AND group_id IN (
+         SELECT id FROM ${TABLES.packPermissionGroups}
+         WHERE workspace_id = ? AND pack_id = ?
+       )`,
+      [workspaceId, workspaceId, packId]
+    );
+    await execute(
+      `DELETE FROM ${TABLES.packPermissionGroups}
        WHERE workspace_id = ? AND pack_id = ?`,
       [workspaceId, packId]
     );

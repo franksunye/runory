@@ -138,6 +138,10 @@ function renderCell(
     return <span title={String(value)}>{formatRelativeTime(value, t)}</span>;
   }
 
+  if (type === "user" && displayValue) {
+    return <span className="font-medium text-slate-800">{displayValue}</span>;
+  }
+
   // For lookup fields, render the display label as a link to the referenced record
   if (type === "lookup" && displayValue) {
     if (targetObject && workspaceId) {

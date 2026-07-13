@@ -958,4 +958,19 @@ describe("v0.5 Contract and Concurrency", () => {
     expect(conflicts.length).toBeGreaterThan(0);
     expect(conflicts[0].id).toBe(planResult.scheduleEntryId);
   });
+
+  it("rejects incomplete or out-of-range schedule coordinates", async () => {
+    const base = {
+      subjectType: "service_visit",
+      subjectId: genId("visit"),
+      resourceId: "user_technician_coordinates",
+      startAt: "2026-07-21T10:00:00Z",
+      endAt: "2026-07-21T11:00:00Z",
+    };
+
+    await expect(planSchedule(workspaceId, { ...base, latitude: 91, longitude: 10 }))
+      .rejects.toMatchObject({ code: "INVALID_INPUT" });
+    await expect(planSchedule(workspaceId, { ...base, latitude: 10 }))
+      .rejects.toMatchObject({ code: "INVALID_INPUT" });
+  });
 });

@@ -11,6 +11,7 @@ import {
   useFields,
   useViews,
   useRecords,
+  useWorkspaceAccess,
   useWorkspaceChangeEvent,
 } from "@/lib/api-hooks";
 import { useI18n } from "@/i18n/locale-provider";
@@ -59,6 +60,7 @@ export default function ObjectListPage({
   ];
 
   const { data: installations = [], isLoading: loadingInst } = useInstallations(workspaceId);
+  const { data: workspaceAccess } = useWorkspaceAccess(workspaceId);
   const { data: objDetail, isLoading: loadingObj } = useFields(workspaceId, objectKey);
   const { data: views = [], isLoading: loadingViews } = useViews(workspaceId, objectKey);
 
@@ -90,6 +92,13 @@ export default function ObjectListPage({
   useWorkspaceChangeEvent(workspaceId);
 
   const hasPack = installations.length > 0;
+  const permissions = new Set(workspaceAccess?.accessSummary?.permissions ?? []);
+  const canCreate = workspaceAccess?.workspaceRole === "admin"
+    || permissions.has("*")
+    || (objectKey === "quote" ? permissions.has("quote.create")
+      : objectKey === "work_order" ? permissions.has("work_order.triage")
+      : objectKey === "service_visit" ? permissions.has("assignment.manage")
+      : permissions.has(`${objectKey}.create`));
   const loading = loadingInst || (hasPack && (loadingObj || loadingViews || loadingRecords));
 
   const fields: FieldDefinition[] = objDetail?.fields ?? [];
@@ -151,7 +160,7 @@ export default function ObjectListPage({
           <h1 className="mt-2 text-3xl font-bold tracking-[-.025em] text-slate-950">{title}</h1>
           {effectiveSubtitle && <p className="mt-2 text-sm text-slate-500">{effectiveSubtitle}</p>}
         </div>
-        {hasPack && (
+        {hasPack && canCreate && (
           <div className="flex items-center gap-2 self-start">
             <button
               type="button"
@@ -246,13 +255,15 @@ export default function ObjectListPage({
               <div className="app-card flex flex-col items-center px-6 py-12 text-center">
                 <Inbox size={32} className="text-slate-300" />
                 <p className="mt-3 text-sm text-slate-500">{t("workspace.noRecords", { title })}</p>
-                <button
-                  type="button"
-                  onClick={() => router.push(`${basePath}/new`)}
-                  className="app-button-primary mt-4"
-                >
-                  <Plus size={16} />{t("workspace.addFirst", { title })}
-                </button>
+                {canCreate && (
+                  <button
+                    type="button"
+                    onClick={() => router.push(`${basePath}/new`)}
+                    className="app-button-primary mt-4"
+                  >
+                    <Plus size={16} />{t("workspace.addFirst", { title })}
+                  </button>
+                )}
               </div>
             )
           ) : (

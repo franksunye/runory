@@ -42,6 +42,8 @@ const DEV_PERSONAS: Record<string, ActorIdentity> = {
   "persona:sales-manager": { externalId: "persona:sales-manager", displayName: "Michael Torres" },
   "persona:dispatcher": { externalId: "persona:dispatcher", displayName: "Lisa Wang" },
   "persona:technician": { externalId: "persona:technician", displayName: "David Park" },
+  "persona:technician-james": { externalId: "persona:technician-james", displayName: "James Wilson" },
+  "persona:technician-maria": { externalId: "persona:technician-maria", displayName: "Maria Garcia" },
   "persona:supervisor": { externalId: "persona:supervisor", displayName: "Robert Kim" },
 };
 
@@ -51,6 +53,29 @@ function getDevActor(request: NextRequest): ActorIdentity {
     return DEV_PERSONAS[personaId] ?? DEVELOPMENT_ACTOR;
   }
   return DEVELOPMENT_ACTOR;
+}
+
+/**
+ * Return a deliberately selected demo identity. Unlike the general dev
+ * bootstrap fallback, this only succeeds when the cookie is present and valid.
+ * In local acceptance testing this explicit choice must override an existing
+ * OTP session, otherwise the switcher can display David while APIs run as admin.
+ */
+function getExplicitDevActor(request: NextRequest): ActorIdentity | null {
+  if (!isDevBootstrapEnabled()) return null;
+  const personaId = request.cookies.get("dev-persona")?.value;
+  if (!personaId) return null;
+  if (personaId === "dev-local-owner") return DEVELOPMENT_ACTOR;
+  return DEV_PERSONAS[personaId] ?? null;
+}
+
+function principalFromDevActor(actor: ActorIdentity): Principal {
+  return {
+    userId: actor.externalId,
+    email: actor.email ?? null,
+    displayName: actor.displayName,
+    authMethod: "dev_bootstrap",
+  };
 }
 
 // ── Dev bootstrap flag ──
@@ -100,6 +125,9 @@ export interface OrganizationMembership {
 // ── Get Request Actor ──
 
 export async function getRequestActor(request: NextRequest): Promise<ActorIdentity> {
+  const explicitDevActor = getExplicitDevActor(request);
+  if (explicitDevActor) return explicitDevActor;
+
   const sessionToken = request.cookies.get(SESSION_COOKIE_NAME)?.value;
   if (sessionToken) {
     const principal = await resolveSession(sessionToken);
@@ -128,6 +156,9 @@ export async function getRequestActor(request: NextRequest): Promise<ActorIdenti
 // ── Get Current Principal (session-based) ──
 
 export async function getCurrentPrincipal(request: NextRequest): Promise<Principal | null> {
+  const explicitDevActor = getExplicitDevActor(request);
+  if (explicitDevActor) return principalFromDevActor(explicitDevActor);
+
   const sessionToken = request.cookies.get(SESSION_COOKIE_NAME)?.value;
   if (sessionToken) {
     const principal = await resolveSession(sessionToken);
@@ -137,12 +168,7 @@ export async function getCurrentPrincipal(request: NextRequest): Promise<Princip
   // Dev bootstrap fallback — honor the dev-persona cookie if set
   if (isDevBootstrapEnabled()) {
     const devActor = getDevActor(request);
-    return {
-      userId: devActor.externalId,
-      email: null,
-      displayName: devActor.displayName,
-      authMethod: "dev_bootstrap",
-    };
+    return principalFromDevActor(devActor);
   }
 
   return null;
@@ -151,6 +177,9 @@ export async function getCurrentPrincipal(request: NextRequest): Promise<Princip
 // ── Require Authenticated Principal (session or API key) ──
 
 export async function requirePrincipal(request: NextRequest): Promise<Principal> {
+  const explicitDevActor = getExplicitDevActor(request);
+  if (explicitDevActor) return principalFromDevActor(explicitDevActor);
+
   // Try session first
   const sessionToken = request.cookies.get(SESSION_COOKIE_NAME)?.value;
   if (sessionToken) {
@@ -161,13 +190,7 @@ export async function requirePrincipal(request: NextRequest): Promise<Principal>
   if (isDevBootstrapEnabled()) {
     // Dev bootstrap fallback — honor the dev-persona cookie if set
     const devActor = getDevActor(request);
-    const principal: Principal = {
-      userId: devActor.externalId,
-      email: null,
-      displayName: devActor.displayName,
-      authMethod: "dev_bootstrap",
-    };
-    return principal;
+    return principalFromDevActor(devActor);
   }
 
   throw new AuthenticationError("Authentication is required");
@@ -243,26 +266,7 @@ export async function buildRequestContext(
 ): Promise<RequestContext> {
   const requestId = getOrCreateRequestId(request.headers.get("x-request-id"));
 
-  let principal: Principal | null = null;
-
-  const sessionToken = request.cookies.get(SESSION_COOKIE_NAME)?.value;
-  if (sessionToken) {
-    principal = await resolveSession(sessionToken);
-  }
-
-  if (!principal) {
-    try {
-      const actor = await getRequestActor(request);
-      principal = {
-        userId: actor.externalId,
-        email: actor.email ?? null,
-        displayName: actor.displayName,
-        authMethod: "dev_bootstrap",
-      };
-    } catch {
-      principal = null;
-    }
-  }
+  const principal = await getCurrentPrincipal(request);
 
   if (!workspaceReference) {
     return createRequestContext({ requestId, principal });
@@ -344,6 +348,14 @@ export async function requireWorkspaceContext(
     }
   }
 
+
+  // An explicit local demo selection overrides browser OTP sessions. API keys
+  // remain highest priority because they are request-scoped credentials.
+  if (!principal) {
+    const explicitDevActor = getExplicitDevActor(request);
+    if (explicitDevActor) principal = principalFromDevActor(explicitDevActor);
+  }
+
   // Fall back to session
   if (!principal) {
     const sessionToken = request.cookies.get(SESSION_COOKIE_NAME)?.value;
@@ -360,13 +372,7 @@ export async function requireWorkspaceContext(
   // Dev bootstrap fallback
   if (!principal && isDevBootstrapEnabled()) {
     // Honor the dev-persona cookie if set so requests act as the selected persona
-    const devActor = getDevActor(request);
-    principal = {
-      userId: devActor.externalId,
-      email: null,
-      displayName: devActor.displayName,
-      authMethod: "dev_bootstrap",
-    };
+    principal = principalFromDevActor(getDevActor(request));
   }
 
   if (!principal) throw new AuthenticationError("Authentication is required");

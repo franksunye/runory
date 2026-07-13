@@ -68,6 +68,18 @@ export function useInstallations(workspaceId: string) {
   return { data, error, isLoading, mutate };
 }
 
+export interface WorkspaceAccessData {
+  workspaceRole?: string | null;
+  accessSummary?: { permissions: string[] } | null;
+}
+
+export function useWorkspaceAccess(workspaceId: string) {
+  const { data, error, isLoading } = useSWR<WorkspaceAccessData>(
+    `/api/workspaces/${workspaceId}`
+  );
+  return { data, error, isLoading };
+}
+
 export function useObjects(workspaceId: string) {
   const { data, error, isLoading, mutate } = useSWR<ObjectDefinition[]>(
     workspaceKey(workspaceId, "objects")
@@ -315,6 +327,7 @@ export interface MyWorkItem {
   subject_id: string | null;
   assignee_type: string | null;
   assignee_id: string | null;
+  assignee_display?: string | null;
   candidate_rule_json: string | null;
   due_at: string | null;
   claimed_by: string | null;
@@ -590,4 +603,3 @@ export function useWorkflowInstance(
   );
   return { data, error, isLoading, mutate };
 }
-

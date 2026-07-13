@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import {
+  _clearAccessCache,
   updateOrganizationMemberRole,
   removeOrganizationMember,
 } from "@runory/platform-core";
@@ -33,6 +34,7 @@ export async function PATCH(
       principal.userId,
       membership.role
     );
+    _clearAccessCache();
 
     return successResponse({ success: true }, 200, requestId);
   } catch (e) {
@@ -59,6 +61,7 @@ export async function DELETE(
       principal.userId,
       membership.role
     );
+    _clearAccessCache();
 
     return successResponse({ success: true }, 200, requestId);
   } catch (e) {

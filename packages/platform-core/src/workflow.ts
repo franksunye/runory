@@ -787,19 +787,27 @@ export async function getMyWork(
   const conditions: string[] = ["workspace_id = ?", "status IN ('ready', 'active')"];
   const args: unknown[] = [workspaceId];
 
-  // Assignee filter: assigned to user directly OR in a permission group the user belongs to.
-  const groups = await getUserPermissionGroups(workspaceId, actorId);
+  // Assignee filter: assigned to the canonical user directly OR to one of
+  // their permission groups. Dev personas carry external_id while persisted
+  // assignments normally use saas_users.id, so both identifiers must match.
+  const actorUser = await queryOne<{ id: string; external_id: string }>(
+    `SELECT id, external_id FROM ${TABLES.users} WHERE id = ? OR external_id = ?`,
+    [actorId, actorId]
+  );
+  const actorIds = [...new Set([actorId, actorUser?.id, actorUser?.external_id].filter((id): id is string => Boolean(id)))];
+  const groups = await getUserPermissionGroups(workspaceId, actorUser?.id ?? actorId);
   const groupKeys = groups.map(g => g.groupKey);
+  const actorPlaceholders = actorIds.map(() => "?").join(", ");
 
   if (groupKeys.length > 0) {
     const placeholders = groupKeys.map(() => "?").join(", ");
     conditions.push(
-      `((assignee_type = 'user' AND assignee_id = ?) OR (assignee_type = 'permission_group' AND assignee_id IN (${placeholders})))`
+      `((assignee_type = 'user' AND assignee_id IN (${actorPlaceholders})) OR (assignee_type = 'permission_group' AND assignee_id IN (${placeholders})))`
     );
-    args.push(actorId, ...groupKeys);
+    args.push(...actorIds, ...groupKeys);
   } else {
-    conditions.push("(assignee_type = 'user' AND assignee_id = ?)");
-    args.push(actorId);
+    conditions.push(`(assignee_type = 'user' AND assignee_id IN (${actorPlaceholders}))`);
+    args.push(...actorIds);
   }
 
   if (filters.kind) {

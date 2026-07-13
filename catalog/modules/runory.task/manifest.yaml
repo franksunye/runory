@@ -37,7 +37,7 @@ objects:
         ownership: module_owned
       - key: assignee
         label: Owner
-        type: text
+        type: user
         ownership: module_owned
       - key: company_id
         label: Related Company

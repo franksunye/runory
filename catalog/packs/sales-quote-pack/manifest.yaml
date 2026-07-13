@@ -51,10 +51,18 @@ permissionGroups:
   - key: sales_representative
     label: "Sales Representative"
     description: "Can create and submit quotes for approval"
+    businessRole:
+      key: sales_representative
+      label: "Sales Representative"
+      description: "Manages customers, opportunities, and commercial proposals"
     permissions: ["quote.read", "quote.create", "quote.edit_draft", "quote.submit"]
   - key: sales_manager
     label: "Sales Manager"
     description: "Can approve or reject submitted quotes"
+    businessRole:
+      key: sales_manager
+      label: "Sales Manager"
+      description: "Leads the commercial team across CRM, quotes, and approvals"
     permissions: ["quote.read", "quote.create", "quote.edit_draft", "quote.submit", "quote.approve", "quote.reject", "quote.accept", "quote.convert", "workflow.approval.decide"]
   - key: workspace_administrator
     label: "Workspace Administrator"

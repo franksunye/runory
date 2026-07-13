@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import {
   businessTable,
   getMyWork,
+  hasOperationalTeamAccess,
   queryAll,
   TABLES,
 } from "@runory/platform-core";
@@ -35,6 +36,7 @@ interface OperationalWorkItem {
   title: string;
   description: string;
   resource_name: string | null;
+  assignee_display: string | null;
   operational_source: "schedule";
 }
 
@@ -44,16 +46,13 @@ interface OperationalScheduleRow {
   subject_id: string;
   start_at: string;
   end_at: string;
+  due_at: string | null;
   status: string;
   resource_id: string;
   resource_name: string;
   subject_title: string | null;
   created_at: string;
   updated_at: string;
-}
-
-function isOwnerOrAdmin(role: string | null | undefined): boolean {
-  return role === "owner" || role === "admin";
 }
 
 async function getOperationalWork(
@@ -92,7 +91,7 @@ async function getOperationalWork(
     args.push(filters.subjectType);
   }
   if (filters.dueBefore) {
-    conditions.push("se.start_at <= ?");
+    conditions.push("COALESCE(wo.sla_due_at, se.start_at) <= ?");
     args.push(filters.dueBefore);
   }
   if (filters.from) {
@@ -112,6 +111,7 @@ async function getOperationalWork(
        se.subject_id,
        se.start_at,
        se.end_at,
+       COALESCE(wo.sla_due_at, se.start_at) AS due_at,
        se.status,
        se.resource_id,
        r.display_name AS resource_name,
@@ -144,10 +144,13 @@ async function getOperationalWork(
     status: "ready",
     subject_type: row.subject_type,
     subject_id: row.subject_id,
-    assignee_type: includeTeam ? "team" : "resource",
-    assignee_id: row.resource_name,
+    assignee_type: "resource",
+    assignee_id: row.resource_id,
+    assignee_display: row.resource_name,
     candidate_rule_json: null,
-    due_at: row.start_at,
+    // My Work's Due is the business SLA when one exists. The schedule start
+    // remains useful context, but it is not the same as the deadline.
+    due_at: row.due_at,
     claimed_by: null,
     claimed_at: null,
     completed_at: null,
@@ -191,12 +194,58 @@ export async function GET(
 
     // Per v0.5.1 Spec §6: cursor-based pagination with from/to time window
     const result = await getMyWork(workspaceId, actorId, filters);
-    const includeTeam = isOwnerOrAdmin(ctx.organizationRole);
+    // Team-wide queues are granted by dispatch/supervision permissions, never
+    // by organization ownership alone.
+    const includeTeam = ctx.principal
+      ? await hasOperationalTeamAccess(workspaceId, {
+          userId: ctx.principal.userId,
+          role: ctx.workspaceRole,
+          organizationRole: ctx.organizationRole,
+        })
+      : false;
     const operationalItems = await getOperationalWork(workspaceId, actorId, includeTeam, filters);
+
+    const userAssigneeIds = [...new Set(result.items
+      .filter((item) => item.assignee_type === "user" && item.assignee_id)
+      .map((item) => item.assignee_id as string))];
+    const permissionGroupIds = [...new Set(result.items
+      .filter((item) => item.assignee_type === "permission_group" && item.assignee_id)
+      .map((item) => item.assignee_id as string))];
+    const userPlaceholders = userAssigneeIds.map(() => "?").join(",");
+    const groupPlaceholders = permissionGroupIds.map(() => "?").join(",");
+    const [assigneeUsers, assigneeGroups] = await Promise.all([
+      userAssigneeIds.length === 0
+        ? []
+        : queryAll<{ id: string; external_id: string; display_name: string }>(
+            `SELECT id, external_id, display_name FROM ${TABLES.users}
+             WHERE id IN (${userPlaceholders}) OR external_id IN (${userPlaceholders})`,
+            [...userAssigneeIds, ...userAssigneeIds]
+          ),
+      permissionGroupIds.length === 0
+        ? []
+        : queryAll<{ id: string; group_key: string; label: string }>(
+            `SELECT id, group_key, label FROM ${TABLES.packPermissionGroups}
+             WHERE workspace_id = ? AND (id IN (${groupPlaceholders}) OR group_key IN (${groupPlaceholders}))`,
+            [workspaceId, ...permissionGroupIds, ...permissionGroupIds]
+          ),
+    ]);
+    const assigneeLabels = new Map<string, string>();
+    for (const user of assigneeUsers) {
+      assigneeLabels.set(user.id, user.display_name);
+      assigneeLabels.set(user.external_id, user.display_name);
+    }
+    for (const group of assigneeGroups) {
+      assigneeLabels.set(group.id, group.label);
+      assigneeLabels.set(group.group_key, group.label);
+    }
+    const workflowItems = result.items.map((item) => ({
+      ...item,
+      assignee_display: item.assignee_id ? assigneeLabels.get(item.assignee_id) ?? null : null,
+    }));
 
     return successResponse(
       {
-        items: [...result.items, ...operationalItems],
+        items: [...workflowItems, ...operationalItems],
         total: result.total + operationalItems.length,
         nextCursor: result.nextCursor,
       },

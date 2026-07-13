@@ -57,7 +57,22 @@ export default function SchemaForm({
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const handleChange = (fieldKey: string, value: string | number | boolean | null) => {
-    setValues((prev) => ({ ...prev, [fieldKey]: value }));
+    setValues((prev) => {
+      const next = { ...prev, [fieldKey]: value };
+      // A changed parent invalidates any selected child lookup. The lookup
+      // metadata is derived from relations, so this stays correct for every
+      // schema-driven form rather than just the work-order screen.
+      for (const candidate of fields) {
+        if (candidate.type !== "lookup" || !Array.isArray(candidate.validation?.lookupFilters)) continue;
+        const dependsOnChangedField = candidate.validation.lookupFilters.some(
+          (filter) =>
+            typeof filter === "object" && filter !== null &&
+            (filter as Record<string, unknown>).field === fieldKey
+        );
+        if (dependsOnChangedField && candidate.fieldKey !== fieldKey) next[candidate.fieldKey] = null;
+      }
+      return next;
+    });
     setErrors((prev) => {
       if (!prev[fieldKey]) return prev;
       const next = { ...prev };
@@ -85,7 +100,18 @@ export default function SchemaForm({
       setErrors(newErrors);
       return;
     }
-    onSubmit(values);
+    // Submit only fields actually presented by this view and editable through
+    // generic CRUD. This prevents hidden implementation fields and lifecycle
+    // fields (rendered read-only) from being resent with an unrelated edit.
+    const editableFieldKeys = new Set(sections.flatMap((section) =>
+      section.fields.map((field) => field.field)
+    ));
+    const submittedValues = Object.fromEntries(
+      Object.entries(values).filter(
+        ([fieldKey]) => editableFieldKeys.has(fieldKey) && !(fieldKey in readOnlyFields)
+      )
+    ) as RecordData;
+    onSubmit(submittedValues);
   };
 
   if (sections.length === 0) {
@@ -128,6 +154,12 @@ export default function SchemaForm({
                   <SchemaField
                     field={fieldDef}
                     value={values[sf.field]}
+                    displayValue={
+                      typeof initialValues[`${sf.field}_display`] === "string"
+                        ? String(initialValues[`${sf.field}_display`])
+                        : null
+                    }
+                    formValues={values}
                     onChange={(v) => handleChange(sf.field, v)}
                     workspaceId={workspaceId}
                     readOnly={sf.field in readOnlyFields}

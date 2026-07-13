@@ -42,7 +42,7 @@ objects:
         ownership: module_owned
       - key: owner
         label: Owner
-        type: text
+        type: user
         ownership: module_owned
       - key: lifecycle_stage
         label: Lifecycle Stage

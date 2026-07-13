@@ -12,6 +12,11 @@ const baseConfig: NextConfig = {
     // can conditionally render without a separate round-trip. The value is
     // resolved at build time from PLATFORM_DEV_BOOTSTRAP.
     NEXT_PUBLIC_PLATFORM_DEV_BOOTSTRAP: process.env.PLATFORM_DEV_BOOTSTRAP ?? "false",
+    // Keep the v0.5 basemap selectable at deployment time. CSP intentionally
+    // permits only the OpenFreeMap origin, so switching map providers remains
+    // a deliberate security/configuration change.
+    NEXT_PUBLIC_MAP_STYLE_URL:
+      process.env.NEXT_PUBLIC_MAP_STYLE_URL ?? "https://tiles.openfreemap.org/styles/liberty",
   },
   // ── v0.5.1 Spec §5.3: Service Worker cache policy ──
   // The service worker file (sw.js) MUST NOT be cached by the browser/CDN so

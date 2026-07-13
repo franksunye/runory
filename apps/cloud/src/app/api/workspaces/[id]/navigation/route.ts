@@ -5,10 +5,11 @@ import {
   getInstalledPacks,
   loadPackManifest,
   loadModuleManifest,
+  getVisibilitySummary,
   type NavigationItem,
 } from "@runory/platform-core";
 import { requireWorkspaceContext } from "@/lib/auth";
-import { successResponse, handleError, getOrCreateRequestId, METADATA_CACHE } from "@/lib/http";
+import { successResponse, handleError, getOrCreateRequestId } from "@/lib/http";
 
 export const dynamic = "force-dynamic";
 
@@ -35,10 +36,17 @@ export async function GET(
     const { id } = await params;
     const { ctx, workspaceId } = await requireWorkspaceContext(request, id, "viewer");
 
-    const [navigation, installations, packInstallations] = await Promise.all([
+    const [navigation, installations, packInstallations, accessSummary] = await Promise.all([
       getNavigation(workspaceId),
       getInstallations(workspaceId),
       getInstalledPacks(workspaceId),
+      ctx.principal
+        ? getVisibilitySummary(workspaceId, {
+            userId: ctx.principal.userId,
+            role: ctx.workspaceRole,
+            organizationRole: ctx.organizationRole,
+          })
+        : Promise.resolve(null),
     ]);
 
     // Build module → pack map from module-level installations
@@ -89,8 +97,16 @@ export async function GET(
       }
     }
 
-    const response: NavigationResponse = { items: navigation, packs, modulePackMap, modulePresentation };
-    return successResponse(response, 200, ctx.requestId, METADATA_CACHE);
+    const audienceKeys = new Set(accessSummary?.permissionGroups.map((group) => group.groupKey) ?? []);
+    const visibleNavigation = ctx.workspaceRole === "admin"
+      ? navigation
+      : navigation.filter((item) => {
+          const audience = item.moduleId ? modulePresentation[item.moduleId]?.audience : undefined;
+          return !audience?.length || audience.some((groupKey) => audienceKeys.has(groupKey));
+        });
+    const response: NavigationResponse = { items: visibleNavigation, packs, modulePackMap, modulePresentation };
+    // Navigation is identity-specific: do not let a previous persona's menu survive a switch.
+    return successResponse(response, 200, ctx.requestId, "no-store");
   } catch (e) {
     return handleError(e, requestId);
   }

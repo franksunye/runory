@@ -544,6 +544,12 @@ export interface GetRecordsOptions {
   visibilityScope?: VisibilityScope;
 }
 
+export interface GetRecordOptions {
+  includeDeleted?: boolean;
+  /** Apply the exact same object- and row-level policy used by getRecords. */
+  visibilityScope?: VisibilityScope;
+}
+
 const SEARCHABLE_FIELD_TYPES = new Set(["text", "email", "phone"]);
 
 export async function getRecords(
@@ -821,7 +827,7 @@ export async function getRecord(
   workspaceId: string,
   objectKey: string,
   recordId: string,
-  options?: { includeDeleted?: boolean }
+  options?: GetRecordOptions
 ): Promise<Record<string, unknown> | undefined> {
   const tableName = businessTable(objectKey);
   const fields = await getFields(workspaceId, objectKey);
@@ -832,14 +838,22 @@ export async function getRecord(
   if (softDelete.deletedBy) columnNames.push("deleted_by");
   const columns = columnNames.join(", ");
 
-  const whereClauses = ["workspace_id = ?", "id = ?"];
+  const whereClauses = ["t.workspace_id = ?", "t.id = ?"];
   const whereArgs: unknown[] = [workspaceId, recordId];
+  if (options?.visibilityScope) {
+    const visibility = await resolveRecordVisibility(workspaceId, objectKey, options.visibilityScope);
+    if (!visibility.canRead) return undefined;
+    if (visibility.rowFilterSql) {
+      whereClauses.push(visibility.rowFilterSql);
+      whereArgs.push(...visibility.rowFilterArgs);
+    }
+  }
   if (!options?.includeDeleted && softDelete.deletedAt) {
-    whereClauses.push("deleted_at IS NULL");
+    whereClauses.push("t.deleted_at IS NULL");
   }
 
   const row = await queryOne<Record<string, unknown>>(
-    `SELECT ${columns} FROM ${tableName} WHERE ${whereClauses.join(" AND ")}`,
+    `SELECT ${columns} FROM ${tableName} AS t WHERE ${whereClauses.join(" AND ")}`,
     whereArgs
   );
   if (!row) return undefined;

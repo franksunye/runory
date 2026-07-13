@@ -39,6 +39,15 @@ export async function POST(request: NextRequest) {
     }, 200, requestId);
 
     response.cookies.set(SESSION_COOKIE_NAME, result.sessionToken, sessionCookieOptions());
+    // Completing a real OTP login exits local demo impersonation. Without
+    // clearing this cookie, an explicitly selected demo persona would continue
+    // to override the newly created real session in development.
+    response.cookies.set("dev-persona", "", {
+      path: "/",
+      httpOnly: true,
+      sameSite: "lax",
+      maxAge: 0,
+    });
 
     return response;
   } catch (e) {

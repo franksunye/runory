@@ -31,7 +31,13 @@ export default function WorkspaceLayout({
   const [modulePackMap, setModulePackMap] = useState<Record<string, string>>({});
   const [modulePresentation, setModulePresentation] = useState<Record<string, { visibility: string; surface?: string; audience?: string[] }>>({});
   const [workspaceName, setWorkspaceName] = useState("");
-  const [organizationRole, setOrganizationRole] = useState<string | undefined>(undefined);
+  const [workspaceRole, setWorkspaceRole] = useState<string | undefined>(undefined);
+  const [currentUser, setCurrentUser] = useState<{
+    userId: string;
+    displayName: string;
+    email: string | null;
+    authMethod: string;
+  } | undefined>(undefined);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | undefined>(undefined);
 
@@ -46,7 +52,8 @@ export default function WorkspaceLayout({
       const navJson = await navRes.json();
       if (wsJson.success) {
         setWorkspaceName(wsJson.data.name);
-        setOrganizationRole(wsJson.data.organizationRole ?? undefined);
+        setWorkspaceRole(wsJson.data.workspaceRole ?? wsJson.data.organizationRole ?? undefined);
+        setCurrentUser(wsJson.data.currentUser ?? undefined);
         if (workspaceRef !== wsJson.data.slug) {
           const prefix = `/w/${workspaceRef}`;
           router.replace(`/w/${wsJson.data.slug}${pathname.slice(prefix.length)}`);
@@ -107,7 +114,8 @@ export default function WorkspaceLayout({
       modulePresentation={modulePresentation}
       workspaceId={workspaceRef}
       workspaceName={workspaceName}
-      role={organizationRole}
+      role={workspaceRole}
+      currentUser={currentUser}
     >
       <EarlyAccessBanner />
       {children}

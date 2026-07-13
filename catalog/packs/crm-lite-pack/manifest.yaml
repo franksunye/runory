@@ -73,6 +73,10 @@ permissionGroups:
   - key: sales_admin
     label: "Sales Admin"
     description: "Full permissions to manage companies, contacts, deals, and tasks"
+    businessRole:
+      key: sales_manager
+      label: "Sales Manager"
+      description: "Leads the commercial team across CRM, quotes, and approvals"
     permissions:
       - company.read
       - company.create
@@ -93,6 +97,10 @@ permissionGroups:
   - key: sales_agent
     label: "Sales Agent"
     description: "Can view and create companies, contacts, and deals; manage own tasks"
+    businessRole:
+      key: sales_representative
+      label: "Sales Representative"
+      description: "Manages customers, opportunities, and commercial proposals"
     permissions:
       - company.read
       - company.create
@@ -109,6 +117,10 @@ permissionGroups:
   - key: sales_viewer
     label: "Sales Viewer"
     description: "View CRM data only; no editing"
+    businessRole:
+      key: sales_viewer
+      label: "Sales Viewer"
+      description: "Can inspect commercial records without changing them"
     permissions:
       - company.read
       - contact.read

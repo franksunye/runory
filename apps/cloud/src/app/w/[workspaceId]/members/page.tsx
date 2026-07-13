@@ -2,589 +2,73 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import {
-  CheckCircle2,
-  Clock,
-  Mail,
-  RefreshCw,
-  ShieldCheck,
-  Trash2,
-  UserMinus,
-  UserPlus,
-  Users,
-  X,
-  KeyRound,
-} from "lucide-react";
+import { KeyRound, Mail, RefreshCw, ShieldCheck, Users } from "lucide-react";
+import PeopleAccessPanel from "@/components/access/PeopleAccessPanel";
+import RoleCatalogPanel from "@/components/access/RoleCatalogPanel";
+import InvitationAccessPanel from "@/components/access/InvitationAccessPanel";
+import type { AccessDirectory, AccessInvitation } from "@/components/access/access-types";
+import { apiFetch } from "@/lib/api-fetch";
 import { useI18n } from "@/i18n/locale-provider";
-import type { MessageKey } from "@/i18n/messages";
-import { apiFetch, apiPost, apiPatch, apiDelete } from "@/lib/api-fetch";
 
-type OrgRole = "owner" | "admin" | "member";
-
-interface OrgMember {
-  userId: string;
-  email: string | null;
-  displayName: string;
-  role: OrgRole;
-  membershipId: string;
-  joinedAt: string;
-}
-
-interface Invitation {
-  id: string;
-  email: string;
-  role: OrgRole;
-  status: "pending" | "accepted" | "revoked" | "expired";
-  expiresAt: string;
-  invitedBy: string;
-}
-
-const ROLE_LABEL_KEYS: Record<OrgRole, MessageKey> = {
-  owner: "members.role.owner",
-  admin: "members.role.admin",
-  member: "members.role.member",
-};
-
-const ROLE_BADGE_CLASS: Record<OrgRole, string> = {
-  owner: "bg-indigo-50 text-indigo-700",
-  admin: "bg-blue-50 text-blue-700",
-  member: "bg-slate-100 text-slate-600",
-};
-
-function formatDate(iso: string): string {
-  if (!iso) return "—";
-  try {
-    return new Date(iso).toLocaleString("zh-CN");
-  } catch {
-    return iso;
-  }
-}
-
-// v0.3.6 — Pack permission groups
-interface PermissionGroup {
-  id: string;
-  packId: string;
-  groupKey: string;
-  label: string;
-  description: string | null;
-  permissions: string[];
-}
-
-interface GroupAssignment {
-  id: string;
-  groupId: string;
-  userId: string;
-  assignedAt: string;
-}
+type TabKey = "people" | "roles" | "invitations";
 
 export default function MembersPage() {
   const params = useParams();
-  const workspaceId = params.workspaceId as string;
-  const { t } = useI18n();
-
-  const [orgId, setOrgId] = useState<string | null>(null);
-  const [currentRole, setCurrentRole] = useState<OrgRole | null>(null);
-  const [members, setMembers] = useState<OrgMember[]>([]);
-  const [invitations, setInvitations] = useState<Invitation[]>([]);
+  const workspaceRef = params.workspaceId as string;
+  const { locale } = useI18n();
+  const zh = locale === "zh";
+  const [directory, setDirectory] = useState<AccessDirectory | null>(null);
+  const [invitations, setInvitations] = useState<AccessInvitation[]>([]);
+  const [activeTab, setActiveTab] = useState<TabKey>("people");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
 
-  // Invite form state
-  const [inviteEmail, setInviteEmail] = useState("");
-  const [inviteRole, setInviteRole] = useState<"member" | "admin">("member");
-  const [inviting, setInviting] = useState(false);
-
-  // Action tracking
-  const [revokingId, setRevokingId] = useState<string | null>(null);
-  const [removingUserId, setRemovingUserId] = useState<string | null>(null);
-  const [changingRoleUserId, setChangingRoleUserId] = useState<string | null>(null);
-
-  // Confirmation state
-  const [confirmRemove, setConfirmRemove] = useState<OrgMember | null>(null);
-
-  // v0.3.6 — Pack permission groups state
-  const [permGroups, setPermGroups] = useState<PermissionGroup[]>([]);
-  const [groupAssignments, setGroupAssignments] = useState<Record<string, GroupAssignment[]>>({});
-  const [loadingGroups, setLoadingGroups] = useState(false);
-  const [assigningGroupId, setAssigningGroupId] = useState<string | null>(null);
-
-  const canManage = currentRole === "owner" || currentRole === "admin";
-
-  const loadData = useCallback(async () => {
+  const load = useCallback(async () => {
     setError(null);
     try {
-      const wsJson = await apiFetch<{
-        success: boolean;
-        error?: { message: string };
-        data: { organizationId: string; organizationRole?: OrgRole };
-      }>(`/api/workspaces/${workspaceId}`);
-      if (!wsJson.success || !wsJson.data.organizationId) {
-        throw new Error(wsJson.error?.message ?? t("members.orgInfoFailed"));
-      }
-      const organizationId = wsJson.data.organizationId as string;
-      setOrgId(organizationId);
-      setCurrentRole((wsJson.data.organizationRole as OrgRole) ?? "member");
-
-      const [membersJson, invitationsJson, groupsJson] = await Promise.all([
-        apiFetch<{ success: boolean; data?: OrgMember[] }>(`/api/organizations/${organizationId}/members`),
-        apiFetch<{ success: boolean; data?: Invitation[] }>(`/api/organizations/${organizationId}/invitations`),
-        apiFetch<{ success: boolean; data?: PermissionGroup[] }>(`/api/workspaces/${workspaceId}/permission-groups`),
-      ]);
-      if (membersJson.success) setMembers(membersJson.data as OrgMember[]);
-      if (invitationsJson.success) setInvitations(invitationsJson.data as Invitation[]);
-      if (groupsJson.success) {
-        const groups = groupsJson.data as PermissionGroup[];
-        setPermGroups(groups);
-        // Load assignments for each group
-        const assignmentMap: Record<string, GroupAssignment[]> = {};
-        await Promise.all(
-          groups.map(async (g: PermissionGroup) => {
-            const aJson = await apiFetch<{ success: boolean; data?: GroupAssignment[] }>(
-              `/api/workspaces/${workspaceId}/permission-groups/${g.id}/assignments`
-            );
-            if (aJson.success) assignmentMap[g.id] = aJson.data as GroupAssignment[];
-          })
-        );
-        setGroupAssignments(assignmentMap);
-      }
-    } catch (e) {
-      setError(e instanceof Error ? e.message : t("workspace.loadFailed"));
+      const access = await apiFetch<{ success: boolean; data?: AccessDirectory; error?: { message?: string } }>(
+        `/api/workspaces/${workspaceRef}/access/members`,
+        { cache: "no-store" }
+      );
+      if (!access.success || !access.data) throw new Error(access.error?.message ?? "Unable to load access directory");
+      setDirectory(access.data);
+      const invitationResult = await apiFetch<{ success: boolean; data?: AccessInvitation[] }>(
+        `/api/organizations/${access.data.organizationId}/invitations`,
+        { cache: "no-store" }
+      );
+      setInvitations(invitationResult.success ? invitationResult.data ?? [] : []);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Unable to load access directory");
     } finally {
       setLoading(false);
     }
-  }, [workspaceId]);
+  }, [workspaceRef]);
 
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
+  useEffect(() => { void load(); }, [load]);
 
-  const handleInvite = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!orgId) return;
-    setInviting(true);
-    setError(null);
-    setMessage(null);
-    try {
-      const json = await apiPost<{ success: boolean; error?: { message: string } }>(
-        `/api/organizations/${orgId}/invitations`,
-        { email: inviteEmail, organizationRole: inviteRole }
-      );
-      if (json.success) {
-        setMessage(t("members.inviteSent", { email: inviteEmail }));
-        setInviteEmail("");
-        setInviteRole("member");
-        await loadData();
-      } else {
-        setError(json.error?.message ?? t("members.inviteFailed"));
-      }
-    } catch (e) {
-      setError(e instanceof Error ? e.message : t("members.inviteFailed"));
-    } finally {
-      setInviting(false);
-    }
-  };
+  if (loading) return <div className="space-y-4"><div className="app-skeleton h-8 w-64" /><div className="app-skeleton h-72 w-full" /></div>;
+  if (error || !directory) return <div className="app-card p-8 text-center"><ShieldCheck size={32} className="mx-auto text-slate-300" /><p className="mt-3 text-sm text-red-600">{error ?? (zh ? "无法加载人员与访问" : "Unable to load people and access")}</p></div>;
 
-  const handleRevokeInvitation = async (invId: string) => {
-    if (!orgId) return;
-    setRevokingId(invId);
-    setError(null);
-    try {
-      const json = await apiPost<{ success: boolean; error?: { message: string } }>(
-        `/api/organizations/${orgId}/invitations/${invId}/revoke`
-      );
-      if (json.success) {
-        setMessage(t("members.inviteRevoked"));
-        await loadData();
-      } else {
-        setError(json.error?.message ?? t("members.revokeFailed"));
-      }
-    } catch (e) {
-      setError(e instanceof Error ? e.message : t("members.revokeFailed"));
-    } finally {
-      setRevokingId(null);
-    }
-  };
-
-  const handleRemoveMember = async (userId: string) => {
-    if (!orgId) return;
-    setRemovingUserId(userId);
-    setError(null);
-    try {
-      const json = await apiDelete<{ success: boolean; error?: { message: string } }>(
-        `/api/organizations/${orgId}/members/${userId}`
-      );
-      if (json.success) {
-        setMessage(t("members.memberRemoved"));
-        setConfirmRemove(null);
-        await loadData();
-      } else {
-        setError(json.error?.message ?? t("members.removeFailed"));
-      }
-    } catch (e) {
-      setError(e instanceof Error ? e.message : t("members.removeFailed"));
-    } finally {
-      setRemovingUserId(null);
-    }
-  };
-
-  const handleChangeRole = async (userId: string, newRole: "member" | "admin") => {
-    if (!orgId) return;
-    setChangingRoleUserId(userId);
-    setError(null);
-    try {
-      const json = await apiPatch<{ success: boolean; error?: { message: string } }>(
-        `/api/organizations/${orgId}/members/${userId}`,
-        { role: newRole }
-      );
-      if (json.success) {
-        setMessage(t("members.roleUpdated"));
-        await loadData();
-      } else {
-        setError(json.error?.message ?? t("members.updateRoleFailed"));
-      }
-    } catch (e) {
-      setError(e instanceof Error ? e.message : t("members.updateRoleFailed"));
-    } finally {
-      setChangingRoleUserId(null);
-    }
-  };
-
-  // v0.3.6 — Pack permission group assignment handlers
-  const handleAssignGroup = async (groupId: string, userId: string) => {
-    setAssigningGroupId(groupId);
-    setError(null);
-    try {
-      const json = await apiPost<{ success: boolean; error?: { message: string } }>(
-        `/api/workspaces/${workspaceId}/permission-groups/${groupId}/assignments`,
-        { userId }
-      );
-      if (json.success) {
-        await loadData();
-      } else {
-        setError(json.error?.message ?? t("members.assignGroupFailed"));
-      }
-    } catch (e) {
-      setError(e instanceof Error ? e.message : t("members.assignGroupFailed"));
-    } finally {
-      setAssigningGroupId(null);
-    }
-  };
-
-  const handleRemoveGroupAssignment = async (groupId: string, userId: string) => {
-    setAssigningGroupId(groupId);
-    setError(null);
-    try {
-      const json = await apiDelete<{ success: boolean; error?: { message: string } }>(
-        `/api/workspaces/${workspaceId}/permission-groups/${groupId}/assignments?userId=${userId}`
-      );
-      if (json.success) {
-        await loadData();
-      } else {
-        setError(json.error?.message ?? t("members.removeGroupFailed"));
-      }
-    } catch (e) {
-      setError(e instanceof Error ? e.message : t("members.removeGroupFailed"));
-    } finally {
-      setAssigningGroupId(null);
-    }
-  };
-
-  if (loading) {
-    return <p className="text-sm text-slate-400">{t("workspace.loading")}</p>;
-  }
-
-  if (!canManage) {
-    return (
-      <div className="space-y-6">
-        <header>
-          <p className="app-eyebrow">Members</p>
-          <h1 className="mt-2 text-2xl font-bold tracking-tight text-slate-950">{t("members.title")}</h1>
-        </header>
-        <div className="app-card p-8 text-center">
-          <ShieldCheck size={32} className="mx-auto text-slate-300" />
-          <p className="mt-3 text-sm text-slate-500">
-            {t("members.noPermission")}
-          </p>
-        </div>
-      </div>
-    );
-  }
+  const tabs: Array<{ key: TabKey; label: string; icon: typeof Users; count: number }> = [
+    { key: "people", label: zh ? "人员" : "People", icon: Users, count: directory.members.length },
+    { key: "roles", label: zh ? "业务角色" : "Business roles", icon: KeyRound, count: directory.roles.length },
+    { key: "invitations", label: zh ? "邀请" : "Invitations", icon: Mail, count: invitations.filter((item) => item.status === "pending").length },
+  ];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 page-enter">
       <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <p className="app-eyebrow">Members</p>
-          <h1 className="mt-2 text-2xl font-bold tracking-tight text-slate-950">{t("members.title")}</h1>
-          <p className="mt-1 text-sm text-slate-500">
-            {t("members.subtitle")}
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={() => { setLoading(true); void loadData(); }}
-          className="app-button-secondary self-start"
-        >
-          <RefreshCw size={16} />{t("workspace.refresh")}
-        </button>
+        <div><p className="app-eyebrow">{zh ? "身份与访问" : "Identity & access"}</p><h1 className="mt-2 text-3xl font-bold tracking-[-.025em] text-slate-950">{zh ? "人员与访问" : "People & access"}</h1><p className="mt-2 text-sm text-slate-500">{zh ? "管理谁可以进入工作区、负责什么业务，以及可以访问哪些数据。" : "Manage who can enter, what they can do, and which data they can access."}</p></div>
+        <button type="button" onClick={() => { setLoading(true); void load(); }} className="app-button-secondary self-start"><RefreshCw size={16} />{zh ? "刷新" : "Refresh"}</button>
       </header>
 
-      {error && <div role="alert" className="app-error">{error}</div>}
-      {message && (
-        <div role="status" className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
-          {message}
-        </div>
-      )}
+      <nav className="flex gap-1 overflow-x-auto rounded-xl border border-slate-200 bg-white p-1" aria-label={zh ? "人员与访问导航" : "People and access navigation"}>
+        {tabs.map((tab) => { const Icon = tab.icon; const active = activeTab === tab.key; return <button key={tab.key} type="button" onClick={() => setActiveTab(tab.key)} className={`inline-flex min-w-fit items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition ${active ? "bg-slate-950 text-white shadow-sm" : "text-slate-600 hover:bg-slate-50"}`} aria-current={active ? "page" : undefined}><Icon size={16} />{tab.label}<span className={`rounded-full px-1.5 py-0.5 text-[10px] ${active ? "bg-white/15 text-white" : "bg-slate-100 text-slate-500"}`}>{tab.count}</span></button>; })}
+      </nav>
 
-      {/* Invite form */}
-      <section className="app-card p-5 sm:p-6">
-        <div className="mb-4 flex items-center gap-2">
-          <UserPlus size={18} className="text-indigo-600" />
-          <h2 className="text-sm font-bold text-slate-900">{t("members.inviteNew")}</h2>
-        </div>
-        <form onSubmit={handleInvite} className="flex flex-col gap-3 sm:flex-row sm:items-end">
-          <div className="flex-1">
-            <label className="mb-1 block text-xs font-semibold text-slate-600">{t("members.emailLabel")}</label>
-            <input
-              type="email"
-              required
-              value={inviteEmail}
-              onChange={(e) => setInviteEmail(e.target.value)}
-              placeholder="name@company.com"
-              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
-            />
-          </div>
-          <div>
-            <label className="mb-1 block text-xs font-semibold text-slate-600">{t("members.roleLabel")}</label>
-            <select
-              value={inviteRole}
-              onChange={(e) => setInviteRole(e.target.value as "member" | "admin")}
-              className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
-            >
-              <option value="member">{t("members.role.member")}</option>
-              <option value="admin">{t("members.role.admin")}</option>
-            </select>
-          </div>
-          <button
-            type="submit"
-            disabled={inviting}
-            className="app-button-primary"
-          >
-            {inviting ? t("members.sending") : t("members.sendInvite")}
-          </button>
-        </form>
-      </section>
-
-      {/* Pending invitations */}
-      <section className="app-card p-5 sm:p-6">
-        <div className="mb-4 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Clock size={18} className="text-amber-500" />
-            <h2 className="text-sm font-bold text-slate-900">{t("members.pendingInvites")}</h2>
-            <span className="app-badge bg-amber-50 text-amber-700">{invitations.length}</span>
-          </div>
-        </div>
-        {invitations.length === 0 ? (
-          <p className="py-4 text-center text-sm text-slate-400">{t("members.noPending")}</p>
-        ) : (
-          <ul className="divide-y divide-slate-100">
-            {invitations.map((inv) => (
-              <li key={inv.id} className="flex flex-col gap-3 py-3 sm:flex-row sm:items-center sm:justify-between">
-                <div className="flex items-center gap-3">
-                  <span className="grid size-9 place-items-center rounded-lg bg-amber-50 text-amber-600">
-                    <Mail size={16} />
-                  </span>
-                  <div>
-                    <p className="text-sm font-semibold text-slate-800">{inv.email}</p>
-                    <p className="text-xs text-slate-500">
-                      {t("members.invitationMeta", { role: t(ROLE_LABEL_KEYS[inv.role]), status: inv.status, expires: formatDate(inv.expiresAt) })}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  {inv.status === "pending" && (
-                    <button
-                      type="button"
-                      onClick={() => handleRevokeInvitation(inv.id)}
-                      disabled={revokingId === inv.id}
-                      className="inline-flex items-center gap-1 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-50"
-                    >
-                      <X size={14} />
-                      {revokingId === inv.id ? t("members.revoking") : t("members.revokeInvite")}
-                    </button>
-                  )}
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-
-      {/* Members list */}
-      <section className="app-card p-5 sm:p-6">
-        <div className="mb-4 flex items-center gap-2">
-          <Users size={18} className="text-indigo-600" />
-          <h2 className="text-sm font-bold text-slate-900">{t("members.memberList")}</h2>
-          <span className="app-badge bg-slate-100 text-slate-600">{members.length}</span>
-        </div>
-        {members.length === 0 ? (
-          <p className="py-4 text-center text-sm text-slate-400">{t("members.noMembers")}</p>
-        ) : (
-          <ul className="divide-y divide-slate-100">
-            {members.map((m) => {
-              const isOwner = m.role === "owner";
-              return (
-                <li key={m.userId} className="flex flex-col gap-3 py-3 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="flex items-center gap-3">
-                    <span className="grid size-9 place-items-center rounded-full bg-indigo-50 text-sm font-bold text-indigo-700">
-                      {(m.displayName || m.email || "?").slice(0, 1).toUpperCase()}
-                    </span>
-                    <div>
-                      <p className="text-sm font-semibold text-slate-800">
-                        {m.displayName}
-                        {m.email && <span className="ml-2 text-xs font-normal text-slate-400">{m.email}</span>}
-                      </p>
-                      <p className="text-xs text-slate-500">{t("members.joinedAt", { time: formatDate(m.joinedAt) })}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {isOwner ? (
-                      <span className={`app-badge ${ROLE_BADGE_CLASS[m.role]}`}>
-                        <ShieldCheck size={14} />{t(ROLE_LABEL_KEYS[m.role])}
-                      </span>
-                    ) : (
-                      <select
-                        value={m.role}
-                        onChange={(e) => handleChangeRole(m.userId, e.target.value as "member" | "admin")}
-                        disabled={changingRoleUserId === m.userId}
-                        className="rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 disabled:opacity-50"
-                      >
-                        <option value="member">{t("members.role.member")}</option>
-                        <option value="admin">{t("members.role.admin")}</option>
-                      </select>
-                    )}
-                    {!isOwner && (
-                      <button
-                        type="button"
-                        onClick={() => setConfirmRemove(m)}
-                        disabled={removingUserId === m.userId}
-                        className="inline-flex items-center gap-1 rounded-md border border-red-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50 disabled:opacity-50"
-                      >
-                        <UserMinus size={14} />
-                        {removingUserId === m.userId ? t("members.removing") : t("members.remove")}
-                      </button>
-                    )}
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </section>
-
-      {/* Pack permission groups (v0.3.6) */}
-      {permGroups.length > 0 && (
-        <section className="app-card p-5 sm:p-6">
-          <div className="mb-4 flex items-center gap-2">
-            <KeyRound size={18} className="text-indigo-600" />
-            <h2 className="text-sm font-bold text-slate-900">{t("members.permGroups")}</h2>
-            <span className="app-badge bg-slate-100 text-slate-600">{permGroups.length}</span>
-          </div>
-          <p className="mb-4 text-xs text-slate-500">
-            {t("members.permGroupsHint")}
-          </p>
-          <div className="space-y-4">
-            {permGroups.map((group) => {
-              const assignments = groupAssignments[group.id] ?? [];
-              const assignedUserIds = new Set(assignments.map(a => a.userId));
-              return (
-                <div key={group.id} className="rounded-lg border border-slate-200 p-4">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <p className="text-sm font-bold text-slate-800">{group.label}</p>
-                      <p className="mt-0.5 text-xs text-slate-500">
-                        {group.description ?? group.groupKey} · {group.packId}
-                      </p>
-                      <div className="mt-1.5 flex flex-wrap gap-1">
-                        {group.permissions.slice(0, 5).map((p) => (
-                          <span key={p} className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-mono text-slate-600">{p}</span>
-                        ))}
-                        {group.permissions.length > 5 && (
-                          <span className="text-[10px] text-slate-400">+{group.permissions.length - 5} more</span>
-                        )}
-                      </div>
-                    </div>
-                    <span className="app-badge bg-indigo-50 text-indigo-700">{t("members.assigneesCount", { count: assignments.length })}</span>
-                  </div>
-                  <div className="mt-3 border-t border-slate-100 pt-3">
-                    <p className="mb-2 text-xs font-semibold text-slate-600">{t("members.assignMembers")}</p>
-                    <div className="flex flex-wrap gap-1.5">
-                      {members.map((m) => {
-                        const isAssigned = assignedUserIds.has(m.userId);
-                        return (
-                          <button
-                            key={m.userId}
-                            type="button"
-                            onClick={() =>
-                              isAssigned
-                                ? handleRemoveGroupAssignment(group.id, m.userId)
-                                : handleAssignGroup(group.id, m.userId)
-                            }
-                            disabled={assigningGroupId === group.id}
-                            className={`rounded-full px-2.5 py-1 text-xs font-medium transition disabled:opacity-50 ${
-                              isAssigned
-                                ? "bg-indigo-100 text-indigo-700 hover:bg-indigo-200"
-                                : "bg-slate-50 text-slate-500 hover:bg-slate-100"
-                            }`}
-                          >
-                            {m.displayName}{isAssigned && " ✓"}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </section>
-      )}
-
-      {/* Remove confirmation modal */}
-      {confirmRemove && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4">
-          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
-            <div className="flex items-center gap-3">
-              <span className="grid size-10 place-items-center rounded-full bg-red-50 text-red-600">
-                <Trash2 size={20} />
-              </span>
-              <h3 className="text-base font-bold text-slate-900">{t("members.removeMember")}</h3>
-            </div>
-            <p className="mt-3 text-sm text-slate-600">
-              {t("members.removeConfirmPrefix")}<span className="font-semibold text-slate-800">{confirmRemove.displayName}</span>{t("members.removeConfirmSuffix")}
-            </p>
-            <div className="mt-5 flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setConfirmRemove(null)}
-                className="app-button-secondary"
-              >
-                {t("workspace.cancel")}
-              </button>
-              <button
-                type="button"
-                onClick={() => handleRemoveMember(confirmRemove.userId)}
-                disabled={removingUserId === confirmRemove.userId}
-                className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-red-600 px-4 text-sm font-semibold text-white transition hover:bg-red-700 disabled:opacity-60"
-              >
-                <CheckCircle2 size={16} />
-                {removingUserId === confirmRemove.userId ? t("members.removing") : t("members.confirmRemove")}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {activeTab === "people" && <PeopleAccessPanel directory={directory} workspaceRef={workspaceRef} locale={locale} />}
+      {activeTab === "roles" && <RoleCatalogPanel directory={directory} locale={locale} />}
+      {activeTab === "invitations" && <InvitationAccessPanel directory={directory} invitations={invitations} locale={locale} onChanged={load} />}
     </div>
   );
 }

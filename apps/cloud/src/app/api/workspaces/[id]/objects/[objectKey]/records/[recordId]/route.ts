@@ -9,11 +9,19 @@ import {
   isManagedField,
   getManagedFieldCommand,
   ERROR_CODES,
+  type VisibilityScope,
 } from "@runory/platform-core";
 import { requireWorkspaceContext } from "@/lib/auth";
 import { successResponse, handleError, notFound, errorResponse, getOrCreateRequestId } from "@/lib/http";
+import { enrichUserReferences, listUserReferenceFieldKeys } from "@/lib/identity";
 
 export const dynamic = "force-dynamic";
+
+function visibilityScopeFor(ctx: { principal: { userId: string } | null; workspaceRole: string | null; organizationRole: string | null }): VisibilityScope | undefined {
+  return ctx.principal
+    ? { userId: ctx.principal.userId, role: ctx.workspaceRole, organizationRole: ctx.organizationRole }
+    : undefined;
+}
 
 export async function GET(
   request: NextRequest,
@@ -25,11 +33,16 @@ export async function GET(
     const { ctx, workspaceId } = await requireWorkspaceContext(request, id);
     const url = new URL(request.url);
     const includeDeleted = url.searchParams.get("includeDeleted") === "true";
-    const record = await getRecord(workspaceId, objectKey, recordId, { includeDeleted });
+    const record = await getRecord(workspaceId, objectKey, recordId, {
+      includeDeleted,
+      visibilityScope: visibilityScopeFor(ctx),
+    });
     if (!record) {
       return notFound(`Record ${recordId} not found`, ctx.requestId);
     }
-    return successResponse(record, 200, ctx.requestId);
+    const userFieldKeys = await listUserReferenceFieldKeys(workspaceId, objectKey);
+    const [enrichedRecord] = await enrichUserReferences([record], userFieldKeys);
+    return successResponse(enrichedRecord, 200, ctx.requestId);
   } catch (e) {
     return handleError(e, requestId);
   }
@@ -74,7 +87,8 @@ export async function PUT(
       );
     }
 
-    const before = await getRecord(workspaceId, objectKey, recordId);
+    const before = await getRecord(workspaceId, objectKey, recordId, { visibilityScope: visibilityScopeFor(ctx) });
+    if (!before) return notFound(`Record ${recordId} not found`, ctx.requestId);
     const record = await updateRecord(workspaceId, objectKey, recordId, data);
     if (!record) {
       return notFound(`Record ${recordId} not found`, ctx.requestId);
@@ -108,7 +122,11 @@ export async function DELETE(
     const { ctx, workspaceId } = await requireWorkspaceContext(request, id, "member");
     const url = new URL(request.url);
     const hard = url.searchParams.get("hard") === "true";
-    const before = await getRecord(workspaceId, objectKey, recordId, { includeDeleted: true });
+    const before = await getRecord(workspaceId, objectKey, recordId, {
+      includeDeleted: true,
+      visibilityScope: visibilityScopeFor(ctx),
+    });
+    if (!before) return notFound(`Record ${recordId} not found`, ctx.requestId);
     const deleted = await deleteRecord(workspaceId, objectKey, recordId, {
       hard,
       deletedBy: ctx.principal?.userId ?? "unknown",
@@ -148,6 +166,11 @@ export async function PATCH(
 
     // ── Restore action ──
     if (body.action === "restore") {
+      const before = await getRecord(workspaceId, objectKey, recordId, {
+        includeDeleted: true,
+        visibilityScope: visibilityScopeFor(ctx),
+      });
+      if (!before) return notFound(`Record ${recordId} not found`, ctx.requestId);
       const restored = await restoreRecord(workspaceId, objectKey, recordId);
       if (!restored) {
         return notFound(`Record ${recordId} not found or not deleted`, ctx.requestId);
@@ -159,7 +182,7 @@ export async function PATCH(
         action: "record.update",
         entityType: objectKey,
         entityId: recordId,
-        before: { deleted: true },
+        before,
         after: { restored: true },
         requestId: ctx.requestId,
       }).catch((err) => {
@@ -181,7 +204,7 @@ export async function PATCH(
           ctx.requestId
         );
       }
-      const before = await getRecord(workspaceId, objectKey, recordId);
+      const before = await getRecord(workspaceId, objectKey, recordId, { visibilityScope: visibilityScopeFor(ctx) });
       if (!before) return notFound(`Record ${recordId} not found`, ctx.requestId);
       const updateData: Record<string, unknown> = { status: "published" };
       // Auto-set published_at if the object has a published_at field and it's empty
@@ -217,7 +240,7 @@ export async function PATCH(
           ctx.requestId
         );
       }
-      const before = await getRecord(workspaceId, objectKey, recordId);
+      const before = await getRecord(workspaceId, objectKey, recordId, { visibilityScope: visibilityScopeFor(ctx) });
       if (!before) return notFound(`Record ${recordId} not found`, ctx.requestId);
       const record = await updateRecord(workspaceId, objectKey, recordId, { status: "unpublished" });
       writeAuditEvent({

@@ -141,6 +141,16 @@ const DISPLAY_FIELD_CANDIDATES = [
   "label",
 ];
 
+// Browser-safe presentation metadata. The platform-core guard remains the
+// authority that enforces these constraints on the server. Keep this aligned
+// with packages/platform-core/src/governed-fields.ts so forms don't offer an
+// edit that the command model must reject.
+const GOVERNED_FIELD_KEYS: Record<string, string[]> = {
+  quote: ["status", "aggregate_version", "subtotal", "discount_total", "tax_total", "grand_total", "approved_at", "accepted_at", "rejected_reason", "withdrawn_at", "snapshot_hash", "locked_at", "root_quote_id", "previous_version_id", "revision_number", "price_book_id", "currency"],
+  work_order: ["status", "aggregate_version", "source_type", "source_id", "source_snapshot_hash", "owner_resource_id", "completed_at", "cancelled_at", "reopened_at", "completion_reason", "cancellation_reason", "reopen_reason"],
+  service_visit: ["status", "aggregate_version", "assignment_id", "schedule_entry_id", "outcome", "actual_start", "actual_end"],
+};
+
 function getDisplayField(fields: FieldDefinition[], preferred?: string): string {
   if (preferred && fields.some((field) => field.fieldKey === preferred)) return preferred;
   return DISPLAY_FIELD_CANDIDATES.find((candidate) =>
@@ -375,6 +385,15 @@ export default function ObjectDetailPage({
   const label = singularLabel ?? title;
   const fieldMap = useMemo(() => new Map(fields.map((f) => [f.fieldKey, f])), [fields]);
   const viewSections = (viewConfig?.sections as Array<{ title: string; fields: Array<{ field: string; required?: boolean }> }> | undefined) ?? [];
+  const readOnlyFields = useMemo(
+    () => Object.fromEntries(
+      (GOVERNED_FIELD_KEYS[objectKey] ?? []).map((fieldKey) => [
+        fieldKey,
+        "Managed by lifecycle actions. Use the record's business actions to change this value.",
+      ])
+    ),
+    [objectKey]
+  );
 
   // Derive parentLinks and related from relation metadata (v0.3.2).
   // Manual props take precedence; metadata fills in the rest.
@@ -541,6 +560,7 @@ export default function ObjectDetailPage({
 
   const renderFieldRow = (field: FieldDefinition) => {
     const value = record[field.fieldKey];
+    const resolvedDisplayValue = record[`${field.fieldKey}_display`];
     const isExtension = field.ownership === "workspace_extension";
     const isDateType = field.type === "date" || field.type === "datetime";
     let displayValue: React.ReactNode;
@@ -548,6 +568,8 @@ export default function ObjectDetailPage({
       displayValue = value ? t("workspace.yes") : t("workspace.no");
     } else if (value === null || value === undefined || value === "") {
       displayValue = "—";
+    } else if (field.type === "user" && resolvedDisplayValue) {
+      displayValue = String(resolvedDisplayValue);
     } else if (isDateType) {
       try {
         const date = new Date(String(value));
@@ -637,6 +659,7 @@ export default function ObjectDetailPage({
           onCancel={() => setEditing(false)}
           submitLabel={submitting ? t("workspace.saving") : t("workspace.save")}
           workspaceId={workspaceId}
+          readOnlyFields={readOnlyFields}
         />
       ) : (
         <div className="space-y-6">

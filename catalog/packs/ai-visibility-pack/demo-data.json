@@ -15,7 +15,7 @@
         "keywords_json": "[\"HVAC maintenance\",\"Air conditioner repair\",\"Equipment inspection\",\"Refrigerant recharge\",\"HVAC calibration\"]",
         "status": "active",
         "locale": "zh-CN",
-        "owner": "Alex",
+        "owner": "$user-sales-rep.id",
         "notes": "Core service profile, prioritize optimization"
       }
     },
@@ -32,7 +32,7 @@
         "keywords_json": "[\"Summer service discount\",\"HVAC summer maintenance\",\"Equipment maintenance discount\"]",
         "status": "active",
         "locale": "zh-CN",
-        "owner": "Sam",
+        "owner": "$user-sales-manager.id",
         "notes": "Seasonal promotion profile"
       }
     },
@@ -49,7 +49,7 @@
         "keywords_json": "[\"Annual maintenance\",\"Equipment maintenance plan\",\"Preventive maintenance\"]",
         "status": "active",
         "locale": "zh-CN",
-        "owner": "Alex"
+        "owner": "$user-sales-rep.id"
       }
     },
     {
@@ -65,7 +65,7 @@
         "keywords_json": "[\"Acme\",\"Acme operations\",\"Acme services\"]",
         "status": "active",
         "locale": "zh-CN",
-        "owner": "Sam"
+        "owner": "$user-sales-manager.id"
       }
     },
     {
@@ -79,7 +79,7 @@
         "keywords_json": "[\"Emergency repair\",\"HVAC emergency repair\",\"Equipment failure\",\"Fast response\"]",
         "status": "active",
         "locale": "zh-CN",
-        "owner": "Alex",
+        "owner": "$user-sales-rep.id",
         "notes": "Topic-type profile, not linked to specific records"
       }
     },
@@ -95,7 +95,7 @@
         "questions_json": "[\"How often does an HVAC system need to be inspected?\",\"What are the common causes of insufficient HVAC cooling?\",\"How to choose an HVAC maintenance service provider?\",\"How often should HVAC filters be replaced?\",\"What is the typical response time for HVAC emergency repair?\"]",
         "question_count": 5,
         "locale": "zh-CN",
-        "owner": "Alex",
+        "owner": "$user-sales-rep.id",
         "notes": "Agent generated and reviewed"
       }
     },
@@ -111,7 +111,7 @@
         "questions_json": "[\"What discounts are available for summer HVAC maintenance?\",\"What does summer equipment inspection include?\",\"When does the summer promotion end?\"]",
         "question_count": 3,
         "locale": "zh-CN",
-        "owner": "Sam"
+        "owner": "$user-sales-manager.id"
       }
     },
     {
@@ -126,7 +126,7 @@
         "questions_json": "[\"What does the annual maintenance plan include?\",\"What is the price of annual maintenance?\",\"Which is more cost-effective, annual maintenance or one-time repair?\"]",
         "question_count": 3,
         "locale": "zh-CN",
-        "owner": "Alex"
+        "owner": "$user-sales-rep.id"
       }
     },
     {
@@ -141,7 +141,7 @@
         "questions_json": "[]",
         "question_count": 0,
         "locale": "zh-CN",
-        "owner": "Alex",
+        "owner": "$user-sales-rep.id",
         "notes": "Generating"
       }
     },
@@ -159,7 +159,7 @@
         "landing_page_id": { "$lookup": { "object": "landing_page", "field": "slug", "value": "hvac-maintenance" } },
         "confidence_score": 92,
         "locale": "zh-CN",
-        "owner": "Alex",
+        "owner": "$user-sales-rep.id",
         "notes": "Published to HVAC maintenance landing page"
       }
     },
@@ -176,7 +176,7 @@
         "source_type": "agent_generated",
         "confidence_score": 88,
         "locale": "zh-CN",
-        "owner": "Alex"
+        "owner": "$user-sales-rep.id"
       }
     },
     {
@@ -193,7 +193,7 @@
         "landing_page_id": { "$lookup": { "object": "landing_page", "field": "slug", "value": "hvac-maintenance" } },
         "confidence_score": 95,
         "locale": "zh-CN",
-        "owner": "Sam"
+        "owner": "$user-sales-manager.id"
       }
     },
     {
@@ -209,7 +209,7 @@
         "source_type": "agent_generated",
         "confidence_score": 75,
         "locale": "zh-CN",
-        "owner": "Alex",
+        "owner": "$user-sales-rep.id",
         "notes": "Pending review, content is somewhat promotional"
       }
     },
@@ -226,7 +226,7 @@
         "source_type": "manual",
         "confidence_score": 90,
         "locale": "zh-CN",
-        "owner": "Alex"
+        "owner": "$user-sales-rep.id"
       }
     },
     {
@@ -243,7 +243,7 @@
         "landing_page_id": { "$lookup": { "object": "landing_page", "field": "slug", "value": "summer-promo" } },
         "confidence_score": 98,
         "locale": "zh-CN",
-        "owner": "Sam"
+        "owner": "$user-sales-manager.id"
       }
     },
     {
@@ -259,7 +259,7 @@
         "source_type": "agent_generated",
         "confidence_score": 70,
         "locale": "zh-CN",
-        "owner": "Sam"
+        "owner": "$user-sales-manager.id"
       }
     },
     {
@@ -275,7 +275,7 @@
         "source_type": "agent_generated",
         "confidence_score": 80,
         "locale": "zh-CN",
-        "owner": "Alex"
+        "owner": "$user-sales-rep.id"
       }
     },
     {
@@ -291,7 +291,7 @@
         "source_type": "manual",
         "confidence_score": 60,
         "locale": "zh-CN",
-        "owner": "Sam",
+        "owner": "$user-sales-manager.id",
         "notes": "Pricing information may change, rejected for publication"
       }
     },
@@ -309,7 +309,7 @@
         "captured_at": "2026-06-15",
         "author": "ASHRAE",
         "publisher": "ASHRAE",
-        "owner": "Alex"
+        "owner": "$user-sales-rep.id"
       }
     },
     {
@@ -326,7 +326,7 @@
         "captured_at": "2026-06-16",
         "author": "John Smith",
         "publisher": "HVAC Guide",
-        "owner": "Alex"
+        "owner": "$user-sales-rep.id"
       }
     },
     {
@@ -343,7 +343,7 @@
         "captured_at": "2026-06-17",
         "author": "Indoor Air Quality Research Institute",
         "publisher": "IAQ Research Institute",
-        "owner": "Sam"
+        "owner": "$user-sales-manager.id"
       }
     },
     {
@@ -360,7 +360,7 @@
         "captured_at": "2026-06-18",
         "author": "Service Level Agreement Committee",
         "publisher": "SLA Council",
-        "owner": "Alex"
+        "owner": "$user-sales-rep.id"
       }
     },
     {
@@ -377,7 +377,7 @@
         "captured_at": "2026-06-01",
         "author": "Finance Department",
         "publisher": "Internal",
-        "owner": "Sam",
+        "owner": "$user-sales-manager.id",
         "notes": "Internal document, not public"
       }
     },
@@ -396,7 +396,7 @@
         "improvement_suggestions": "It is recommended to add more structured data markup on the landing page to increase the probability of being cited. FAQ Schema can be added.",
         "checked_at": "2026-06-20",
         "checked_by": "Alex",
-        "owner": "Alex"
+        "owner": "$user-sales-rep.id"
       }
     },
     {
@@ -414,7 +414,7 @@
         "improvement_suggestions": "Need to improve page SEO, increase backlinks and content depth. Recommend optimizing the title and meta description.",
         "checked_at": "2026-06-20",
         "checked_by": "Alex",
-        "owner": "Alex"
+        "owner": "$user-sales-rep.id"
       }
     },
     {
@@ -432,7 +432,7 @@
         "improvement_suggestions": "Content quality is good, it is recommended to add more citation sources to improve credibility.",
         "checked_at": "2026-06-21",
         "checked_by": "Sam",
-        "owner": "Alex"
+        "owner": "$user-sales-rep.id"
       }
     },
     {
@@ -450,7 +450,7 @@
         "improvement_suggestions": "Need to add more structured content, especially the specific items included in the plan. It is recommended to add a detailed service list and price comparison table on the landing page.",
         "checked_at": "2026-06-21",
         "checked_by": "Sam",
-        "owner": "Alex"
+        "owner": "$user-sales-rep.id"
       }
     },
     {
@@ -468,7 +468,7 @@
         "improvement_suggestions": "It is recommended to add structured data for campaign details to increase the probability of being cited. Campaign exposure can be increased on social media.",
         "checked_at": "2026-06-22",
         "checked_by": "Alex",
-        "owner": "Sam"
+        "owner": "$user-sales-manager.id"
       }
     },
     {
@@ -486,7 +486,7 @@
         "improvement_suggestions": "Need to create a dedicated emergency repair service page and increase local SEO optimization. It is recommended to add service information on Google Business Profile.",
         "checked_at": "2026-06-22",
         "checked_by": "Sam",
-        "owner": "Alex"
+        "owner": "$user-sales-rep.id"
       }
     },
     {
@@ -504,7 +504,7 @@
         "improvement_suggestions": "Content performance is excellent, it is recommended to use this answer block as a reference template for other content optimization.",
         "checked_at": "2026-06-23",
         "checked_by": "Alex",
-        "owner": "Alex"
+        "owner": "$user-sales-rep.id"
       }
     }
   ]

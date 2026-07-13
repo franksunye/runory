@@ -90,7 +90,7 @@ objects:
         ownership: module_owned
       - key: owner
         label: Owner
-        type: text
+        type: user
         ownership: module_owned
       - key: terms
         label: Terms

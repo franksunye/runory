@@ -334,7 +334,7 @@ function MyWorkPage() {
                         {item.assignee_id && (
                           <span className="flex items-center gap-1">
                             <User size={12} />
-                            {t("myWork.assignee")}: {item.assignee_type === "permission_group" ? item.assignee_id.replace(/_/g, " ") : item.assignee_id}
+                            {t("myWork.assignee")}: {item.assignee_display ?? (item.assignee_type === "permission_group" ? item.assignee_id.replace(/_/g, " ") : item.assignee_id)}
                           </span>
                         )}
                         {item.form_binding_id && (

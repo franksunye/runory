@@ -40,12 +40,36 @@ export interface RecordVisibilityResult {
   rowFilterArgs: unknown[];
 }
 
+export interface VisibilitySummary {
+  /** Whether this identity can read every record permitted by the workspace. */
+  recordScope: "all" | "assigned";
+  /** Permission-group labels are safe to show in an identity/debug surface. */
+  permissionGroups: Array<{ packId: string; groupKey: string; label: string }>;
+  /** Permissions are exposed for acceptance verification, not authorization. */
+  permissions: string[];
+  resourceIds: string[];
+}
+
 // ── Operational objects that need row-level filtering ──
 
 const OPERATIONAL_OBJECTS = new Set([
   "work_order",
   "service_visit",
   "service_report",
+]);
+
+// These permissions are intentionally team-scoped. They represent dispatch
+// and supervisory work, which cannot be performed against an individual's
+// assigned queue only. Field execution permissions (for example visit.execute)
+// are deliberately excluded and remain resource-scoped.
+const OPERATIONAL_TEAM_SCOPE_PERMISSIONS = new Set([
+  "work_order.triage",
+  "assignment.manage",
+  "schedule.manage",
+  "schedule.conflict.override",
+  "work_order.complete",
+  "work_order.reopen",
+  "form.review",
 ]);
 
 // Objects that are shared customer data — visible to all members who have
@@ -77,6 +101,12 @@ const OBJECT_READ_PERMISSIONS: Record<string, string[]> = {
   service_site: ["service_site.read", "company.read", "work_order.read", "visit.execute"],
   asset: ["asset.read", "company.read", "work_order.read", "visit.execute"],
   task: ["task.read", "work_order.read", "visit.execute"],
+};
+
+const OBJECT_CREATE_PERMISSIONS: Record<string, string[]> = {
+  quote: ["quote.create"],
+  work_order: ["work_order.triage"],
+  service_visit: ["assignment.manage"],
 };
 
 // ── Permission resolution ──
@@ -130,6 +160,22 @@ export function canReadObject(
   return permissions.has(`${objectKey}.read`);
 }
 
+/** Check whether an identity can create this kind of business record. */
+export function canCreateObject(permissions: Set<string>, objectKey: string): boolean {
+  if (permissions.has("*")) return true;
+  const allowed = OBJECT_CREATE_PERMISSIONS[objectKey] ?? [`${objectKey}.create`];
+  return allowed.some((permission) => permissions.has(permission));
+}
+
+export async function canCreateRecord(
+  workspaceId: string,
+  objectKey: string,
+  scope: VisibilityScope
+): Promise<boolean> {
+  if (scope.role === "admin") return true;
+  return canCreateObject(await resolveUserPermissions(workspaceId, scope.userId), objectKey);
+}
+
 // ── Resource resolution ──
 
 /**
@@ -149,6 +195,49 @@ export async function resolveUserResourceIds(
   return rows.map((r) => r.id);
 }
 
+/**
+ * Return the effective data-access facts for a user.  This is deliberately
+ * derived from the same sources as record filtering so a demo/diagnostic UI
+ * cannot claim an access level different from the server's enforcement.
+ */
+export async function getVisibilitySummary(
+  workspaceId: string,
+  scope: VisibilityScope
+): Promise<VisibilitySummary> {
+  const isWorkspaceAdmin = scope.role === "admin";
+  if (isWorkspaceAdmin) {
+    return { recordScope: "all", permissionGroups: [], permissions: ["*"], resourceIds: [] };
+  }
+
+  const userRow = await queryOne<{ id: string }>(
+    `SELECT id FROM ${TABLES.users} WHERE id = ? OR external_id = ?`,
+    [scope.userId, scope.userId]
+  );
+  const groups = userRow ? await getUserPermissionGroups(workspaceId, userRow.id) : [];
+  const permissionSet = new Set(groups.flatMap((group) => group.permissions));
+  const permissions = [...permissionSet].sort();
+  const resourceIds = await resolveUserResourceIds(workspaceId, scope.userId);
+  return {
+    recordScope: hasOperationalTeamScope(permissionSet) ? "all" : "assigned",
+    permissionGroups: groups.map(({ packId, groupKey, label }) => ({ packId, groupKey, label })),
+    permissions,
+    resourceIds,
+  };
+}
+
+function hasOperationalTeamScope(permissions: Set<string>): boolean {
+  return permissions.has("*") || [...OPERATIONAL_TEAM_SCOPE_PERMISSIONS].some((permission) => permissions.has(permission));
+}
+
+/** Whether an identity may view team-wide operational queues and schedules. */
+export async function hasOperationalTeamAccess(
+  workspaceId: string,
+  scope: VisibilityScope
+): Promise<boolean> {
+  if (scope.role === "admin") return true;
+  return hasOperationalTeamScope(await resolveUserPermissions(workspaceId, scope.userId));
+}
+
 // ── Main entry point ──
 
 /**
@@ -164,8 +253,10 @@ export async function resolveRecordVisibility(
   objectKey: string,
   scope: VisibilityScope
 ): Promise<RecordVisibilityResult> {
-  // Admin/owner bypass all filtering
-  if (scope.role === "admin" || scope.organizationRole === "owner") {
+  // Only a workspace admin bypasses business permissions and row filters.
+  // Organization ownership is an administrative tenancy concern; it must not
+  // silently turn a member's data scope into an unrestricted business scope.
+  if (scope.role === "admin") {
     return { canRead: true, rowFilterSql: null, rowFilterArgs: [] };
   }
 
@@ -184,6 +275,9 @@ export async function resolveRecordVisibility(
 
   // Operational objects — row-level filter by resource assignment
   if (OPERATIONAL_OBJECTS.has(objectKey)) {
+    if (hasOperationalTeamScope(permissions)) {
+      return { canRead: true, rowFilterSql: null, rowFilterArgs: [] };
+    }
     const resourceIds = await resolveUserResourceIds(workspaceId, scope.userId);
 
     if (resourceIds.length === 0) {

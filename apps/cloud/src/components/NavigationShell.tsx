@@ -35,6 +35,12 @@ interface NavigationShellProps {
   workspaceId: string;
   workspaceName: string;
   role?: string;
+  currentUser?: {
+    userId: string;
+    displayName: string;
+    email: string | null;
+    authMethod: string;
+  };
   children: React.ReactNode;
 }
 
@@ -208,6 +214,7 @@ export default function NavigationShell({
   workspaceId,
   workspaceName,
   role = "member",
+  currentUser,
   children,
 }: NavigationShellProps) {
   const pathname = usePathname();
@@ -338,6 +345,9 @@ export default function NavigationShell({
     : [{ id: "settings", label: t("workspace.nav.settings"), route: "/settings", icon: Settings, sortOrder: 90 }];
 
   const roleDisplay = getRoleDisplay(role, t);
+  const userName = currentUser?.displayName || t("workspace.nav.currentUserFallback");
+  const userInitial = userName.trim().charAt(0).toUpperCase() || roleDisplay.initial;
+  const userSecondary = currentUser?.email || roleDisplay.label;
 
   // ── Sidebar content ──
 
@@ -495,14 +505,17 @@ export default function NavigationShell({
         </Link>
 
         {/* Role display */}
-        <div className={`flex items-center gap-3 rounded-xl p-2 hover:bg-slate-50 ${collapsed ? "justify-center" : ""}`}>
+        <div
+          className={`flex items-center gap-3 rounded-xl p-2 hover:bg-slate-50 ${collapsed ? "justify-center" : ""}`}
+          title={`${userName} · ${roleDisplay.label}`}
+        >
           <div className="grid size-8 shrink-0 place-items-center rounded-lg bg-slate-900 text-xs font-bold text-white">
-            {roleDisplay.initial}
+            {userInitial}
           </div>
           {!collapsed && (
             <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-semibold">{roleDisplay.label}</p>
-              <p className="text-xs text-slate-500">{roleDisplay.sub}</p>
+              <p className="truncate text-sm font-semibold">{userName}</p>
+              <p className="truncate text-xs text-slate-500">{userSecondary} · {roleDisplay.label}</p>
             </div>
           )}
         </div>

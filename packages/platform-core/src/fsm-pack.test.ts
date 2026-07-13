@@ -6,7 +6,7 @@ import { db, execute, genId, now, queryAll, queryOne } from "./db";
 import { runMigrations } from "./migrations";
 import { TABLES, businessTable } from "./contracts";
 import { installPack, installModule, loadModuleManifest, loadPackManifest } from "./installer";
-import { getRecords, getNavigation, getInstallations, getInstalledPacks, getRelations, getBacklinks, createRecord, updateRecord, getObject } from "./metadata";
+import { getRecords, getNavigation, getInstallations, getInstalledPacks, getRelations, getBacklinks, getFields, createRecord, updateRecord, getObject } from "./metadata";
 import {
   triageWorkOrder,
   createVisit,
@@ -828,6 +828,25 @@ describe("FSM pack installation tracking", () => {
     expect(siteRel).toBeDefined();
     expect(siteRel!.foreignKey).toBe("service_site_id");
     expect(siteRel!.relationType).toBe("many_to_one");
+  });
+
+  it("derives dependent lookup filters from the relation graph", async () => {
+    await installPack(workspaceId, "fsm-pack");
+
+    const fields = await getFields(workspaceId, "work_order");
+    const lookupFilters = (fieldKey: string) =>
+      fields.find((field) => field.fieldKey === fieldKey)?.validation?.lookupFilters;
+
+    expect(lookupFilters("contact_id")).toEqual(expect.arrayContaining([
+      { field: "company_id", targetField: "primary_company_id" },
+    ]));
+    expect(lookupFilters("service_site_id")).toEqual(expect.arrayContaining([
+      { field: "company_id", targetField: "company_id" },
+    ]));
+    expect(lookupFilters("asset_id")).toEqual(expect.arrayContaining([
+      { field: "company_id", targetField: "company_id" },
+      { field: "service_site_id", targetField: "service_site_id" },
+    ]));
   });
 
   it("getBacklinks returns incoming relations (v0.3.2)", async () => {

@@ -1,7 +1,8 @@
 import { NextRequest } from "next/server";
-import { getRecords, createRecord, writeAuditEvent, enforceQuota, type GetRecordsOptions, type VisibilityScope } from "@runory/platform-core";
+import { getRecords, createRecord, canCreateRecord, writeAuditEvent, enforceQuota, type GetRecordsOptions, type VisibilityScope, ERROR_CODES } from "@runory/platform-core";
 import { requireWorkspaceContext } from "@/lib/auth";
-import { successResponse, handleError, invalidInput, getOrCreateRequestId } from "@/lib/http";
+import { successResponse, handleError, invalidInput, errorResponse, getOrCreateRequestId } from "@/lib/http";
+import { enrichUserReferences, listUserReferenceFieldKeys } from "@/lib/identity";
 
 export const dynamic = "force-dynamic";
 
@@ -45,7 +46,9 @@ export async function GET(
     };
 
     const records = await getRecords(workspaceId, objectKey, options);
-    return successResponse(records, 200, ctx.requestId);
+    const userFieldKeys = await listUserReferenceFieldKeys(workspaceId, objectKey);
+    const enrichedRecords = await enrichUserReferences(records, userFieldKeys);
+    return successResponse(enrichedRecords, 200, ctx.requestId);
   } catch (e) {
     return handleError(e, requestId);
   }
@@ -59,6 +62,21 @@ export async function POST(
   try {
     const { id, objectKey } = await params;
     const { ctx, workspaceId } = await requireWorkspaceContext(request, id, "member");
+    const canCreate = ctx.principal
+      ? await canCreateRecord(workspaceId, objectKey, {
+          userId: ctx.principal.userId,
+          role: ctx.workspaceRole,
+          organizationRole: ctx.organizationRole,
+        })
+      : false;
+    if (!canCreate) {
+      return errorResponse(
+        ERROR_CODES.PERMISSION_DENIED,
+        `You do not have permission to create '${objectKey}' records.`,
+        403,
+        ctx.requestId
+      );
+    }
     const data = await request.json() as Record<string, unknown>;
     if (!data || typeof data !== "object" || Array.isArray(data)) {
       return invalidInput("Record data must be an object", ctx.requestId);

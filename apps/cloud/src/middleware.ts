@@ -5,7 +5,9 @@ export function middleware(request: NextRequest) {
   const isDev = process.env.NODE_ENV !== "production";
 
   // ── Security Headers ──
-  // Content-Security-Policy: restrict to self, allow inline styles (Tailwind needs this)
+  // Content-Security-Policy: restrict to self, allow inline styles (Tailwind needs this).
+  // MapLibre uses a blob worker and fetches the explicitly allowlisted OpenFreeMap
+  // style, fonts, sprites, and vector tiles from its own origin.
   // Note: 'unsafe-inline' is kept for script-src because Next.js requires it without a nonce setup.
   // Next.js dev mode needs 'unsafe-eval' for React Refresh / webpack evaluation.
   // It remains omitted in production to keep XSS protection strong.
@@ -14,7 +16,7 @@ export function middleware(request: NextRequest) {
     : "script-src 'self' 'unsafe-inline'";
   response.headers.set(
     "Content-Security-Policy",
-    `default-src 'self'; ${scriptSrc}; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self'; frame-ancestors 'none'`
+    `default-src 'self'; ${scriptSrc}; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data: https://tiles.openfreemap.org; connect-src 'self' https://tiles.openfreemap.org; worker-src 'self' blob:; child-src 'self' blob:; frame-ancestors 'none'`
   );
 
   // HSTS: only in production (HTTPS)

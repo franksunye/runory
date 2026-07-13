@@ -16,7 +16,7 @@
         "not_helpful_count": 3,
         "author": "Alex Chen",
         "published_at": "2026-05-10",
-        "owner": "Alex Chen"
+        "owner": "$user-sales-rep.id"
       }
     },
     {
@@ -35,7 +35,7 @@
         "not_helpful_count": 5,
         "author": "Sam Lee",
         "published_at": "2026-04-15",
-        "owner": "Sam Lee"
+        "owner": "$user-sales-manager.id"
       }
     },
     {
@@ -54,7 +54,7 @@
         "not_helpful_count": 1,
         "author": "Alex Chen",
         "published_at": "2026-05-20",
-        "owner": "Alex Chen"
+        "owner": "$user-sales-rep.id"
       }
     },
     {
@@ -73,7 +73,7 @@
         "not_helpful_count": 2,
         "author": "Sam Lee",
         "published_at": "2026-06-01",
-        "owner": "Sam Lee"
+        "owner": "$user-sales-manager.id"
       }
     },
     {
@@ -92,7 +92,7 @@
         "not_helpful_count": 8,
         "author": "Sam Lee",
         "published_at": "2026-03-20",
-        "owner": "Sam Lee"
+        "owner": "$user-sales-manager.id"
       }
     },
     {
@@ -107,7 +107,7 @@
         "resolution_time_hours": 4,
         "business_hours_only": false,
         "status": "active",
-        "owner": "Alex Chen",
+        "owner": "$user-sales-rep.id",
         "notes": "Highest priority SLA"
       }
     },
@@ -123,7 +123,7 @@
         "resolution_time_hours": 8,
         "business_hours_only": true,
         "status": "active",
-        "owner": "Sam Lee"
+        "owner": "$user-sales-manager.id"
       }
     },
     {
@@ -138,7 +138,7 @@
         "resolution_time_hours": 72,
         "business_hours_only": true,
         "status": "active",
-        "owner": "Sam Lee",
+        "owner": "$user-sales-manager.id",
         "notes": "Default SLA"
       }
     },
@@ -159,7 +159,7 @@
         "asset_id": { "$lookup": { "object": "asset", "field": "serial_number", "value": "HVAC-ACME-001" } },
         "work_order_id": { "$lookup": { "object": "work_order", "field": "title", "value": "Acme HVAC emergency repair" } },
         "assigned_to": "David Park",
-        "owner": "David Park",
+        "owner": "$user-technician.id",
         "notes": "Escalated to FSM work order, engineer dispatched"
       }
     },
@@ -180,7 +180,7 @@
         "knowledge_id": "$kb-maintenance-pricing.id",
         "assigned_to": "Sam Lee",
         "resolved_at": "2026-06-18",
-        "owner": "Sam Lee",
+        "owner": "$user-sales-manager.id",
         "notes": "Resolved via knowledge article"
       }
     },
@@ -202,7 +202,7 @@
         "work_order_id": { "$lookup": { "object": "work_order", "field": "title", "value": "Vertex CNC calibration and service" } },
         "sla_id": "$sla-urgent.id",
         "assigned_to": "David Park",
-        "owner": "Alex Chen",
+        "owner": "$user-sales-rep.id",
         "notes": "Escalated to FSM work order, urgent SLA"
       }
     },
@@ -221,7 +221,7 @@
         "company_id": { "$lookup": { "object": "company", "field": "domain", "value": "harborlogistics.example" } },
         "contact_id": { "$lookup": { "object": "contact", "field": "email", "value": "maya@acme.example" } },
         "assigned_to": "Sam Lee",
-        "owner": "Sam Lee",
+        "owner": "$user-sales-manager.id",
         "notes": "Waiting for customer to confirm date"
       }
     },
@@ -240,7 +240,7 @@
         "company_id": { "$lookup": { "object": "company", "field": "domain", "value": "pinehealth.example" } },
         "contact_id": { "$lookup": { "object": "contact", "field": "email", "value": "maya@acme.example" } },
         "assigned_to": "",
-        "owner": "Sam Lee",
+        "owner": "$user-sales-manager.id",
         "notes": "New ticket, pending assignment"
       }
     },
@@ -263,7 +263,7 @@
         "assigned_to": "Sam Lee",
         "resolved_at": "2026-06-15",
         "closed_at": "2026-06-16",
-        "owner": "Sam Lee",
+        "owner": "$user-sales-manager.id",
         "notes": "Explained via warranty policy knowledge article and closed"
       }
     },
@@ -278,7 +278,7 @@
         "body": "Our HVAC system has had insufficient cooling since yesterday, the office temperature has exceeded 28 degrees, please send someone to inspect as soon as possible.",
         "message_type": "email",
         "is_internal": false,
-        "owner": "David Park"
+        "owner": "$user-technician.id"
       }
     },
     {
@@ -292,7 +292,7 @@
         "body": "We have received your repair request. Engineer David Park has been scheduled to inspect on-site this afternoon. Estimated arrival time 14:00.",
         "message_type": "email",
         "is_internal": false,
-        "owner": "Sam Lee"
+        "owner": "$user-sales-manager.id"
       }
     },
     {
@@ -306,7 +306,7 @@
         "body": "FSM work order WO-2026-001 has been created and dispatched to David Park. Preliminary assessment suggests it may be insufficient refrigerant or a clogged filter.",
         "message_type": "note",
         "is_internal": true,
-        "owner": "Sam Lee"
+        "owner": "$user-sales-manager.id"
       }
     },
     {
@@ -320,7 +320,7 @@
         "body": "What is the price of the annual maintenance plan? What services are included?",
         "message_type": "email",
         "is_internal": false,
-        "owner": "Sam Lee"
+        "owner": "$user-sales-manager.id"
       }
     },
     {
@@ -334,7 +334,7 @@
         "body": "The annual maintenance plan knowledge article has been sent. The standard price is 9800 CNY/year, including 4 inspections, filter replacement, priority emergency response, etc. The customer expressed satisfaction.",
         "message_type": "comment",
         "is_internal": false,
-        "owner": "Sam Lee"
+        "owner": "$user-sales-manager.id"
       }
     },
     {
@@ -348,7 +348,7 @@
         "body": "CNC machining center downtime is affecting the production line, escalated to urgent ticket. SLA response time 1 hour, resolution time 4 hours. Engineer has departed.",
         "message_type": "system",
         "is_internal": true,
-        "owner": "Alex Chen"
+        "owner": "$user-sales-rep.id"
       }
     },
     {
@@ -362,7 +362,7 @@
         "body": "Contacted the customer to schedule next quarter's maintenance, the customer indicated they need to confirm the date internally before replying. Waiting for customer confirmation.",
         "message_type": "note",
         "is_internal": true,
-        "owner": "Sam Lee"
+        "owner": "$user-sales-manager.id"
       }
     },
     {
@@ -376,7 +376,7 @@
         "body": "Verified warranty status, the repair cost is not covered by the warranty. Sent the warranty policy knowledge article to the customer, the customer accepted and the ticket was closed.",
         "message_type": "comment",
         "is_internal": false,
-        "owner": "Sam Lee"
+        "owner": "$user-sales-manager.id"
       }
     }
   ]

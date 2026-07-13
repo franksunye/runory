@@ -19,6 +19,7 @@ import {
   getWorkspace,
   queryAll,
   businessTable,
+  type VisibilityScope,
 } from "@runory/platform-core";
 import { requireWorkspaceContext } from "@/lib/auth";
 import { handleError, notFound, invalidInput, getOrCreateRequestId } from "@/lib/http";
@@ -604,7 +605,10 @@ export async function GET(
     }
 
     // ── Load the Quote record (dynamic object, objectKey="quote") ──
-    const quote = await getRecord(workspaceId, "quote", quoteId);
+    const visibilityScope: VisibilityScope | undefined = ctx.principal
+      ? { userId: ctx.principal.userId, role: ctx.workspaceRole, organizationRole: ctx.organizationRole }
+      : undefined;
+    const quote = await getRecord(workspaceId, "quote", quoteId, { visibilityScope });
     if (!quote) {
       return notFound(`Quote ${quoteId} not found`, ctx.requestId);
     }
