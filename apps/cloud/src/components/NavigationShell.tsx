@@ -138,11 +138,6 @@ const MANAGEMENT_ROUTES = [
 ];
 
 // ── Pack category display names ──
-//
-// Canonical categories are the source of truth in pack manifests. Legacy
-// aliases ensure workspaces installed before the normalization still render
-// correctly — the manifest may have been fixed, but old installations may
-// persist the original value in DB-cached navigation metadata.
 
 const CATEGORY_LABEL_KEY: Record<string, MessageKey> = {
   crm: "workspace.nav.categoryCrm",
@@ -155,27 +150,12 @@ const CATEGORY_LABEL_KEY: Record<string, MessageKey> = {
   general: "workspace.nav.categoryGeneral",
 };
 
-// Legacy category values → canonical. These exist because early pack
-// manifests used pack-specific compound names (e.g. "sales_quote") instead
-// of clean domain categories. Manifests are now normalized, but this map
-// ensures backward compatibility for any workspace that may still carry
-// the old value.
-const CATEGORY_ALIASES: Record<string, string> = {
-  sales_quote: "sales",
-  marketing_capture: "marketing",
-  shared_module_validation: "general",
-};
-
 function getCategoryLabel(category: string, t: TFunc): string {
-  // Resolve legacy aliases to canonical category
-  const canonical = CATEGORY_ALIASES[category] ?? category;
-  const key = CATEGORY_LABEL_KEY[canonical];
+  const key = CATEGORY_LABEL_KEY[category];
   if (key) return t(key);
 
-  // Unknown category — produce a human-readable label from the raw value
-  // (e.g. "field_service" → "Field Service") rather than leaking the
-  // internal pack name.
-  return canonical
+  // Unknown category — title-case the raw value as a defensive fallback
+  return category
     .split("_")
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
     .join(" ");
