@@ -6,8 +6,10 @@ import {
   loadPackManifest,
   loadModuleManifest,
   getVisibilitySummary,
+  resolveWorkspaceSurfaces,
   type NavigationItem,
 } from "@runory/platform-core";
+import type { PackManifest, WorkspaceSurfaceKey } from "@runory/contracts";
 import { requireWorkspaceContext } from "@/lib/auth";
 import { successResponse, handleError, getOrCreateRequestId } from "@/lib/http";
 
@@ -25,6 +27,8 @@ interface NavigationResponse {
   packs: InstalledPackGroup[];
   modulePackMap: Record<string, string>;
   modulePresentation: Record<string, { visibility: string; surface?: string; audience?: string[] }>;
+  platformSurfaces: WorkspaceSurfaceKey[];
+  canManage: boolean;
 }
 
 export async function GET(
@@ -62,12 +66,16 @@ export async function GET(
     // contextual objects like service_visit/report, and hidden objects like
     // quote-approval, from the top-level sidebar).
     const modulePresentation: Record<string, { visibility: string; surface?: string; audience?: string[] }> = {};
+    const contextualRoutes = new Set<string>();
     for (const inst of installations) {
       if (inst.moduleId) {
         try {
           const manifest = loadModuleManifest(inst.moduleId);
           if (manifest.presentation) {
             modulePresentation[inst.moduleId] = manifest.presentation;
+          }
+          for (const item of manifest.ui?.navigation ?? []) {
+            if (item.contextual) contextualRoutes.add(item.route);
           }
         } catch {
           // Manifest not found — skip
@@ -77,9 +85,11 @@ export async function GET(
 
     // Enrich pack installations with display names from manifests
     const packs: InstalledPackGroup[] = [];
+    const installedPackManifests: PackManifest[] = [];
     for (const pi of packInstallations) {
       try {
         const manifest = loadPackManifest(pi.packId);
+        installedPackManifests.push(manifest);
         packs.push({
           packId: pi.packId,
           packName: manifest.name,
@@ -98,13 +108,26 @@ export async function GET(
     }
 
     const audienceKeys = new Set(accessSummary?.permissionGroups.map((group) => group.groupKey) ?? []);
-    const visibleNavigation = ctx.workspaceRole === "admin"
-      ? navigation
-      : navigation.filter((item) => {
+    const visibleNavigation = navigation.filter((item) => {
+      if (contextualRoutes.has(item.route)) return false;
+      if (ctx.workspaceRole !== "admin") {
           const audience = item.moduleId ? modulePresentation[item.moduleId]?.audience : undefined;
           return !audience?.length || audience.some((groupKey) => audienceKeys.has(groupKey));
-        });
-    const response: NavigationResponse = { items: visibleNavigation, packs, modulePackMap, modulePresentation };
+      }
+      return true;
+    });
+    const platformSurfaces = resolveWorkspaceSurfaces(installedPackManifests, {
+      administrator: ctx.workspaceRole === "admin",
+      audienceAssignments: accessSummary?.permissionGroups ?? [],
+    });
+    const response: NavigationResponse = {
+      items: visibleNavigation,
+      packs,
+      modulePackMap,
+      modulePresentation,
+      platformSurfaces,
+      canManage: ctx.workspaceRole === "admin",
+    };
     // Navigation is identity-specific: do not let a previous persona's menu survive a switch.
     return successResponse(response, 200, ctx.requestId, "no-store");
   } catch (e) {

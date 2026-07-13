@@ -17,6 +17,7 @@ import type {
   WorkItem,
   WorkflowEvent,
 } from "@runory/contracts";
+import type { WorkspaceSurfaceKey } from "@runory/contracts";
 import {
   WORKSPACE_NAVIGATION_CHANGED,
   WORKSPACE_DATA_CHANGED,
@@ -93,6 +94,7 @@ export interface RecordsQueryParams {
   sortOrder?: "asc" | "desc";
   limit?: number;
   offset?: number;
+  filters?: Record<string, string>;
 }
 
 function buildRecordsQuery(params?: RecordsQueryParams): string {
@@ -103,6 +105,9 @@ function buildRecordsQuery(params?: RecordsQueryParams): string {
   if (params.sortOrder) parts.push(`sortOrder=${encodeURIComponent(params.sortOrder)}`);
   if (params.limit !== undefined) parts.push(`limit=${encodeURIComponent(String(params.limit))}`);
   if (params.offset !== undefined) parts.push(`offset=${encodeURIComponent(String(params.offset))}`);
+  for (const [field, value] of Object.entries(params.filters ?? {})) {
+    parts.push(`filter.${encodeURIComponent(field)}=${encodeURIComponent(value)}`);
+  }
   return parts.length > 0 ? `?${parts.join("&")}` : "";
 }
 
@@ -171,6 +176,8 @@ export interface NavigationApiResponse {
   packs: InstalledPackGroup[];
   modulePackMap: Record<string, string>;
   modulePresentation?: Record<string, { visibility: string; surface?: string; audience?: string[] }>;
+  platformSurfaces: WorkspaceSurfaceKey[];
+  canManage: boolean;
 }
 
 export function useNavigation(workspaceId: string) {
@@ -328,6 +335,7 @@ export interface MyWorkItem {
   assignee_type: string | null;
   assignee_id: string | null;
   assignee_display?: string | null;
+  assignee_avatar_url?: string | null;
   candidate_rule_json: string | null;
   due_at: string | null;
   claimed_by: string | null;

@@ -17,12 +17,14 @@ export const maxDuration = 300;
 interface ScheduleEntryWithResource extends ScheduleEntry {
   resourceName: string | null;
   resourceType: string | null;
+  resourceAvatarUrl: string | null;
 }
 
 interface ResourceRow {
   id: string;
   display_name: string;
   resource_type: string;
+  avatar_url: string | null;
 }
 
 interface SubjectRow {
@@ -128,8 +130,10 @@ export async function GET(
       const resourceIdsList = [...resourceIdSet];
       const placeholders = resourceIdsList.map(() => "?").join(",");
       const resourceRows = await queryAll<ResourceRow>(
-        `SELECT id, display_name, resource_type FROM ${TABLES.resources}
-         WHERE workspace_id = ? AND id IN (${placeholders})`,
+        `SELECT r.id, r.display_name, r.resource_type, u.avatar_url
+         FROM ${TABLES.resources} r
+         LEFT JOIN ${TABLES.users} u ON u.id = r.user_id
+         WHERE r.workspace_id = ? AND r.id IN (${placeholders})`,
         [workspaceId, ...resourceIdsList]
       );
       resourceMap = new Map(resourceRows.map((r) => [r.id, r]));
@@ -166,6 +170,7 @@ export async function GET(
         ...entry,
         resourceName: resource?.display_name ?? null,
         resourceType: resource?.resource_type ?? null,
+        resourceAvatarUrl: resource?.avatar_url ?? null,
         subjectName: subject?.name ?? null,
       };
     });

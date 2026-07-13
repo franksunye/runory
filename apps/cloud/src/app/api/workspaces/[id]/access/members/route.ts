@@ -14,6 +14,7 @@ interface PersonRow {
   user_id: string;
   display_name: string;
   email: string | null;
+  avatar_url: string | null;
   user_status: string;
   organization_role: "owner" | "admin" | "member" | null;
   workspace_role: "admin" | "member" | "viewer" | null;
@@ -58,7 +59,7 @@ export async function GET(
     }
 
     const people = await queryAll<PersonRow>(
-      `SELECT u.id AS user_id, u.display_name, u.email, u.status AS user_status,
+      `SELECT u.id AS user_id, u.display_name, u.email, u.avatar_url, u.status AS user_status,
               om.role AS organization_role, wm.role AS workspace_role,
               COALESCE(wm.created_at, om.created_at) AS joined_at
        FROM ${TABLES.users} u
@@ -124,6 +125,7 @@ export async function GET(
         userId: person.user_id,
         displayName: person.display_name,
         email: person.email,
+        avatarUrl: person.avatar_url,
         status: person.user_status,
         organizationRole: person.organization_role,
         workspaceRole: person.workspace_role,

@@ -184,12 +184,31 @@ relations:
     type: many_to_one
     foreignKey: price_book_id
     label: Price Book
+    composition:
+      allowCreate: true
+      columns:
+        - { field: product_service_id, label: Product / Service }
+        - { field: list_price, label: List Price }
+        - { field: currency, label: Currency }
+        - { field: effective_from, label: Effective From }
+        - { field: effective_to, label: Effective To }
+        - { field: active, label: Active }
   - object: price_book_item
     targetObject: product_service
     targetModule: runory.product-service
     type: many_to_one
     foreignKey: product_service_id
     label: Product/Service
+    backlinkPresentation:
+      mode: compact
+      limit: 5
+      columns:
+        - { field: price_book_id, label: Price Book }
+        - { field: list_price, label: List Price }
+        - { field: currency, label: Currency }
+        - { field: effective_from, label: Effective From }
+        - { field: effective_to, label: Effective To }
+        - { field: active, label: Active }
 
 migrations:
   install: migrations/install.sql
@@ -210,6 +229,7 @@ ui:
       route: /price-book-items
       icon: list
       sortOrder: 77
+      contextual: true
 
 extensionPoints:
   entities:

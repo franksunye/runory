@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Plus, Search, Inbox } from "lucide-react";
 import SchemaTable from "./SchemaTable";
@@ -48,6 +48,7 @@ export default function ObjectListPage({
 }: ObjectListPageProps) {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const workspaceId = params.workspaceId as string;
   const { t } = useI18n();
 
@@ -68,6 +69,13 @@ export default function ObjectListPage({
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [sortValue, setSortValue] = useState(effectiveSortOptions[0]?.value ?? "created_at:desc");
   const [visibleCount, setVisibleCount] = useState(pageSize);
+  const relationFilters = useMemo(() => {
+    const filters: Record<string, string> = {};
+    for (const [key, value] of searchParams.entries()) {
+      if (key.startsWith("filter.") && value) filters[key.slice("filter.".length)] = value;
+    }
+    return filters;
+  }, [searchParams]);
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(searchInput), 300);
@@ -81,12 +89,13 @@ export default function ObjectListPage({
 
   useEffect(() => {
     setVisibleCount(pageSize);
-  }, [debouncedSearch, sortValue, pageSize]);
+  }, [debouncedSearch, sortValue, pageSize, relationFilters]);
 
   const { data: records = [], isLoading: loadingRecords } = useRecords(workspaceId, objectKey, {
     search: debouncedSearch || undefined,
     sortBy,
     sortOrder,
+    filters: relationFilters,
   });
 
   useWorkspaceChangeEvent(workspaceId);

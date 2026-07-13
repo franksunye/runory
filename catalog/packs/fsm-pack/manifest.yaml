@@ -36,6 +36,13 @@ mobileNavigation:
     icon: clipboard-list
     order: 50
 
+workspaceSurfaces:
+  - key: my_work
+    audience: [dispatcher, field_technician, service_supervisor, workspace_administrator]
+  - key: planning
+    audience: [dispatcher, field_technician, service_supervisor, workspace_administrator]
+  - key: activity
+
 # FSM Pack composes shared business modules (company, contact, task) with
 # FSM-specific modules. Shared modules are reused, not duplicated.
 modules:

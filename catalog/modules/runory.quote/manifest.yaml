@@ -362,12 +362,23 @@ relations:
     type: many_to_one
     foreignKey: quote_id
     label: Associated Quote
+    composition:
+      allowCreate: true
+      columns:
+        - { field: description, label: Description }
+        - { field: quantity, label: Quantity }
+        - { field: unit_price, label: Unit Price }
+        - { field: discount_amount, label: Discount }
+        - { field: tax_amount, label: Tax }
+        - { field: line_total, label: Total }
   - object: quote_line
     targetObject: product_service
     targetModule: runory.product-service
     type: many_to_one
     foreignKey: product_service_id
     label: Product/Service
+    backlinkPresentation:
+      mode: hidden
 
 migrations:
   install: migrations/install.sql
@@ -388,6 +399,7 @@ ui:
       route: /quote-lines
       icon: list
       sortOrder: 32
+      contextual: true
 
 extensionPoints:
   entities:

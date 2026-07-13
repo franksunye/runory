@@ -467,6 +467,15 @@ export interface RelationDefinition {
   foreignKey: string;
   label: string | null;
   moduleId: string;
+  composition?: {
+    columns: Array<{ field: string; label?: string }>;
+    allowCreate: boolean;
+  };
+  backlinkPresentation?: {
+    mode: "compact" | "summary" | "hidden";
+    columns?: Array<{ field: string; label?: string }>;
+    limit: number;
+  };
 }
 
 export async function getRelations(

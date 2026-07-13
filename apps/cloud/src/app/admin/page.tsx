@@ -27,18 +27,20 @@ import {
   ITEM_TYPE_BADGE,
 } from "./_components/shared";
 import { apiFetch, apiPost } from "@/lib/api-fetch";
+import { useI18n } from "@/i18n/locale-provider";
+import type { MessageKey } from "@/i18n/messages";
 
 // ── Stat Cards Config ──
 
-const STAT_CARDS: { key: keyof AdminStats; label: string; icon: LucideIcon }[] = [
-  { key: "organizations", label: "组织总数", icon: Building2 },
-  { key: "users", label: "用户总数", icon: Users },
-  { key: "workspaces", label: "工作区总数", icon: FolderKanban },
-  { key: "activeSessions", label: "活跃会话", icon: Monitor },
-  { key: "installations", label: "模块安装", icon: Package },
-  { key: "apiKeys", label: "API密钥", icon: KeyRound },
-  { key: "workspaceMemberships", label: "工作区成员", icon: UserCheck },
-  { key: "organizationMemberships", label: "组织成员", icon: ShieldCheck },
+const STAT_CARDS: { key: keyof AdminStats; label: MessageKey; icon: LucideIcon }[] = [
+  { key: "organizations", label: "admin.overview.organizations", icon: Building2 },
+  { key: "users", label: "admin.overview.users", icon: Users },
+  { key: "workspaces", label: "admin.overview.workspaces", icon: FolderKanban },
+  { key: "activeSessions", label: "admin.overview.activeSessions", icon: Monitor },
+  { key: "installations", label: "admin.overview.installations", icon: Package },
+  { key: "apiKeys", label: "admin.overview.apiKeys", icon: KeyRound },
+  { key: "workspaceMemberships", label: "admin.overview.workspaceMemberships", icon: UserCheck },
+  { key: "organizationMemberships", label: "admin.overview.organizationMemberships", icon: ShieldCheck },
 ];
 
 // ── Main Component ──
@@ -46,6 +48,7 @@ const STAT_CARDS: { key: keyof AdminStats; label: string; icon: LucideIcon }[] =
 export default function AdminPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { t } = useI18n();
   const tab = searchParams.get("tab") === "catalog" ? "catalog" : "overview";
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [statsLoading, setStatsLoading] = useState(true);
@@ -70,7 +73,7 @@ export default function AdminPage() {
   }, [router]);
 
   if (statsLoading && tab === "overview") {
-    return <p className="text-sm text-slate-500">加载中...</p>;
+    return <p className="text-sm text-slate-500">{t("admin.overview.loading")}</p>;
   }
 
   return (
@@ -84,17 +87,18 @@ export default function AdminPage() {
 // ── Overview Tab ──
 
 function OverviewTab({ stats }: { stats: AdminStats | null }) {
+  const { t } = useI18n();
   return (
     <div>
-      <h1 className="text-2xl font-bold tracking-tight text-slate-950">平台概览</h1>
-      <p className="mt-1 text-sm text-slate-600">查看平台全局统计数据。</p>
+      <h1 className="text-2xl font-bold tracking-tight text-slate-950">{t("admin.overview.title")}</h1>
+      <p className="mt-1 text-sm text-slate-600">{t("admin.overview.description")}</p>
 
       <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {STAT_CARDS.map(({ key, label, icon: Icon }) => (
           <div key={key} className="rounded-2xl border border-slate-200 bg-white p-5 transition hover:border-slate-300 hover:shadow-sm">
             <div className="flex items-center gap-2 text-slate-500">
               <Icon size={16} />
-              <span className="text-sm">{label}</span>
+              <span className="text-sm">{t(label)}</span>
             </div>
             <p className="mt-3 text-2xl font-bold text-slate-950">{stats ? stats[key] : "—"}</p>
           </div>
@@ -107,6 +111,7 @@ function OverviewTab({ stats }: { stats: AdminStats | null }) {
 // ── Catalog Tab ──
 
 function CatalogTab() {
+  const { t } = useI18n();
   const [items, setItems] = useState<CatalogItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [showImport, setShowImport] = useState(false);
@@ -134,8 +139,8 @@ function CatalogTab() {
     <div>
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-950">Catalog</h1>
-          <p className="mt-1 text-sm text-slate-600">管理 Module、Pack、Template 制品。</p>
+          <h1 className="text-2xl font-bold tracking-tight text-slate-950">{t("admin.catalog.title")}</h1>
+          <p className="mt-1 text-sm text-slate-600">{t("admin.catalog.description")}</p>
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -143,31 +148,31 @@ function CatalogTab() {
             className="inline-flex items-center gap-1.5 rounded-lg border border-violet-300 bg-white px-3 py-2 text-sm font-semibold text-violet-700 transition hover:bg-violet-50"
             title="从 catalog/ 目录一键导入并发布全部制品到 stable 通道"
           >
-            <Rocket size={16} /> 一键播种
+            <Rocket size={16} /> {t("admin.catalog.seed")}
           </button>
           <button onClick={() => setShowImport(true)} className="app-button-primary">
-            <Plus size={16} /> 导入制品
+            <Plus size={16} /> {t("admin.catalog.import")}
           </button>
         </div>
       </div>
 
       {loading ? (
-        <p className="mt-8 text-sm text-slate-500">加载中...</p>
+        <p className="mt-8 text-sm text-slate-500">{t("admin.overview.loading")}</p>
       ) : items.length === 0 ? (
         <div className="mt-8 rounded-2xl border border-dashed border-slate-300 bg-white p-12 text-center">
           <Package size={32} className="mx-auto text-slate-300" />
-          <p className="mt-3 text-sm text-slate-500">Catalog 为空。点击"导入制品"从开发目录导入。</p>
+          <p className="mt-3 text-sm text-slate-500">{t("admin.catalog.empty")}</p>
         </div>
       ) : (
         <div className="mt-6 overflow-hidden rounded-2xl border border-slate-200 bg-white">
           <table className="w-full text-sm">
             <thead className="border-b border-slate-200 bg-slate-50">
               <tr>
-                <th className="px-4 py-3 text-left font-semibold text-slate-600">名称</th>
-                <th className="px-4 py-3 text-left font-semibold text-slate-600">类型</th>
-                <th className="px-4 py-3 text-left font-semibold text-slate-600">可见性</th>
-                <th className="px-4 py-3 text-left font-semibold text-slate-600">状态</th>
-                <th className="px-4 py-3 text-left font-semibold text-slate-600">创建时间</th>
+                <th className="px-4 py-3 text-left font-semibold text-slate-600">{t("admin.catalog.name")}</th>
+                <th className="px-4 py-3 text-left font-semibold text-slate-600">{t("admin.catalog.type")}</th>
+                <th className="px-4 py-3 text-left font-semibold text-slate-600">{t("admin.catalog.visibility")}</th>
+                <th className="px-4 py-3 text-left font-semibold text-slate-600">{t("admin.catalog.status")}</th>
+                <th className="px-4 py-3 text-left font-semibold text-slate-600">{t("admin.catalog.createdAt")}</th>
                 <th className="px-4 py-3"></th>
               </tr>
             </thead>
@@ -213,6 +218,7 @@ function CatalogTab() {
 // ── Import Modal ──
 
 function ImportModal({ onClose, onImported }: { onClose: () => void; onImported: () => void }) {
+  const { t } = useI18n();
   const [itemId, setItemId] = useState("");
   const [itemType, setItemType] = useState<"module" | "pack" | "template">("module");
   const [loading, setLoading] = useState(false);
@@ -240,16 +246,16 @@ function ImportModal({ onClose, onImported }: { onClose: () => void; onImported:
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30" onClick={onClose}>
       <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-bold text-slate-950">从开发目录导入</h2>
+          <h2 className="text-lg font-bold text-slate-950">{t("admin.catalog.importTitle")}</h2>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-700"><X size={20} /></button>
         </div>
-        <p className="mt-1 text-sm text-slate-500">从 <code className="rounded bg-slate-100 px-1.5 py-0.5 text-xs">catalog/</code> 目录导入制品作为 Draft candidate。</p>
+        <p className="mt-1 text-sm text-slate-500">{t("admin.catalog.importDescription")}</p>
 
         {error && <div className="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
 
         <div className="mt-4 space-y-3">
           <div>
-            <label className="mb-1.5 block text-sm font-semibold text-slate-700">制品 ID</label>
+            <label className="mb-1.5 block text-sm font-semibold text-slate-700">{t("admin.catalog.itemId")}</label>
             <input
               className="app-input"
               value={itemId}
@@ -259,7 +265,7 @@ function ImportModal({ onClose, onImported }: { onClose: () => void; onImported:
             />
           </div>
           <div>
-            <label className="mb-1.5 block text-sm font-semibold text-slate-700">类型</label>
+            <label className="mb-1.5 block text-sm font-semibold text-slate-700">{t("admin.catalog.itemType")}</label>
             <select className="app-input" value={itemType} onChange={(e) => setItemType(e.target.value as "module" | "pack" | "template")}>
               <option value="module">Module</option>
               <option value="pack">Pack</option>
@@ -267,7 +273,7 @@ function ImportModal({ onClose, onImported }: { onClose: () => void; onImported:
             </select>
           </div>
           <div className="rounded-lg bg-slate-50 p-3 text-xs text-slate-500">
-            <p className="font-semibold text-slate-600">可用制品：</p>
+            <p className="font-semibold text-slate-600">{t("admin.catalog.available")}：</p>
             <p className="mt-1">Module: <code>runory.customer</code>, <code>runory.contact</code></p>
             <p>Pack: <code>crm-lite-pack</code></p>
             <p>Template: <code>small-business-crm</code></p>
@@ -275,7 +281,7 @@ function ImportModal({ onClose, onImported }: { onClose: () => void; onImported:
         </div>
 
         <button onClick={handleImport} disabled={loading} className="app-button-primary mt-5 w-full">
-          {loading ? "导入中..." : "导入"}
+          {loading ? t("admin.catalog.importing") : t("admin.catalog.importBtn")}
         </button>
       </div>
     </div>
@@ -292,6 +298,7 @@ interface SeedResult {
 }
 
 function SeedAllModal({ onClose, onSeeded }: { onClose: () => void; onSeeded: () => void }) {
+  const { t } = useI18n();
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<SeedResult | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -320,7 +327,7 @@ function SeedAllModal({ onClose, onSeeded }: { onClose: () => void; onSeeded: ()
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/30 p-4" onClick={onClose}>
       <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-bold text-slate-950">一键播种 Catalog</h2>
+          <h2 className="text-lg font-bold text-slate-950">{t("admin.catalog.seedTitle")}</h2>
           <button onClick={onClose} disabled={loading} className="text-slate-400 hover:text-slate-700 disabled:opacity-50">
             <X size={20} />
           </button>
@@ -329,14 +336,13 @@ function SeedAllModal({ onClose, onSeeded }: { onClose: () => void; onSeeded: ()
         {!result && !error && (
           <>
             <p className="mt-2 text-sm text-slate-600">
-              从 <code className="rounded bg-slate-100 px-1.5 py-0.5 text-xs">catalog/</code> 目录读取所有 manifest，
-              一次性完成 <b>导入 → 冻结 → 发布到 stable</b> 通道，使全部 Module / Pack / Template 出现在工作区的模块中心。
+              {t("admin.catalog.seedDescription")}
             </p>
             <div className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700">
-              此操作幂等，已导入的制品会被跳过。适用于新环境初始化或线上 catalog 为空时修复。
+              {t("admin.catalog.seedWarning")}
             </div>
             <button onClick={handleSeed} disabled={loading} className="app-button-primary mt-5 w-full">
-              {loading ? (<><Loader2 size={16} className="mr-1.5 inline animate-spin" />播种中...</>) : (<><Rocket size={16} className="mr-1.5 inline" />开始播种</>)}
+              {loading ? (<><Loader2 size={16} className="mr-1.5 inline animate-spin" />{t("admin.catalog.seeding")}</>) : (<><Rocket size={16} className="mr-1.5 inline" />{t("admin.catalog.seedStart")}</>)}
             </button>
           </>
         )}
@@ -357,7 +363,7 @@ function SeedAllModal({ onClose, onSeeded }: { onClose: () => void; onSeeded: ()
             <div className={`flex items-start gap-2 rounded-lg px-3 py-2 text-sm ${hasErrors ? "bg-amber-50 text-amber-800" : "bg-emerald-50 text-emerald-800"}`}>
               {hasErrors ? <AlertTriangle size={16} className="mt-0.5 shrink-0" /> : <CheckCircle2 size={16} className="mt-0.5 shrink-0" />}
               <div>
-                {hasErrors ? "播种完成，但部分制品出错。" : "播种成功完成。"}
+                {hasErrors ? t("admin.catalog.seedPartial") : t("admin.catalog.seedSuccess")}
                 {hasPublished && ` 已发布 ${result.published.length} 条 release 记录。`}
                 <div className="mt-1 text-xs">
                   导入 {result.imported.length} · 发布 {result.published.length} · 跳过 {result.skipped.length} · 错误 {result.errors.length}

@@ -37,6 +37,7 @@ interface OperationalWorkItem {
   description: string;
   resource_name: string | null;
   assignee_display: string | null;
+  assignee_avatar_url: string | null;
   operational_source: "schedule";
 }
 
@@ -50,6 +51,7 @@ interface OperationalScheduleRow {
   status: string;
   resource_id: string;
   resource_name: string;
+  resource_avatar_url: string | null;
   subject_title: string | null;
   created_at: string;
   updated_at: string;
@@ -115,12 +117,14 @@ async function getOperationalWork(
        se.status,
        se.resource_id,
        r.display_name AS resource_name,
+       u.avatar_url AS resource_avatar_url,
        COALESCE(wo.title, sv.title) AS subject_title,
        se.created_at,
        se.updated_at
      FROM ${TABLES.scheduleEntries} se
      JOIN ${TABLES.resources} r
        ON r.workspace_id = se.workspace_id AND r.id = se.resource_id
+     LEFT JOIN ${TABLES.users} u ON u.id = r.user_id
      LEFT JOIN ${businessTable("work_order")} wo
        ON se.subject_type = 'work_order'
       AND wo.workspace_id = se.workspace_id
@@ -147,6 +151,7 @@ async function getOperationalWork(
     assignee_type: "resource",
     assignee_id: row.resource_id,
     assignee_display: row.resource_name,
+    assignee_avatar_url: row.resource_avatar_url,
     candidate_rule_json: null,
     // My Work's Due is the business SLA when one exists. The schedule start
     // remains useful context, but it is not the same as the deadline.
@@ -216,8 +221,8 @@ export async function GET(
     const [assigneeUsers, assigneeGroups] = await Promise.all([
       userAssigneeIds.length === 0
         ? []
-        : queryAll<{ id: string; external_id: string; display_name: string }>(
-            `SELECT id, external_id, display_name FROM ${TABLES.users}
+        : queryAll<{ id: string; external_id: string; display_name: string; avatar_url: string | null }>(
+            `SELECT id, external_id, display_name, avatar_url FROM ${TABLES.users}
              WHERE id IN (${userPlaceholders}) OR external_id IN (${userPlaceholders})`,
             [...userAssigneeIds, ...userAssigneeIds]
           ),
@@ -230,9 +235,14 @@ export async function GET(
           ),
     ]);
     const assigneeLabels = new Map<string, string>();
+    const assigneeAvatars = new Map<string, string>();
     for (const user of assigneeUsers) {
       assigneeLabels.set(user.id, user.display_name);
       assigneeLabels.set(user.external_id, user.display_name);
+      if (user.avatar_url) {
+        assigneeAvatars.set(user.id, user.avatar_url);
+        assigneeAvatars.set(user.external_id, user.avatar_url);
+      }
     }
     for (const group of assigneeGroups) {
       assigneeLabels.set(group.id, group.label);
@@ -241,6 +251,7 @@ export async function GET(
     const workflowItems = result.items.map((item) => ({
       ...item,
       assignee_display: item.assignee_id ? assigneeLabels.get(item.assignee_id) ?? null : null,
+      assignee_avatar_url: item.assignee_id ? assigneeAvatars.get(item.assignee_id) ?? null : null,
     }));
 
     return successResponse(

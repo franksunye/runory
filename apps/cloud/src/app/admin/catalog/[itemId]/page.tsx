@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, ChevronRight, Package } from "lucide-react";
 import {
@@ -17,7 +17,6 @@ import {
 
 export default function CatalogItemDetailPage() {
   const params = useParams<{ itemId: string }>();
-  const router = useRouter();
   const itemId = params.itemId;
 
   const { data: item, loading: itemLoading, error: itemError } = useAdminFetch<CatalogItem>(

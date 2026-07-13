@@ -6,12 +6,14 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Users, Check, ChevronDown, Loader2, LogIn } from "lucide-react";
 import { useI18n } from "@/i18n/locale-provider";
 import type { MessageKey } from "@/i18n/messages";
+import UserAvatar from "./UserAvatar";
 
 interface Persona {
   id: string;
   label: string;
   externalId: string;
   color: string;
+  avatarUrl: string | null;
 }
 
 interface PersonaApiResponse {
@@ -24,16 +26,6 @@ interface AccessSummary {
   permissionGroups: Array<{ label: string }>;
   resourceIds: string[];
 }
-
-// Map persona colors to Tailwind classes for the badge dot
-const COLOR_CLASSES: Record<string, string> = {
-  slate: "bg-slate-400",
-  blue: "bg-blue-500",
-  indigo: "bg-indigo-500",
-  amber: "bg-amber-500",
-  emerald: "bg-emerald-500",
-  purple: "bg-purple-500",
-};
 
 const TEXT_COLOR_CLASSES: Record<string, string> = {
   slate: "text-slate-600",
@@ -207,11 +199,7 @@ export default function PersonaSwitcher() {
                       isActive ? "bg-slate-50" : ""
                     }`}
                   >
-                      <span
-                        className={`inline-block size-2.5 shrink-0 rounded-full ${
-                          COLOR_CLASSES[persona.color] ?? "bg-slate-400"
-                        }`}
-                      />
+                    <UserAvatar name={persona.label} avatarUrl={persona.avatarUrl} size="md" />
                     <span className="min-w-0 flex-1">
                       <span className="block truncate font-medium text-slate-700">
                         {persona.label}
@@ -260,11 +248,7 @@ export default function PersonaSwitcher() {
           <Users size={18} className="text-slate-600" />
         )}
         <div className="flex items-center gap-2">
-          <span
-            className={`inline-block size-2.5 rounded-full ${
-              currentPersona ? COLOR_CLASSES[currentPersona.color] ?? "bg-slate-400" : "bg-slate-400"
-            }`}
-          />
+          {currentPersona && <UserAvatar name={currentPersona.label} avatarUrl={currentPersona.avatarUrl} size="sm" />}
           <span className="text-sm font-semibold text-slate-700">
             {currentPersona?.label ?? t("persona.trigger")}
           </span>

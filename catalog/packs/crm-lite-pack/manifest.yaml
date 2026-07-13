@@ -31,6 +31,9 @@ mobileNavigation:
     icon: building
     order: 20
 
+workspaceSurfaces:
+  - key: activity
+
 modules:
   - "runory.company:^1.0.0"
   - "runory.contact:^2.0.0"

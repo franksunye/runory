@@ -82,7 +82,7 @@ describe("Sales Quote Pack installation", () => {
     expect(installations).toHaveLength(6);
 
     // Verify quote-owned objects are created
-    const quoteObjects = ["product_service", "price_book", "quote", "quote_line"];
+    const quoteObjects = ["product_service", "price_book", "price_book_item", "quote", "quote_line"];
     for (const objKey of quoteObjects) {
       const obj = await getObject(workspaceId, objKey);
       expect(obj).toBeDefined();
@@ -98,6 +98,7 @@ describe("Sales Quote Pack installation", () => {
         "/quote-lines",
         "/product-services",
         "/price-books",
+        "/price-book-items",
         "/companies",
         "/contacts",
         "/deals",
@@ -109,7 +110,7 @@ describe("Sales Quote Pack installation", () => {
     await installPack(workspaceId, "sales-quote-pack");
 
     // Verify business tables exist and are queryable
-    for (const objKey of ["product_service", "price_book", "quote", "quote_line"]) {
+    for (const objKey of ["product_service", "price_book", "price_book_item", "quote", "quote_line"]) {
       const records = await getRecords(workspaceId, objKey);
       expect(Array.isArray(records)).toBe(true);
     }
@@ -242,6 +243,31 @@ describe("Sales Quote demo data with cross-pack references", () => {
     const priceBooks = await getRecords(workspaceId, "price_book");
     expect(priceBooks.length).toBe(2);
 
+    // Each active catalog is commercially usable: all products/services have
+    // an effective price in both the standard and VIP price books.
+    const priceBookItems = await getRecords(workspaceId, "price_book_item");
+    expect(priceBookItems).toHaveLength(20);
+    const productIds = new Set(products.map((product) => product.id));
+    const priceBookIds = new Set(priceBooks.map((book) => book.id));
+    expect(priceBookItems.every((item) => productIds.has(item.product_service_id))).toBe(true);
+    expect(priceBookItems.every((item) => priceBookIds.has(item.price_book_id))).toBe(true);
+    expect(new Set(priceBookItems.map((item) => `${item.price_book_id}:${item.product_service_id}`)).size).toBe(20);
+
+    const standardBook = priceBooks.find((book) => book.name === "Standard Price Book 2026");
+    const vipBook = priceBooks.find((book) => book.name === "VIP Customer Price Book 2026");
+    const standardItems = priceBookItems.filter((item) => item.price_book_id === standardBook?.id);
+    const vipItems = priceBookItems.filter((item) => item.price_book_id === vipBook?.id);
+    expect(standardItems).toHaveLength(10);
+    expect(vipItems).toHaveLength(10);
+    for (const product of products) {
+      const standardItem = standardItems.find((item) => item.product_service_id === product.id);
+      const vipItem = vipItems.find((item) => item.product_service_id === product.id);
+      expect(standardItem?.list_price).toBe(product.default_price);
+      expect(vipItem?.list_price).toBe(Number(product.default_price) * 0.9);
+      expect(standardItem).toMatchObject({ currency: "CNY", active: 1, effective_from: "2026-01-01", effective_to: "2026-12-31" });
+      expect(vipItem).toMatchObject({ currency: "CNY", active: 1, effective_from: "2026-01-01", effective_to: "2026-12-31" });
+    }
+
     // Verify quotes were created with $lookup-resolved company_id
     const quotes = await getRecords(workspaceId, "quote");
     expect(quotes.length).toBe(12);
@@ -297,9 +323,11 @@ describe("Sales Quote demo data with cross-pack references", () => {
     const products = await getRecords(workspaceId, "product_service");
     const quotes = await getRecords(workspaceId, "quote");
     const quoteLines = await getRecords(workspaceId, "quote_line");
+    const priceBookItems = await getRecords(workspaceId, "price_book_item");
     expect(products.length).toBe(10);
     expect(quotes.length).toBe(12);
     expect(quoteLines.length).toBeGreaterThanOrEqual(16);
+    expect(priceBookItems).toHaveLength(20);
   });
 
   it("includes required demo scenarios from the plan", async () => {
@@ -325,7 +353,7 @@ describe("Sales Quote demo data with cross-pack references", () => {
     expect(String(expired?.valid_until) < "2026-06-23").toBe(true);
 
     // One revised quote with version 2
-    const revised = quotes.find((q) => String(q.quote_number).includes("V2"));
+    const revised = quotes.find((q) => q.quote_number === "Q-2026-001-R1");
     expect(revised).toBeDefined();
     expect(revised?.version).toBe(2);
 
@@ -554,6 +582,26 @@ describe("Sales Quote module cross-pack relation declarations", () => {
       expect(reparsed.objects.length).toBeGreaterThan(0);
       expect(reparsed.migrations.install).toBeDefined();
     }
+  });
+
+  it("declares intentional backlink presentation for product usage", () => {
+    const priceBook = loadModuleManifest("runory.price-book");
+    const priceBookUsage = priceBook.relations?.find((relation) =>
+      relation.object === "price_book_item"
+      && relation.targetObject === "product_service"
+    );
+    expect(priceBookUsage?.backlinkPresentation).toMatchObject({
+      mode: "compact",
+      limit: 5,
+    });
+    expect(priceBookUsage?.backlinkPresentation?.columns?.[0]?.field).toBe("price_book_id");
+
+    const quote = loadModuleManifest("runory.quote");
+    const quoteLineUsage = quote.relations?.find((relation) =>
+      relation.object === "quote_line"
+      && relation.targetObject === "product_service"
+    );
+    expect(quoteLineUsage?.backlinkPresentation?.mode).toBe("hidden");
   });
 
   it("sales quote module dashboard widgets pass validation", async () => {

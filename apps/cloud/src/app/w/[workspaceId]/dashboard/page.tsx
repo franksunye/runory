@@ -8,7 +8,7 @@ import {
 } from "lucide-react";
 import type { WidgetDeclaration, DashboardZone } from "@runory/contracts";
 import { notifyWorkspaceNavigationChanged, notifyWorkspaceDataChanged } from "@/lib/workspace-events";
-import { useWorkspaceChangeEvent } from "@/lib/api-hooks";
+import { useNavigation, useWorkspaceChangeEvent } from "@/lib/api-hooks";
 import WidgetRenderer, { type WidgetDataResponse } from "@/components/widgets/WidgetRenderer";
 import DashboardEditMode from "@/components/widgets/DashboardEditMode";
 import { useI18n } from "@/i18n/locale-provider";
@@ -44,13 +44,18 @@ interface AvailableWidget {
 export default function DashboardPage() {
   const workspaceId = useParams().workspaceId as string;
   const { t } = useI18n();
+  const {
+    data: navigationData,
+    isLoading: navigationLoading,
+    mutate: refreshNavigation,
+  } = useNavigation(workspaceId);
+  const hasPack = (navigationData?.packs.length ?? 0) > 0;
   const [installing, setInstalling] = useState(false);
   const [seeding, setSeeding] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [layout, setLayout] = useState<LayoutItem[]>([]);
   const [availableWidgets, setAvailableWidgets] = useState<AvailableWidget[]>([]);
   const [loading, setLoading] = useState(true);
-  const [hasPack, setHasPack] = useState(false);
   const [hasData, setHasData] = useState(false);
   const [editMode, setEditMode] = useState(false);
   // Batch widget data: keyed by `${moduleId}:${widgetKey}:${instance}`.
@@ -69,13 +74,7 @@ export default function DashboardPage() {
       if (json.success) {
         setLayout(json.data!.layout);
         setAvailableWidgets(json.data!.availableWidgets);
-        const packInstalled = json.data!.layout.length > 0 || json.data!.availableWidgets.length > 0;
-        setHasPack(packInstalled);
-        if (!packInstalled) {
-          setHasData(false);
-          setWidgetsLoading(false);
-        }
-        return packInstalled;
+        return json.data!.layout.length > 0;
       }
     } catch {
       // ignore
@@ -196,7 +195,7 @@ export default function DashboardPage() {
       );
       if (!json.success) throw new Error(json.error?.message ?? t("dashboard.installFailed"));
       notifyWorkspaceNavigationChanged(); notifyWorkspaceDataChanged();
-      await loadLayout();
+      await Promise.all([loadLayout(), refreshNavigation()]);
       await checkHasData();
     } catch (cause) { setError(cause instanceof Error ? cause.message : t("dashboard.installFailed")); }
     finally { setInstalling(false); }
@@ -219,10 +218,11 @@ export default function DashboardPage() {
     finally { setSeeding(false); }
   };
 
-  if (loading) return <DashboardSkeleton />;
+  if (loading || navigationLoading) return <DashboardSkeleton />;
 
   // ── Empty State: No Pack ──
   if (!hasPack) {
+    const canManage = navigationData?.canManage ?? false;
     return (
       <div className="space-y-6">
         <header>
@@ -236,13 +236,17 @@ export default function DashboardPage() {
             <div className="mx-auto mb-5 grid size-16 place-items-center rounded-2xl bg-indigo-100">
               <PackagePlus size={32} className="text-indigo-600" />
             </div>
-            <h2 className="text-2xl font-bold tracking-tight text-slate-950">{t("dashboard.emptyStartTitle")}</h2>
+            <h2 className="text-2xl font-bold tracking-tight text-slate-950">
+              {t(canManage ? "dashboard.emptyStartTitle" : "dashboard.emptyMemberTitle")}
+            </h2>
             <p className="mt-3 text-sm leading-6 text-slate-600">
-              {t("dashboard.emptyStartBody")}
+              {t(canManage ? "dashboard.emptyStartBody" : "dashboard.emptyMemberBody")}
             </p>
-            <button onClick={handleInstallPack} disabled={installing} className="app-button-primary mt-6">
-              <PackagePlus size={18} />{installing ? t("dashboard.installing") : t("dashboard.installCrmLite")}
-            </button>
+            {canManage && (
+              <button onClick={handleInstallPack} disabled={installing} className="app-button-primary mt-6">
+                <PackagePlus size={18} />{installing ? t("dashboard.installing") : t("dashboard.installCrmLite")}
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -306,6 +310,28 @@ export default function DashboardPage() {
   const listsWidgets = layout.filter((item) => item.zone === "lists");
   const activityWidgets = layout.filter((item) => item.zone === "activity");
   const widgetKeyOf = (item: LayoutItem) => `${item.moduleId}:${item.widgetKey}:${item.instance}`;
+  const availableRoutes = new Set(navigationData?.items.map((item) => item.route) ?? []);
+  const platformSurfaces = new Set(navigationData?.platformSurfaces ?? []);
+  const quickLinks = [
+    platformSurfaces.has("my_work")
+      ? { href: `/w/${workspaceId}/my-work`, label: t("onboarding.stepOpenMyWork") }
+      : null,
+    platformSurfaces.has("planning")
+      ? { href: `/w/${workspaceId}/planning`, label: t("onboarding.stepOpenPlanning") }
+      : null,
+    availableRoutes.has("/work-orders")
+      ? { href: `/w/${workspaceId}/work-orders`, label: t("onboarding.stepOpenWorkOrders") }
+      : null,
+    availableRoutes.has("/companies")
+      ? { href: `/w/${workspaceId}/companies`, label: t("workspace.nav.objectCompany") }
+      : null,
+    availableRoutes.has("/deals")
+      ? { href: `/w/${workspaceId}/deals`, label: t("workspace.nav.objectDeal") }
+      : null,
+    availableRoutes.has("/tasks")
+      ? { href: `/w/${workspaceId}/tasks`, label: t("workspace.nav.objectTask") }
+      : null,
+  ].filter((link): link is { href: string; label: string } => link !== null).slice(0, 4);
 
   return (
     <div className="space-y-6">
@@ -335,26 +361,22 @@ export default function DashboardPage() {
       </header>
 
       {/* First-time onboarding hint */}
-      <div className="rounded-xl border border-indigo-100 bg-indigo-50/50 p-4">
+      {quickLinks.length > 0 && <div className="rounded-xl border border-indigo-100 bg-indigo-50/50 p-4">
         <div className="flex items-start gap-3">
           <Sparkles size={18} className="mt-0.5 shrink-0 text-indigo-600" />
           <div className="flex-1">
             <p className="text-sm font-bold text-slate-900">{t("onboarding.demoLoadedTitle")}</p>
             <p className="mt-1 text-xs text-slate-600">{t("onboarding.demoLoadedBody")}</p>
             <div className="mt-3 flex flex-wrap gap-2">
-              <Link href={`/w/${workspaceId}/my-work`} className="inline-flex items-center gap-1 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50">
-                {t("onboarding.stepOpenMyWork")}
-              </Link>
-              <Link href={`/w/${workspaceId}/planning`} className="inline-flex items-center gap-1 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50">
-                {t("onboarding.stepOpenPlanning")}
-              </Link>
-              <Link href={`/w/${workspaceId}/work-orders`} className="inline-flex items-center gap-1 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50">
-                {t("onboarding.stepOpenWorkOrders")}
-              </Link>
+              {quickLinks.map((link) => (
+                <Link key={link.href} href={link.href} className="inline-flex items-center gap-1 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50">
+                  {link.label}
+                </Link>
+              ))}
             </div>
           </div>
         </div>
-      </div>
+      </div>}
 
       {error && <div role="alert" className="app-error">{error}</div>}
 

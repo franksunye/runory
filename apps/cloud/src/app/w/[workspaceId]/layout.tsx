@@ -7,6 +7,7 @@ import EarlyAccessBanner from "@/components/EarlyAccessBanner";
 import { WORKSPACE_NAVIGATION_CHANGED } from "@/lib/workspace-events";
 import { useI18n } from "@/i18n/locale-provider";
 import type { NavigationItem } from "@runory/platform-core";
+import type { WorkspaceSurfaceKey } from "@runory/contracts";
 import type { NavigationApiResponse } from "@/lib/api-hooks";
 
 interface InstalledPackGroup {
@@ -30,12 +31,14 @@ export default function WorkspaceLayout({
   const [packs, setPacks] = useState<InstalledPackGroup[]>([]);
   const [modulePackMap, setModulePackMap] = useState<Record<string, string>>({});
   const [modulePresentation, setModulePresentation] = useState<Record<string, { visibility: string; surface?: string; audience?: string[] }>>({});
+  const [platformSurfaces, setPlatformSurfaces] = useState<WorkspaceSurfaceKey[]>([]);
   const [workspaceName, setWorkspaceName] = useState("");
   const [workspaceRole, setWorkspaceRole] = useState<string | undefined>(undefined);
   const [currentUser, setCurrentUser] = useState<{
     userId: string;
     displayName: string;
     email: string | null;
+    avatarUrl: string | null;
     authMethod: string;
   } | undefined>(undefined);
   const [loading, setLoading] = useState(true);
@@ -65,6 +68,7 @@ export default function WorkspaceLayout({
         setPacks(data.packs);
         setModulePackMap(data.modulePackMap);
         setModulePresentation(data.modulePresentation ?? {});
+        setPlatformSurfaces(data.platformSurfaces ?? []);
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : t("workspace.loadFailed"));
@@ -112,6 +116,7 @@ export default function WorkspaceLayout({
       packs={packs}
       modulePackMap={modulePackMap}
       modulePresentation={modulePresentation}
+      platformSurfaces={platformSurfaces}
       workspaceId={workspaceRef}
       workspaceName={workspaceName}
       role={workspaceRole}

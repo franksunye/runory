@@ -7,6 +7,7 @@ import MemberAccessEditor from "@/components/access/MemberAccessEditor";
 import type { AccessDirectory } from "@/components/access/access-types";
 import { apiFetch } from "@/lib/api-fetch";
 import { useI18n } from "@/i18n/locale-provider";
+import UserAvatar from "@/components/UserAvatar";
 
 export default function MemberAccessPage() {
   const params = useParams();
@@ -46,7 +47,7 @@ export default function MemberAccessPage() {
     <div className="space-y-6 page-enter">
       <header className="flex items-center gap-3">
         <button type="button" onClick={() => router.push(listPath)} className="grid size-9 place-items-center rounded-lg border border-slate-200 text-slate-500 transition hover:bg-slate-50 hover:text-slate-700" title={zh ? "返回人员目录" : "Back to people"} aria-label={zh ? "返回人员目录" : "Back to people"}><ArrowLeft size={18} /></button>
-        <span className="grid size-11 place-items-center rounded-full bg-indigo-50 font-bold text-indigo-700">{member.displayName.slice(0, 1).toUpperCase()}</span>
+        <UserAvatar name={member.displayName} avatarUrl={member.avatarUrl} size="lg" />
         <div><p className="app-eyebrow">{zh ? "成员访问设置" : "Member access"}</p><h1 className="mt-1 text-2xl font-bold tracking-[-.025em] text-slate-950">{member.displayName}</h1><p className="mt-1 text-sm text-slate-500">{member.email ?? (zh ? "演示身份" : "Demo identity")}</p></div>
       </header>
 

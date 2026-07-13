@@ -38,7 +38,7 @@ objects:
           options: ["available", "busy", "off_duty"]
       - key: user_id
         label: Related User
-        type: text
+        type: user
         ownership: module_owned
       - key: resource_id
         label: Resource ID

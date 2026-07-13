@@ -18,6 +18,7 @@ CREATE TABLE IF NOT EXISTS {{RUNORY_TABLE_PREFIX}}users (
   external_id TEXT NOT NULL UNIQUE,
   email TEXT,
   display_name TEXT NOT NULL,
+  avatar_url TEXT,
   status TEXT NOT NULL DEFAULT 'active',
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL

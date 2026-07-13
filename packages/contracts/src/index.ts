@@ -209,6 +209,28 @@ export const relationDeclarationSchema = z.object({
   type: z.enum(["many_to_one", "one_to_many", "many_to_many"]),
   foreignKey: z.string(),              // field on this object that stores the target id
   label: z.string().optional(),        // human-readable relation label
+  composition: z.object({
+    columns: z.array(z.object({
+      field: z.string(),
+      label: z.string().optional(),
+    })).min(1),
+    allowCreate: z.boolean().default(true),
+  }).optional(),
+  /**
+   * Controls how an incoming relation is presented on the target record.
+   * Backlinks are hidden unless composition or this policy explicitly opts in.
+   */
+  backlinkPresentation: z.object({
+    mode: z.enum(["compact", "summary", "hidden"]),
+    columns: z.array(z.object({
+      field: z.string(),
+      label: z.string().optional(),
+    })).min(1).optional(),
+    limit: z.number().int().min(1).max(20).default(5),
+  }).refine(
+    (value) => value.mode !== "compact" || Boolean(value.columns?.length),
+    { message: "compact backlink presentation requires columns" }
+  ).optional(),
 });
 
 export type RelationDeclaration = z.infer<typeof relationDeclarationSchema>;
@@ -261,6 +283,7 @@ export const moduleManifestSchema = z.object({
       route: z.string(),
       icon: z.string().default("file"),
       sortOrder: z.number().default(100),
+      contextual: z.boolean().default(false),
     })).optional(),
   }).optional(),
   presentation: modulePresentationSchema.optional(),
@@ -323,6 +346,18 @@ export const packMobileNavigationItemSchema = z.object({
 });
 export type PackMobileNavigationItem = z.infer<typeof packMobileNavigationItemSchema>;
 
+// Cross-pack workspace surfaces are owned by the platform shell, while Packs
+// explicitly contribute the capabilities that make them useful. This keeps
+// optional product areas out of a newly-created workspace and lets install /
+// uninstall naturally recompute the shell without hard-coded Pack checks.
+export const workspaceSurfaceKeySchema = z.enum(["my_work", "planning", "activity"]);
+export const packWorkspaceSurfaceSchema = z.object({
+  key: workspaceSurfaceKeySchema,
+  audience: z.array(z.string()).optional(),
+});
+export type WorkspaceSurfaceKey = z.infer<typeof workspaceSurfaceKeySchema>;
+export type PackWorkspaceSurface = z.infer<typeof packWorkspaceSurfaceSchema>;
+
 export const packManifestSchema = z.object({
   id: z.string(),
   name: z.string(),
@@ -350,6 +385,9 @@ export const packManifestSchema = z.object({
   // Packs contribute mobile execution tabs; the mobile shell composes installed
   // pack contributions instead of hardcoding a single industry workflow.
   mobileNavigation: z.array(packMobileNavigationItemSchema).optional(),
+  // v0.5.1 — Desktop platform-surface contributions. These are resolved with
+  // the current user's effective Pack audiences by the navigation API.
+  workspaceSurfaces: z.array(packWorkspaceSurfaceSchema).optional(),
 });
 
 export type PackManifest = z.infer<typeof packManifestSchema>;

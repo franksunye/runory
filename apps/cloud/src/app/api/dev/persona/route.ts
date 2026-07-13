@@ -29,15 +29,17 @@ export async function GET(request: NextRequest) {
     ? selectedPersona
     : "dev-local-owner";
 
-  const identities = await queryAll<{ external_id: string; display_name: string }>(
-    `SELECT external_id, display_name FROM ${TABLES.users}
+  const identities = await queryAll<{ external_id: string; display_name: string; avatar_url: string | null }>(
+    `SELECT external_id, display_name, avatar_url FROM ${TABLES.users}
      WHERE external_id IN (${PERSONAS.map(() => "?").join(",")})`,
     PERSONAS.map((persona) => persona.externalId)
   );
   const names = new Map(identities.map((identity) => [identity.external_id, identity.display_name]));
+  const avatars = new Map(identities.map((identity) => [identity.external_id, identity.avatar_url]));
   const personas = PERSONAS.map((persona) => ({
     ...persona,
     label: names.get(persona.externalId) ?? persona.label,
+    avatarUrl: avatars.get(persona.externalId) ?? null,
   }));
 
   return NextResponse.json({ personas, current: currentPersona });

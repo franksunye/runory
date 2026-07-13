@@ -19,6 +19,7 @@ import type { MessageKey } from "@/i18n/messages";
 import type { PlanningEntry, WorkspaceRecord } from "@/lib/api-hooks";
 import { apiFetch } from "@/lib/api-fetch";
 import { PlanningMap } from "@/components/planning/PlanningMap";
+import UserAvatar from "@/components/UserAvatar";
 
 // ── Constants ──
 
@@ -283,6 +284,8 @@ interface PlanningEntryRaw {
   resourceName?: string | null;
   resource_type?: string | null;
   resourceType?: string | null;
+  resource_avatar_url?: string | null;
+  resourceAvatarUrl?: string | null;
   subject_name?: string | null;
   subjectName?: string | null;
   latitude?: number | null;
@@ -295,7 +298,9 @@ interface PlanningEntryRaw {
   conflictState?: string;
 }
 
-function normalizeEntry(raw: PlanningEntryRaw): PlanningEntry {
+type PlanningEntryWithAvatar = PlanningEntry & { resource_avatar_url?: string | null };
+
+function normalizeEntry(raw: PlanningEntryRaw): PlanningEntryWithAvatar {
   const r = raw ?? {};
   return {
     id: r.id,
@@ -311,6 +316,7 @@ function normalizeEntry(raw: PlanningEntryRaw): PlanningEntry {
     updated_at: r.updated_at ?? r.updatedAt ?? "",
     resource_name: r.resource_name ?? r.resourceName ?? undefined,
     resource_type: r.resource_type ?? r.resourceType ?? undefined,
+    resource_avatar_url: r.resource_avatar_url ?? r.resourceAvatarUrl ?? null,
     subject_name: r.subject_name ?? r.subjectName ?? undefined,
     latitude: r.latitude ?? null,
     longitude: r.longitude ?? null,
@@ -326,7 +332,7 @@ export default function PlanningPage() {
   const workspaceId = useParams().workspaceId as string;
   const { t, locale } = useI18n();
 
-  const [entries, setEntries] = useState<PlanningEntry[]>([]);
+  const [entries, setEntries] = useState<PlanningEntryWithAvatar[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
@@ -334,7 +340,12 @@ export default function PlanningPage() {
   const [anchorDate, setAnchorDate] = useState<Date>(() => startOfDay(new Date()));
   const [selected, setSelected] = useState<PlanningEntry | null>(null);
   const [view, setView] = useState<"calendar" | "timeline" | "resource" | "map">("calendar");
-  const [resources, setResources] = useState<{ id: string; name: string }[]>([]);
+  const [resources, setResources] = useState<Array<{
+    id: string;
+    name: string;
+    avatarUrl: string | null;
+    availability: string;
+  }>>([]);
   const [mapResourceId, setMapResourceId] = useState("all");
   const [mapStatus, setMapStatus] = useState<"all" | StatusBucket>("all");
 
@@ -423,10 +434,12 @@ export default function PlanningPage() {
         const rows: WorkspaceRecord[] = Array.isArray(json.data) ? json.data : [];
         const mapped = rows
           .map((r) => ({
-            id: String(r.id ?? r._id ?? ""),
+            id: String(r.resource_id ?? r.id ?? r._id ?? ""),
             name: String(
               r.name ?? r.display_name ?? r.full_name ?? r.title ?? ""
             ),
+            avatarUrl: typeof r.user_id_avatar_url === "string" ? r.user_id_avatar_url : null,
+            availability: String(r.availability_status ?? "off_duty"),
           }))
           .filter((r) => r.id);
         setResources(mapped);
@@ -486,7 +499,7 @@ export default function PlanningPage() {
   // any resource ids referenced by entries but absent from the roster, with the
   // "unassigned" bucket kept last.
   const resourceRows = useMemo(() => {
-    const byResource = new Map<string, PlanningEntry[]>();
+    const byResource = new Map<string, PlanningEntryWithAvatar[]>();
     for (const e of entries) {
       const rid = e.resource_id || "unassigned";
       if (!byResource.has(rid)) byResource.set(rid, []);
@@ -513,16 +526,26 @@ export default function PlanningPage() {
         ordered.push("unassigned");
       }
     }
-    return ordered.map((rid) => ({
-      id: rid,
-      name:
-        rid === "unassigned"
-          ? t("planning.unassigned")
-          : resourceNameMap.get(rid) || rid.slice(0, 8),
-      entries: (byResource.get(rid) || [])
-        .slice()
-        .sort((a, b) => a.start_at.localeCompare(b.start_at)),
-    }));
+    return ordered.map((rid) => {
+      const resource = resources.find((candidate) => candidate.id === rid);
+      const entryWithAvatar = (byResource.get(rid) ?? []).find((entry) => entry.resource_avatar_url);
+      return {
+        id: rid,
+        name:
+          rid === "unassigned"
+            ? t("planning.unassigned")
+            : resourceNameMap.get(rid) || rid.slice(0, 8),
+        avatarUrl: resource?.avatarUrl ?? entryWithAvatar?.resource_avatar_url ?? null,
+        presence: resource?.availability === "available"
+          ? "online" as const
+          : resource?.availability === "busy"
+            ? "busy" as const
+            : "offline" as const,
+        entries: (byResource.get(rid) || [])
+          .slice()
+          .sort((a, b) => a.start_at.localeCompare(b.start_at)),
+      };
+    });
   }, [entries, resources, resourceNameMap, t]);
 
   // Entries that carry coordinates — used by the interactive map view.
@@ -1020,9 +1043,8 @@ export default function PlanningPage() {
                       className="flex h-12 items-center border-b border-slate-100 px-3"
                       title={row.name}
                     >
-                      <span className="truncate text-xs font-semibold text-slate-700">
-                        {row.name}
-                      </span>
+                      <UserAvatar name={row.name} avatarUrl={row.avatarUrl} size="sm" presence={row.presence} />
+                      <span className="ml-2 truncate text-xs font-semibold text-slate-700">{row.name}</span>
                     </div>
                   ))}
                 </div>
@@ -1098,7 +1120,8 @@ export default function PlanningPage() {
                         className="flex h-[76px] items-center border-b border-slate-100 px-3"
                         title={row.name}
                       >
-                        <span className="truncate text-xs font-semibold text-slate-700">{row.name}</span>
+                        <UserAvatar name={row.name} avatarUrl={row.avatarUrl} size="sm" presence={row.presence} />
+                        <span className="ml-2 truncate text-xs font-semibold text-slate-700">{row.name}</span>
                       </div>
                     ))}
                   </div>

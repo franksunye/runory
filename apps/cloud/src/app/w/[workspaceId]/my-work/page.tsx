@@ -9,6 +9,7 @@ import {
 import { useI18n } from "@/i18n/locale-provider";
 import type { MyWorkItem } from "@/lib/api-hooks";
 import { apiFetch, apiPost } from "@/lib/api-fetch";
+import UserAvatar from "@/components/UserAvatar";
 
 interface Toast { type: "success" | "error"; message: string }
 
@@ -332,8 +333,14 @@ function MyWorkPage() {
                           </span>
                         )}
                         {item.assignee_id && (
-                          <span className="flex items-center gap-1">
-                            <User size={12} />
+                          <span className="flex items-center gap-1.5">
+                            {item.assignee_avatar_url ? (
+                              <UserAvatar
+                                name={item.assignee_display ?? item.assignee_id}
+                                avatarUrl={item.assignee_avatar_url}
+                                size="xs"
+                              />
+                            ) : <User size={12} />}
                             {t("myWork.assignee")}: {item.assignee_display ?? (item.assignee_type === "permission_group" ? item.assignee_id.replace(/_/g, " ") : item.assignee_id)}
                           </span>
                         )}

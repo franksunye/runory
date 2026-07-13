@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import SchemaForm from "./SchemaForm";
 import type { FieldDefinition } from "@runory/platform-core";
 import {
@@ -32,6 +32,7 @@ export default function ObjectCreatePage({
 }: ObjectCreatePageProps) {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const workspaceId = params.workspaceId as string;
   const { t } = useI18n();
 
@@ -46,6 +47,11 @@ export default function ObjectCreatePage({
   const loading = loadingObj || loadingViews;
   const fields: FieldDefinition[] = objDetail?.fields ?? [];
   const viewConfig = views.find((v) => v.viewKey === viewKey)?.config ?? null;
+  const parentField = searchParams.get("parentField");
+  const parentId = searchParams.get("parentId");
+  const requestedReturnTo = searchParams.get("returnTo");
+  const returnTo = requestedReturnTo?.startsWith(`/w/${workspaceId}/`) ? requestedReturnTo : basePath;
+  const contextValues = parentField && parentId ? { [parentField]: parentId } : {};
 
   const handleSubmit = async (data: Record<string, any>) => {
     setSubmitting(true);
@@ -53,11 +59,11 @@ export default function ObjectCreatePage({
     try {
       const json = await apiPost<{ success: boolean; error?: { message: string } }>(
         `/api/workspaces/${workspaceId}/objects/${objectKey}/records`,
-        data
+        { ...data, ...contextValues }
       );
       if (json.success) {
         notifyWorkspaceDataChanged();
-        router.push(basePath);
+        router.push(returnTo);
         router.refresh();
       } else {
         setError(json.error?.message ?? t("workspace.createFailed"));
@@ -87,10 +93,10 @@ export default function ObjectCreatePage({
       <div>
         <button
           type="button"
-          onClick={() => router.push(basePath)}
+          onClick={() => router.push(returnTo)}
           className="text-xs font-semibold text-slate-500 transition hover:text-slate-800"
         >
-          ← {backLabel ?? t("workspace.backToList", { title })}
+          ← {backLabel ?? (parentField ? t("workspace.backToParent") : t("workspace.backToList", { title }))}
         </button>
         <h1 className="mt-2 text-3xl font-bold tracking-[-.025em] text-slate-950">{t("workspace.createTitle", { title })}</h1>
         {(subtitle ?? t("workspace.createSubtitle")) && (
@@ -106,8 +112,10 @@ export default function ObjectCreatePage({
         <SchemaForm
           fields={fields}
           viewConfig={viewConfig}
+          initialValues={contextValues}
+          hiddenFields={parentField ? [parentField] : []}
           onSubmit={handleSubmit}
-          onCancel={() => router.push(basePath)}
+          onCancel={() => router.push(returnTo)}
           submitLabel={submitting ? t("workspace.saving") : t("workspace.save")}
           workspaceId={workspaceId}
         />

@@ -68,7 +68,9 @@ export function loadPackManifest(packId: string): PackManifest {
 interface DemoRecord {
   object: string;
   alias?: string;
-  match?: { field: string; value: string | number | boolean };
+  match?:
+    | { field: string; value: string | number | boolean }
+    | { fields: Record<string, string | number | boolean> };
   data: Record<string, unknown>;
 }
 
@@ -140,6 +142,7 @@ interface DemoUser {
   externalId: string;      // e.g. "persona:sales-rep"
   email?: string;          // e.g. "sales.rep@runory.demo"
   displayName: string;     // e.g. "Sarah Chen (Sales Rep)"
+  avatarUrl?: string;      // user-owned avatar shared across every surface
   role?: "admin" | "member" | "viewer";  // workspace membership role, default "member"
   permissionGroups?: Array<{ packId: string; groupKey: string }>;  // e.g. [{ packId: "sales-quote-pack", groupKey: "sales_representative" }]
   resourceAlias?: string;  // link to a resource by alias (e.g., "res-david")
@@ -356,11 +359,18 @@ async function seedDemoUsers(
       if (!existing) {
         await execute(
           `INSERT INTO ${TABLES.users}
-           (id, external_id, email, display_name, status, created_at, updated_at)
-           VALUES (?, ?, ?, ?, 'active', ?, ?)`,
-          [actualUserId, du.externalId, du.email ?? null, du.displayName, nowTs, nowTs]
+           (id, external_id, email, display_name, avatar_url, status, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, 'active', ?, ?)`,
+          [actualUserId, du.externalId, du.email ?? null, du.displayName, du.avatarUrl ?? null, nowTs, nowTs]
         );
         created++;
+      } else if (du.avatarUrl) {
+        await execute(
+          `UPDATE ${TABLES.users}
+           SET avatar_url = ?, updated_at = ?
+           WHERE id = ? AND (avatar_url IS NULL OR avatar_url <> ?)`,
+          [du.avatarUrl, nowTs, actualUserId, du.avatarUrl]
+        );
       }
 
       if (du.email) {
@@ -451,6 +461,26 @@ async function seedDemoUsers(
   return created;
 }
 
+async function linkDemoTechnicianIdentity(
+  workspaceId: string,
+  resource: DemoResource,
+  resourceId: string,
+  userId: string | null
+): Promise<void> {
+  if (resource.resourceType !== "technician") return;
+  try {
+    await execute(
+      `UPDATE ${businessTable("technician")}
+       SET user_id = COALESCE(?, user_id), resource_id = ?, updated_at = ?
+       WHERE workspace_id = ? AND (email = ? OR name = ?)`,
+      [userId, resourceId, now(), workspaceId, resource.email ?? "", resource.displayName]
+    );
+  } catch {
+    // The technician module is optional for other packs that may contribute a
+    // resource. Missing business tables must not break demo installation.
+  }
+}
+
 async function seedPackDemoData(workspaceId: string, packId: string): Promise<number> {
   const demo = readPackDemoDataFile(packId);
   if (!demo) return 0;
@@ -490,10 +520,15 @@ async function seedPackDemoData(workspaceId: string, packId: string): Promise<nu
 
     let existing: Record<string, unknown> | undefined;
     if (record.match) {
-      validateIdentifier(record.match.field);
-      const resolvedMatchValue = resolveDemoValue(record.match.value, aliases);
-      existing = (await getRecords(workspaceId, record.object)).find(
-        (row) => row[record.match!.field] === resolvedMatchValue
+      const matchEntries = "field" in record.match
+        ? [[record.match.field, record.match.value] as const]
+        : Object.entries(record.match.fields);
+      const resolvedMatchEntries = matchEntries.map(([field, value]) => [
+        validateIdentifier(field),
+        resolveDemoValue(value, aliases),
+      ] as const);
+      existing = (await getRecords(workspaceId, record.object)).find((row) =>
+        resolvedMatchEntries.every(([field, value]) => row[field] === value)
       );
     }
 
@@ -578,6 +613,7 @@ async function seedPackDemoData(workspaceId: string, packId: string): Promise<nu
           );
         }
         aliases.set(res.alias, { id: existing.id, ...res });
+        await linkDemoTechnicianIdentity(workspaceId, res, existing.id, userId);
         continue;
       }
       const id = genId("res");
@@ -589,6 +625,7 @@ async function seedPackDemoData(workspaceId: string, packId: string): Promise<nu
         [id, workspaceId, res.resourceType, res.displayName, userId, ts, ts]
       );
       aliases.set(res.alias, { id, ...res });
+      await linkDemoTechnicianIdentity(workspaceId, res, id, userId);
       created++;
     }
   }

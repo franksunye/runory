@@ -216,6 +216,126 @@
       }
     },
     {
+      "object": "price_book_item",
+      "alias": "pbi-standard-inspection",
+      "match": { "fields": { "price_book_id": "$pb-standard.id", "product_service_id": "$ps-inspection.id" } },
+      "data": { "price_book_id": "$pb-standard.id", "product_service_id": "$ps-inspection.id", "list_price": 800, "currency": "CNY", "effective_from": "2026-01-01", "effective_to": "2026-12-31", "active": true, "notes": "Standard catalog price" }
+    },
+    {
+      "object": "price_book_item",
+      "alias": "pbi-standard-hvac-repair",
+      "match": { "fields": { "price_book_id": "$pb-standard.id", "product_service_id": "$ps-hvac-repair.id" } },
+      "data": { "price_book_id": "$pb-standard.id", "product_service_id": "$ps-hvac-repair.id", "list_price": 2500, "currency": "CNY", "effective_from": "2026-01-01", "effective_to": "2026-12-31", "active": true, "notes": "Standard catalog price" }
+    },
+    {
+      "object": "price_book_item",
+      "alias": "pbi-standard-refrigerant",
+      "match": { "fields": { "price_book_id": "$pb-standard.id", "product_service_id": "$ps-refrigerant.id" } },
+      "data": { "price_book_id": "$pb-standard.id", "product_service_id": "$ps-refrigerant.id", "list_price": 1800, "currency": "CNY", "effective_from": "2026-01-01", "effective_to": "2026-12-31", "active": true, "notes": "Standard catalog price" }
+    },
+    {
+      "object": "price_book_item",
+      "alias": "pbi-standard-calibration",
+      "match": { "fields": { "price_book_id": "$pb-standard.id", "product_service_id": "$ps-calibration.id" } },
+      "data": { "price_book_id": "$pb-standard.id", "product_service_id": "$ps-calibration.id", "list_price": 3200, "currency": "CNY", "effective_from": "2026-01-01", "effective_to": "2026-12-31", "active": true, "notes": "Standard catalog price" }
+    },
+    {
+      "object": "price_book_item",
+      "alias": "pbi-standard-filter",
+      "match": { "fields": { "price_book_id": "$pb-standard.id", "product_service_id": "$ps-filter.id" } },
+      "data": { "price_book_id": "$pb-standard.id", "product_service_id": "$ps-filter.id", "list_price": 150, "currency": "CNY", "effective_from": "2026-01-01", "effective_to": "2026-12-31", "active": true, "notes": "Standard catalog price" }
+    },
+    {
+      "object": "price_book_item",
+      "alias": "pbi-standard-filter-premium",
+      "match": { "fields": { "price_book_id": "$pb-standard.id", "product_service_id": "$ps-filter-premium.id" } },
+      "data": { "price_book_id": "$pb-standard.id", "product_service_id": "$ps-filter-premium.id", "list_price": 380, "currency": "CNY", "effective_from": "2026-01-01", "effective_to": "2026-12-31", "active": true, "notes": "Standard catalog price" }
+    },
+    {
+      "object": "price_book_item",
+      "alias": "pbi-standard-sensor",
+      "match": { "fields": { "price_book_id": "$pb-standard.id", "product_service_id": "$ps-sensor.id" } },
+      "data": { "price_book_id": "$pb-standard.id", "product_service_id": "$ps-sensor.id", "list_price": 650, "currency": "CNY", "effective_from": "2026-01-01", "effective_to": "2026-12-31", "active": true, "notes": "Standard catalog price" }
+    },
+    {
+      "object": "price_book_item",
+      "alias": "pbi-standard-maintenance-bundle",
+      "match": { "fields": { "price_book_id": "$pb-standard.id", "product_service_id": "$ps-maintenance-bundle.id" } },
+      "data": { "price_book_id": "$pb-standard.id", "product_service_id": "$ps-maintenance-bundle.id", "list_price": 9800, "currency": "CNY", "effective_from": "2026-01-01", "effective_to": "2026-12-31", "active": true, "notes": "Standard catalog price" }
+    },
+    {
+      "object": "price_book_item",
+      "alias": "pbi-standard-onsite-support",
+      "match": { "fields": { "price_book_id": "$pb-standard.id", "product_service_id": "$ps-onsite-support.id" } },
+      "data": { "price_book_id": "$pb-standard.id", "product_service_id": "$ps-onsite-support.id", "list_price": 1500, "currency": "CNY", "effective_from": "2026-01-01", "effective_to": "2026-12-31", "active": true, "notes": "Standard catalog price" }
+    },
+    {
+      "object": "price_book_item",
+      "alias": "pbi-standard-training",
+      "match": { "fields": { "price_book_id": "$pb-standard.id", "product_service_id": "$ps-training.id" } },
+      "data": { "price_book_id": "$pb-standard.id", "product_service_id": "$ps-training.id", "list_price": 2000, "currency": "CNY", "effective_from": "2026-01-01", "effective_to": "2026-12-31", "active": true, "notes": "Standard catalog price" }
+    },
+    {
+      "object": "price_book_item",
+      "alias": "pbi-vip-inspection",
+      "match": { "fields": { "price_book_id": "$pb-premium.id", "product_service_id": "$ps-inspection.id" } },
+      "data": { "price_book_id": "$pb-premium.id", "product_service_id": "$ps-inspection.id", "list_price": 720, "currency": "CNY", "effective_from": "2026-01-01", "effective_to": "2026-12-31", "active": true, "notes": "VIP contractual price — 10% below standard" }
+    },
+    {
+      "object": "price_book_item",
+      "alias": "pbi-vip-hvac-repair",
+      "match": { "fields": { "price_book_id": "$pb-premium.id", "product_service_id": "$ps-hvac-repair.id" } },
+      "data": { "price_book_id": "$pb-premium.id", "product_service_id": "$ps-hvac-repair.id", "list_price": 2250, "currency": "CNY", "effective_from": "2026-01-01", "effective_to": "2026-12-31", "active": true, "notes": "VIP contractual price — 10% below standard" }
+    },
+    {
+      "object": "price_book_item",
+      "alias": "pbi-vip-refrigerant",
+      "match": { "fields": { "price_book_id": "$pb-premium.id", "product_service_id": "$ps-refrigerant.id" } },
+      "data": { "price_book_id": "$pb-premium.id", "product_service_id": "$ps-refrigerant.id", "list_price": 1620, "currency": "CNY", "effective_from": "2026-01-01", "effective_to": "2026-12-31", "active": true, "notes": "VIP contractual price — 10% below standard" }
+    },
+    {
+      "object": "price_book_item",
+      "alias": "pbi-vip-calibration",
+      "match": { "fields": { "price_book_id": "$pb-premium.id", "product_service_id": "$ps-calibration.id" } },
+      "data": { "price_book_id": "$pb-premium.id", "product_service_id": "$ps-calibration.id", "list_price": 2880, "currency": "CNY", "effective_from": "2026-01-01", "effective_to": "2026-12-31", "active": true, "notes": "VIP contractual price — 10% below standard" }
+    },
+    {
+      "object": "price_book_item",
+      "alias": "pbi-vip-filter",
+      "match": { "fields": { "price_book_id": "$pb-premium.id", "product_service_id": "$ps-filter.id" } },
+      "data": { "price_book_id": "$pb-premium.id", "product_service_id": "$ps-filter.id", "list_price": 135, "currency": "CNY", "effective_from": "2026-01-01", "effective_to": "2026-12-31", "active": true, "notes": "VIP contractual price — 10% below standard" }
+    },
+    {
+      "object": "price_book_item",
+      "alias": "pbi-vip-filter-premium",
+      "match": { "fields": { "price_book_id": "$pb-premium.id", "product_service_id": "$ps-filter-premium.id" } },
+      "data": { "price_book_id": "$pb-premium.id", "product_service_id": "$ps-filter-premium.id", "list_price": 342, "currency": "CNY", "effective_from": "2026-01-01", "effective_to": "2026-12-31", "active": true, "notes": "VIP contractual price — 10% below standard" }
+    },
+    {
+      "object": "price_book_item",
+      "alias": "pbi-vip-sensor",
+      "match": { "fields": { "price_book_id": "$pb-premium.id", "product_service_id": "$ps-sensor.id" } },
+      "data": { "price_book_id": "$pb-premium.id", "product_service_id": "$ps-sensor.id", "list_price": 585, "currency": "CNY", "effective_from": "2026-01-01", "effective_to": "2026-12-31", "active": true, "notes": "VIP contractual price — 10% below standard" }
+    },
+    {
+      "object": "price_book_item",
+      "alias": "pbi-vip-maintenance-bundle",
+      "match": { "fields": { "price_book_id": "$pb-premium.id", "product_service_id": "$ps-maintenance-bundle.id" } },
+      "data": { "price_book_id": "$pb-premium.id", "product_service_id": "$ps-maintenance-bundle.id", "list_price": 8820, "currency": "CNY", "effective_from": "2026-01-01", "effective_to": "2026-12-31", "active": true, "notes": "VIP contractual price — 10% below standard" }
+    },
+    {
+      "object": "price_book_item",
+      "alias": "pbi-vip-onsite-support",
+      "match": { "fields": { "price_book_id": "$pb-premium.id", "product_service_id": "$ps-onsite-support.id" } },
+      "data": { "price_book_id": "$pb-premium.id", "product_service_id": "$ps-onsite-support.id", "list_price": 1350, "currency": "CNY", "effective_from": "2026-01-01", "effective_to": "2026-12-31", "active": true, "notes": "VIP contractual price — 10% below standard" }
+    },
+    {
+      "object": "price_book_item",
+      "alias": "pbi-vip-training",
+      "match": { "fields": { "price_book_id": "$pb-premium.id", "product_service_id": "$ps-training.id" } },
+      "data": { "price_book_id": "$pb-premium.id", "product_service_id": "$ps-training.id", "list_price": 1800, "currency": "CNY", "effective_from": "2026-01-01", "effective_to": "2026-12-31", "active": true, "notes": "VIP contractual price — 10% below standard" }
+    },
+    {
       "object": "quote",
       "alias": "q-acme-deal-v1",
       "match": {

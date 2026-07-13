@@ -13,6 +13,7 @@ import {
   Navigation,
   Pencil,
   Play,
+  Plus,
   RotateCcw,
   Send,
   Trash2,
@@ -20,6 +21,8 @@ import {
 } from "lucide-react";
 import useSWR from "swr";
 import SchemaForm from "./SchemaForm";
+import SchemaTable from "./SchemaTable";
+import UserAvatar from "./UserAvatar";
 import RecordWorkflowPanel from "./RecordWorkflowPanel";
 import RecordTimelineSection, { isValidTimelineSubject } from "./RecordTimelineSection";
 import type { FieldDefinition } from "@runory/platform-core";
@@ -29,6 +32,7 @@ import {
   useRecord,
   useRecords,
   useRelations,
+  useWorkspaceAccess,
   useWorkspaceChangeEvent,
   type WorkspaceRecord,
 } from "@/lib/api-hooks";
@@ -63,8 +67,12 @@ const OBJECT_KEY_LABEL: Record<string, MessageKey> = {
   conversation: "workspace.nav.objectConversation",
   knowledge: "workspace.nav.objectKnowledge",
   "product-service": "workspace.nav.objectProductService",
+  product_service: "workspace.nav.objectProductService",
   "price-book": "workspace.nav.objectPriceBook",
+  price_book: "workspace.nav.objectPriceBook",
+  price_book_item: "workspace.nav.objectPriceBookItem",
   quote: "workspace.nav.objectQuote",
+  quote_line: "workspace.nav.objectQuoteLine",
   "quote-approval": "workspace.nav.objectQuoteApproval",
   "entity-profile": "workspace.nav.objectEntityProfile",
   "citation-source": "workspace.nav.objectCitationSource",
@@ -128,6 +136,15 @@ export interface RelatedRecordsConfig {
   routeBase: string;
   /** Optional secondary fields to show after the title */
   secondaryFields?: string[];
+  composition?: {
+    columns: Array<{ field: string; label?: string }>;
+    allowCreate: boolean;
+  };
+  backlinkPresentation?: {
+    mode: "compact" | "summary" | "hidden";
+    columns?: Array<{ field: string; label?: string }>;
+    limit: number;
+  };
 }
 
 const DISPLAY_FIELD_CANDIDATES = [
@@ -213,27 +230,100 @@ function ParentLinkPanel({
 
 function RelatedRecordsPanel({
   workspaceId,
+  parentObjectKey,
   recordId,
   config,
 }: {
   workspaceId: string;
+  parentObjectKey: string;
   recordId: string;
   config: RelatedRecordsConfig;
 }) {
   const { t } = useI18n();
   const { data: relatedDetail } = useFields(workspaceId, config.objectKey);
+  const { data: workspaceAccess } = useWorkspaceAccess(workspaceId);
+  const compactLimit = config.backlinkPresentation?.mode === "compact"
+    ? config.backlinkPresentation.limit
+    : undefined;
   const { data: allRecords = [] } = useRecords(workspaceId, config.objectKey, {
-    search: recordId,
+    filters: { [config.foreignKey]: recordId },
+    // Fetch one extra row so the panel can indicate that more results exist
+    // without loading an unbounded transactional collection.
+    limit: compactLimit ? compactLimit + 1 : undefined,
   });
-  const filtered = allRecords.filter(
-    (r) => String(r[config.foreignKey]) === String(recordId)
-  );
-  if (filtered.length === 0) return null;
+  const hasMore = compactLimit !== undefined && allRecords.length > compactLimit;
+  const filtered = compactLimit ? allRecords.slice(0, compactLimit) : allRecords;
+  if (filtered.length === 0 && !config.composition) return null;
 
   const routeBase = config.routeBase.replace("{workspaceId}", workspaceId);
   const displayField = getDisplayField(relatedDetail?.fields ?? [], config.titleField);
+  const permissions = new Set(workspaceAccess?.accessSummary?.permissions ?? []);
+  const createPermission = config.objectKey === "quote_line" ? "quote.edit_draft" : `${config.objectKey}.create`;
+  const canCreate = workspaceAccess?.workspaceRole === "admin"
+    || permissions.has("*")
+    || permissions.has(createPermission);
+
+  if (config.composition) {
+    const returnTo = `/w/${workspaceId}/${objectKeyToRouteSegment(parentObjectKey)}/${recordId}`;
+    const createHref = `${routeBase}/new?parentField=${encodeURIComponent(config.foreignKey)}&parentId=${encodeURIComponent(recordId)}&returnTo=${encodeURIComponent(returnTo)}`;
+    return (
+      <section className="app-card overflow-hidden p-0">
+        <div className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+          <div>
+            <h3 className="text-sm font-bold text-slate-900">{config.label}</h3>
+            <p className="mt-1 text-xs text-slate-500">{t("workspace.recordCount", { count: filtered.length })}</p>
+          </div>
+          {config.composition.allowCreate && canCreate && (
+            <Link href={createHref} className="app-button-secondary self-start">
+              <Plus size={15} />{t("workspace.addRecord")}
+            </Link>
+          )}
+        </div>
+        <SchemaTable
+          fields={relatedDetail?.fields ?? []}
+          viewConfig={{ columns: config.composition.columns }}
+          records={filtered}
+          workspaceId={workspaceId}
+          objectKey={config.objectKey}
+          basePath={routeBase}
+          embedded
+        />
+      </section>
+    );
+  }
+
+  if (config.backlinkPresentation?.mode === "compact") {
+    const viewAllHref = `${routeBase}?filter.${encodeURIComponent(config.foreignKey)}=${encodeURIComponent(recordId)}`;
+    return (
+      <section className="app-card overflow-hidden p-0">
+        <div className="flex items-center justify-between gap-3 px-5 py-4 sm:px-6">
+          <div>
+            <h3 className="text-sm font-bold text-slate-900">{config.label}</h3>
+            <p className="mt-1 text-xs text-slate-500">
+              {t("workspace.recordCount", { count: hasMore ? `${filtered.length}+` : filtered.length })}
+            </p>
+          </div>
+          {hasMore && (
+            <Link href={viewAllHref} className="text-sm font-semibold text-indigo-600 hover:text-indigo-800">
+              {t("widget.viewAll")} →
+            </Link>
+          )}
+        </div>
+        <SchemaTable
+          fields={relatedDetail?.fields ?? []}
+          viewConfig={{ columns: config.backlinkPresentation.columns ?? [] }}
+          records={filtered}
+          workspaceId={workspaceId}
+          objectKey={config.objectKey}
+          basePath={routeBase}
+          embedded
+        />
+      </section>
+    );
+  }
+
   return (
-    <div>
+    <div className="app-card p-5 sm:p-6">
       <p className="text-xs font-medium uppercase tracking-wider text-slate-500">
         {config.label}（{filtered.length}）
       </p>
@@ -416,7 +506,12 @@ export default function ObjectDetailPage({
   const related = useMemo(() => {
     const manualKeys = new Set(manualRelated.map((r) => r.objectKey));
     const derived: RelatedRecordsConfig[] = metadataBacklinks
-      .filter((r) => !manualKeys.has(r.objectKey))
+      // Database backlinks are not automatically product UI. A module must
+      // explicitly opt in with composition or a presentation policy.
+      .filter((r) => (
+        !manualKeys.has(r.objectKey)
+        && (Boolean(r.composition) || r.backlinkPresentation?.mode === "compact")
+      ))
       .map((r) => ({
         objectKey: r.objectKey,
         foreignKey: r.foreignKey,
@@ -424,6 +519,8 @@ export default function ObjectDetailPage({
         // (which is the child→parent perspective, e.g. "Related Company").
         label: t("workspace.relatedRecords", { target: getObjectLabel(r.objectKey, t) }),
         routeBase: `/w/{workspaceId}/${objectKeyToRouteSegment(r.objectKey)}`,
+        composition: r.composition,
+        backlinkPresentation: r.backlinkPresentation,
       }));
     return [...manualRelated, ...derived];
   }, [manualRelated, metadataBacklinks, t]);
@@ -612,11 +709,24 @@ export default function ObjectDetailPage({
   };
 
   const businessActions = getBusinessCommandActions(objectKey, record);
+  const identityAvatarUrl = typeof record.user_id_avatar_url === "string"
+    ? record.user_id_avatar_url
+    : null;
+  const identityName = typeof record.name === "string" ? record.name : title;
 
   return (
     <div className="space-y-6 page-enter">
       <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div>
+        <div className="flex items-start gap-3">
+          {identityAvatarUrl && (
+            <UserAvatar
+              name={identityName}
+              avatarUrl={identityAvatarUrl}
+              size="xl"
+              presence={record.availability_status === "available" ? "online" : record.availability_status === "busy" ? "busy" : "offline"}
+            />
+          )}
+          <div>
           <Link
             href={basePath}
             className="inline-flex items-center gap-1 text-xs font-semibold text-slate-500 transition hover:text-slate-800"
@@ -626,6 +736,8 @@ export default function ObjectDetailPage({
           <h1 className="mt-2 text-3xl font-bold tracking-[-.025em] text-slate-950">
             {t("workspace.detailTitle", { title })}
           </h1>
+          {identityAvatarUrl && <p className="mt-1 text-sm font-medium text-slate-500">{identityName}</p>}
+          </div>
         </div>
         {!editing && (
           <div className="flex gap-2 self-start">
@@ -724,8 +836,8 @@ export default function ObjectDetailPage({
             recordId={recordId}
           />
 
-          {/* Parent + related associations */}
-          {(parentLinks.length > 0 || related.length > 0) && (
+          {/* Parent associations */}
+          {parentLinks.length > 0 && (
             <div className="app-card p-5 sm:p-6">
               {parentLinks.map((cfg) => (
                 <ParentLinkPanel
@@ -735,20 +847,19 @@ export default function ObjectDetailPage({
                   config={cfg}
                 />
               ))}
-              {related.length > 0 && (
-                <div className="mt-6 space-y-4 border-t border-slate-100 pt-4">
-                  {related.map((cfg) => (
-                    <RelatedRecordsPanel
-                      key={cfg.objectKey}
-                      workspaceId={workspaceId}
-                      recordId={recordId}
-                      config={cfg}
-                    />
-                  ))}
-                </div>
-              )}
             </div>
           )}
+
+          {/* Related collections, including composition-style child tables. */}
+          {related.map((cfg) => (
+            <RelatedRecordsPanel
+              key={`${cfg.objectKey}:${cfg.foreignKey}`}
+              workspaceId={workspaceId}
+              parentObjectKey={objectKey}
+              recordId={recordId}
+              config={cfg}
+            />
+          ))}
 
           {/* Activity Timeline (v0.5.1) */}
           {isValidTimelineSubject(objectKey) && (

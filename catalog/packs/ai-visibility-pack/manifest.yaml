@@ -15,6 +15,9 @@ onboardingChecklist:
     label: "Review answer blocks"
     route: "/answer-blocks"
 
+workspaceSurfaces:
+  - key: activity
+
 # AI Visibility Pack adds GEO/AEO capability on top of Marketing Capture.
 # It composes shared business modules (company) with Marketing Capture modules
 # (landing_page) and Sales Quote modules (product_service) for cross-pack

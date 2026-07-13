@@ -19,6 +19,7 @@ import type { NavigationItem } from "@runory/platform-core";
 import type { WorkspaceSurfaceKey } from "@runory/contracts";
 import { useI18n } from "@/i18n/locale-provider";
 import type { MessageKey } from "@/i18n/messages";
+import UserAvatar from "./UserAvatar";
 
 // ── Types ──
 
@@ -42,6 +43,7 @@ interface NavigationShellProps {
     userId: string;
     displayName: string;
     email: string | null;
+    avatarUrl: string | null;
     authMethod: string;
   };
   children: React.ReactNode;
@@ -397,7 +399,6 @@ export default function NavigationShell({
 
   const roleDisplay = getRoleDisplay(role, t);
   const userName = currentUser?.displayName || t("workspace.nav.currentUserFallback");
-  const userInitial = userName.trim().charAt(0).toUpperCase() || roleDisplay.initial;
   const userSecondary = currentUser?.email || roleDisplay.label;
 
   // ── Sidebar content ──
@@ -536,9 +537,7 @@ export default function NavigationShell({
           className={`flex min-h-12 w-full items-center gap-3 rounded-xl px-2 text-left transition hover:bg-slate-100 ${collapsed ? "justify-center" : ""}`}
           title={collapsed ? `${userName} · ${roleDisplay.label}` : undefined}
         >
-          <div className="grid size-8 shrink-0 place-items-center rounded-full bg-slate-900 text-xs font-bold text-white">
-            {userInitial}
-          </div>
+          <UserAvatar name={userName} avatarUrl={currentUser?.avatarUrl} size="md" />
           {!collapsed && (
             <>
               <div className="min-w-0 flex-1">
@@ -561,9 +560,7 @@ export default function NavigationShell({
               onClick={() => { setAccountMenuOpen(false); setMobileOpen(false); }}
               className="flex items-center gap-3 rounded-xl px-3 py-3 hover:bg-slate-50"
             >
-              <div className="grid size-10 shrink-0 place-items-center rounded-full bg-slate-900 text-sm font-bold text-white">
-                {userInitial}
-              </div>
+              <UserAvatar name={userName} avatarUrl={currentUser?.avatarUrl} size="lg" />
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-semibold text-slate-950">{userName}</p>
                 <p className="truncate text-xs text-slate-500">{userSecondary}</p>

@@ -24,6 +24,7 @@ export interface AccessMember {
   userId: string;
   displayName: string;
   email: string | null;
+  avatarUrl: string | null;
   status: string;
   organizationRole: OrganizationRole | null;
   workspaceRole: WorkspaceRole | null;

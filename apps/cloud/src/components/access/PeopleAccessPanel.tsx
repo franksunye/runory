@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ChevronRight, Search } from "lucide-react";
 import type { AccessDirectory, DataScope } from "./access-types";
+import UserAvatar from "@/components/UserAvatar";
 
 interface PeopleAccessPanelProps {
   directory: AccessDirectory;
@@ -60,7 +61,7 @@ export default function PeopleAccessPanel({ directory, workspaceRef, locale }: P
             <li key={member.userId}>
               <button type="button" onClick={() => router.push(`/w/${workspaceRef}/members/${encodeURIComponent(member.userId)}`)} className="grid w-full gap-3 px-4 py-4 text-left transition hover:bg-slate-50 lg:grid-cols-[minmax(220px,1.4fr)_130px_150px_minmax(220px,1fr)_120px_32px] lg:items-center">
                 <span className="flex min-w-0 items-center gap-3">
-                  <span className="grid size-10 shrink-0 place-items-center rounded-full bg-indigo-50 font-bold text-indigo-700">{member.displayName.slice(0, 1).toUpperCase()}</span>
+                  <UserAvatar name={member.displayName} avatarUrl={member.avatarUrl} size="lg" />
                   <span className="min-w-0"><span className="block truncate text-sm font-semibold text-slate-900">{member.displayName}</span><span className="block truncate text-xs text-slate-500">{member.email ?? (zh ? "演示身份" : "Demo identity")} · {formatDate(member.joinedAt, locale)}</span></span>
                 </span>
                 <span className="text-sm text-slate-700">{member.organizationRole ?? "—"}</span>

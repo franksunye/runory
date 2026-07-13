@@ -23,6 +23,9 @@ interface SchemaFormProps {
   /** Map of fieldKey → reason string. Fields in this map are rendered as
    *  read-only with the reason shown as a hint badge. */
   readOnlyFields?: Record<string, string>;
+  /** Fields supplied by the surrounding record context. They remain part of
+   *  submitted data but are not rendered as redundant selectors. */
+  hiddenFields?: string[];
 }
 
 interface FormSection {
@@ -40,10 +43,12 @@ export default function SchemaForm({
   cancelLabel,
   workspaceId,
   readOnlyFields = {},
+  hiddenFields = [],
 }: SchemaFormProps) {
   const { t } = useI18n();
   const fieldMap = new Map(fields.map((f) => [f.fieldKey, f]));
   const sections: FormSection[] = viewConfig?.sections ?? [];
+  const hiddenFieldSet = new Set(hiddenFields);
 
   const [values, setValues] = useState<RecordData>(() => {
     const init: RecordData = {};
@@ -130,6 +135,7 @@ export default function SchemaForm({
           </h3>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             {section.fields.map((sf) => {
+              if (hiddenFieldSet.has(sf.field)) return null;
               const fieldDef = fieldMap.get(sf.field);
               if (!fieldDef) return null;
               const required = sf.required ?? fieldDef.required ?? false;

@@ -15,6 +15,9 @@ onboardingChecklist:
     label: "Add a knowledge base article"
     route: "/knowledge/new"
 
+workspaceSurfaces:
+  - key: activity
+
 # Customer Service Pack adds support communication and issue resolution.
 # It composes shared business modules (company, contact, task) with 4
 # customer-service-specific modules. Cross-pack relations to FSM (asset,

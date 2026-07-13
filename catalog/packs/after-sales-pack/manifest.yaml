@@ -15,6 +15,9 @@ onboardingChecklist:
     label: "View warranty records"
     route: "/warranties"
 
+workspaceSurfaces:
+  - key: activity
+
 # After-sales Service Pack adds post-sale obligations: warranty,
 # entitlement, return/repair requests, maintenance plans, and customer
 # success follow-ups. It composes shared business modules (company,

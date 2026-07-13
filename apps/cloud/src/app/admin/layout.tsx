@@ -3,16 +3,23 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
+import { useI18n } from "@/i18n/locale-provider";
+import type { MessageKey } from "@/i18n/messages";
 
-const NAV_ITEMS = [
-  { href: "/admin", label: "概览", match: (p: string) => p === "/admin" },
-  { href: "/admin?tab=catalog", label: "Catalog", match: (p: string) => p.startsWith("/admin/catalog") },
-  { href: "/admin/releases", label: "Releases", match: (p: string) => p.startsWith("/admin/releases") },
-  { href: "/admin/releases", label: "Rollouts", match: (p: string) => p.startsWith("/admin/rollouts") },
+const NAV_ITEMS: { href: string; label: MessageKey; match: (p: string) => boolean }[] = [
+  { href: "/admin", label: "admin.nav.overview", match: (p: string) => p === "/admin" },
+  { href: "/admin?tab=catalog", label: "admin.nav.catalog", match: (p: string) => p.startsWith("/admin/catalog") },
+  { href: "/admin/releases", label: "admin.nav.releases", match: (p: string) => p.startsWith("/admin/releases") },
+  { href: "/admin/rollouts", label: "admin.nav.rollouts", match: (p: string) => p.startsWith("/admin/rollouts") },
+  { href: "/admin/migrations", label: "admin.nav.migrations", match: (p: string) => p.startsWith("/admin/migrations") },
+  { href: "/admin/installations", label: "admin.nav.installations", match: (p: string) => p.startsWith("/admin/installations") },
+  { href: "/admin/audit", label: "admin.nav.audit", match: (p: string) => p.startsWith("/admin/audit") },
+  { href: "/admin/entitlements", label: "admin.nav.entitlements", match: (p: string) => p.startsWith("/admin/entitlements") },
 ];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const { t } = useI18n();
 
   return (
     <div className="min-h-screen bg-[#f7f8fc]">
@@ -27,7 +34,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             href="/dashboard"
             className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-100"
           >
-            <ArrowLeft size={15} /> 返回工作区
+            <ArrowLeft size={15} /> {t("admin.nav.backToWorkspace")}
           </Link>
         </div>
         <nav className="mx-auto flex max-w-7xl gap-1 px-6">
@@ -43,7 +50,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                     : "border-transparent text-slate-500 hover:text-slate-700"
                 }`}
               >
-                {item.label}
+                {t(item.label)}
               </Link>
             );
           })}

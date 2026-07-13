@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { z } from "zod";
-import { getWorkspace, getVisibilitySummary, updateWorkspaceName, writeAuditEvent, NotFoundError } from "@runory/platform-core";
+import { getWorkspace, getVisibilitySummary, updateWorkspaceName, writeAuditEvent, queryOne, TABLES, NotFoundError } from "@runory/platform-core";
 import { requireWorkspaceContext } from "@/lib/auth";
 import { successResponse, handleError, notFound, invalidInput, getOrCreateRequestId } from "@/lib/http";
 
@@ -25,6 +25,12 @@ export async function GET(
           organizationRole: ctx.organizationRole,
         })
       : null;
+    const currentUserIdentity = ctx.principal
+      ? await queryOne<{ avatar_url: string | null }>(
+          `SELECT avatar_url FROM ${TABLES.users} WHERE id = ? OR external_id = ? LIMIT 1`,
+          [ctx.principal.userId, ctx.principal.userId]
+        )
+      : null;
     return successResponse(
       {
         ...workspace,
@@ -37,6 +43,7 @@ export async function GET(
               userId: ctx.principal.userId,
               displayName: ctx.principal.displayName,
               email: ctx.principal.email ?? null,
+              avatarUrl: currentUserIdentity?.avatar_url ?? null,
               authMethod: ctx.principal.authMethod,
             }
           : null,

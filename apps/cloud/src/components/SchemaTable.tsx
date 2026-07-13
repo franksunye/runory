@@ -7,6 +7,7 @@ import type { FieldDefinition } from "@runory/platform-core";
 import { useI18n } from "@/i18n/locale-provider";
 import type { MessageKey } from "@/i18n/messages";
 import { objectKeyToRouteSegment } from "@/lib/dynamic-object";
+import UserAvatar from "./UserAvatar";
 
 type RecordData = Record<string, string | number | boolean | null>;
 type ViewConfig = {
@@ -21,6 +22,7 @@ interface SchemaTableProps {
   workspaceId: string;
   objectKey: string;
   basePath?: string;
+  embedded?: boolean;
 }
 
 interface ListColumn {
@@ -172,6 +174,7 @@ export default function SchemaTable({
   workspaceId,
   objectKey,
   basePath,
+  embedded = false,
 }: SchemaTableProps) {
   const { t, locale } = useI18n();
   const router = useRouter();
@@ -185,7 +188,7 @@ export default function SchemaTable({
 
   if (records.length === 0) {
     return (
-      <div className="app-card flex flex-col items-center px-6 py-12 text-center">
+      <div className={`${embedded ? "border-t border-slate-100" : "app-card"} flex flex-col items-center px-6 py-10 text-center`}>
         <Inbox size={28} className="text-slate-300" />
         <p className="mt-3 text-sm text-slate-500">{t("workspace.table.noData")}</p>
       </div>
@@ -193,7 +196,7 @@ export default function SchemaTable({
   }
 
   return (
-    <div className="app-card overflow-hidden p-0">
+    <div className={embedded ? "overflow-hidden border-t border-slate-100" : "app-card overflow-hidden p-0"}>
       <div className="overflow-x-auto">
         <table className="min-w-full divide-y divide-slate-200">
           <thead className="bg-slate-50/80">
@@ -237,12 +240,22 @@ export default function SchemaTable({
                     const displayKey = `${col.field}_display`;
                     const displayValue = (record as Record<string, unknown>)[displayKey] as string | null | undefined;
                     const targetObject = fieldDef?.validation?.targetObject as string | undefined;
+                    const avatarUrl = (
+                      (record as Record<string, unknown>).avatar_url
+                      ?? (record as Record<string, unknown>).user_id_avatar_url
+                    ) as string | null | undefined;
+                    const cell = renderCell(col.field, record[col.field], type, t, locale, displayValue, targetObject, workspaceId);
                     return (
                       <td
                         key={col.field}
                         className="whitespace-nowrap px-4 py-3 text-sm text-slate-700"
                       >
-                        {renderCell(col.field, record[col.field], type, t, locale, displayValue, targetObject, workspaceId)}
+                        {col.field === "name" && avatarUrl ? (
+                          <span className="flex items-center gap-2.5">
+                            <UserAvatar name={String(record.name ?? "")} avatarUrl={avatarUrl} size="sm" />
+                            <span>{cell}</span>
+                          </span>
+                        ) : cell}
                       </td>
                     );
                   })}

@@ -435,6 +435,7 @@
       "externalId": "persona:sales-rep",
       "email": "sales.rep@runory.demo",
       "displayName": "Sarah Chen",
+      "avatarUrl": "/demo/avatars/sarah-chen.png",
       "role": "member",
       "permissionGroups": [
         { "packId": "crm-lite-pack", "groupKey": "sales_agent" }
@@ -445,6 +446,7 @@
       "externalId": "persona:sales-manager",
       "email": "sales.manager@runory.demo",
       "displayName": "Michael Torres",
+      "avatarUrl": "/demo/avatars/michael-torres.png",
       "role": "member"
     },
     {
@@ -452,6 +454,7 @@
       "externalId": "persona:dispatcher",
       "email": "dispatcher@runory.demo",
       "displayName": "Lisa Wang",
+      "avatarUrl": "/demo/avatars/lisa-wang.png",
       "role": "member"
     },
     {
@@ -459,6 +462,7 @@
       "externalId": "persona:technician",
       "email": "technician@runory.demo",
       "displayName": "David Park",
+      "avatarUrl": "/demo/avatars/david-park.png",
       "role": "member"
     },
     {
@@ -466,6 +470,7 @@
       "externalId": "persona:supervisor",
       "email": "supervisor@runory.demo",
       "displayName": "Robert Kim",
+      "avatarUrl": "/demo/avatars/robert-kim.png",
       "role": "member"
     },
     {
@@ -473,6 +478,7 @@
       "externalId": "persona:technician-james",
       "email": "james@runory.demo",
       "displayName": "James Wilson",
+      "avatarUrl": "/demo/avatars/james-wilson.png",
       "role": "member"
     },
     {
@@ -480,6 +486,7 @@
       "externalId": "persona:technician-maria",
       "email": "maria@runory.demo",
       "displayName": "Maria Garcia",
+      "avatarUrl": "/demo/avatars/maria-garcia.png",
       "role": "member"
     }
   ],

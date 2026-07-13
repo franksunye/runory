@@ -39,3 +39,4 @@ export * from "./schedule";
 export * from "./fsm-commands";
 export * from "./migration-v04-v05";
 export * from "./visibility";
+export * from "./navigation-surfaces";

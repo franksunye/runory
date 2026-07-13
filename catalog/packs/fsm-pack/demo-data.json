@@ -10,7 +10,8 @@
         "phone": "+1 415 555 0201",
         "skills": "HVAC, Electrical, Plumbing",
         "region": "San Francisco Bay Area",
-        "availability_status": "available"
+        "availability_status": "available",
+        "user_id": "$user-technician.id"
       }
     },
     {
@@ -23,7 +24,8 @@
         "phone": "+1 415 555 0202",
         "skills": "Network, Server Hardware, Cabling",
         "region": "San Francisco Bay Area",
-        "availability_status": "busy"
+        "availability_status": "busy",
+        "user_id": "$user-technician-maria.id"
       }
     },
     {
@@ -36,7 +38,8 @@
         "phone": "+1 415 555 0203",
         "skills": "Refrigeration, Kitchen Equipment",
         "region": "New York Metro",
-        "availability_status": "available"
+        "availability_status": "available",
+        "user_id": "$user-technician-james.id"
       }
     },
     {
@@ -454,6 +457,7 @@
       "externalId": "persona:sales-rep",
       "email": "sales.rep@runory.demo",
       "displayName": "Sarah Chen",
+      "avatarUrl": "/demo/avatars/sarah-chen.png",
       "role": "member",
       "permissionGroups": [
         { "packId": "crm-lite-pack", "groupKey": "sales_agent" },
@@ -465,6 +469,7 @@
       "externalId": "persona:sales-manager",
       "email": "sales.manager@runory.demo",
       "displayName": "Michael Torres",
+      "avatarUrl": "/demo/avatars/michael-torres.png",
       "role": "member",
       "permissionGroups": [
         { "packId": "sales-quote-pack", "groupKey": "sales_manager" }
@@ -475,6 +480,7 @@
       "externalId": "persona:dispatcher",
       "email": "dispatcher@runory.demo",
       "displayName": "Lisa Wang",
+      "avatarUrl": "/demo/avatars/lisa-wang.png",
       "role": "member",
       "permissionGroups": [
         { "packId": "fsm-pack", "groupKey": "dispatcher" }
@@ -485,6 +491,7 @@
       "externalId": "persona:technician",
       "email": "technician@runory.demo",
       "displayName": "David Park",
+      "avatarUrl": "/demo/avatars/david-park.png",
       "role": "member",
       "permissionGroups": [
         { "packId": "fsm-pack", "groupKey": "field_technician" }
@@ -496,6 +503,7 @@
       "externalId": "persona:supervisor",
       "email": "supervisor@runory.demo",
       "displayName": "Robert Kim",
+      "avatarUrl": "/demo/avatars/robert-kim.png",
       "role": "member",
       "permissionGroups": [
         { "packId": "fsm-pack", "groupKey": "service_supervisor" }
@@ -506,6 +514,7 @@
       "externalId": "persona:technician-james",
       "email": "james@runory.demo",
       "displayName": "James Wilson",
+      "avatarUrl": "/demo/avatars/james-wilson.png",
       "role": "member",
       "permissionGroups": [
         { "packId": "fsm-pack", "groupKey": "field_technician" }
@@ -517,6 +526,7 @@
       "externalId": "persona:technician-maria",
       "email": "maria@runory.demo",
       "displayName": "Maria Garcia",
+      "avatarUrl": "/demo/avatars/maria-garcia.png",
       "role": "member",
       "permissionGroups": [
         { "packId": "fsm-pack", "groupKey": "field_technician" }

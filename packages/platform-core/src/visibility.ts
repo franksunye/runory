@@ -96,6 +96,10 @@ const OBJECT_READ_PERMISSIONS: Record<string, string[]> = {
   service_visit: ["visit.execute", "service_visit.read"],
   service_report: ["service_report.read", "work_order.read", "work_order.complete"],
   quote: ["quote.read", "quote.create", "quote.send", "quote.accept", "quote.reject"],
+  quote_line: ["quote.read", "quote.create", "quote.edit_draft", "quote_line.read"],
+  product_service: ["product_service.read", "quote.read", "quote.create", "quote.edit_draft"],
+  price_book: ["price_book.read", "quote.read", "quote.create", "quote.edit_draft"],
+  price_book_item: ["price_book_item.read", "quote.read", "quote.create", "quote.edit_draft"],
   company: ["company.read", "work_order.read", "visit.execute", "quote.read", "quote.create"],
   contact: ["contact.read", "company.read", "work_order.read", "visit.execute"],
   service_site: ["service_site.read", "company.read", "work_order.read", "visit.execute"],
@@ -105,6 +109,7 @@ const OBJECT_READ_PERMISSIONS: Record<string, string[]> = {
 
 const OBJECT_CREATE_PERMISSIONS: Record<string, string[]> = {
   quote: ["quote.create"],
+  quote_line: ["quote_line.create", "quote.edit_draft"],
   work_order: ["work_order.triage"],
   service_visit: ["assignment.manage"],
 };
