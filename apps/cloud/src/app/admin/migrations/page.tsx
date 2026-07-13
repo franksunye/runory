@@ -4,13 +4,15 @@ import { useI18n } from "@/i18n/locale-provider";
 import { useAdminFetch, formatDateTime } from "../_components/shared";
 
 interface AppliedMigration {
-  filename: string;
-  appliedAt: string | null;
+  version: string;
+  name: string;
   checksum: string | null;
+  applied_at: string | null;
 }
 
 interface PendingMigration {
-  filename: string;
+  version: string;
+  name: string;
 }
 
 interface MigrationsData {
@@ -75,12 +77,12 @@ export default function MigrationsPage() {
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {applied.map((migration) => (
-                      <tr key={migration.filename} className="hover:bg-slate-50">
+                      <tr key={`${migration.version}-${migration.name}`} className="hover:bg-slate-50">
                         <td className="px-4 py-3 font-mono text-xs text-slate-600">
-                          {migration.filename}
+                          {migration.version}_{migration.name}.sql
                         </td>
                         <td className="px-4 py-3 text-slate-500">
-                          {formatDateTime(migration.appliedAt)}
+                          {formatDateTime(migration.applied_at)}
                         </td>
                         <td className="px-4 py-3 font-mono text-xs text-slate-400">
                           {migration.checksum ?? "—"}
@@ -114,9 +116,9 @@ export default function MigrationsPage() {
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {pending.map((migration) => (
-                      <tr key={migration.filename} className="hover:bg-slate-50">
+                      <tr key={`${migration.version}-${migration.name}`} className="hover:bg-slate-50">
                         <td className="px-4 py-3 font-mono text-xs text-slate-600">
-                          {migration.filename}
+                          {migration.version}_{migration.name}.sql
                         </td>
                       </tr>
                     ))}
