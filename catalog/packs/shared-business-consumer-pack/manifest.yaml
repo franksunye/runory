@@ -36,6 +36,6 @@ terminology:
     route: /tasks
 
 marketplace:
-  category: shared_module_validation
+  category: general
   license: runory_official
   publisher: runory

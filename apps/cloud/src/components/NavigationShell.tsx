@@ -138,12 +138,16 @@ const MANAGEMENT_ROUTES = [
 ];
 
 // ── Pack category display names ──
+//
+// Canonical categories are the source of truth in pack manifests. Legacy
+// aliases ensure workspaces installed before the normalization still render
+// correctly — the manifest may have been fixed, but old installations may
+// persist the original value in DB-cached navigation metadata.
 
 const CATEGORY_LABEL_KEY: Record<string, MessageKey> = {
   crm: "workspace.nav.categoryCrm",
   field_service: "workspace.nav.categoryFieldService",
   sales: "workspace.nav.categorySales",
-  sales_quote: "workspace.nav.categorySales",
   marketing: "workspace.nav.categoryMarketing",
   ai_visibility: "workspace.nav.categoryAiVisibility",
   customer_service: "workspace.nav.categoryCustomerService",
@@ -151,9 +155,30 @@ const CATEGORY_LABEL_KEY: Record<string, MessageKey> = {
   general: "workspace.nav.categoryGeneral",
 };
 
-function getCategoryLabel(category: string, t: TFunc): string | undefined {
-  const key = CATEGORY_LABEL_KEY[category];
-  return key ? t(key) : undefined;
+// Legacy category values → canonical. These exist because early pack
+// manifests used pack-specific compound names (e.g. "sales_quote") instead
+// of clean domain categories. Manifests are now normalized, but this map
+// ensures backward compatibility for any workspace that may still carry
+// the old value.
+const CATEGORY_ALIASES: Record<string, string> = {
+  sales_quote: "sales",
+  marketing_capture: "marketing",
+  shared_module_validation: "general",
+};
+
+function getCategoryLabel(category: string, t: TFunc): string {
+  // Resolve legacy aliases to canonical category
+  const canonical = CATEGORY_ALIASES[category] ?? category;
+  const key = CATEGORY_LABEL_KEY[canonical];
+  if (key) return t(key);
+
+  // Unknown category — produce a human-readable label from the raw value
+  // (e.g. "field_service" → "Field Service") rather than leaking the
+  // internal pack name.
+  return canonical
+    .split("_")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
 }
 
 // ── Object navigation label resolution ──
@@ -481,7 +506,7 @@ export default function NavigationShell({
         <div className={collapsed ? "space-y-1" : "space-y-1"}>
           {packGroups.map(({ pack, items }) => {
             if (items.length === 0) return null;
-            const groupLabel = getCategoryLabel(pack.category, t) ?? pack.packName;
+            const groupLabel = getCategoryLabel(pack.category, t);
             const isExpanded = expandedGroups.has(pack.packId) || collapsed;
 
             if (collapsed) {

@@ -32,6 +32,11 @@ mobileNavigation:
     icon: file-text
     order: 30
 
+workspaceSurfaces:
+  - key: my_work
+    audience: [sales_representative, sales_manager, workspace_administrator]
+  - key: activity
+
 # Sales Quote Pack composes shared business modules (company, contact, deal)
 # with FSM-owned modules (work_order, service_site, asset) and Quote-specific
 # modules. Shared and FSM modules are reused, not duplicated.
@@ -108,6 +113,6 @@ dashboard:
         - { module: _platform, widget: business_activity_feed, instance: default }
 
 marketplace:
-  category: sales_quote
+  category: sales
   license: runory_official
   publisher: runory

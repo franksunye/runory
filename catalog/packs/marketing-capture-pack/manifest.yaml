@@ -15,6 +15,9 @@ onboardingChecklist:
     label: "View submissions"
     route: "/submissions"
 
+workspaceSurfaces:
+  - key: activity
+
 # Marketing Capture Pack composes shared business modules (company, contact,
 # deal) with marketing-specific modules for public demand capture.
 modules:
@@ -70,6 +73,6 @@ dashboard:
         - { module: _platform, widget: business_activity_feed, instance: default }
 
 marketplace:
-  category: marketing_capture
+  category: marketing
   license: runory_official
   publisher: runory
