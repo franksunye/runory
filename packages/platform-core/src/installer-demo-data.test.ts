@@ -53,9 +53,16 @@ describe("installPack demo data", () => {
       includeDemoData: true,
     });
 
-    // 6 companies + 8 contacts + 6 deals + 6 tasks + 2 automations = 28
+    // 7 demo users + 6 companies + 8 contacts + 6 deals + 6 tasks
+    // + 2 automations = 35
     // (V1 workflows removed — V2 definitions published from module JSON)
-    expect(result.demoRecordsCreated).toBe(28);
+    expect(result.demoRecordsCreated).toBe(35);
+
+    const demoUsers = await queryAll<{ avatar_url: string | null }>(
+      `SELECT avatar_url FROM ${TABLES.users} WHERE external_id LIKE 'persona:%'`
+    );
+    expect(demoUsers).toHaveLength(7);
+    expect(demoUsers.every((user) => user.avatar_url?.endsWith(".svg"))).toBe(true);
 
     const companies = await getRecords(workspaceId, "company");
     const contacts = await getRecords(workspaceId, "contact");
@@ -152,8 +159,8 @@ describe("demo data status tracking (v0.3.4)", () => {
 
     // Load demo data separately
     const result = await loadPackDemoData(workspaceId, "crm-lite-pack");
-    // 6 companies + 8 contacts + 6 deals + 6 tasks + 2 automations = 28
-    expect(result.recordsCreated).toBe(28);
+    // 7 demo users + 28 business/automation records = 35
+    expect(result.recordsCreated).toBe(35);
 
     packs = await getInstalledPacks(workspaceId);
     expect(packs.find((p) => p.packId === "crm-lite-pack")!.demoDataStatus).toBe("loaded");

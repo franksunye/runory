@@ -28,8 +28,9 @@ for (const person of people) {
     backgroundColor: [person.background],
     size: 256,
   });
+  const svg = avatar.toString().replace(/<metadata[\s\S]*?<\/metadata>/, "");
 
-  await writeFile(`${outputDirectory}${person.file}`, avatar.toString(), "utf8");
+  await writeFile(`${outputDirectory}${person.file}`, svg, "utf8");
 }
 
 console.log(`Generated ${people.length} demo avatars in ${outputDirectory}`);

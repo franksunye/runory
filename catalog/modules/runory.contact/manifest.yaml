@@ -117,7 +117,10 @@ migrations:
   uninstallPolicy: retain_data
 
 presentation:
-  visibility: contextual
+  # Contacts are a first-class CRM directory. Company detail may surface
+  # related contacts contextually, but that backlink does not replace the
+  # workspace-wide contact list used for search, ownership, and lifecycle work.
+  visibility: top_level
   surface: customers
   audience: [sales_representative, sales_manager, dispatcher]
 

@@ -15,6 +15,8 @@ describe("official catalog", () => {
 
     expect(company.objects.map((object) => object.key)).toContain("company");
     expect(contact.dependencies).toContain("runory.company");
+    expect(contact.presentation?.visibility).toBe("top_level");
+    expect(contact.ui?.navigation?.map((item) => item.route)).toContain("/contacts");
     expect(pack.modules).toContain("runory.company:^1.0.0");
     expect(template.navigation).toContain("customers");
   });

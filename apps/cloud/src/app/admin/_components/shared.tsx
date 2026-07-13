@@ -25,11 +25,17 @@ export interface AdminStats {
   organizations: number;
   users: number;
   workspaces: number;
+  activeWorkspaces: number;
   activeSessions: number;
   installations: number;
   apiKeys: number;
   workspaceMemberships: number;
   organizationMemberships: number;
+  packDistribution: Array<{ packId: string; count: number }>;
+  demoDataLoaded: number;
+  demoDataNotLoaded: number;
+  latestMigration: string | null;
+  auditEvents24h: number;
 }
 
 export interface CatalogItem {

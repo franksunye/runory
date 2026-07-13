@@ -16,6 +16,9 @@ const NAV_ITEMS: { href: string; label: MessageKey; match: (p: string) => boolea
   { href: "/admin/audit", label: "admin.nav.audit", match: (p: string) => p.startsWith("/admin/audit") },
   { href: "/admin/entitlements", label: "admin.nav.entitlements", match: (p: string) => p.startsWith("/admin/entitlements") },
   { href: "/admin/workspaces", label: "admin.nav.workspaces", match: (p: string) => p.startsWith("/admin/workspaces") },
+  { href: "/admin/compatibility", label: "admin.nav.compatibility", match: (p: string) => p.startsWith("/admin/compatibility") },
+  { href: "/admin/members", label: "admin.nav.members", match: (p: string) => p.startsWith("/admin/members") },
+  { href: "/admin/api-keys", label: "admin.nav.apiKeys", match: (p: string) => p.startsWith("/admin/api-keys") },
 ];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {

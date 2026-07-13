@@ -22,7 +22,8 @@ export default function ReleasesPage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const json = await apiFetch<{ success: boolean; data?: CatalogRelease[] }>("/api/platform/releases", { cache: "no-store" });
+      const params = filter !== "all" ? `?channel=${filter}` : "";
+      const json = await apiFetch<{ success: boolean; data?: CatalogRelease[] }>(`/api/platform/releases${params}`, { cache: "no-store" });
       if (json.success) setReleases(json.data ?? []);
     } catch (e) {
       if (e instanceof Error && e.message.includes("403")) {
@@ -33,11 +34,9 @@ export default function ReleasesPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [filter]);
 
   useEffect(() => { load(); }, [load]);
-
-  const filtered = filter === "all" ? releases : releases.filter((r) => r.channel === filter);
 
   return (
     <div>
@@ -60,7 +59,7 @@ export default function ReleasesPage() {
 
       {loading ? (
         <p className="mt-4 text-sm text-slate-500">{t("admin.common.loading")}</p>
-      ) : filtered.length === 0 ? (
+      ) : releases.length === 0 ? (
         <div className="mt-4 rounded-2xl border border-dashed border-slate-300 bg-white p-12 text-center">
           <ArrowUpCircle size={32} className="mx-auto text-slate-300" />
           <p className="mt-3 text-sm text-slate-500">{t("admin.releases.empty")}</p>
@@ -79,7 +78,7 @@ export default function ReleasesPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {filtered.map((release) => (
+              {releases.map((release) => (
                 <tr key={release.id} className="hover:bg-slate-50">
                   <td className="px-4 py-3">
                     <Link href={`/admin/releases/${release.id}`} className="hover:underline">

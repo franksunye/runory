@@ -5,8 +5,11 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
   AlertTriangle,
+  Activity,
   Building2,
   CheckCircle2,
+  Database,
+  FileCode,
   FolderKanban,
   KeyRound,
   Loader2,
@@ -32,7 +35,17 @@ import type { MessageKey } from "@/i18n/messages";
 
 // ── Stat Cards Config ──
 
-const STAT_CARDS: { key: keyof AdminStats; label: MessageKey; icon: LucideIcon }[] = [
+type NumericStatKey =
+  | "organizations"
+  | "users"
+  | "workspaces"
+  | "activeSessions"
+  | "installations"
+  | "apiKeys"
+  | "workspaceMemberships"
+  | "organizationMemberships";
+
+const STAT_CARDS: { key: NumericStatKey; label: MessageKey; icon: LucideIcon }[] = [
   { key: "organizations", label: "admin.overview.organizations", icon: Building2 },
   { key: "users", label: "admin.overview.users", icon: Users },
   { key: "workspaces", label: "admin.overview.workspaces", icon: FolderKanban },
@@ -84,10 +97,25 @@ export default function AdminPage() {
   );
 }
 
+// ── Insight Cards Config ──
+
+const INSIGHT_CARDS: {
+  key: "activeWorkspaces" | "demoDataLoaded" | "auditEvents24h";
+  label: MessageKey;
+  icon: LucideIcon;
+}[] = [
+  { key: "activeWorkspaces", label: "admin.overview.activeWorkspaces", icon: CheckCircle2 },
+  { key: "demoDataLoaded", label: "admin.overview.demoDataLoaded", icon: Database },
+  { key: "auditEvents24h", label: "admin.overview.auditEvents24h", icon: Activity },
+];
+
 // ── Overview Tab ──
 
 function OverviewTab({ stats }: { stats: AdminStats | null }) {
   const { t } = useI18n();
+  const packDist = stats?.packDistribution ?? [];
+  const maxPackCount = packDist.length > 0 ? Math.max(...packDist.map((p) => p.count)) : 0;
+
   return (
     <div>
       <h1 className="text-2xl font-bold tracking-tight text-slate-950">{t("admin.overview.title")}</h1>
@@ -103,6 +131,60 @@ function OverviewTab({ stats }: { stats: AdminStats | null }) {
             <p className="mt-3 text-2xl font-bold text-slate-950">{stats ? stats[key] : "—"}</p>
           </div>
         ))}
+      </div>
+
+      {/* Platform Insights */}
+      <h2 className="mt-10 text-lg font-bold tracking-tight text-slate-950">{t("admin.overview.insights")}</h2>
+      <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {INSIGHT_CARDS.map(({ key, label, icon: Icon }) => (
+          <div key={key} className="rounded-2xl border border-slate-200 bg-white p-5 transition hover:border-slate-300 hover:shadow-sm">
+            <div className="flex items-center gap-2 text-slate-500">
+              <Icon size={16} />
+              <span className="text-sm">{t(label)}</span>
+            </div>
+            <p className="mt-3 text-2xl font-bold text-slate-950">{stats ? stats[key] : "—"}</p>
+          </div>
+        ))}
+        {/* Latest Migration — string value, truncate if long */}
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 transition hover:border-slate-300 hover:shadow-sm">
+          <div className="flex items-center gap-2 text-slate-500">
+            <FileCode size={16} />
+            <span className="text-sm">{t("admin.overview.latestMigration")}</span>
+          </div>
+          <p className="mt-3 truncate text-sm font-bold text-slate-950" title={stats?.latestMigration ?? undefined}>
+            {stats ? (stats.latestMigration ?? "—") : "—"}
+          </p>
+        </div>
+      </div>
+
+      {/* Pack Distribution */}
+      <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-5">
+        <div className="flex items-center gap-2 text-slate-700">
+          <Package size={16} />
+          <span className="text-sm font-semibold">{t("admin.overview.packDistribution")}</span>
+        </div>
+        {packDist.length === 0 ? (
+          <p className="mt-4 text-sm text-slate-400">—</p>
+        ) : (
+          <div className="mt-4 space-y-3">
+            {packDist.map((p) => (
+              <div key={p.packId} className="flex items-center gap-3">
+                <span className="w-48 shrink-0 truncate font-mono text-xs text-slate-600" title={p.packId}>
+                  {p.packId}
+                </span>
+                <div className="h-5 flex-1 overflow-hidden rounded-full bg-slate-100">
+                  <div
+                    className="flex h-full items-center justify-end rounded-full bg-violet-400 pr-2"
+                    style={{ width: `${maxPackCount > 0 ? (p.count / maxPackCount) * 100 : 0}%`, minWidth: "2rem" }}
+                  >
+                    <span className="text-[10px] font-bold text-white">{p.count}</span>
+                  </div>
+                </div>
+                <span className="w-20 shrink-0 text-xs text-slate-400">{p.count} {t("admin.overview.installs")}</span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
