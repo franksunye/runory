@@ -129,8 +129,23 @@ export async function getRequestActor(request: NextRequest): Promise<ActorIdenti
 
 export async function getCurrentPrincipal(request: NextRequest): Promise<Principal | null> {
   const sessionToken = request.cookies.get(SESSION_COOKIE_NAME)?.value;
-  if (!sessionToken) return null;
-  return resolveSession(sessionToken);
+  if (sessionToken) {
+    const principal = await resolveSession(sessionToken);
+    if (principal) return principal;
+  }
+
+  // Dev bootstrap fallback — honor the dev-persona cookie if set
+  if (isDevBootstrapEnabled()) {
+    const devActor = getDevActor(request);
+    return {
+      userId: devActor.externalId,
+      email: null,
+      displayName: devActor.displayName,
+      authMethod: "dev_bootstrap",
+    };
+  }
+
+  return null;
 }
 
 // ── Require Authenticated Principal (session or API key) ──

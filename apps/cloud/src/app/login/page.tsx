@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowRight, Mail, ShieldCheck, Sparkles } from "lucide-react";
 import { MarketingHeader } from "@/components/marketing-header";
 import { useI18n } from "@/i18n/locale-provider";
+import { apiFetch } from "@/lib/api-fetch";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -18,6 +19,18 @@ export default function LoginPage() {
   const [code, setCode] = useState("");
   const [devCode, setDevCode] = useState<string | null>(null);
   const [verifying, setVerifying] = useState(false);
+
+  // In dev mode with an existing persona/session, redirect to landing page
+  // which shows workspace navigation.
+  useEffect(() => {
+    apiFetch<{ success: boolean; data?: { authenticated: boolean } }>("/api/auth/me", { cache: "no-store" })
+      .then((j) => {
+        if (j.success && j.data?.authenticated === true) {
+          router.replace("/");
+        }
+      })
+      .catch(() => {});
+  }, [router]);
 
   const handleRequestOtp = async (event: React.FormEvent) => {
     event.preventDefault();
