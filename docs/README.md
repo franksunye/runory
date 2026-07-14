@@ -36,6 +36,8 @@ Runory documentation is organized by topic authority and lifecycle rather than b
 - [Post-v0.5 Product Milestone Roadmap](product/post-v0.5-product-milestone-roadmap.md) — active milestone sequence.
 - [v1.0 GA Release Goal](product/v1.0-ga-release-goal.md) — proposed GA target.
 - [Voice Intake Product Definition](product/voice-intake-product-definition.md) — proposed phone-to-work-order product boundary.
+- [Payment Product Definition](product/payment-product-definition.md) — proposed customer-payment product boundary and SaaS-billing separation.
+- [Payment POC Execution Plan](product/payment-poc-execution-plan.md) — active bounded delivery and acceptance plan.
 - [Commercial FSM Customer Demand Benchmark](research/commercial-fsm-customer-demand-benchmark.md) — supporting research.
 
 Versioned iteration plans provide implementation history but do not override the Product Definition or a newer active specification.
@@ -77,6 +79,8 @@ Versioned iteration plans provide implementation history but do not override the
 - [Module SDK](sdk/module-sdk.md) — SDK reference.
 - [v0.5 Layered Architecture Review](architecture/v0.5-layered-architecture-review.md) — architecture review and rationale.
 - [Voice Intake Integration Boundary](architecture/voice-intake-integration-boundary.md) — proposed conversation-channel adapter and command boundary.
+- [Payment Integration Boundary](architecture/payment-integration-boundary.md) — proposed business-payment Module and provider-adapter boundary.
+- [Payment Technical Specification](product/payment-technical-spec.md) — proposed Stripe-first provider-neutral implementation.
 - [Command Runtime Performance Baseline](architecture/command-runtime-performance-baseline.md) — proposed performance model, budgets, and v0.6 acceptance baseline.
 - [Performance Optimization Plan](architecture/performance-optimization-plan.md) — deployment-specific optimization work.
 - [Internationalization Architecture](architecture/internationalization.md) — localization architecture.
@@ -90,6 +94,7 @@ Versioned iteration plans provide implementation history but do not override the
 - [Workspace Extension Architecture](architecture/workspace-extension-architecture.md) — governed customization boundary.
 - [v0.5 Commercial FSM Technical Spec](product/v0.5-commercial-fsm-technical-spec.md) — lifecycle implementation example.
 - [v0.5.1 Mobile Field Work Spec](product/v0.5.1-mobile-field-work-spec.md) — forms and workflow behavior in field use.
+- [Payment Technical Specification](product/payment-technical-spec.md) — financial Command, idempotency, webhook, and refund rules.
 - [Post-v0.5 Product Milestone Roadmap](product/post-v0.5-product-milestone-roadmap.md) — stabilization and next-step context.
 
 New command, workflow, form, or customization documents must state whether they support or supersede this authority.
