@@ -20,12 +20,12 @@ export default function LandingPage() {
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [authed, setAuthed] = useState<boolean | null>(null);
-  const [workspaces, setWorkspaces] = useState<Array<{ id: string; name: string; slug: string }>>([]);
+  const [workspaces, setWorkspaces] = useState<Array<{ workspaceId: string; workspaceName: string; workspaceSlug: string }>>([]);
   const [step, setStep] = useState<1 | 2>(1);
   const [devCode, setDevCode] = useState<string | null>(null);
 
   useEffect(() => {
-    apiFetch<{ success: boolean; data?: { authenticated: boolean; workspaces?: Array<{ id: string; name: string; slug: string }> } }>("/api/auth/me", { cache: "no-store" })
+    apiFetch<{ success: boolean; data?: { authenticated: boolean; workspaces?: Array<{ workspaceId: string; workspaceName: string; workspaceSlug: string }> } }>("/api/auth/me", { cache: "no-store" })
       .then((j) => {
         setAuthed(j.success && j.data?.authenticated === true);
         if (j.data?.workspaces && j.data.workspaces.length > 0) {
@@ -132,12 +132,12 @@ export default function LandingPage() {
                   <label className="mb-2 block text-sm font-semibold text-slate-200">{t("home.form.yourWorkspaces")}</label>
                   {workspaces.map((ws) => (
                     <button
-                      key={ws.id}
+                      key={ws.workspaceId}
                       type="button"
-                      onClick={() => router.push(`/w/${ws.slug}/dashboard`)}
+                      onClick={() => router.push(`/w/${ws.workspaceSlug}/dashboard`)}
                       className="flex w-full items-center justify-between rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 text-left text-white transition hover:border-indigo-400 hover:bg-slate-800"
                     >
-                      <span className="font-medium">{ws.name}</span>
+                      <span className="font-medium">{ws.workspaceName}</span>
                       <ArrowRight size={17} className="text-slate-400" />
                     </button>
                   ))}
