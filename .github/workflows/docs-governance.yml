@@ -1,0 +1,44 @@
+name: Documentation Governance
+
+on:
+  pull_request:
+    paths:
+      - "**/*.md"
+      - "scripts/check-doc-governance.mjs"
+      - ".github/workflows/docs-governance.yml"
+      - "package.json"
+  push:
+    branches: [main]
+    paths:
+      - "**/*.md"
+      - "scripts/check-doc-governance.mjs"
+      - ".github/workflows/docs-governance.yml"
+      - "package.json"
+
+permissions:
+  contents: read
+
+jobs:
+  docs-governance:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.31.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Check documentation governance
+        env:
+          DOCS_BASE_REF: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || 'HEAD^' }}
+        run: pnpm docs:check
