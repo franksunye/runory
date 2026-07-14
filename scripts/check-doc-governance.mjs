@@ -39,8 +39,9 @@ function repoPath(file) {
 
 function parseLinks(content) {
   const links = [];
+  const prose = content.replace(/```[\s\S]*?```/g, "").replace(/~~~[\s\S]*?~~~/g, "");
   const regex = /(?<!!)\[[^\]]*\]\(([^)]+)\)/g;
-  for (const match of content.matchAll(regex)) {
+  for (const match of prose.matchAll(regex)) {
     let target = match[1].trim();
     if (target.startsWith("<") && target.endsWith(">")) target = target.slice(1, -1);
     target = target.split(/\s+["']/)[0];
@@ -74,20 +75,18 @@ function parseMetadata(content) {
 
 function changedMarkdownFiles() {
   const base = process.env.DOCS_BASE_REF;
-  const candidates = [];
   const attempts = base
     ? [["diff", "--name-only", "--diff-filter=ACMR", `${base}...HEAD`]]
     : [["diff", "--name-only", "--diff-filter=ACMR", "HEAD^", "HEAD"]];
   for (const args of attempts) {
     try {
       const output = execFileSync("git", args, { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
-      candidates.push(...output.split(/\r?\n/));
-      break;
+      return new Set(output.split(/\r?\n/).filter((p) => p.endsWith(".md") && p.startsWith("docs/")));
     } catch {
-      // A shallow checkout or initial commit may not have the requested base.
+      // Shallow or initial checkouts may not expose a comparison base.
     }
   }
-  return new Set(candidates.filter((p) => p.endsWith(".md") && p.startsWith("docs/")));
+  return new Set();
 }
 
 if (!existsSync(ENTRY)) errors.push("docs/README.md is required as the documentation entry point.");
@@ -127,8 +126,7 @@ while (queue.length) {
 }
 
 for (const file of docsFiles) {
-  const normalized = normalize(file);
-  if (!reachable.has(normalized)) warnings.push(`${repoPath(file)} is not reachable from docs/README.md.`);
+  if (!reachable.has(normalize(file))) warnings.push(`${repoPath(file)} is not reachable from docs/README.md.`);
 }
 
 const changed = changedMarkdownFiles();
@@ -138,21 +136,19 @@ for (const file of docsFiles) {
   const metadata = metadataByFile.get(normalize(file)) ?? {};
   const hasGovernanceMetadata = Boolean(metadata.status || metadata.topic);
 
-  if (metadata.status && !ALLOWED_STATUS.has(metadata.status)) {
-    errors.push(`${path}: invalid Status '${metadata.status}'.`);
-  }
-  if (metadata.topic && !ALLOWED_TOPICS.has(metadata.topic)) {
-    errors.push(`${path}: invalid Topic '${metadata.topic}'.`);
-  }
+  if (metadata.status && !ALLOWED_STATUS.has(metadata.status)) errors.push(`${path}: invalid Status '${metadata.status}'.`);
+  if (metadata.topic && !ALLOWED_TOPICS.has(metadata.topic)) errors.push(`${path}: invalid Topic '${metadata.topic}'.`);
   if (metadata["last reviewed"] && !/^\d{4}-\d{2}-\d{2}$/.test(metadata["last reviewed"])) {
     errors.push(`${path}: Last reviewed must use YYYY-MM-DD.`);
   }
+
   if (metadata.status === "canonical") {
     if (!metadata.topic) errors.push(`${path}: canonical documents require Topic metadata.`);
     const list = canonicalByTopic.get(metadata.topic) ?? [];
     list.push(path);
     canonicalByTopic.set(metadata.topic, list);
   }
+
   if ((path.includes("/releases/") || /report|evidence|drill|e2e-run/i.test(path)) && metadata.status === "canonical") {
     errors.push(`${path}: evidence-like documents cannot be canonical.`);
   }
@@ -167,9 +163,7 @@ for (const file of docsFiles) {
 }
 
 for (const [topic, files] of canonicalByTopic) {
-  if (topic && files.length > 1) {
-    errors.push(`Topic '${topic}' has multiple canonical documents: ${files.join(", ")}`);
-  }
+  if (topic && files.length > 1) errors.push(`Topic '${topic}' has multiple canonical documents: ${files.join(", ")}`);
 }
 
 for (const warning of warnings) console.warn(`WARN: ${warning}`);
