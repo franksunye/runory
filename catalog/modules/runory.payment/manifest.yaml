@@ -1,0 +1,282 @@
+id: runory.payment
+name: Payment Management
+version: 0.1.0
+coreCompatibility: ">=0.1.0"
+
+dependencies:
+  - runory.contact
+
+objects:
+  - key: payment_request
+    label: Payment Request
+    fields:
+      - { key: number, label: Request Number, type: text, ownership: module_owned, required: true }
+      - key: status
+        label: Status
+        type: select
+        ownership: module_owned
+        required: true
+        default_value: "draft"
+        validation:
+          options: [draft, open, paid, partially_paid, expired, cancelled]
+      - key: purpose
+        label: Purpose
+        type: select
+        ownership: module_owned
+        required: true
+        default_value: "general"
+        validation:
+          options: [deposit, final, general]
+      - { key: amount_due_minor, label: Amount Due (Minor Units), type: number, ownership: module_owned, required: true }
+      - { key: amount_paid_minor, label: Amount Paid (Minor Units), type: number, ownership: module_owned, required: true, default_value: "0" }
+      - { key: currency, label: Currency, type: text, ownership: module_owned, required: true }
+      - { key: customer_contact_id, label: Customer Contact, type: text, ownership: module_owned }
+      - { key: source_object_type, label: Source Object Type, type: text, ownership: module_owned, required: true }
+      - { key: source_object_id, label: Source Object ID, type: text, ownership: module_owned, required: true }
+      - { key: provider_account_id, label: Provider Account, type: text, ownership: module_owned }
+      - { key: checkout_url, label: Checkout URL, type: text, ownership: module_owned }
+      - { key: expires_at, label: Expires At, type: date, ownership: module_owned }
+      - { key: created_by, label: Created By, type: user, ownership: module_owned }
+      - { key: aggregate_version, label: Aggregate Version, type: number, ownership: module_owned, required: true, default_value: "1" }
+
+  - key: payment
+    label: Payment
+    fields:
+      - { key: payment_request_id, label: Payment Request, type: text, ownership: module_owned, required: true }
+      - key: status
+        label: Status
+        type: select
+        ownership: module_owned
+        required: true
+        default_value: "pending"
+        validation:
+          options: [pending, processing, succeeded, failed, cancelled, refunded, partially_refunded]
+      - { key: amount_minor, label: Amount (Minor Units), type: number, ownership: module_owned, required: true }
+      - { key: refunded_amount_minor, label: Refunded Amount (Minor Units), type: number, ownership: module_owned, required: true, default_value: "0" }
+      - { key: currency, label: Currency, type: text, ownership: module_owned, required: true }
+      - { key: provider, label: Provider, type: text, ownership: module_owned, required: true }
+      - { key: provider_account_id, label: Provider Account, type: text, ownership: module_owned }
+      - { key: provider_payment_id, label: Provider Payment ID, type: text, ownership: module_owned }
+      - { key: failure_code, label: Failure Code, type: text, ownership: module_owned }
+      - { key: failure_message, label: Failure Message, type: text, ownership: module_owned }
+      - { key: succeeded_at, label: Succeeded At, type: date, ownership: module_owned }
+      - { key: aggregate_version, label: Aggregate Version, type: number, ownership: module_owned, required: true, default_value: "1" }
+
+  - key: refund
+    label: Refund
+    fields:
+      - { key: payment_id, label: Payment, type: text, ownership: module_owned, required: true }
+      - key: status
+        label: Status
+        type: select
+        ownership: module_owned
+        required: true
+        default_value: "requested"
+        validation:
+          options: [requested, processing, succeeded, failed, cancelled]
+      - { key: amount_minor, label: Amount (Minor Units), type: number, ownership: module_owned, required: true }
+      - { key: currency, label: Currency, type: text, ownership: module_owned, required: true }
+      - { key: reason, label: Reason, type: text, ownership: module_owned }
+      - { key: provider_refund_id, label: Provider Refund ID, type: text, ownership: module_owned }
+      - { key: requested_by, label: Requested By, type: user, ownership: module_owned }
+      - { key: requested_at, label: Requested At, type: date, ownership: module_owned, required: true }
+      - { key: succeeded_at, label: Succeeded At, type: date, ownership: module_owned }
+      - { key: aggregate_version, label: Aggregate Version, type: number, ownership: module_owned, required: true, default_value: "1" }
+
+  - key: payment_provider_account
+    label: Payment Provider Account
+    fields:
+      - { key: provider, label: Provider, type: text, ownership: module_owned, required: true }
+      - key: mode
+        label: Mode
+        type: select
+        ownership: module_owned
+        required: true
+        default_value: "test"
+        validation:
+          options: [test, live]
+      - { key: provider_account_ref, label: Provider Account Reference, type: text, ownership: module_owned, required: true }
+      - key: status
+        label: Status
+        type: select
+        ownership: module_owned
+        required: true
+        default_value: "configured"
+        validation:
+          options: [configured, restricted, active, disabled]
+      - { key: capabilities_json, label: Capabilities, type: text, ownership: module_owned }
+
+  - key: payment_provider_reference
+    label: Payment Provider Reference
+    fields:
+      - { key: provider, label: Provider, type: text, ownership: module_owned, required: true }
+      - { key: provider_account_id, label: Provider Account, type: text, ownership: module_owned }
+      - { key: event_type, label: Event Type, type: text, ownership: module_owned, required: true }
+      - { key: provider_object_type, label: Provider Object Type, type: text, ownership: module_owned }
+      - { key: provider_object_id, label: Provider Object ID, type: text, ownership: module_owned }
+      - { key: provider_event_id, label: Provider Event ID, type: text, ownership: module_owned, required: true }
+      - { key: payload_hash, label: Payload Hash, type: text, ownership: module_owned }
+      - key: processed_status
+        label: Processed Status
+        type: select
+        ownership: module_owned
+        required: true
+        default_value: "accepted"
+        validation:
+          options: [accepted, processed, ignored, failed]
+      - { key: processed_at, label: Processed At, type: date, ownership: module_owned }
+      - { key: error_code, label: Error Code, type: text, ownership: module_owned }
+
+views:
+  - object: payment_request
+    key: payment_request_list
+    type: list
+    label: Payments
+    config:
+      columns:
+        - { field: number, label: Request Number }
+        - { field: source_object_type, label: Source }
+        - { field: purpose, label: Purpose }
+        - { field: amount_due_minor, label: Amount Due }
+        - { field: amount_paid_minor, label: Amount Paid }
+        - { field: currency, label: Currency }
+        - { field: status, label: Status }
+      actions: [create, view]
+      pageSize: 20
+
+  - object: payment_request
+    key: payment_request_form
+    type: form
+    label: Payment Request
+    config:
+      sections:
+        - title: Payment
+          fields:
+            - { field: purpose, required: true }
+            - { field: amount_due_minor, required: true }
+            - { field: currency, required: true }
+            - { field: expires_at }
+        - title: Source
+          fields:
+            - { field: customer_contact_id }
+            - { field: source_object_type, required: true }
+            - { field: source_object_id, required: true }
+
+domain:
+  aggregates:
+    - { key: payment_request, stateField: status, versionField: aggregate_version }
+    - { key: payment, stateField: status, versionField: aggregate_version }
+    - { key: refund, stateField: status, versionField: aggregate_version }
+  commands:
+    - key: payment.request
+      contractVersion: "1.0.0"
+      aggregate: payment_request
+      transition: { from: [draft], to: open }
+      permission: payment.request
+      idempotent: true
+      requiresExpectedVersion: false
+      requiredEffects: []
+      emits: [payment_request.created, payment_request.opened]
+      auditRequired: true
+      postconditions: [payment_request.status == open]
+    - key: payment.confirm_provider_result
+      contractVersion: "1.0.0"
+      aggregate: payment
+      transition: { from: [pending, processing], to: succeeded }
+      permission: payment.provider_event
+      idempotent: true
+      requiresExpectedVersion: false
+      requiredEffects: []
+      emits: [payment.succeeded]
+      auditRequired: true
+      postconditions: [payment.status == succeeded]
+    - key: payment.fail_provider_result
+      contractVersion: "1.0.0"
+      aggregate: payment
+      transition: { from: [pending, processing], to: failed }
+      permission: payment.provider_event
+      idempotent: true
+      requiresExpectedVersion: false
+      requiredEffects: []
+      emits: [payment.failed]
+      auditRequired: true
+      postconditions: [payment.status == failed]
+    - key: payment.expire_request
+      contractVersion: "1.0.0"
+      aggregate: payment_request
+      transition: { from: [draft, open], to: expired }
+      permission: payment.cancel
+      idempotent: true
+      requiresExpectedVersion: true
+      requiredEffects: []
+      emits: [payment_request.expired]
+      auditRequired: true
+      postconditions: [payment_request.status == expired]
+    - key: payment.request_refund
+      contractVersion: "1.0.0"
+      aggregate: refund
+      transition: { from: [requested], to: processing }
+      permission: payment.refund
+      idempotent: true
+      requiresExpectedVersion: false
+      requiredEffects: []
+      emits: [payment.refund_requested]
+      auditRequired: true
+      postconditions: [refund.status == processing]
+    - key: payment.confirm_refund
+      contractVersion: "1.0.0"
+      aggregate: refund
+      transition: { from: [requested, processing], to: succeeded }
+      permission: payment.provider_event
+      idempotent: true
+      requiresExpectedVersion: false
+      requiredEffects: []
+      emits: [payment.refunded]
+      auditRequired: true
+      postconditions: [refund.status == succeeded]
+
+permissions:
+  - payment.view
+  - payment.request
+  - payment.cancel
+  - payment.refund
+  - payment.reconcile
+  - payment.configure_provider
+  - payment.view_diagnostics
+  - payment.provider_event
+
+relations:
+  - object: payment_request
+    targetObject: contact
+    targetModule: runory.contact
+    type: many_to_one
+    foreignKey: customer_contact_id
+    label: Customer Contact
+  - object: payment
+    targetObject: payment_request
+    targetModule: runory.payment
+    type: many_to_one
+    foreignKey: payment_request_id
+    label: Payment Request
+  - object: refund
+    targetObject: payment
+    targetModule: runory.payment
+    type: many_to_one
+    foreignKey: payment_id
+    label: Payment
+
+migrations:
+  install: migrations/install.sql
+  uninstallPolicy: retain_data
+
+presentation:
+  visibility: top_level
+  surface: payments
+  audience: [owner, finance, operations]
+
+ui:
+  navigation:
+    - label: Payments
+      route: /payments
+      icon: credit-card
+      sortOrder: 65
