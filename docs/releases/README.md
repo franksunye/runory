@@ -1,0 +1,24 @@
+# Release Evidence
+
+| Metadata | Value |
+| --- | --- |
+| Status | `active` |
+| Topic | `releases` |
+| Applies to | `v0.5+` |
+| Owner | Engineering / Operations |
+| Last reviewed | 2026-07-14 |
+| Supersedes | — |
+| Superseded by | — |
+
+This directory contains point-in-time acceptance, test, drill, migration, and performance evidence. Evidence records what happened and does not replace product, architecture, or operational specifications.
+
+## Performance
+
+- [Performance Baseline Report Template](performance-baseline-report-template.md) — required structure for performance evidence.
+- [Performance Baseline and Budget](../architecture/performance-baseline-and-budget.md) — active performance requirements and v0.6 acceptance criteria.
+
+## FSM
+
+- [FSM Owner E2E Run — 2026-07-14](fsm-owner-e2e-run-2026-07-14.md)
+
+New evidence documents must link to the specification, runbook, or release criterion they validate.

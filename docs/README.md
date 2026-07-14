@@ -73,7 +73,8 @@ Versioned iteration plans provide implementation history but do not override the
 - [SDK / Module Development](sdk-module-development.md) — active authoring guide.
 - [Module SDK](sdk/module-sdk.md) — SDK reference.
 - [v0.5 Layered Architecture Review](architecture/v0.5-layered-architecture-review.md) — architecture review and rationale.
-- [Performance Optimization Plan](architecture/performance-optimization-plan.md) — proposed optimization work.
+- [Command Runtime Performance Baseline](architecture/command-runtime-performance-baseline.md) — proposed performance model, budgets, and v0.6 acceptance baseline.
+- [Performance Optimization Plan](architecture/performance-optimization-plan.md) — deployment-specific optimization work.
 - [Internationalization Architecture](architecture/internationalization.md) — localization architecture.
 
 ### 5. Command, Workflow & Forms
@@ -81,6 +82,7 @@ Versioned iteration plans provide implementation history but do not override the
 **Authority:** [Contract-driven Command Architecture](architecture/contract-driven-command-architecture.md)
 
 - [Contract-driven Command Architecture](architecture/contract-driven-command-architecture.md) — canonical command and mutation architecture.
+- [Command Runtime Performance Baseline](architecture/command-runtime-performance-baseline.md) — performance risks, measurement scenarios, and optimization order.
 - [Workspace Extension Architecture](architecture/workspace-extension-architecture.md) — governed customization boundary.
 - [v0.5 Commercial FSM Technical Spec](product/v0.5-commercial-fsm-technical-spec.md) — lifecycle implementation example.
 - [v0.5.1 Mobile Field Work Spec](product/v0.5.1-mobile-field-work-spec.md) — forms and workflow behavior in field use.
