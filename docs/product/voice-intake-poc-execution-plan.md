@@ -104,7 +104,7 @@ Retell repeats a Tool call or webhook
 
 ## 3. Delivery stages
 
-## Stage 0 — environment and provider setup
+### Stage 0 — environment and provider setup
 
 Deliverables:
 
@@ -137,9 +137,7 @@ Exit gate:
 - provider call metadata can be retrieved;
 - secrets are not committed.
 
-Estimated effort: 0.5–1.5 engineering days.
-
-## Stage 1 — Module skeleton and canonical contracts
+### Stage 1 — Module skeleton and canonical contracts
 
 Tasks:
 
@@ -158,9 +156,7 @@ Exit gate:
 - no provider-specific payload appears in canonical object definitions;
 - tests prove unique provider-call identity.
 
-Estimated effort: 2–4 engineering days.
-
-## Stage 2 — Integration Principal and Retell gateway
+### Stage 2 — Integration Principal and Retell gateway
 
 Tasks:
 
@@ -168,7 +164,7 @@ Tasks:
 - map Retell phone or Agent resources to one Workspace;
 - implement Retell signature or credential verification;
 - implement inbound-call context endpoint;
-- create/upsert initial `voice_call`;
+- create or update the initial `voice_call`;
 - implement lifecycle webhook endpoint;
 - add event idempotency and status ordering rules;
 - add correlation logging.
@@ -180,9 +176,7 @@ Exit gate:
 - a duplicate event is safe;
 - provider call status is visible in Runory.
 
-Estimated effort: 2–4 engineering days.
-
-## Stage 3 — caller lookup and intake preview
+### Stage 3 — caller lookup and intake preview
 
 Tasks:
 
@@ -203,9 +197,7 @@ Exit gate:
 - preview performs no Work Order mutation;
 - duplicate candidates appear as warnings.
 
-Estimated effort: 3–5 engineering days.
-
-## Stage 4 — governed Work Order creation
+### Stage 4 — governed Work Order creation
 
 Tasks:
 
@@ -227,9 +219,7 @@ Exit gate:
 - Work Order appears in the existing FSM UI;
 - no generic record API is exposed to Retell.
 
-Estimated effort: 3–5 engineering days.
-
-## Stage 5 — scheduling increment
+### Stage 5 — scheduling increment
 
 Tasks:
 
@@ -249,9 +239,7 @@ Exit gate:
 - conflicting retry or consumed slot creates no double booking;
 - failure does not leave a falsely confirmed appointment.
 
-Estimated effort: 3–5 engineering days.
-
-## Stage 6 — human follow-up and failure behavior
+### Stage 6 — human follow-up and failure behavior
 
 Tasks:
 
@@ -269,11 +257,9 @@ Exit gate:
 - high-risk or incomplete intake does not auto-create an invalid Work Order;
 - failed calls are searchable and actionable.
 
-Estimated effort: 1.5–3 engineering days.
+### Stage 7 — Calls UI
 
-## Stage 7 — Calls UI
-
-### Calls list
+#### Calls list
 
 Tasks:
 
@@ -282,7 +268,7 @@ Tasks:
 - add basic filters;
 - show failed and needs-review states clearly.
 
-### Call detail
+#### Call detail
 
 Tasks:
 
@@ -292,7 +278,7 @@ Tasks:
 - show warnings and unresolved fields;
 - show linked business records;
 - show audit timeline;
-- allow operator review/resolution.
+- allow operator review and resolution.
 
 Exit gate:
 
@@ -300,9 +286,7 @@ Exit gate:
 - operator can navigate to Work Order and Visit;
 - provider diagnostics remain secondary.
 
-Estimated effort: 3–5 engineering days.
-
-## Stage 8 — scenario testing and acceptance hardening
+### Stage 8 — scenario testing and acceptance hardening
 
 Tasks:
 
@@ -322,28 +306,9 @@ Exit gate:
 - known defects are classified as blocker or deferred;
 - one reproducible demo flow is documented.
 
-Estimated effort: 3–5 engineering days.
+## 4. Workstreams and ownership
 
-## 4. Work breakdown
-
-| Workstream | Primary output | Estimate |
-| --- | --- | ---: |
-| Provider setup | Twilio number and Retell Agent | 0.5–1.5 days |
-| Module/contracts | canonical Voice Intake model | 2–4 days |
-| Integration gateway | authenticated webhooks and call lifecycle | 2–4 days |
-| Intake preview | caller lookup, schema, validation | 3–5 days |
-| Work Order Command | idempotent governed creation | 3–5 days |
-| Scheduling | Visit and Schedule Entry | 3–5 days |
-| Follow-up | handoff and needs-review path | 1.5–3 days |
-| UI | Calls and Call Detail | 3–5 days |
-| Testing/hardening | real-call and automated acceptance | 3–5 days |
-| **Total** | **full POC** | **21–36 engineering days** |
-
-With two engineers working in parallel, a realistic elapsed target is approximately 2–3 weeks, assuming the current Command and Scheduling APIs are reusable without major repair.
-
-## 5. Recommended team split
-
-### Engineer A — platform/backend
+### Platform and backend
 
 - Module and object definitions;
 - Contracts and Command handlers;
@@ -351,9 +316,9 @@ With two engineers working in parallel, a realistic elapsed target is approximat
 - idempotency;
 - Scheduling integration;
 - audit and Outbox;
-- tests.
+- automated tests.
 
-### Engineer B — provider/frontend
+### Provider and frontend
 
 - Twilio and Retell configuration;
 - provider adapters and webhooks;
@@ -362,7 +327,7 @@ With two engineers working in parallel, a realistic elapsed target is approximat
 - real-call test execution;
 - provider observability.
 
-### Product/operations
+### Product and operations
 
 - service categories;
 - required intake fields;
@@ -371,7 +336,9 @@ With two engineers working in parallel, a realistic elapsed target is approximat
 - test scenarios;
 - acceptance review.
 
-## 6. Implementation order
+Ownership can be assigned according to the engineering team's current capacity. The sequence and exit gates, rather than a fixed staffing assumption, govern delivery.
+
+## 5. Implementation order
 
 The recommended vertical-slice order is:
 
@@ -390,7 +357,7 @@ The recommended vertical-slice order is:
 
 Do not begin with generalized Conversations architecture, multi-provider abstractions, or self-service configuration. Provider-neutral contracts are required; broad platform productization is deferred.
 
-## 7. Hard acceptance gates
+## 6. Hard acceptance gates
 
 ### Architecture
 
@@ -398,46 +365,46 @@ Do not begin with generalized Conversations architecture, multi-provider abstrac
 - [ ] Retell has no generic record mutation Tool.
 - [ ] Work Order and Visit mutations use named Commands.
 - [ ] Scheduling reservation uses the authoritative Scheduling capability.
-- [ ] external effects use Outbox where applicable.
-- [ ] provider payloads do not leak into FSM object ownership.
+- [ ] External effects use Outbox where applicable.
+- [ ] Provider payloads do not leak into FSM object ownership.
 
 ### Security
 
-- [ ] every provider request is authenticated;
-- [ ] phone/Agent resource maps to exactly one Workspace;
-- [ ] Integration Principal has minimal Command scope;
-- [ ] secrets are absent from source, logs, and call records;
-- [ ] caller lookup returns only permitted data;
-- [ ] audit captures provider and call attribution.
+- [ ] Every provider request is authenticated.
+- [ ] Phone or Agent resource maps to exactly one Workspace.
+- [ ] Integration Principal has minimal Command scope.
+- [ ] Secrets are absent from source, logs, and call records.
+- [ ] Caller lookup returns only permitted data.
+- [ ] Audit captures provider and call attribution.
 
 ### Correctness
 
-- [ ] confirmed intake creates one Work Order;
-- [ ] replay creates zero duplicates;
-- [ ] conflicting idempotency input is rejected;
-- [ ] invalid slot cannot be confirmed;
-- [ ] incomplete intake does not report success;
-- [ ] human request produces transfer or follow-up;
-- [ ] Call Detail links to authoritative records.
+- [ ] Confirmed intake creates one Work Order.
+- [ ] Replay creates zero duplicates.
+- [ ] Conflicting idempotency input is rejected.
+- [ ] Invalid slot cannot be confirmed.
+- [ ] Incomplete intake does not report success.
+- [ ] Human request produces transfer or follow-up.
+- [ ] Tool or provider failure cannot produce a false success message.
 
 ### Product experience
 
-- [ ] one real phone call can complete the primary demo;
-- [ ] the Work Order is understandable in the normal FSM UI;
-- [ ] the operator can review transcript, fields, actions, and warnings;
-- [ ] failures and needs-review calls are visible;
-- [ ] raw technical provider concepts do not dominate the UI.
+- [ ] One real phone call can complete the primary demo.
+- [ ] The Work Order is understandable in the normal FSM UI.
+- [ ] The operator can review transcript, fields, actions, and warnings.
+- [ ] Failures and needs-review calls are visible.
+- [ ] Raw technical provider concepts do not dominate the UI.
 
 ### Regression
 
-- [ ] platform-core typecheck passes;
-- [ ] cloud typecheck passes;
-- [ ] existing architecture tests pass;
-- [ ] FSM Pack tests pass;
-- [ ] v0.5/v0.5.1 closure validation passes;
-- [ ] documentation checker passes.
+- [ ] Platform Core typecheck passes.
+- [ ] Cloud typecheck passes.
+- [ ] Existing architecture tests pass.
+- [ ] FSM Pack tests pass.
+- [ ] v0.5/v0.5.1 closure validation passes.
+- [ ] Documentation checker passes.
 
-## 8. Test call matrix
+## 7. Test call matrix
 
 | ID | Scenario | Expected outcome |
 | --- | --- | --- |
@@ -450,15 +417,13 @@ Do not begin with generalized Conversations architecture, multi-provider abstrac
 | TC-07 | Valid slot selected | Work Order, Visit, Schedule Entry created |
 | TC-08 | Slot consumed before commit | slot conflict returned; no false confirmation |
 | TC-09 | Caller asks for human | transfer or follow-up outcome |
-| TC-10 | Unsupported/high-risk request | no unsafe completion; review/follow-up |
+| TC-10 | Unsupported or high-risk request | no unsafe completion; review or follow-up |
 | TC-11 | Tool request repeated | prior result returned; no duplicate |
 | TC-12 | Call disconnects early | incomplete Call visible and reviewable |
 | TC-13 | Invalid webhook signature | request rejected and logged safely |
 | TC-14 | Runory timeout | neutral retry behavior; no invented success |
 
-## 9. POC demonstration script
-
-The final demo should take less than ten minutes.
+## 8. POC demonstration script
 
 1. Open an empty or known demo Workspace.
 2. Show Calls, Work Orders, and Planning with no new test record.
@@ -473,7 +438,7 @@ The final demo should take less than ten minutes.
 11. Repeat the final Tool request or webhook and show no duplicate record.
 12. Run one human-follow-up scenario.
 
-## 10. Risks and controls
+## 9. Risks and controls
 
 | Risk | Control |
 | --- | --- |
@@ -488,7 +453,7 @@ The final demo should take less than ten minutes.
 | POC works only for one scripted phrase | varied real-call test matrix |
 | local SQLite test contention | run database-reset suites serially as current acceptance guidance requires |
 
-## 11. Stop and review conditions
+## 10. Stop and review conditions
 
 Pause implementation and review architecture if any of the following occurs:
 
@@ -500,7 +465,7 @@ Pause implementation and review architecture if any of the following occurs:
 - a provider-specific model change is proposed for core FSM objects;
 - the POC expands into a generalized contact-center platform before the primary call-to-work-order path passes.
 
-## 12. Completion output
+## 11. Completion output
 
 When accepted, add an immutable evidence document:
 
@@ -528,7 +493,7 @@ After acceptance, product and engineering should decide whether to:
 4. add a second voice provider;
 5. remain focused on one field-service vertical for data and quality accumulation.
 
-## 13. Related documents
+## 12. Related documents
 
 - [Voice Intake Product Definition](voice-intake-product-definition.md)
 - [Voice Intake Technical Specification](voice-intake-technical-spec.md)
