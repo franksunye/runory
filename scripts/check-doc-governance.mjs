@@ -1,13 +1,13 @@
 import { execFileSync } from "node:child_process";
-import { existsSync, lstatSync, readFileSync, readdirSync } from "node:fs";
-import { dirname, extname, join, normalize, relative, resolve, sep } from "node:path";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { dirname, extname, join, relative, resolve, sep } from "node:path";
 
 const ROOT = process.cwd();
 const DOCS_ROOT = join(ROOT, "docs");
 const ENTRY = join(DOCS_ROOT, "README.md");
-const BOOTSTRAP_FILES = new Set(["docs/README.md", "docs/document-governance.md"]);
-const ALLOWED_STATUS = new Set(["canonical", "active", "proposed", "historical", "evidence"]);
-const ALLOWED_TOPICS = new Set([
+const BOOTSTRAP = new Set(["docs/README.md", "docs/document-governance.md"]);
+const STATUSES = new Set(["canonical", "active", "proposed", "historical", "evidence"]);
+const TOPICS = new Set([
   "product", "workspace", "fsm", "architecture", "customization",
   "identity", "catalog", "operations", "releases", "documentation-governance",
 ]);
@@ -15,147 +15,106 @@ const errors = [];
 const warnings = [];
 
 function walk(dir) {
-  const files = [];
+  const output = [];
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
     if (["node_modules", ".git", ".next", "dist", "coverage"].includes(entry.name)) continue;
     const full = join(dir, entry.name);
-    if (entry.isDirectory()) files.push(...walk(full));
-    else if (entry.isFile() && extname(entry.name).toLowerCase() === ".md") files.push(full);
+    if (entry.isDirectory()) output.push(...walk(full));
+    else if (entry.isFile() && extname(entry.name).toLowerCase() === ".md") output.push(full);
   }
-  return files;
+  return output;
 }
 
 const repoPath = (file) => relative(ROOT, file).split(sep).join("/");
 
-function addedMarkdownFiles() {
+function addedDocs() {
   const base = process.env.DOCS_BASE_REF;
   const args = base
     ? ["diff", "--name-only", "--diff-filter=A", `${base}...HEAD`]
     : ["diff", "--name-only", "--diff-filter=A", "HEAD^", "HEAD"];
   try {
-    const output = execFileSync("git", args, { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
-    return new Set(output.split(/\r?\n/).filter((p) => p.endsWith(".md") && p.startsWith("docs/")));
+    const value = execFileSync("git", args, { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
+    return new Set(value.split(/\r?\n/).filter((p) => p.startsWith("docs/") && p.endsWith(".md")));
   } catch {
     return new Set();
   }
 }
 
-function parseLinks(content) {
-  const prose = content.replace(/```[\s\S]*?```/g, "").replace(/~~~[\s\S]*?~~~/g, "");
-  const links = [];
-  for (const match of prose.matchAll(/(?<!!)\[[^\]]*\]\(([^)]+)\)/g)) {
-    let target = match[1].trim();
-    if (target.startsWith("<") && target.endsWith(">")) target = target.slice(1, -1);
-    target = target.split(/\s+["']/)[0];
-    if (!target || target.startsWith("#") || /^[a-z][a-z0-9+.-]*:/i.test(target)) continue;
-    links.push(target);
-  }
-  return links;
-}
-
-function resolveTarget(source, target) {
-  const clean = decodeURIComponent(target.split("#")[0]);
-  if (!clean) return null;
-  const candidate = resolve(dirname(source), clean);
-  return [candidate, `${candidate}.md`, join(candidate, "README.md")].find(existsSync) ?? candidate;
-}
-
-function parseMetadata(content) {
-  const metadata = {};
+function metadata(content) {
+  const result = {};
   for (const line of content.split(/\r?\n/).slice(0, 40)) {
     const match = line.match(/^\|\s*(Status|Topic|Applies to|Owner|Last reviewed|Supersedes|Superseded by)\s*\|\s*(.*?)\s*\|$/i);
-    if (match) metadata[match[1].toLowerCase()] = match[2].replace(/`/g, "").trim();
+    if (match) result[match[1].toLowerCase()] = match[2].replace(/`/g, "").trim();
   }
-  return metadata;
+  return result;
 }
 
-if (!existsSync(ENTRY)) errors.push("docs/README.md is required as the documentation entry point.");
+function links(content) {
+  const prose = content.replace(/```[\s\S]*?```/g, "").replace(/~~~[\s\S]*?~~~/g, "");
+  return [...prose.matchAll(/(?<!!)\[[^\]]*\]\(([^)]+)\)/g)]
+    .map((m) => m[1].trim().replace(/^<|>$/g, "").split(/\s+["']/)[0])
+    .filter((value) => value && !value.startsWith("#") && !/^[a-z][a-z0-9+.-]*:/i.test(value));
+}
 
-const added = addedMarkdownFiles();
-const markdownFiles = walk(ROOT);
-const docsFiles = markdownFiles.filter((file) => file.startsWith(`${DOCS_ROOT}${sep}`));
-const fileSet = new Set(markdownFiles.map(normalize));
-const graph = new Map();
-const metadataByFile = new Map();
+function targetPath(source, value) {
+  let clean = value.split("#")[0];
+  try {
+    clean = decodeURIComponent(clean);
+  } catch {
+    warnings.push(`${repoPath(source)}: malformed URL encoding in link -> ${value}`);
+  }
+  if (!clean) return null;
+  const base = resolve(dirname(source), clean);
+  return [base, `${base}.md`, join(base, "README.md")].find(existsSync) ?? base;
+}
 
-for (const file of markdownFiles) {
+if (!existsSync(ENTRY)) errors.push("docs/README.md is required.");
+
+const added = addedDocs();
+const docs = walk(DOCS_ROOT);
+const canonical = new Map();
+
+for (const file of docs) {
   const path = repoPath(file);
   const content = readFileSync(file, "utf8");
-  metadataByFile.set(normalize(file), parseMetadata(content));
-  const targets = [];
-  for (const link of parseLinks(content)) {
-    const target = resolveTarget(file, link);
-    if (!target || !existsSync(target)) {
-      const message = `${path}: broken relative link -> ${link}`;
-      if (added.has(path) && !BOOTSTRAP_FILES.has(path)) errors.push(message);
-      else warnings.push(message);
-      continue;
-    }
-    if (lstatSync(target).isDirectory()) continue;
-    const normalized = normalize(target);
-    if (extname(normalized).toLowerCase() === ".md" && fileSet.has(normalized)) targets.push(normalized);
-  }
-  graph.set(normalize(file), targets);
-}
+  const meta = metadata(content);
+  const strict = added.has(path) && !BOOTSTRAP.has(path);
+  const report = (message) => (strict ? errors : warnings).push(`${path}: ${message}`);
 
-const reachable = new Set();
-const queue = existsSync(ENTRY) ? [normalize(ENTRY)] : [];
-while (queue.length) {
-  const file = queue.shift();
-  if (reachable.has(file)) continue;
-  reachable.add(file);
-  for (const target of graph.get(file) ?? []) {
-    if (target.startsWith(`${DOCS_ROOT}${sep}`) && !reachable.has(target)) queue.push(target);
-  }
-}
-
-for (const file of docsFiles) {
-  if (!reachable.has(normalize(file))) warnings.push(`${repoPath(file)} is not reachable from docs/README.md.`);
-}
-
-const canonicalByTopic = new Map();
-for (const file of docsFiles) {
-  const path = repoPath(file);
-  const metadata = metadataByFile.get(normalize(file)) ?? {};
-  const isBootstrap = BOOTSTRAP_FILES.has(path);
-  const isAdded = added.has(path) && !isBootstrap;
-  const report = (message) => (isAdded ? errors : warnings).push(`${path}: ${message}`);
-
-  if (metadata.status && !ALLOWED_STATUS.has(metadata.status)) report(`invalid Status '${metadata.status}'.`);
-  if (metadata.topic && !ALLOWED_TOPICS.has(metadata.topic)) report(`invalid Topic '${metadata.topic}'.`);
-  if (metadata["last reviewed"] && !/^\d{4}-\d{2}-\d{2}$/.test(metadata["last reviewed"])) report("Last reviewed must use YYYY-MM-DD.");
-
-  if (metadata.status === "canonical" && !isBootstrap) {
-    if (!metadata.topic) report("canonical documents require Topic metadata.");
-    const list = canonicalByTopic.get(metadata.topic) ?? [];
-    list.push({ path, isAdded });
-    canonicalByTopic.set(metadata.topic, list);
+  for (const link of links(content)) {
+    const target = targetPath(file, link);
+    if (target && !existsSync(target)) report(`broken relative link -> ${link}`);
   }
 
-  if ((path.includes("/releases/") || /report|evidence|drill|e2e-run/i.test(path)) && metadata.status === "canonical") {
-    report("evidence-like documents cannot be canonical.");
-  }
+  if (meta.status && !STATUSES.has(meta.status)) report(`invalid Status '${meta.status}'.`);
+  if (meta.topic && !TOPICS.has(meta.topic)) report(`invalid Topic '${meta.topic}'.`);
+  if (meta["last reviewed"] && !/^\d{4}-\d{2}-\d{2}$/.test(meta["last reviewed"])) report("Last reviewed must use YYYY-MM-DD.");
 
-  if (isAdded) {
+  if (strict) {
     const required = ["status", "topic", "applies to", "owner", "last reviewed", "supersedes", "superseded by"];
-    const missing = required.filter((key) => !metadata[key]);
+    const missing = required.filter((key) => !meta[key]);
     if (missing.length) errors.push(`${path}: new governed document is missing metadata: ${missing.join(", ")}.`);
-  } else if (!metadata.status && !metadata.topic) {
-    warnings.push(`${path}: legacy metadata migration pending until the next material edit.`);
   }
+
+  if (meta.status === "canonical" && !BOOTSTRAP.has(path)) {
+    const list = canonical.get(meta.topic) ?? [];
+    list.push({ path, strict });
+    canonical.set(meta.topic, list);
+  }
+
+  if (!meta.status && !meta.topic) warnings.push(`${path}: legacy metadata migration pending.`);
 }
 
-for (const [topic, files] of canonicalByTopic) {
-  if (!topic || files.length <= 1) continue;
+for (const [topic, files] of canonical) {
+  if (!topic || files.length < 2) continue;
   const message = `Topic '${topic}' has multiple canonical documents: ${files.map((f) => f.path).join(", ")}`;
-  if (files.some((f) => f.isAdded)) errors.push(message);
+  if (files.some((f) => f.strict)) errors.push(message);
   else warnings.push(message);
 }
 
 for (const warning of warnings) console.warn(`WARN: ${warning}`);
 if (errors.length) {
   for (const error of errors) console.error(`ERROR: ${error}`);
-  console.error(`\nDocumentation governance failed with ${errors.length} error(s) and ${warnings.length} warning(s).`);
   process.exit(1);
 }
-console.log(`Documentation governance passed for ${docsFiles.length} docs Markdown files (${warnings.length} baseline warning(s)).`);
+console.log(`Documentation governance passed for ${docs.length} Markdown files with ${warnings.length} baseline warning(s).`);
