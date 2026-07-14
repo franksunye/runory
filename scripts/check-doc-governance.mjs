@@ -5,6 +5,7 @@ import { dirname, extname, join, normalize, relative, resolve, sep } from "node:
 const ROOT = process.cwd();
 const DOCS_ROOT = join(ROOT, "docs");
 const ENTRY = join(DOCS_ROOT, "README.md");
+const BOOTSTRAP_FILES = new Set(["docs/README.md", "docs/document-governance.md"]);
 const ALLOWED_STATUS = new Set(["canonical", "active", "proposed", "historical", "evidence"]);
 const ALLOWED_TOPICS = new Set([
   "product", "workspace", "fsm", "architecture", "customization",
@@ -56,8 +57,7 @@ function resolveTarget(source, target) {
   const clean = decodeURIComponent(target.split("#")[0]);
   if (!clean) return null;
   const candidate = resolve(dirname(source), clean);
-  const options = [candidate, `${candidate}.md`, join(candidate, "README.md")];
-  return options.find(existsSync) ?? candidate;
+  return [candidate, `${candidate}.md`, join(candidate, "README.md")].find(existsSync) ?? candidate;
 }
 
 function parseMetadata(content) {
@@ -87,7 +87,7 @@ for (const file of markdownFiles) {
     const target = resolveTarget(file, link);
     if (!target || !existsSync(target)) {
       const message = `${path}: broken relative link -> ${link}`;
-      if (changed.has(path) && path !== "docs/README.md") errors.push(message);
+      if (changed.has(path) && !BOOTSTRAP_FILES.has(path)) errors.push(message);
       else warnings.push(message);
       continue;
     }
@@ -117,15 +117,15 @@ const canonicalByTopic = new Map();
 for (const file of docsFiles) {
   const path = repoPath(file);
   const metadata = metadataByFile.get(normalize(file)) ?? {};
-  const isIndex = path === "docs/README.md";
-  const isChanged = changed.has(path) && !isIndex;
-
+  const isBootstrap = BOOTSTRAP_FILES.has(path);
+  const isChanged = changed.has(path) && !isBootstrap;
   const report = (message) => (isChanged ? errors : warnings).push(`${path}: ${message}`);
+
   if (metadata.status && !ALLOWED_STATUS.has(metadata.status)) report(`invalid Status '${metadata.status}'.`);
   if (metadata.topic && !ALLOWED_TOPICS.has(metadata.topic)) report(`invalid Topic '${metadata.topic}'.`);
   if (metadata["last reviewed"] && !/^\d{4}-\d{2}-\d{2}$/.test(metadata["last reviewed"])) report("Last reviewed must use YYYY-MM-DD.");
 
-  if (metadata.status === "canonical" && !isIndex) {
+  if (metadata.status === "canonical" && !isBootstrap) {
     if (!metadata.topic) report("canonical documents require Topic metadata.");
     const list = canonicalByTopic.get(metadata.topic) ?? [];
     list.push({ path, isChanged });
