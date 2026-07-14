@@ -1,0 +1,134 @@
+id: runory.voice-intake
+name: Voice Intake
+version: 0.1.0
+coreCompatibility: ">=0.1.0"
+
+dependencies:
+  - runory.contact
+  - runory.service-site
+  - runory.work-order
+  - runory.service-visit
+
+objects:
+  - key: voice_call
+    label: Voice Call
+    displayField: caller_phone
+    fields:
+      - { key: provider, label: Provider, type: text, ownership: module_owned, required: true }
+      - { key: provider_call_id, label: Provider Call ID, type: text, ownership: module_owned, required: true }
+      - { key: provider_phone_id, label: Provider Phone ID, type: text, ownership: module_owned }
+      - { key: caller_phone, label: Caller Phone, type: phone, ownership: module_owned, required: true }
+      - { key: callee_phone, label: Callee Phone, type: phone, ownership: module_owned }
+      - { key: status, label: Status, type: select, ownership: module_owned, required: true, default_value: initiated, validation: { options: [initiated, ringing, answered, ended, analyzed, failed] } }
+      - { key: started_at, label: Started At, type: date, ownership: module_owned }
+      - { key: answered_at, label: Answered At, type: date, ownership: module_owned }
+      - { key: ended_at, label: Ended At, type: date, ownership: module_owned }
+      - { key: duration_seconds, label: Duration Seconds, type: number, ownership: module_owned }
+      - { key: transcript_text, label: Transcript, type: text, ownership: module_owned }
+      - { key: summary, label: Summary, type: text, ownership: module_owned }
+      - { key: recording_reference, label: Recording Reference, type: text, ownership: module_owned }
+      - { key: primary_intent, label: Primary Intent, type: text, ownership: module_owned }
+      - { key: outcome, label: Outcome, type: select, ownership: module_owned, validation: { options: [pending, work_order_created, visit_scheduled, follow_up_created, transferred, incomplete, failed] } }
+      - { key: review_status, label: Review Status, type: select, ownership: module_owned, required: true, default_value: unreviewed, validation: { options: [unreviewed, needs_review, resolved, not_required] } }
+      - { key: work_order_id, label: Work Order, type: text, ownership: module_owned }
+      - { key: service_visit_id, label: Service Visit, type: text, ownership: module_owned }
+      - { key: contact_id, label: Contact, type: text, ownership: module_owned }
+      - { key: service_site_id, label: Service Site, type: text, ownership: module_owned }
+      - { key: last_event_sequence, label: Last Event Sequence, type: number, ownership: module_owned, default_value: "0" }
+  - key: voice_intake_session
+    label: Voice Intake Session
+    fields:
+      - { key: voice_call_id, label: Voice Call, type: text, ownership: module_owned, required: true }
+      - { key: schema_key, label: Schema Key, type: text, ownership: module_owned, required: true }
+      - { key: schema_version, label: Schema Version, type: number, ownership: module_owned, required: true }
+      - { key: status, label: Status, type: select, ownership: module_owned, required: true, default_value: collecting, validation: { options: [collecting, ready, completed, needs_review, failed] } }
+      - { key: confirmed_values_json, label: Confirmed Values, type: text, ownership: module_owned }
+      - { key: inferred_values_json, label: Inferred Values, type: text, ownership: module_owned }
+      - { key: missing_fields_json, label: Missing Fields, type: text, ownership: module_owned }
+      - { key: conflicts_json, label: Conflicts, type: text, ownership: module_owned }
+      - { key: warnings_json, label: Warnings, type: text, ownership: module_owned }
+      - { key: confirmation_state, label: Confirmation State, type: select, ownership: module_owned, validation: { options: [unconfirmed, partially_confirmed, confirmed, rejected] } }
+      - { key: completed_at, label: Completed At, type: date, ownership: module_owned }
+  - key: voice_provider_reference
+    label: Voice Provider Reference
+    fields:
+      - { key: provider, label: Provider, type: text, ownership: module_owned, required: true }
+      - { key: resource_type, label: Resource Type, type: text, ownership: module_owned, required: true }
+      - { key: provider_resource_id, label: Provider Resource ID, type: text, ownership: module_owned, required: true }
+      - { key: status, label: Status, type: select, ownership: module_owned, required: true, default_value: active, validation: { options: [active, disabled, revoked] } }
+      - { key: configuration_reference, label: Configuration Reference, type: text, ownership: module_owned }
+  - key: voice_follow_up
+    label: Voice Follow Up
+    fields:
+      - { key: voice_call_id, label: Voice Call, type: text, ownership: module_owned, required: true }
+      - { key: contact_id, label: Contact, type: text, ownership: module_owned }
+      - { key: work_order_id, label: Work Order, type: text, ownership: module_owned }
+      - { key: reason, label: Reason, type: text, ownership: module_owned, required: true }
+      - { key: priority, label: Priority, type: select, ownership: module_owned, required: true, validation: { options: [low, medium, high, urgent] } }
+      - { key: callback_window, label: Callback Window, type: text, ownership: module_owned }
+      - { key: status, label: Status, type: select, ownership: module_owned, required: true, default_value: open, validation: { options: [open, in_progress, completed, cancelled] } }
+
+views:
+  - object: voice_call
+    key: voice_call_list
+    type: list
+    label: Calls
+    config:
+      columns:
+        - { field: started_at, label: Time }
+        - { field: caller_phone, label: Caller }
+        - { field: duration_seconds, label: Duration }
+        - { field: primary_intent, label: Intent }
+        - { field: outcome, label: Outcome }
+        - { field: review_status, label: Review }
+        - { field: work_order_id, label: Work Order }
+        - { field: service_visit_id, label: Visit }
+      actions: [view]
+      pageSize: 20
+  - object: voice_call
+    key: voice_call_form
+    type: form
+    label: Call Detail
+    config:
+      sections:
+        - title: Call
+          fields:
+            - { field: caller_phone }
+            - { field: status }
+            - { field: outcome }
+            - { field: review_status }
+        - title: Conversation
+          fields:
+            - { field: summary }
+            - { field: transcript_text }
+        - title: Linked Records
+          fields:
+            - { field: contact_id }
+            - { field: service_site_id }
+            - { field: work_order_id }
+            - { field: service_visit_id }
+
+permissions:
+  - voice_intake.read
+  - voice_intake.configure
+  - voice_intake.execute
+  - voice_intake.review
+
+relations:
+  - { object: voice_call, targetObject: contact, targetModule: runory.contact, type: many_to_one, foreignKey: contact_id, label: Contact }
+  - { object: voice_call, targetObject: service_site, targetModule: runory.service-site, type: many_to_one, foreignKey: service_site_id, label: Service Site }
+  - { object: voice_call, targetObject: work_order, targetModule: runory.work-order, type: many_to_one, foreignKey: work_order_id, label: Work Order }
+  - { object: voice_call, targetObject: service_visit, targetModule: runory.service-visit, type: many_to_one, foreignKey: service_visit_id, label: Service Visit }
+
+migrations:
+  install: migrations/install.sql
+  uninstallPolicy: retain_data
+
+presentation:
+  visibility: top_level
+  surface: calls
+  audience: [dispatcher, service_supervisor]
+
+ui:
+  navigation:
+    - { label: Calls, route: /calls, icon: phone-call, sortOrder: 34 }
