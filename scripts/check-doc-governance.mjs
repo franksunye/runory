@@ -27,11 +27,11 @@ function walk(dir) {
 
 const repoPath = (file) => relative(ROOT, file).split(sep).join("/");
 
-function changedMarkdownFiles() {
+function addedMarkdownFiles() {
   const base = process.env.DOCS_BASE_REF;
   const args = base
-    ? ["diff", "--name-only", "--diff-filter=ACMR", `${base}...HEAD`]
-    : ["diff", "--name-only", "--diff-filter=ACMR", "HEAD^", "HEAD"];
+    ? ["diff", "--name-only", "--diff-filter=A", `${base}...HEAD`]
+    : ["diff", "--name-only", "--diff-filter=A", "HEAD^", "HEAD"];
   try {
     const output = execFileSync("git", args, { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
     return new Set(output.split(/\r?\n/).filter((p) => p.endsWith(".md") && p.startsWith("docs/")));
@@ -71,7 +71,7 @@ function parseMetadata(content) {
 
 if (!existsSync(ENTRY)) errors.push("docs/README.md is required as the documentation entry point.");
 
-const changed = changedMarkdownFiles();
+const added = addedMarkdownFiles();
 const markdownFiles = walk(ROOT);
 const docsFiles = markdownFiles.filter((file) => file.startsWith(`${DOCS_ROOT}${sep}`));
 const fileSet = new Set(markdownFiles.map(normalize));
@@ -87,7 +87,7 @@ for (const file of markdownFiles) {
     const target = resolveTarget(file, link);
     if (!target || !existsSync(target)) {
       const message = `${path}: broken relative link -> ${link}`;
-      if (changed.has(path) && !BOOTSTRAP_FILES.has(path)) errors.push(message);
+      if (added.has(path) && !BOOTSTRAP_FILES.has(path)) errors.push(message);
       else warnings.push(message);
       continue;
     }
@@ -118,8 +118,8 @@ for (const file of docsFiles) {
   const path = repoPath(file);
   const metadata = metadataByFile.get(normalize(file)) ?? {};
   const isBootstrap = BOOTSTRAP_FILES.has(path);
-  const isChanged = changed.has(path) && !isBootstrap;
-  const report = (message) => (isChanged ? errors : warnings).push(`${path}: ${message}`);
+  const isAdded = added.has(path) && !isBootstrap;
+  const report = (message) => (isAdded ? errors : warnings).push(`${path}: ${message}`);
 
   if (metadata.status && !ALLOWED_STATUS.has(metadata.status)) report(`invalid Status '${metadata.status}'.`);
   if (metadata.topic && !ALLOWED_TOPICS.has(metadata.topic)) report(`invalid Topic '${metadata.topic}'.`);
@@ -128,7 +128,7 @@ for (const file of docsFiles) {
   if (metadata.status === "canonical" && !isBootstrap) {
     if (!metadata.topic) report("canonical documents require Topic metadata.");
     const list = canonicalByTopic.get(metadata.topic) ?? [];
-    list.push({ path, isChanged });
+    list.push({ path, isAdded });
     canonicalByTopic.set(metadata.topic, list);
   }
 
@@ -136,10 +136,10 @@ for (const file of docsFiles) {
     report("evidence-like documents cannot be canonical.");
   }
 
-  if (isChanged) {
+  if (isAdded) {
     const required = ["status", "topic", "applies to", "owner", "last reviewed", "supersedes", "superseded by"];
     const missing = required.filter((key) => !metadata[key]);
-    if (missing.length) errors.push(`${path}: changed governed document is missing metadata: ${missing.join(", ")}.`);
+    if (missing.length) errors.push(`${path}: new governed document is missing metadata: ${missing.join(", ")}.`);
   } else if (!metadata.status && !metadata.topic) {
     warnings.push(`${path}: legacy metadata migration pending until the next material edit.`);
   }
@@ -148,7 +148,7 @@ for (const file of docsFiles) {
 for (const [topic, files] of canonicalByTopic) {
   if (!topic || files.length <= 1) continue;
   const message = `Topic '${topic}' has multiple canonical documents: ${files.map((f) => f.path).join(", ")}`;
-  if (files.some((f) => f.isChanged)) errors.push(message);
+  if (files.some((f) => f.isAdded)) errors.push(message);
   else warnings.push(message);
 }
 
