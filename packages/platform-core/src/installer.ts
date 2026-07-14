@@ -24,8 +24,11 @@ import type { CommandActor } from "./command-runtime";
 import { getOutboxMessages } from "./outbox";
 import {
   getRegisteredCommandEffectProviders,
+  removeWorkspaceCommandContracts,
+  syncWorkspaceCommandContracts,
   validateModuleCommandContracts,
 } from "./command-contracts";
+import { syncWorkspacePlatformServiceContracts } from "./platform-service-contracts";
 
 // ── Manifest in-memory cache ──
 // Manifest YAML files are static at runtime (they ship with the deploy and do
@@ -54,6 +57,18 @@ export function loadModuleManifest(moduleId: string): ModuleManifest {
   const manifest = moduleManifestSchema.parse(raw);
   moduleManifestCache.set(moduleId, manifest);
   return manifest;
+}
+
+function loadInstalledModuleManifest(moduleId: string, version: string): ModuleManifest {
+  const current = loadModuleManifest(moduleId);
+  if (current.version === version) return current;
+  const versionedPath = resolve(MODULES_DIR, moduleId, `v${version}`, "manifest.yaml");
+  if (!existsSync(versionedPath)) {
+    throw new Error(
+      `Installed manifest snapshot source not found for ${moduleId}@${version}`,
+    );
+  }
+  return moduleManifestSchema.parse(parseYaml(readFileSync(versionedPath, "utf-8")));
 }
 
 export function loadPackManifest(packId: string): PackManifest {
@@ -1189,6 +1204,7 @@ export async function installModule(
   moduleId: string,
   packId: string = "standalone"
 ): Promise<InstallModuleResult> {
+  await syncWorkspacePlatformServiceContracts(workspaceId);
   const manifest = loadModuleManifest(moduleId);
 
   const objectsCreated: string[] = [];
@@ -1235,11 +1251,22 @@ export async function installModule(
   }
 
   // Check if already installed (idempotent — skip if present)
-  const already = await queryOne<{ id: string }>(
-    `SELECT id FROM ${TABLES.installations} WHERE workspace_id = ? AND module_id = ?`,
+  const already = await queryOne<{ id: string; module_version: string }>(
+    `SELECT id, module_version FROM ${TABLES.installations} WHERE workspace_id = ? AND module_id = ?`,
     [workspaceId, moduleId]
   );
   if (already) {
+    // Backfill/repair the workspace snapshot for installations created before
+    // the Contract registry migration. This is idempotent and keeps the exact
+    // installed Module version authoritative.
+    const installedManifest = loadInstalledModuleManifest(moduleId, already.module_version);
+    await syncWorkspaceCommandContracts(
+      workspaceId,
+      "module",
+      moduleId,
+      already.module_version,
+      installedManifest.domain?.commands ?? [],
+    );
     return { moduleId, objectsCreated, viewsCreated, navigationItemsCreated, ddlExecuted, skipped: true };
   }
 
@@ -1279,6 +1306,13 @@ export async function installModule(
     `INSERT INTO ${TABLES.installations} (id, workspace_id, module_id, module_version, pack_id, status, installed_at)
      VALUES (?, ?, ?, ?, ?, 'installed', ?)`,
     [genId("inst"), workspaceId, moduleId, manifest.version, packId, now()]
+  );
+  await syncWorkspaceCommandContracts(
+    workspaceId,
+    "module",
+    moduleId,
+    manifest.version,
+    manifest.domain?.commands ?? [],
   );
 
   // Insert object definitions
@@ -1585,6 +1619,7 @@ export async function uninstallPack(
     );
 
     // 5. Delete the installation record
+    await removeWorkspaceCommandContracts(workspaceId, "module", moduleId);
     await execute(
       `DELETE FROM ${TABLES.installations}
        WHERE workspace_id = ? AND module_id = ? AND pack_id = ?`,

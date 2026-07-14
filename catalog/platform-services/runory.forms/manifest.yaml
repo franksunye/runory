@@ -1,0 +1,91 @@
+id: runory.forms
+name: Forms Runtime
+version: 1.0.0
+manifestSchemaVersion: 1.0.0
+coreCompatibility: ">=0.5.0 <0.6.0"
+permissions:
+  - forms.submission.edit
+  - forms.submission.submit
+  - forms.submission.review
+domain:
+  capabilities:
+    provides:
+      - capability: forms.project_service_report
+        version: 1.0.0
+        consistency: atomic
+      - capability: workflow.complete_linked_work_item
+        version: 1.0.0
+        consistency: atomic
+  aggregates:
+    - key: form_submission
+      stateField: status
+      versionField: revision_no
+      states: [draft, submitted, accepted, returned, void]
+  commands:
+    - key: form_submission.submit
+      contractVersion: 1.0.0
+      aggregate: form_submission
+      operation: action
+      permission: forms.submission.submit
+      requiresExpectedVersion: false
+      emits: [form_submission.submitted]
+      postconditions:
+        - A validated immutable form revision is submitted, promoting a matching draft when supplied.
+        - The submission and its audit and domain event are committed atomically.
+    - key: form_submission.save_draft
+      contractVersion: 1.0.0
+      aggregate: form_submission
+      operation: action
+      permission: forms.submission.edit
+      requiresExpectedVersion: false
+      emits: [form_submission.draft_saved]
+      postconditions:
+        - One current draft exists for the form, subject, and author identity.
+        - Draft content and its audit and domain event are committed atomically.
+    - key: form_submission.revise
+      contractVersion: 1.0.0
+      aggregate: form_submission
+      operation: action
+      permission: forms.submission.edit
+      requiresExpectedVersion: false
+      emits: [form_submission.revision_opened]
+      postconditions:
+        - An immutable submitted or accepted revision is never overwritten.
+        - A single successor draft is created or reused under the binding correction policy.
+    - key: form_submission.return
+      contractVersion: 1.0.0
+      aggregate: form_submission
+      operation: transition
+      transition:
+        from: [submitted]
+        to: returned
+      permission: forms.submission.review
+      requiresExpectedVersion: false
+      emits: [form_submission.returned]
+      postconditions:
+        - The latest submitted revision is returned with a reason.
+        - A successor draft preserves the revision chain without mutating submitted evidence.
+    - key: form_submission.accept
+      contractVersion: 1.0.0
+      aggregate: form_submission
+      operation: transition
+      transition:
+        from: [submitted]
+        to: accepted
+      permission: forms.submission.review
+      requiresExpectedVersion: false
+      requiredEffects:
+        - capability: forms.project_service_report
+          version: ^1.0.0
+          scope: accepted_submission
+          consistency: atomic
+          cardinality: zero_or_one
+        - capability: workflow.complete_linked_work_item
+          version: ^1.0.0
+          scope: linked_work_item
+          consistency: atomic
+          cardinality: zero_or_one
+      emits: [form_submission.accepted]
+      postconditions:
+        - The latest submitted revision is accepted once.
+        - Optional service-report projection and linked work-item completion commit atomically.

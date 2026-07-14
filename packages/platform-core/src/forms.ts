@@ -18,6 +18,49 @@ import {
   type CommandHandlerResult,
   type CommandResult,
 } from "./command-runtime";
+import { registerCommandEffectProvider } from "./command-contracts";
+
+registerCommandEffectProvider({
+  capability: "forms.project_service_report",
+  version: "1.0.0",
+  consistency: "atomic",
+  prepare: async ({ effectInput }) => {
+    const input = effectInput as {
+      enabled?: boolean;
+      submission?: Record<string, unknown>;
+      acceptedBy?: string;
+      targetMapping?: Record<string, unknown> | null;
+      reportId?: string;
+    } | undefined;
+    if (!input?.enabled) return [];
+    if (!input.submission || !input.acceptedBy || !input.reportId) {
+      throw new InvalidInputError("Service report projection input is incomplete");
+    }
+    const report = await buildServiceReportStatement(
+      input.submission,
+      input.acceptedBy,
+      input.targetMapping ?? null,
+      input.reportId,
+    );
+    return [report.statement];
+  },
+});
+
+registerCommandEffectProvider({
+  capability: "workflow.complete_linked_work_item",
+  version: "1.0.0",
+  consistency: "atomic",
+  prepare: async ({ envelope, effectInput }) => {
+    const input = effectInput as { workItemId?: string; occurredAt?: string } | undefined;
+    if (!input?.workItemId) return [];
+    const statement = await buildCompleteWorkItemStatement(
+      envelope.workspaceId,
+      input.workItemId,
+      input.occurredAt ?? envelope.occurredAt,
+    );
+    return statement ? [statement] : [];
+  },
+});
 
 // ── Types ──
 
@@ -589,6 +632,12 @@ export async function submitFormHandler(
           args: [JSON.stringify(params.answers), params.submittedBy, ts, ts, draft.id, workspaceId],
         },
       ],
+      events: [{
+        aggregateType: "form_submission",
+        aggregateId: draft.id,
+        eventType: "form_submission.submitted",
+        payload: { submissionId: draft.id, revisionNumber: draft.revision_number },
+      }],
       audit: {
         action: "form_submission.submit",
         entityType: params.subjectType ?? "form_submission",
@@ -655,6 +704,12 @@ export async function submitFormHandler(
 
   return {
     statements,
+    events: [{
+      aggregateType: "form_submission",
+      aggregateId: submissionId,
+      eventType: "form_submission.submitted",
+      payload: { submissionId, revisionNumber },
+    }],
     audit: {
       action: "form_submission.submit",
       entityType: params.subjectType ?? "form_submission",
@@ -782,6 +837,12 @@ export async function saveFormDraftHandler(
           args: [JSON.stringify(params.answers), ts, existing.id, workspaceId],
         },
       ],
+      events: [{
+        aggregateType: "form_submission",
+        aggregateId: existing.id,
+        eventType: "form_submission.draft_saved",
+        payload: { submissionId: existing.id, updated: true },
+      }],
       audit: {
         action: "form_submission.save_draft",
         entityType: "form_submission",
@@ -844,6 +905,12 @@ export async function saveFormDraftHandler(
         ],
       },
     ],
+    events: [{
+      aggregateType: "form_submission",
+      aggregateId: submissionId,
+      eventType: "form_submission.draft_saved",
+      payload: { submissionId, updated: false },
+    }],
     audit: {
       action: "form_submission.save_draft",
       entityType: "form_submission",
@@ -946,6 +1013,12 @@ export async function reviseFormSubmissionHandler(
   if (existingDraft) {
     return {
       statements: [],
+      events: [{
+        aggregateType: "form_submission",
+        aggregateId: submissionId,
+        eventType: "form_submission.revision_opened",
+        payload: { submissionId, draftSubmissionId: existingDraft.id, reused: true },
+      }],
       audit: {
         action: "form_submission.revise",
         entityType: "form_submission",
@@ -1028,6 +1101,12 @@ export async function reviseFormSubmissionHandler(
         ],
       },
     ],
+    events: [{
+      aggregateType: "form_submission",
+      aggregateId: submissionId,
+      eventType: "form_submission.revision_opened",
+      payload: { submissionId, draftSubmissionId, revisionNumber, reused: false },
+    }],
     audit: {
       action: "form_submission.revise",
       entityType: submission.subject_type ?? "form_submission",
@@ -1158,6 +1237,12 @@ export async function returnFormSubmissionHandler(
 
   return {
     statements,
+    events: [{
+      aggregateType: "form_submission",
+      aggregateId: submissionId,
+      eventType: "form_submission.returned",
+      payload: { submissionId, newSubmissionId, revisionNumber: newRevisionNumber },
+    }],
     audit: {
       action: "form_submission.return",
       entityType: "form_submission",
@@ -1290,32 +1375,21 @@ export async function acceptFormSubmissionHandler(
   // Project a service report when the binding is a service deliverable.
   let serviceReportId: string | undefined;
   if (usageType === "service_deliverable") {
-    const report = await buildServiceReportStatement(
-      workspaceId,
-      submission as unknown as Record<string, unknown>,
-      acceptedBy,
-      targetMapping
-    );
-    if (report) {
-      serviceReportId = report.reportId;
-      statements.push(report.statement);
-    }
-  }
-
-  // If linked to a work item, advance the workflow by completing the work item.
-  if (submission.work_item_id) {
-    const workItemStmt = await buildCompleteWorkItemStatement(
-      workspaceId,
-      submission.work_item_id,
-      ts
-    );
-    if (workItemStmt) {
-      statements.push(workItemStmt);
-    }
+    serviceReportId = genId("rec");
   }
 
   return {
     statements,
+    events: [{
+      aggregateType: "form_submission",
+      aggregateId: submissionId,
+      eventType: "form_submission.accepted",
+      payload: {
+        submissionId,
+        serviceReportId: serviceReportId ?? null,
+        workItemId: submission.work_item_id ?? null,
+      },
+    }],
     audit: {
       action: "form_submission.accept",
       entityType: "form_submission",
@@ -1329,6 +1403,19 @@ export async function acceptFormSubmissionHandler(
     },
     aggregate: { accepted: true, serviceReportId },
     newVersion: 1,
+    effectInputs: {
+      "forms.project_service_report": {
+        enabled: usageType === "service_deliverable",
+        submission: submission as unknown as Record<string, unknown>,
+        acceptedBy,
+        targetMapping,
+        reportId: serviceReportId,
+      },
+      "workflow.complete_linked_work_item": {
+        workItemId: submission.work_item_id ?? undefined,
+        occurredAt: ts,
+      },
+    },
   };
 }
 
@@ -1605,12 +1692,13 @@ async function buildCompleteWorkItemStatement(
 // require the metadata module's field-definition layer to be loaded.
 
 async function buildServiceReportStatement(
-  workspaceId: string,
   submission: Record<string, unknown>,
   acceptedBy: string,
-  targetMapping: Record<string, unknown> | null
+  targetMapping: Record<string, unknown> | null,
+  reportId: string,
 ): Promise<{ statement: { sql: string; args: unknown[] }; reportId: string }> {
   const ts = now();
+  const workspaceId = submission["workspace_id"] as string;
 
   // Parse the answers JSON column
   let answers: Record<string, unknown> = {};
@@ -1697,8 +1785,6 @@ async function buildServiceReportStatement(
     workOrderId = (mapField("work_order_id") as string) ?? null;
     serviceVisitId = (mapField("service_visit_id") as string) ?? null;
   }
-
-  const reportId = genId("rec");
 
   const statement = {
     sql: `INSERT INTO ${businessTable("service_report")}

@@ -264,7 +264,7 @@ export async function createVisit(
       input: { workOrderId, ...visitData },
       occurredAt: now(),
     },
-    async () => {
+    async (envelope) => {
       const wo = await readWorkOrder(workspaceId, workOrderId);
       checkOptimisticLock(wo.aggregate_version, expectedVersion);
 
@@ -360,7 +360,7 @@ export async function createVisit(
       const assignmentId = genId("asgn");
       const scheduleEntryId = genId("sched");
       const executionItemId = genId("vexec");
-      const ts = now();
+      const ts = envelope.occurredAt;
       const requirementSnapshots = requirements.map((requirement) => ({
         ...requirement,
         requirementId: genId("vreq"),
@@ -378,88 +378,8 @@ export async function createVisit(
       const newWoStatus = wo.status === "triaged" ? "planned" : wo.status;
 
       const statements: Array<{ sql: string; args?: unknown[] }> = [
-        // Assignment and schedule are part of the same command transaction as
-        // the Visit. A failed command therefore cannot leave orphaned slots or
-        // assignments behind.
-        {
-          sql: `INSERT INTO ${TABLES.assignments}
-                (id, workspace_id, subject_type, subject_id, resource_id, role_key,
-                 status, proposed_by, effective_from, version, created_at, updated_at)
-                VALUES (?, ?, 'service_visit', ?, ?, 'primary', 'assigned', ?, ?, 1, ?, ?)`,
-          args: [assignmentId, workspaceId, visitId, resource.id, actor.id, visitData.scheduledStart, ts, ts],
-        },
-        {
-          sql: `INSERT INTO ${TABLES.scheduleEntries}
-                (id, workspace_id, subject_type, subject_id, resource_id, start_at, end_at,
-                 timezone, status, conflict_state, version, created_at, updated_at)
-                VALUES (?, ?, 'service_visit', ?, ?, ?, ?, 'UTC', ?, ?, 1, ?, ?)`,
-          args: [
-            scheduleEntryId, workspaceId, visitId, resource.id,
-            visitData.scheduledStart, visitData.scheduledEnd,
-            hasConflict ? "tentative" : "confirmed",
-            hasConflict ? "conflict" : "none",
-            ts, ts,
-          ],
-        },
-        // Create the service visit (v1.1 schema with aggregate_version, assignment_id, schedule_entry_id, outcome)
-        {
-          sql: `INSERT INTO ${businessTable("service_visit")}
-                (id, workspace_id, title, work_order_id, technician_id,
-                 scheduled_start, scheduled_end, actual_start, actual_end,
-                 status, notes, aggregate_version, assignment_id, schedule_entry_id, outcome,
-                 created_at, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, NULL, NULL, 'scheduled', ?, 1, ?, ?, NULL, ?, ?)`,
-          args: [
-            visitId, workspaceId,
-            visitData?.title ?? wo.title,
-            workOrderId,
-            visitData?.technicianId ?? null,
-            visitData.scheduledStart,
-            visitData.scheduledEnd,
-            visitData?.notes ?? null,
-            assignmentId,
-            scheduleEntryId,
-            ts, ts,
-          ],
-        },
-        {
-          sql: `INSERT INTO ${TABLES.visitExecutionItems}
-                (id, workspace_id, visit_id, resource_id, assignment_id, schedule_entry_id,
-                 status, due_at, created_at, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?, 'ready', ?, ?, ?)`,
-          args: [executionItemId, workspaceId, visitId, resource.id, assignmentId, scheduleEntryId, visitData.scheduledEnd, ts, ts],
-        },
-        ...requirementSnapshots.flatMap((requirement) => [
-          {
-            // A lightweight execution work item gives the mobile form runner a
-            // durable, permissioned entry point without inventing a second
-            // form experience. Its special instance namespace is completed by
-            // the workflow runtime's visit-execution branch.
-            sql: `INSERT INTO ${TABLES.workItems}
-                  (id, workspace_id, instance_id, step_id, kind, status,
-                   subject_type, subject_id, assignee_type, assignee_id,
-                   candidate_rule_json, form_binding_id, due_at, version, created_at, updated_at)
-                  VALUES (?, ?, ?, ?, 'human_task', 'ready', 'service_visit', ?, ?, ?, NULL, ?, ?, 1, ?, ?)`,
-            args: [
-              requirement.workItemId, workspaceId, `visit_execution:${visitId}`,
-              requirement.requirementId, visitId,
-              resource.user_id ? "user" : null, resource.user_id,
-              requirement.binding_id, visitData.scheduledEnd, ts, ts,
-            ],
-          },
-          {
-          sql: `INSERT INTO ${TABLES.visitExecutionRequirements}
-                (id, workspace_id, visit_id, binding_id, form_definition_id, form_version_id,
-                 label, requirement_policy, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, 'required', ?)`,
-          args: [
-            requirement.requirementId, workspaceId, visitId, requirement.binding_id,
-            requirement.form_definition_id, requirement.form_version_id,
-            requirement.label ?? "Required service deliverable", ts,
-          ],
-          },
-        ]),
-        // Update work order (bump version, set to planned if was triaged)
+        // The aggregate remains owned by this handler. Creation of the Visit
+        // and its operational records is delegated to the contracted Provider.
         {
           sql: `UPDATE ${businessTable("work_order")}
                 SET status = ?, aggregate_version = ?, updated_at = ?
@@ -497,6 +417,32 @@ export async function createVisit(
         aggregate: updatedWo,
         newVersion,
         workItemIds: [executionItemId, ...requirementSnapshots.map((requirement) => requirement.workItemId)],
+        effectInputs: {
+          "fsm.create_dispatched_visit": {
+            visitId,
+            assignmentId,
+            scheduleEntryId,
+            executionItemId,
+            workOrderId,
+            technicianId: visitData.technicianId,
+            resourceId: resource.id,
+            resourceUserId: resource.user_id,
+            title: visitData.title ?? wo.title,
+            scheduledStart: visitData.scheduledStart,
+            scheduledEnd: visitData.scheduledEnd,
+            notes: visitData.notes ?? null,
+            scheduleStatus: hasConflict ? "tentative" : "confirmed",
+            conflictState: hasConflict ? "conflict" : "none",
+            requirements: requirementSnapshots.map((requirement) => ({
+              requirementId: requirement.requirementId,
+              workItemId: requirement.workItemId,
+              bindingId: requirement.binding_id,
+              formDefinitionId: requirement.form_definition_id,
+              formVersionId: requirement.form_version_id,
+              label: requirement.label ?? "Required service deliverable",
+            })),
+          },
+        },
       } as CommandHandlerResult<Partial<WorkOrderRecord>>;
     }
   );
@@ -901,30 +847,6 @@ export async function cancelWorkOrder(
                 WHERE workspace_id = ? AND id = ?`,
           args: [ts, reason, newVersion, ts, workspaceId, workOrderId],
         },
-        // Release assignments for this work order
-        {
-          sql: `UPDATE ${TABLES.assignments}
-                SET status = 'released', effective_to = ?, version = version + 1, updated_at = ?
-                WHERE workspace_id = ? AND subject_type = 'work_order' AND subject_id = ?
-                  AND status IN ('proposed', 'assigned', 'accepted')`,
-          args: [ts, ts, workspaceId, workOrderId],
-        },
-        // Cancel schedule entries for this work order
-        {
-          sql: `UPDATE ${TABLES.scheduleEntries}
-                SET status = 'cancelled', version = version + 1, updated_at = ?
-                WHERE workspace_id = ? AND subject_type = 'work_order' AND subject_id = ?
-                  AND status IN ('tentative', 'confirmed')`,
-          args: [ts, workspaceId, workOrderId],
-        },
-        // Cancel pending service visits for this work order
-        {
-          sql: `UPDATE ${businessTable("service_visit")}
-                SET status = 'cancelled', aggregate_version = aggregate_version + 1, updated_at = ?
-                WHERE workspace_id = ? AND work_order_id = ?
-                  AND status NOT IN ('completed', 'cancelled')`,
-          args: [ts, workspaceId, workOrderId],
-        },
       ];
 
       const updatedWo: Partial<WorkOrderRecord> = {
@@ -1098,12 +1020,6 @@ export async function startTravel(
                 SET status = 'en_route', actual_start = ?, aggregate_version = ?, updated_at = ?
                 WHERE workspace_id = ? AND id = ?`,
           args: [ts, newVersion, ts, workspaceId, visitId],
-        },
-        {
-          sql: `UPDATE ${TABLES.visitExecutionItems}
-                SET status = 'active', updated_at = ?
-                WHERE workspace_id = ? AND visit_id = ? AND status = 'ready'`,
-          args: [ts, workspaceId, visitId],
         },
       ];
 
@@ -1450,19 +1366,6 @@ export async function cancelVisit(
                     aggregate_version = ?, updated_at = ?
                 WHERE workspace_id = ? AND id = ?`,
           args: [`[CANCELLED: ${reason}]`, newVersion, ts, workspaceId, visitId],
-        },
-        {
-          sql: `UPDATE ${TABLES.visitExecutionItems}
-                SET status = 'cancelled', updated_at = ?
-                WHERE workspace_id = ? AND visit_id = ? AND status IN ('ready', 'active')`,
-          args: [ts, workspaceId, visitId],
-        },
-        {
-          sql: `UPDATE ${TABLES.scheduleEntries}
-                SET status = 'cancelled', version = version + 1, updated_at = ?
-                WHERE workspace_id = ? AND subject_type = 'service_visit' AND subject_id = ?
-                  AND status IN ('tentative', 'confirmed')`,
-          args: [ts, workspaceId, visitId],
         },
       ];
 

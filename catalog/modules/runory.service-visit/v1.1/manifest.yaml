@@ -125,6 +125,54 @@ domain:
       stateField: status
       versionField: aggregate_version
   commands:
+    - key: visit.start_travel
+      contractVersion: "1.0.0"
+      aggregate: service_visit
+      transition:
+        from: [scheduled]
+        to: en_route
+      permission: visit.execute
+      idempotent: true
+      requiresExpectedVersion: true
+      requiredEffects:
+        - capability: fsm.activate_visit_execution
+          version: "^1.0.0"
+          scope: linked_visit_execution
+          consistency: atomic
+          cardinality: one
+      emits: [visit.travel_started]
+      auditRequired: true
+      postconditions:
+        - service_visit.status == en_route
+        - visit_execution.status == active
+    - key: visit.arrive
+      contractVersion: "1.0.0"
+      aggregate: service_visit
+      transition:
+        from: [en_route]
+        to: on_site
+      permission: visit.execute
+      idempotent: true
+      requiresExpectedVersion: true
+      requiredEffects: []
+      emits: [visit.arrived_on_site]
+      auditRequired: true
+      postconditions:
+        - service_visit.status == on_site
+    - key: visit.submit_work
+      contractVersion: "1.0.0"
+      aggregate: service_visit
+      transition:
+        from: [on_site]
+        to: on_site
+      permission: visit.execute
+      idempotent: true
+      requiresExpectedVersion: true
+      requiredEffects: []
+      emits: [visit.work_submitted]
+      auditRequired: true
+      postconditions:
+        - service_visit.status == on_site
     - key: visit.complete
       contractVersion: "1.0.0"
       aggregate: service_visit
@@ -147,6 +195,32 @@ domain:
         - service_visit.actual_end != null
         - visit_execution.status == completed
         - linked_schedule.status == completed
+    - key: visit.cancel
+      contractVersion: "1.0.0"
+      aggregate: service_visit
+      transition:
+        from: [unplanned, scheduled, en_route, on_site]
+        to: cancelled
+      permission: visit.execute
+      idempotent: true
+      requiresExpectedVersion: true
+      requiredEffects:
+        - capability: fsm.cancel_visit_execution
+          version: "^1.0.0"
+          scope: linked_visit_execution
+          consistency: atomic
+          cardinality: zero_or_one
+        - capability: scheduling.cancel_reservation
+          version: "^1.0.0"
+          scope: linked_schedule
+          consistency: atomic
+          cardinality: zero_or_one
+      emits: [visit.cancelled]
+      auditRequired: true
+      postconditions:
+        - service_visit.status == cancelled
+        - visit_execution.status != active
+        - linked_schedule.status != confirmed
 
 permissions:
   - service_visit.read

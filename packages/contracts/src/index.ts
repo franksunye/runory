@@ -259,6 +259,7 @@ export type ModulePresentation = z.infer<typeof modulePresentationSchema>;
 // versioned Modules and Packs compose without embedding cross-module SQL in a
 // manifest.
 export const commandConsistencySchema = z.enum(["atomic", "outbox", "projection"]);
+export const commandOperationSchema = z.enum(["create", "transition", "action"]);
 
 export const aggregateContractSchema = z.object({
   key: z.string().min(1),
@@ -274,21 +275,56 @@ export const commandEffectRequirementSchema = z.object({
   cardinality: z.enum(["one", "zero_or_one", "one_or_more", "zero_or_more"]).default("one"),
 });
 
+export const commandModuleRequirementSchema = z.object({
+  id: z.string().min(1),
+  version: z.string().default("*"),
+});
+
 export const commandContractSchema = z.object({
   key: z.string().min(1),
   contractVersion: z.string().min(1),
   aggregate: z.string().min(1),
+  operation: commandOperationSchema.default("transition"),
   transition: z.object({
     from: z.array(z.string().min(1)).min(1),
-    to: z.string().min(1),
-  }),
+    // A command such as unblock may restore one of several explicitly
+    // governed states. Enumerating those outcomes preserves validation without
+    // introducing a wildcard/"derived" escape hatch.
+    to: z.union([
+      z.string().min(1),
+      z.array(z.string().min(1)).min(1),
+    ]),
+  }).optional(),
   permission: z.string().min(1),
   idempotent: z.boolean().default(true),
   requiresExpectedVersion: z.boolean().default(true),
+  requiresModules: z.array(commandModuleRequirementSchema).default([]),
   requiredEffects: z.array(commandEffectRequirementSchema).default([]),
   emits: z.array(z.string().min(1)).min(1),
   auditRequired: z.boolean().default(true),
   postconditions: z.array(z.string().min(1)).min(1),
+}).superRefine((command, context) => {
+  if (command.operation === "transition" && !command.transition) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["transition"],
+      message: "transition commands must declare source and target states",
+    });
+  }
+  if (command.operation === "create" && command.transition) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["transition"],
+      message: "create commands must not invent a source state transition",
+    });
+  }
+  if (command.operation === "create" && command.requiresExpectedVersion) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["requiresExpectedVersion"],
+      message: "create commands cannot require an existing aggregate version",
+    });
+  }
 });
 
 export const commandCapabilityProviderDeclarationSchema = z.object({
@@ -306,11 +342,40 @@ export const moduleDomainContractSchema = z.object({
 });
 
 export type CommandConsistency = z.infer<typeof commandConsistencySchema>;
+export type CommandOperation = z.infer<typeof commandOperationSchema>;
 export type AggregateContract = z.infer<typeof aggregateContractSchema>;
 export type CommandEffectRequirement = z.infer<typeof commandEffectRequirementSchema>;
+export type CommandModuleRequirement = z.infer<typeof commandModuleRequirementSchema>;
 export type CommandContract = z.infer<typeof commandContractSchema>;
 export type CommandCapabilityProviderDeclaration = z.infer<typeof commandCapabilityProviderDeclarationSchema>;
 export type ModuleDomainContract = z.infer<typeof moduleDomainContractSchema>;
+
+// Platform Services (Workflow, Forms, Scheduling, etc.) participate in the
+// same Command architecture without pretending to be installable business
+// Modules. Their aggregate states are declared here because they do not own
+// catalog object definitions.
+export const platformServiceAggregateContractSchema = aggregateContractSchema.extend({
+  states: z.array(z.string().min(1)).min(1),
+});
+
+export const platformServiceContractManifestSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1),
+  version: z.string().min(1),
+  manifestSchemaVersion: z.string().default("1.0.0"),
+  coreCompatibility: z.string().min(1),
+  permissions: z.array(z.string()).default([]),
+  domain: z.object({
+    aggregates: z.array(platformServiceAggregateContractSchema).default([]),
+    commands: z.array(commandContractSchema).default([]),
+    capabilities: z.object({
+      provides: z.array(commandCapabilityProviderDeclarationSchema).default([]),
+    }).optional(),
+  }),
+});
+
+export type PlatformServiceAggregateContract = z.infer<typeof platformServiceAggregateContractSchema>;
+export type PlatformServiceContractManifest = z.infer<typeof platformServiceContractManifestSchema>;
 
 export const moduleManifestSchema = z.object({
   id: z.string(),

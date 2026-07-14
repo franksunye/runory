@@ -9,7 +9,9 @@ import {
   resolveCommandPlan,
   resolveRegisteredCommandPlan,
   validateModuleCommandContracts,
+  validatePlatformServiceCommandContracts,
 } from "./command-contracts";
+import { loadPlatformServiceContractManifest } from "./platform-service-contracts";
 
 describe("Contract-driven command registry", () => {
   it.each([
@@ -56,6 +58,26 @@ describe("Contract-driven command registry", () => {
     );
   });
 
+  it("models aggregate creation without inventing a source lifecycle state", () => {
+    const contract = commandContractSchema.parse({
+      key: "example.create",
+      contractVersion: "1.0.0",
+      aggregate: "example",
+      operation: "create",
+      permission: "example.create",
+      requiresExpectedVersion: false,
+      emits: ["example.created"],
+      postconditions: ["example.version == 1"],
+    });
+
+    expect(contract.operation).toBe("create");
+    expect(contract.transition).toBeUndefined();
+    expect(() => commandContractSchema.parse({
+      ...contract,
+      transition: { from: ["missing"], to: "active" },
+    })).toThrow(/must not invent a source state/);
+  });
+
   it("rejects a handler that omits a Contract-required event", () => {
     const plan = resolveRegisteredCommandPlan("visit.complete")!;
 
@@ -84,10 +106,21 @@ describe("Contract-driven command registry", () => {
 
   it("reports Module capability-closure errors before release", () => {
     const manifest = structuredClone(loadModuleManifest("runory.service-visit")) as ModuleManifest;
-    manifest.domain!.commands[0].requiredEffects[0].capability = "missing.provider";
+    const complete = manifest.domain!.commands.find((command) => command.key === "visit.complete")!;
+    complete.requiredEffects[0].capability = "missing.provider";
 
     expect(validateModuleCommandContracts(manifest, [])).toContain(
       "command 'visit.complete' requires unavailable capability 'missing.provider@^1.0.0' (atomic)",
     );
+  });
+
+  it.each([
+    ["runory.workflow", 6],
+    ["runory.forms", 5],
+  ])("validates first-class Platform Service contracts for %s", (serviceId, commandCount) => {
+    const manifest = loadPlatformServiceContractManifest(serviceId);
+
+    expect(manifest.domain.commands).toHaveLength(commandCount);
+    expect(validatePlatformServiceCommandContracts(manifest)).toEqual([]);
   });
 });

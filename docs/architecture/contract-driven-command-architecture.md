@@ -81,7 +81,7 @@ A governed Command Contract declares at least:
 
 ```text
 stable command key and contract version
-owning Module and aggregate
+owning versioned Contract source (business Module or Platform Service) and aggregate
 input and result schemas
 legal source and target states
 permission and actor policy
@@ -335,7 +335,8 @@ incrementally:
 
 Initial enforcement slice implemented on 2026-07-14:
 
-- typed Aggregate, Command, required-effect, consistency, cardinality,
+- typed Aggregate, Command operation (`create` / `transition` / `action`),
+  required-effect, consistency, cardinality,
   capability-provider, event, and postcondition declarations in Module Manifest;
 - runtime Contract and Provider registries with SemVer capability resolution;
 - fail-closed checks for missing providers, expected versions, audit facts, and
@@ -347,8 +348,43 @@ Initial enforcement slice implemented on 2026-07-14:
 - Contract/manifest alignment, missing-provider, missing-event,
   missing-required-Schedule, and full FSM journey tests.
 
-Remaining adoption work includes workspace-scoped persistence of resolved
-Contract/provider versions, migration of the remaining Quote/FSM Commands,
+Workspace-scoped resolution slice implemented next:
+
+- workspace provisioning snapshots Platform Service Contracts, while Module
+  installation snapshots Module Contracts. Both persist the exact validated
+  source kind, source ID, source version, and Contract JSON into
+  `workspace_command_contracts`;
+- runtime resolves the workspace snapshot before the two legacy static bridge
+  contracts;
+- repeated installation repairs missing snapshots idempotently and uninstall
+  removes contracts owned by the removed Module;
+- `visit.start_travel`, `visit.arrive`, `visit.submit_work`, and `visit.cancel`
+  are resolved from the installed Service Visit manifest;
+- Visit execution activation/cancellation and Schedule cancellation are
+  cardinality-checked atomic Providers, not SQL embedded in the Visit handler.
+- Work Order triage, create-Visit, block/unblock, start, complete, cancel, and
+  reopen are manifest-resolved. Create-Visit passes validated dispatch data
+  through explicit `effectInputs` to an atomic Provider that creates the Visit,
+  Assignment, Schedule, execution item, and required-form snapshots.
+  Cancellation delegates Assignment release, Schedule cancellation, and
+  child-Visit cancellation to atomic Providers.
+- All Quote Commands are manifest-resolved. Creation is represented as an
+  explicit `create` operation without a fictitious source state. Calculation,
+  revision copying, approval-process startup, and Work Order conversion are
+  atomic Providers rather than pre-transaction writes. Optional composition
+  Commands declare `requiresModules`; Quote-to-Work-Order therefore fails
+  closed unless a compatible Work Order Module is installed.
+- The workspace now pins 26 Module-owned Command Contracts: all Service Visit,
+  Work Order, and Quote Commands in the v0.5 commercial path.
+- Workflow and Forms are first-class Platform Service Contract sources rather
+  than synthetic Modules. Their 11 Commands use the same workspace snapshot,
+  validation, Runtime enforcement, audit, and Domain Event path. Form
+  acceptance declares optional atomic providers for service-report projection
+  and linked Work Item completion.
+- A fully composed workspace therefore pins 37 governed Commands: 26 owned by
+  business Modules and 11 owned by Platform Services.
+
+Remaining adoption work includes persistence of resolved provider versions,
 general executable postcondition adapters, Workflow/Automation editor
 integration, uninstall impact analysis, and invariant diagnostics.
 

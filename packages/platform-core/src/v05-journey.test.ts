@@ -40,6 +40,7 @@ import {
   markSent,
   acceptQuote,
   recalculateQuoteCommand,
+  createRevision,
   convertToWorkOrder,
 } from "./quote-commands";
 import {
@@ -80,6 +81,7 @@ import { getCommandHistory, type CommandActor } from "./command-runtime";
 import {
   prepareCommandContractEffects,
   resolveRegisteredCommandPlan,
+  resolveWorkspaceCommandPlan,
 } from "./command-contracts";
 import { requireBusinessPermission } from "./authorization";
 import { createRequestContext } from "./context";
@@ -197,6 +199,58 @@ describe("v0.5 Commercial FSM Journey", () => {
     await resetDatabase();
   });
 
+  it("snapshots installed Module contracts into the workspace registry", async () => {
+    const snapshot = await queryOne<{
+      source_kind: string;
+      source_id: string;
+      source_version: string;
+      contract_version: string;
+    }>(
+      `SELECT source_kind, source_id, source_version, contract_version
+       FROM ${TABLES.workspaceCommandContracts}
+       WHERE workspace_id = ? AND command_key = 'visit.complete'`,
+      [workspaceId],
+    );
+    expect(snapshot).toEqual({
+      source_kind: "module",
+      source_id: "runory.service-visit",
+      source_version: "1.1.0",
+      contract_version: "1.0.0",
+    });
+    const platformSnapshot = await queryOne<{
+      source_kind: string;
+      source_id: string;
+      source_version: string;
+    }>(
+      `SELECT source_kind, source_id, source_version
+       FROM ${TABLES.workspaceCommandContracts}
+       WHERE workspace_id = ? AND command_key = 'form_submission.accept'`,
+      [workspaceId],
+    );
+    expect(platformSnapshot).toEqual({
+      source_kind: "platform_service",
+      source_id: "runory.forms",
+      source_version: "1.0.0",
+    });
+
+    const plan = await resolveWorkspaceCommandPlan(workspaceId, "visit.complete");
+    expect(plan?.contract.key).toBe("visit.complete");
+    expect(plan?.effects[0].provider.capability).toBe("scheduling.complete_reservation");
+
+    const registered = await queryOne<{ count: number }>(
+      `SELECT COUNT(*) AS count FROM ${TABLES.workspaceCommandContracts}
+       WHERE workspace_id = ?`,
+      [workspaceId],
+    );
+    expect(registered?.count).toBe(37);
+    expect((await resolveWorkspaceCommandPlan(workspaceId, "visit.start_travel"))?.effects)
+      .toHaveLength(1);
+    expect((await resolveWorkspaceCommandPlan(workspaceId, "work_order.cancel"))?.effects)
+      .toHaveLength(3);
+    expect((await resolveWorkspaceCommandPlan(workspaceId, "quote.approve"))?.effects)
+      .toHaveLength(0);
+  });
+
   // ── Test 1: Create customer, contact, quote, and quote lines ──
   it("creates customer, contact, quote, and quote lines", async () => {
     const company = await createRecord(workspaceId, "company", {
@@ -246,7 +300,7 @@ describe("v0.5 Commercial FSM Journey", () => {
       sort_order: 1,
     });
 
-    // Line 2: qty=2, unit_price=2000, discount=200, tax=280 → line_total=4080
+    // Line 2 starts with a stale total so recalculate must persist the derived 4080.
     await createRecord(workspaceId, "quote_line", {
       quote_id: quoteId,
       description: "Compressor replacement",
@@ -255,7 +309,7 @@ describe("v0.5 Commercial FSM Journey", () => {
       unit_price: 2000,
       discount_amount: 200,
       tax_amount: 280,
-      line_total: 4080,
+      line_total: 0,
       sort_order: 2,
     });
 
@@ -303,6 +357,12 @@ describe("v0.5 Commercial FSM Journey", () => {
     expect(updatedQuote!.discount_total).toBe(600);
     expect(updatedQuote!.tax_total).toBe(840);
     expect(updatedQuote!.grand_total).toBe(8240);
+    const persistedLineTotals = await queryAll<{ line_total: number | null }>(
+      `SELECT line_total FROM ${businessTable("quote_line")}
+       WHERE workspace_id = ? AND quote_id = ? ORDER BY sort_order`,
+      [workspaceId, quoteId],
+    );
+    expect(persistedLineTotals.map((line) => line.line_total)).toEqual([4160, 4080]);
   });
 
   // ── Test 3: Submit quote for approval ──
@@ -316,6 +376,7 @@ describe("v0.5 Commercial FSM Journey", () => {
     quoteVersion = result.newVersion;
     expect(quoteVersion).toBe(3);
     expect(result.aggregate.status).toBe("in_review");
+    expect(result.workItemIds).toHaveLength(1);
 
     // Query workflowInstances by record_id
     const wfInstance = await queryOne<{ id: string }>(
@@ -324,6 +385,12 @@ describe("v0.5 Commercial FSM Journey", () => {
     );
     expect(wfInstance).toBeDefined();
     workflowInstanceId = wfInstance!.id;
+    const approvalItem = await queryOne<{ status: string; step_id: string }>(
+      `SELECT status, step_id FROM ${TABLES.workItems}
+       WHERE workspace_id = ? AND id = ?`,
+      [workspaceId, result.workItemIds[0]],
+    );
+    expect(approvalItem).toEqual({ status: "ready", step_id: "approval" });
   });
 
   // ── Test 4: Return quote for changes ──
@@ -500,6 +567,12 @@ describe("v0.5 Commercial FSM Journey", () => {
     );
     expect(travelResult.newVersion).toBe(2);
     expect(travelResult.aggregate.status).toBe("en_route");
+    const execution = await queryOne<{ status: string }>(
+      `SELECT status FROM ${TABLES.visitExecutionItems}
+       WHERE workspace_id = ? AND visit_id = ?`,
+      [workspaceId, visitId],
+    );
+    expect(execution?.status).toBe("active");
 
     // Arrive on site
     const arriveResult = await arriveOnSite(
@@ -931,6 +1004,58 @@ describe("v0.5 Contract and Concurrency", () => {
     expect(result2.aggregate.work_order_id).toBe(result1.aggregate.work_order_id);
   });
 
+  it("creates an immutable Quote revision and clones its lines atomically", async () => {
+    const quote = await createRecord(workspaceId, "quote", {
+      quote_number: "Q-REV-001",
+      title: "Revision provider test",
+      status: "accepted",
+      version: 1,
+      aggregate_version: 1,
+      revision_number: 1,
+      currency: "USD",
+    });
+    await createRecord(workspaceId, "quote_line", {
+      quote_id: quote.id,
+      description: "Revision line",
+      quantity: 1,
+      unit_price: 125,
+      line_total: 125,
+      sort_order: 1,
+    });
+
+    const result = await createRevision(workspaceId, quote.id, salesRep, 1);
+    const source = await queryOne<{ locked_at: string | null; aggregate_version: number }>(
+      `SELECT locked_at, aggregate_version FROM ${businessTable("quote")}
+       WHERE workspace_id = ? AND id = ?`,
+      [workspaceId, quote.id],
+    );
+    const copy = await queryOne<{ status: string; previous_version_id: string }>(
+      `SELECT status, previous_version_id FROM ${businessTable("quote")}
+       WHERE workspace_id = ? AND id = ?`,
+      [workspaceId, result.aggregate.id],
+    );
+    const copiedLines = await queryOne<{ count: number }>(
+      `SELECT COUNT(*) AS count FROM ${businessTable("quote_line")}
+       WHERE workspace_id = ? AND quote_id = ?`,
+      [workspaceId, result.aggregate.id],
+    );
+
+    expect(source?.locked_at).not.toBeNull();
+    expect(source?.aggregate_version).toBe(2);
+    expect(copy).toEqual({ status: "draft", previous_version_id: quote.id });
+    expect(copiedLines?.count).toBe(1);
+  });
+
+  it("fails closed for a composition command when its optional Module is absent", async () => {
+    const quoteOnlyWorkspace = await createTestWorkspace("Quote-only contract workspace");
+    await installPack(quoteOnlyWorkspace, "sales-quote-pack");
+
+    await expect(resolveWorkspaceCommandPlan(
+      quoteOnlyWorkspace,
+      "quote.convert_to_work_order",
+    )).rejects.toMatchObject({ code: "COMMAND_CONTRACT_INCOMPLETE" });
+  });
+
   // ── Test 5: Different input with same commandId is rejected ──
   it("rejects different input with the same commandId (idempotency key reused)", async () => {
     const quote = await createRecord(workspaceId, "quote", {
@@ -1026,6 +1151,10 @@ describe("v0.5 Contract and Concurrency", () => {
       actor: dispatcher,
       input: { visitId: "visit-without-schedule" },
       occurredAt: "2026-07-14T00:00:00.000Z",
+    }, {
+      statements: [],
+      aggregate: {},
+      newVersion: 4,
     })).rejects.toMatchObject({ code: "COMMAND_CONTRACT_INCOMPLETE" });
   });
 

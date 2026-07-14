@@ -22,7 +22,7 @@ import { enqueueOutboxStatement } from "./outbox";
 import {
   assertCommandHandlerMatchesContract,
   prepareCommandContractEffects,
-  resolveRegisteredCommandPlan,
+  resolveWorkspaceCommandPlan,
 } from "./command-contracts";
 
 // ── Types ──
@@ -75,6 +75,12 @@ export interface CommandHandlerResult<TAggregate = Record<string, unknown>> {
   newVersion: number;
   /** IDs of created work items (if any) */
   workItemIds?: string[];
+  /**
+   * Provider-specific inputs for capabilities declared by the installed
+   * Command Contract. Handlers may prepare identifiers and validated data,
+   * but the matching Provider owns the resulting cross-aggregate writes.
+   */
+  effectInputs?: Record<string, unknown>;
 }
 
 export interface CommandResult<TAggregate = Record<string, unknown>> {
@@ -245,7 +251,10 @@ export async function executeCommand<TAggregate = Record<string, unknown>>(
   // Registered contracts fail closed before domain code runs. Commands that
   // have not yet migrated to a manifest contract continue through the legacy
   // compatibility path during the incremental rollout.
-  const contractPlan = resolveRegisteredCommandPlan(envelope.commandType);
+  const contractPlan = await resolveWorkspaceCommandPlan(
+    envelope.workspaceId,
+    envelope.commandType,
+  );
 
   // ── Idempotency check ──
   const existing = await queryOne<{
@@ -294,7 +303,11 @@ export async function executeCommand<TAggregate = Record<string, unknown>>(
       envelope,
       handlerResult as CommandHandlerResult<unknown>,
     );
-    contractStatements = await prepareCommandContractEffects(contractPlan, envelope);
+    contractStatements = await prepareCommandContractEffects(
+      contractPlan,
+      envelope,
+      handlerResult as CommandHandlerResult<unknown>,
+    );
   }
 
   // ── Build the complete batch ──

@@ -1,0 +1,87 @@
+id: runory.workflow
+name: Workflow Runtime
+version: 1.0.0
+manifestSchemaVersion: 1.0.0
+coreCompatibility: ">=0.5.0 <0.6.0"
+permissions:
+  - workflow.work_item.act
+  - workflow.approval.decide
+domain:
+  aggregates:
+    - key: work_item
+      stateField: status
+      versionField: version
+      states: [pending, ready, active, completed, returned, cancelled, expired]
+  commands:
+    - key: work_item.claim
+      contractVersion: 1.0.0
+      aggregate: work_item
+      operation: transition
+      transition:
+        from: [ready]
+        to: active
+      permission: workflow.work_item.act
+      emits: [work_item.claimed]
+      postconditions:
+        - Only an eligible candidate claims a ready work item.
+        - Claim identity, Workflow history, audit, and domain event commit atomically.
+    - key: work_item.release
+      contractVersion: 1.0.0
+      aggregate: work_item
+      operation: transition
+      transition:
+        from: [active]
+        to: ready
+      permission: workflow.work_item.act
+      emits: [work_item.released]
+      postconditions:
+        - The claim is cleared and the work item returns to the ready pool.
+        - Workflow history, audit, and domain event commit atomically.
+    - key: work_item.cancel
+      contractVersion: 1.0.0
+      aggregate: work_item
+      operation: transition
+      transition:
+        from: [pending, ready, active, returned]
+        to: cancelled
+      permission: workflow.work_item.act
+      emits: [work_item.cancelled]
+      postconditions:
+        - A non-terminal work item is cancelled with optimistic concurrency.
+        - Workflow history, audit, and domain event commit atomically.
+    - key: approval.decide
+      contractVersion: 1.0.0
+      aggregate: work_item
+      operation: transition
+      transition:
+        from: [ready, active]
+        to: completed
+      permission: workflow.approval.decide
+      emits: [approval.decided]
+      postconditions:
+        - One immutable decision completes an eligible approval work item.
+        - Workflow progression and any next work item commit in the same transaction.
+    - key: work_item.return
+      contractVersion: 1.0.0
+      aggregate: work_item
+      operation: transition
+      transition:
+        from: [ready, active]
+        to: returned
+      permission: workflow.work_item.act
+      emits: [work_item.returned]
+      postconditions:
+        - Prior work and evidence remain immutable as the current item is returned.
+        - Exactly one successor work item is created for the same governed step.
+    - key: work_item.complete
+      contractVersion: 1.0.0
+      aggregate: work_item
+      operation: transition
+      transition:
+        from: [ready, active]
+        to: completed
+      permission: workflow.work_item.act
+      emits: [work_item.completed]
+      postconditions:
+        - Required bound-form evidence is verified before completion.
+        - Workflow progression, next work, timers, audit, and domain event commit atomically.

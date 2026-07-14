@@ -5,21 +5,25 @@
 // The legacy editable subtotal/discount_total/tax_total/grand_total are replaced
 // by governed fields that can only be set through quote.recalculate command.
 
-import { queryAll, queryOne, execute, now } from "./db";
+import { queryAll, queryOne, batch as runBatch, now } from "./db";
 import { businessTable } from "./contracts";
 import { BusinessError, NotFoundError } from "./context";
 import { ERROR_CODES } from "./errors";
 
-// Calculate and return quote totals without persisting
-export async function computeQuoteTotals(
-  workspaceId: string,
-  quoteId: string
-): Promise<{
+export interface PreparedQuoteCalculation {
   subtotal: number;
   discountTotal: number;
   taxTotal: number;
   grandTotal: number;
-}> {
+  lineTotals: Array<{ lineId: string; lineTotal: number }>;
+}
+
+// Calculate quote and line totals without persisting. Command handlers use
+// this read-only preparation step and delegate all writes to an atomic effect.
+export async function prepareQuoteCalculation(
+  workspaceId: string,
+  quoteId: string
+): Promise<PreparedQuoteCalculation> {
   const lines = await queryAll<{
     id: string;
     quantity: number | null;
@@ -37,6 +41,7 @@ export async function computeQuoteTotals(
   let subtotal = 0;
   let discountTotal = 0;
   let taxTotal = 0;
+  const lineTotals: PreparedQuoteCalculation["lineTotals"] = [];
 
   for (const line of lines) {
     const qty = line.quantity ?? 0;
@@ -50,20 +55,20 @@ export async function computeQuoteTotals(
     discountTotal += lineDiscount;
     taxTotal += lineTax;
 
-    // Update line_total if it changed
-    if (line.line_total !== lineTotal) {
-      await execute(
-        `UPDATE ${businessTable("quote_line")}
-         SET line_total = ?, updated_at = ?
-         WHERE workspace_id = ? AND id = ?`,
-        [lineTotal, now(), workspaceId, line.id]
-      );
-    }
+    if (line.line_total !== lineTotal) lineTotals.push({ lineId: line.id, lineTotal });
   }
 
   const grandTotal = subtotal - discountTotal + taxTotal;
 
-  return { subtotal, discountTotal, taxTotal, grandTotal };
+  return { subtotal, discountTotal, taxTotal, grandTotal, lineTotals };
+}
+
+export async function computeQuoteTotals(
+  workspaceId: string,
+  quoteId: string
+): Promise<Omit<PreparedQuoteCalculation, "lineTotals">> {
+  const { lineTotals: _lineTotals, ...totals } = await prepareQuoteCalculation(workspaceId, quoteId);
+  return totals;
 }
 
 // Persist calculated totals to the quote record (direct DB write, not updateRecord — totals are governed)
@@ -71,15 +76,27 @@ export async function recalculateQuote(
   workspaceId: string,
   quoteId: string
 ): Promise<{ subtotal: number; discountTotal: number; taxTotal: number; grandTotal: number }> {
-  const totals = await computeQuoteTotals(workspaceId, quoteId);
-  
-  await execute(
-    `UPDATE ${businessTable("quote")}
-     SET subtotal = ?, discount_total = ?, tax_total = ?, grand_total = ?, updated_at = ?
-     WHERE workspace_id = ? AND id = ?`,
-    [totals.subtotal, totals.discountTotal, totals.taxTotal, totals.grandTotal, now(), workspaceId, quoteId]
-  );
+  const calculation = await prepareQuoteCalculation(workspaceId, quoteId);
+  const ts = now();
+  await runBatch([
+    ...calculation.lineTotals.map((line) => ({
+      sql: `UPDATE ${businessTable("quote_line")}
+            SET line_total = ?, updated_at = ?
+            WHERE workspace_id = ? AND id = ?`,
+      args: [line.lineTotal, ts, workspaceId, line.lineId],
+    })),
+    {
+      sql: `UPDATE ${businessTable("quote")}
+            SET subtotal = ?, discount_total = ?, tax_total = ?, grand_total = ?, updated_at = ?
+            WHERE workspace_id = ? AND id = ?`,
+      args: [
+        calculation.subtotal, calculation.discountTotal, calculation.taxTotal,
+        calculation.grandTotal, ts, workspaceId, quoteId,
+      ],
+    },
+  ]);
 
+  const { lineTotals: _lineTotals, ...totals } = calculation;
   return totals;
 }
 

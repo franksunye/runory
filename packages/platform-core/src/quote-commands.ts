@@ -23,7 +23,6 @@ import {
   type CommandHandlerResult,
   type CommandResult,
 } from "./command-runtime";
-import { startWorkflow, publishWorkflowDefinition } from "./workflow";
 
 // Re-export CommandActor so consumers of quote-commands do not need to depend
 // on command-runtime directly for the actor type.
@@ -158,42 +157,10 @@ export async function submitForApproval(
 
       const updatedQuote = { ...quote, status: "in_review", snapshot_hash: snapshotHash, aggregate_version: newVersion };
 
-      // Publish workflow definition (idempotent — won't duplicate if already published)
-      await publishWorkflowDefinition(
-        workspaceId,
-        {
-          workflowKey: "quote-approval",
-          name: "Quote Approval",
-          targetObject: "quote",
-          initialState: "submitted",
-          steps: [
-            { id: "start", kind: "start", next: "submit" },
-            { id: "submit", kind: "system_command", command: "quote.submit_for_approval", next: "approval" },
-            { id: "approval", kind: "approval", assigneeRule: { permissionGroup: "sales_manager" }, onApprove: "approved", onReject: "rejected", policy: { allowSelfApproval: false } },
-            { id: "approved", kind: "system_command", command: "quote.approve", next: "end" },
-            { id: "rejected", kind: "system_command", command: "quote.reject", next: "end" },
-            { id: "end", kind: "end" },
-          ]
-        },
-        actor.id
-      );
-
-      // Start workflow instance (creates initial work items based on definition steps)
-      const { instanceId } = await startWorkflow(
-        workspaceId,
-        "quote-approval",
-        "quote",
-        quoteId,
-        actor
-      );
-
-      // Get the created work item IDs (the approval work item)
-      const workItems = await queryAll<{ id: string }>(
-        `SELECT id FROM ${TABLES.workItems}
-         WHERE workspace_id = ? AND instance_id = ? AND status = 'ready'`,
-        [workspaceId, instanceId]
-      );
-      const workItemIds = workItems.map(wi => wi.id);
+      // The installed workflow definition is started by an atomic Provider.
+      // It advances past this system_command to the first actionable step.
+      const instanceId = genId("wfi");
+      const workItemId = genId("wi");
 
       return {
         statements,
@@ -212,7 +179,14 @@ export async function submitForApproval(
         },
         aggregate: updatedQuote,
         newVersion,
-        workItemIds,
+        workItemIds: [workItemId],
+        effectInputs: {
+          "workflow.start_process": {
+            workflowKey: "quote-approval",
+            instanceId,
+            workItemId,
+          },
+        },
       } as CommandHandlerResult<QuoteRecord>;
     }
   );
@@ -830,7 +804,7 @@ export async function recalculateQuoteCommand(
       input: { quoteId },
       occurredAt: now(),
     },
-    async () => {
+    async (envelope) => {
       const quote = await readQuote(workspaceId, quoteId);
       checkOptimisticLock(quote.aggregate_version, expectedVersion);
 
@@ -842,15 +816,14 @@ export async function recalculateQuoteCommand(
         );
       }
 
-      // Compute and persist totals
-      const { recalculateQuote } = await import("./quote-calculation");
-      const totals = await recalculateQuote(workspaceId, quoteId);
+      // Calculation is read-only here. Persistence belongs to the contracted
+      // atomic Provider and is committed with the Quote version/event/audit.
+      const { prepareQuoteCalculation } = await import("./quote-calculation");
+      const calculation = await prepareQuoteCalculation(workspaceId, quoteId);
+      const { lineTotals, ...totals } = calculation;
 
-      const ts = now();
+      const ts = envelope.occurredAt;
       const newVersion = quote.aggregate_version + 1;
-
-      // Re-read the updated quote
-      const updatedQuote = await readQuote(workspaceId, quoteId);
 
       return {
         statements: [{
@@ -872,8 +845,18 @@ export async function recalculateQuoteCommand(
           before: { aggregate_version: quote.aggregate_version },
           after: { aggregate_version: newVersion, ...totals },
         },
-        aggregate: { ...updatedQuote, aggregate_version: newVersion },
+        aggregate: {
+          ...quote,
+          subtotal: totals.subtotal,
+          discount_total: totals.discountTotal,
+          tax_total: totals.taxTotal,
+          grand_total: totals.grandTotal,
+          aggregate_version: newVersion,
+        },
         newVersion,
+        effectInputs: {
+          "quote.persist_calculation": { ...totals, lineTotals },
+        },
       } as CommandHandlerResult<QuoteRecord>;
     }
   );
@@ -903,7 +886,7 @@ export async function createRevision(
       input: { quoteId },
       occurredAt: now(),
     },
-    async () => {
+    async (envelope) => {
       const quote = await readQuote(workspaceId, quoteId);
       checkOptimisticLock(quote.aggregate_version, expectedVersion);
 
@@ -918,7 +901,7 @@ export async function createRevision(
       }
 
       // Lock the old quote
-      const ts = now();
+      const ts = envelope.occurredAt;
       const oldVersion = quote.aggregate_version + 1;
 
       // Create new revision
@@ -935,28 +918,6 @@ export async function createRevision(
                 WHERE workspace_id = ? AND id = ?`,
           args: [ts, oldVersion, ts, workspaceId, quoteId],
         },
-        // Create new revision
-        {
-          sql: `INSERT INTO ${businessTable("quote")}
-                (id, workspace_id, quote_number, title, status, version, aggregate_version,
-                 company_id, contact_id, deal_id, work_order_id, service_site_id, asset_id,
-                 currency, subtotal, discount_total, tax_total, grand_total,
-                 valid_until, owner, terms, notes,
-                 root_quote_id, previous_version_id, revision_number,
-                 price_book_id, approved_at, accepted_at, rejected_reason, withdrawn_at,
-                 snapshot_hash, locked_at, created_at, updated_at)
-                SELECT ?, ?, title, ?, 'draft', 1, 1,
-                 company_id, contact_id, deal_id, work_order_id, service_site_id, asset_id,
-                 currency, NULL, NULL, NULL, NULL,
-                 valid_until, owner, terms, notes,
-                 ?, ?, ?, price_book_id, NULL, NULL, NULL, NULL,
-                 NULL, NULL, ?, ?`,
-          args: [
-            newQuoteId, workspaceId, newQuoteNumber,
-            rootQuoteId, quoteId, newRevisionNumber,
-            ts, ts,
-          ],
-        },
       ];
 
       // Clone quote lines to the new revision
@@ -966,19 +927,10 @@ export async function createRevision(
         [workspaceId, quoteId]
       );
 
-      for (const line of lines) {
-        const newLineId = genId("qline");
-        statements.push({
-          sql: `INSERT INTO ${businessTable("quote_line")}
-                (id, workspace_id, quote_id, product_service_id, description, quantity, unit,
-                 unit_price, discount_amount, tax_amount, line_total, sort_order, created_at, updated_at)
-                SELECT ?, workspace_id, ?, product_service_id, description, quantity, unit,
-                 unit_price, discount_amount, tax_amount, line_total, sort_order, ?, ?
-                FROM ${businessTable("quote_line")}
-                WHERE id = ?`,
-          args: [newLineId, newQuoteId, ts, ts, line.id],
-        });
-      }
+      const lineCopies = lines.map((line) => ({
+        sourceLineId: line.id,
+        newLineId: genId("qline"),
+      }));
 
       const newQuote = {
         ...quote,
@@ -1022,6 +974,15 @@ export async function createRevision(
         },
         aggregate: newQuote,
         newVersion: 1,
+        effectInputs: {
+          "quote.create_revision_copy": {
+            newQuoteId,
+            newQuoteNumber,
+            rootQuoteId,
+            newRevisionNumber,
+            lineCopies,
+          },
+        },
       } as CommandHandlerResult<QuoteRecord>;
     }
   );
@@ -1083,7 +1044,7 @@ export async function convertToWorkOrder(
           events: [{
             aggregateType: "quote",
             aggregateId: quoteId,
-            eventType: "quote.conversion_idempotent",
+            eventType: "quote.converted_to_work_order",
             payload: { quoteId, workOrderId: existingWo.id, alreadyConverted: true },
           }],
           audit: {
@@ -1113,32 +1074,6 @@ export async function convertToWorkOrder(
       const snapshotHash = computeSnapshotHash(quote, lines);
 
       const statements: Array<{ sql: string; args?: unknown[] }> = [
-        {
-          sql: `INSERT INTO ${businessTable("work_order")}
-                (id, workspace_id, title, description, status, priority,
-                 company_id, contact_id, service_site_id, asset_id,
-                 source_type, source_id, source_snapshot_hash,
-                 work_order_number, aggregate_version,
-                 requested_at, created_at, updated_at)
-                VALUES (?, ?, ?, ?, 'new', 'medium',
-                 ?, ?, ?, ?,
-                 'quote', ?, ?,
-                 ?, 1,
-                 ?, ?, ?)`,
-          args: [
-            woId, workspaceId,
-            quote.title,
-            `Converted from quote ${quote.quote_number}`,
-            quote.company_id,
-            quote.contact_id,
-            null, // service_site_id — will be set by dispatcher
-            null, // asset_id
-            quoteId,
-            snapshotHash,
-            woNumber,
-            ts, ts, ts,
-          ],
-        },
         // Link quote to work order
         {
           sql: `UPDATE ${businessTable("quote")}
@@ -1168,6 +1103,17 @@ export async function convertToWorkOrder(
         aggregate: updatedQuote,
         newVersion: quote.aggregate_version + 1,
         workItemIds: [],
+        effectInputs: {
+          "fsm.create_work_order_from_quote": {
+            workOrderId: woId,
+            workOrderNumber: woNumber,
+            title: quote.title,
+            description: `Converted from quote ${quote.quote_number}`,
+            companyId: quote.company_id,
+            contactId: quote.contact_id,
+            snapshotHash,
+          },
+        },
       } as CommandHandlerResult<QuoteRecord>;
     }
   );

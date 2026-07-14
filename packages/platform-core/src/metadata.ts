@@ -152,6 +152,8 @@ export async function createWorkspace(name: string, templateId?: string, actor?:
     [id, name, slug, templateId ?? null, now(), now()]
   );
   if (actor) await provisionWorkspaceTenant(id, name, actor);
+  const { syncWorkspacePlatformServiceContracts } = await import("./platform-service-contracts");
+  await syncWorkspacePlatformServiceContracts(id);
   return { id, name, slug, templateId };
 }
 

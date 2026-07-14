@@ -194,6 +194,74 @@ domain:
       stateField: status
       versionField: aggregate_version
   commands:
+    - key: work_order.triage
+      contractVersion: "1.0.0"
+      aggregate: work_order
+      transition: { from: [new], to: triaged }
+      permission: work_order.triage
+      idempotent: true
+      requiresExpectedVersion: true
+      requiredEffects: []
+      emits: [work_order.triaged]
+      auditRequired: true
+      postconditions: [work_order.status == triaged]
+    - key: work_order.create_visit
+      contractVersion: "1.0.0"
+      aggregate: work_order
+      transition:
+        from: [triaged, planned, in_progress]
+        to: [planned, in_progress]
+      permission: work_order.create
+      idempotent: true
+      requiresExpectedVersion: true
+      requiredEffects:
+        - capability: fsm.create_dispatched_visit
+          version: "^1.0.0"
+          scope: service_visit
+          consistency: atomic
+          cardinality: one
+      emits: [work_order.visit_created]
+      auditRequired: true
+      postconditions:
+        - service_visit.status == scheduled
+        - service_visit.assignment.status == assigned
+        - service_visit.schedule.status in [tentative, confirmed]
+        - service_visit.required_forms.count >= 1
+    - key: work_order.block
+      contractVersion: "1.0.0"
+      aggregate: work_order
+      transition: { from: [new, triaged, planned, in_progress, reopened], to: blocked }
+      permission: work_order.triage
+      idempotent: true
+      requiresExpectedVersion: true
+      requiredEffects: []
+      emits: [work_order.blocked]
+      auditRequired: true
+      postconditions: [work_order.status == blocked]
+    - key: work_order.unblock
+      contractVersion: "1.0.0"
+      aggregate: work_order
+      transition:
+        from: [blocked]
+        to: [new, triaged, planned, in_progress, reopened]
+      permission: work_order.triage
+      idempotent: true
+      requiresExpectedVersion: true
+      requiredEffects: []
+      emits: [work_order.unblocked]
+      auditRequired: true
+      postconditions: [work_order.status == recorded_pre_block_status]
+    - key: work_order.start
+      contractVersion: "1.0.0"
+      aggregate: work_order
+      transition: { from: [planned, reopened], to: in_progress }
+      permission: work_order.start
+      idempotent: true
+      requiresExpectedVersion: true
+      requiredEffects: []
+      emits: [work_order.started]
+      auditRequired: true
+      postconditions: [work_order.status == in_progress]
     - key: work_order.complete
       contractVersion: "1.0.0"
       aggregate: work_order
@@ -215,6 +283,35 @@ domain:
         - work_order.status == completed
         - work_order.completed_at != null
         - subject_schedule.status == completed
+    - key: work_order.cancel
+      contractVersion: "1.0.0"
+      aggregate: work_order
+      transition: { from: [new, triaged, planned, in_progress, blocked, reopened], to: cancelled }
+      permission: work_order.triage
+      idempotent: true
+      requiresExpectedVersion: true
+      requiredEffects:
+        - { capability: assignment.release_subject, version: "^1.0.0", scope: work_order_assignments, consistency: atomic, cardinality: zero_or_more }
+        - { capability: scheduling.cancel_reservation, version: "^1.0.0", scope: work_order_schedule, consistency: atomic, cardinality: zero_or_more }
+        - { capability: fsm.cancel_work_order_visits, version: "^1.0.0", scope: child_visits, consistency: atomic, cardinality: zero_or_more }
+      emits: [work_order.cancelled]
+      auditRequired: true
+      postconditions:
+        - work_order.status == cancelled
+        - active_assignments.count == 0
+        - active_schedule.count == 0
+        - non_terminal_visits.count == 0
+    - key: work_order.reopen
+      contractVersion: "1.0.0"
+      aggregate: work_order
+      transition: { from: [completed, cancelled], to: reopened }
+      permission: work_order.reopen
+      idempotent: true
+      requiresExpectedVersion: true
+      requiredEffects: []
+      emits: [work_order.reopened]
+      auditRequired: true
+      postconditions: [work_order.status == reopened]
 
 permissions:
   - work_order.read

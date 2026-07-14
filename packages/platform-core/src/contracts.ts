@@ -72,6 +72,7 @@ export const TABLES = {
 
   // Runory Platform Runtime.
   installations: `${PREFIXES.runoryRuntime}installations`,
+  workspaceCommandContracts: `${PREFIXES.runoryRuntime}workspace_command_contracts`,
   objectDefinitions: `${PREFIXES.runoryRuntime}object_definitions`,
   fieldDefinitions: `${PREFIXES.runoryRuntime}field_definitions`,
   viewDefinitions: `${PREFIXES.runoryRuntime}view_definitions`,
@@ -171,3 +172,4 @@ export function schemaStatements(prefix: string): string[] {
 export const MODULES_DIR = resourcesDir("catalog/modules");
 export const PACKS_DIR = resourcesDir("catalog/packs");
 export const TEMPLATES_DIR = resourcesDir("catalog/templates");
+export const PLATFORM_SERVICES_DIR = resourcesDir("catalog/platform-services");

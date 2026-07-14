@@ -508,6 +508,12 @@ export async function approvalDecideHandler(
 
   return {
     statements,
+    events: [{
+      aggregateType: "work_item",
+      aggregateId: workItemId,
+      eventType: "approval.decided",
+      payload: { workItemId, outcome, comment },
+    }],
     audit: {
       action: "work_item.approval_decide",
       entityType: "work_item",
@@ -569,6 +575,14 @@ export async function returnWorkItemHandler(
   }
 
   checkOptimisticLock(workItem.version, expectedVersion);
+
+  if (workItem.status !== "ready" && workItem.status !== "active") {
+    throw new BusinessError(
+      ERROR_CODES.WORK_ITEM_NOT_ACTIONABLE,
+      `WORK_ITEM_NOT_ACTIONABLE: Work item ${workItemId} is in status '${workItem.status}', expected 'ready' or 'active'`,
+      409,
+    );
+  }
 
   // Per v0.5.1 Spec §4.3: "Return creates a new work item and submission
   // revision; it does not edit prior evidence."
@@ -660,6 +674,12 @@ export async function returnWorkItemHandler(
 
   return {
     statements,
+    events: [{
+      aggregateType: "work_item",
+      aggregateId: workItemId,
+      eventType: "work_item.returned",
+      payload: { workItemId, newWorkItemId, comment },
+    }],
     audit: {
       action: "work_item.return",
       entityType: "work_item",
@@ -1048,6 +1068,12 @@ export async function claimWorkItemHandler(
 
   return {
     statements,
+    events: [{
+      aggregateType: "work_item",
+      aggregateId: workItemId,
+      eventType: "work_item.claimed",
+      payload: { workItemId, claimedBy: actor.id },
+    }],
     audit: {
       action: "work_item.claim",
       entityType: "work_item",
@@ -1159,6 +1185,12 @@ export async function releaseWorkItemHandler(
 
   return {
     statements,
+    events: [{
+      aggregateType: "work_item",
+      aggregateId: workItemId,
+      eventType: "work_item.released",
+      payload: { workItemId, releasedBy: actor.id },
+    }],
     audit: {
       action: "work_item.release",
       entityType: "work_item",
@@ -1290,6 +1322,12 @@ export async function completeWorkItemHandler(
           args: [ts, completedVersion, ts, workspaceId, workItemId, workItem.version],
         },
       ],
+      events: [{
+        aggregateType: "work_item",
+        aggregateId: workItemId,
+        eventType: "work_item.completed",
+        payload: { workItemId, visitExecution: true },
+      }],
       audit: {
         action: "visit_execution.deliverable_complete",
         entityType: "service_visit",
@@ -1436,6 +1474,12 @@ export async function completeWorkItemHandler(
 
   return {
     statements,
+    events: [{
+      aggregateType: "work_item",
+      aggregateId: workItemId,
+      eventType: "work_item.completed",
+      payload: { workItemId, nextWorkItemIds: workItemIds },
+    }],
     audit: {
       action: "work_item.complete",
       entityType: "work_item",
@@ -1547,6 +1591,12 @@ export async function cancelWorkItemHandler(
 
   return {
     statements,
+    events: [{
+      aggregateType: "work_item",
+      aggregateId: workItemId,
+      eventType: "work_item.cancelled",
+      payload: { workItemId, reason: reason ?? null },
+    }],
     audit: {
       action: "work_item.cancel",
       entityType: "work_item",
