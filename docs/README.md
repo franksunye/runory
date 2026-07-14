@@ -22,6 +22,7 @@ Runory documentation is organized by topic authority and lifecycle rather than b
 | Start using Runory | [Getting Started](getting-started.md) | [Workspace Guide](workspace-guide.md), [Packs and Modules](packs-and-modules.md) |
 | Understand the platform | [Architecture Overview](architecture/overview.md) | [Module Architecture](architecture/module-architecture.md), [Repository Structure](architecture/repository-structure.md) |
 | Build or extend Runory | [SDK / Module Development](sdk-module-development.md) | [Module SDK](sdk/module-sdk.md), [Workspace Extension Architecture](architecture/workspace-extension-architecture.md) |
+| Evaluate performance | [Performance Baseline and Budget](architecture/performance-baseline-and-budget.md) | [Performance Optimization Plan](architecture/performance-optimization-plan.md) |
 | Operate Runory | [Operations Runbooks](operations/runbooks.md) | [Backup / Restore Runbook](operations/backup-restore-runbook.md), [Troubleshooting](troubleshooting.md) |
 | Review releases | [Release Notes](release-notes.md) | [Release evidence](releases/) |
 | Add or change documentation | [Documentation Governance](document-governance.md) | Run `pnpm docs:check` |
@@ -73,7 +74,8 @@ Versioned iteration plans provide implementation history but do not override the
 - [SDK / Module Development](sdk-module-development.md) — active authoring guide.
 - [Module SDK](sdk/module-sdk.md) — SDK reference.
 - [v0.5 Layered Architecture Review](architecture/v0.5-layered-architecture-review.md) — architecture review and rationale.
-- [Performance Optimization Plan](architecture/performance-optimization-plan.md) — proposed optimization work.
+- [Performance Baseline and Budget](architecture/performance-baseline-and-budget.md) — active performance model, budget, benchmark scope, and v0.6 acceptance criteria.
+- [Performance Optimization Plan](architecture/performance-optimization-plan.md) — implementation-specific optimization plan and shipped improvements.
 - [Internationalization Architecture](architecture/internationalization.md) — localization architecture.
 
 ### 5. Command, Workflow & Forms
