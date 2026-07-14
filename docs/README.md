@@ -33,7 +33,7 @@ Runory documentation is organized by topic authority and lifecycle rather than b
 **Authority:** [Product Definition](product/product-definition.md)
 
 - [Product Definition](product/product-definition.md) — canonical product boundary and positioning.
-- [Post-v0.5 Product Milestone Roadmap](product/post-v0.5-product-milestone-roadmap.md) — active milestone sequence.
+- [Product Roadmap](product/product-roadmap.md) — active FSM-first milestone sequence through v4.0.
 - [v1.0 GA Release Goal](product/v1.0-ga-release-goal.md) — proposed GA target.
 - [Voice Intake Product Definition](product/voice-intake-product-definition.md) — proposed phone-to-work-order product boundary.
 - [Payment Product Definition](product/payment-product-definition.md) — proposed customer-payment product boundary and SaaS-billing separation.
@@ -74,6 +74,7 @@ Versioned iteration plans provide implementation history but do not override the
 - [Architecture Overview](architecture/overview.md) — canonical platform overview.
 - [Module Architecture](architecture/module-architecture.md) — module boundaries and composition.
 - [Workspace Extension Architecture](architecture/workspace-extension-architecture.md) — governed workspace customization.
+- [Thin FSM and Agent Runtime Architecture](architecture/thin-fsm-agent-runtime.md) — proposed event-driven Agent Task and Runner operating model.
 - [Agent Operations](agent-operations.md) — plan, preview, apply, audit, and rollback.
 - [SDK / Module Development](sdk-module-development.md) — active authoring guide.
 - [Module SDK](sdk/module-sdk.md) — SDK reference.
@@ -92,10 +93,11 @@ Versioned iteration plans provide implementation history but do not override the
 - [Contract-driven Command Architecture](architecture/contract-driven-command-architecture.md) — canonical command and mutation architecture.
 - [Command Runtime Performance Baseline](architecture/command-runtime-performance-baseline.md) — performance risks, measurement scenarios, and optimization order.
 - [Workspace Extension Architecture](architecture/workspace-extension-architecture.md) — governed customization boundary.
+- [Thin FSM and Agent Runtime Architecture](architecture/thin-fsm-agent-runtime.md) — Agent Tasks must execute through the same governed Command boundary.
 - [v0.5 Commercial FSM Technical Spec](product/v0.5-commercial-fsm-technical-spec.md) — lifecycle implementation example.
 - [v0.5.1 Mobile Field Work Spec](product/v0.5.1-mobile-field-work-spec.md) — forms and workflow behavior in field use.
 - [Payment Technical Specification](product/payment-technical-spec.md) — financial Command, idempotency, webhook, and refund rules.
-- [Post-v0.5 Product Milestone Roadmap](product/post-v0.5-product-milestone-roadmap.md) — stabilization and next-step context.
+- [Product Roadmap](product/product-roadmap.md) — stabilization and next-step context.
 
 New command, workflow, form, or customization documents must state whether they support or supersede this authority.
 
