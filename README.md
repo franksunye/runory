@@ -37,10 +37,11 @@ See [catalog/packs/](catalog/packs/) for manifests and demo data, or visit the p
 
 ## Documentation
 
-Public docs are indexed at [docs/](docs/) and surfaced on the [Docs page](https://runory.dev/docs).
+Start with the governed [Documentation Index](docs/README.md). It identifies each topic's authoritative source, current specifications, supporting material, historical plans, and release evidence. Public documentation is also surfaced on the [Docs page](https://runory.dev/docs).
 
 | Document | Description |
 | --- | --- |
+| [docs/README.md](docs/README.md) | Documentation governance, topic index, lifecycle, and authority matrix |
 | [docs/getting-started.md](docs/getting-started.md) | Getting Started — the canonical journey |
 | [docs/concepts.md](docs/concepts.md) | Concepts — SaaS Core, Module, Pack, Template, Extension, Agent Operation, Catalog |
 | [docs/workspace-guide.md](docs/workspace-guide.md) | Workspace Guide — operating the workspace day to day |
