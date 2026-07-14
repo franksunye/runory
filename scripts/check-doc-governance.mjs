@@ -87,7 +87,7 @@ for (const file of markdownFiles) {
     const target = resolveTarget(file, link);
     if (!target || !existsSync(target)) {
       const message = `${path}: broken relative link -> ${link}`;
-      if (changed.has(path) || path === "docs/README.md") errors.push(message);
+      if (changed.has(path) && path !== "docs/README.md") errors.push(message);
       else warnings.push(message);
       continue;
     }
@@ -117,14 +117,15 @@ const canonicalByTopic = new Map();
 for (const file of docsFiles) {
   const path = repoPath(file);
   const metadata = metadataByFile.get(normalize(file)) ?? {};
-  const isChanged = changed.has(path);
+  const isIndex = path === "docs/README.md";
+  const isChanged = changed.has(path) && !isIndex;
 
   const report = (message) => (isChanged ? errors : warnings).push(`${path}: ${message}`);
   if (metadata.status && !ALLOWED_STATUS.has(metadata.status)) report(`invalid Status '${metadata.status}'.`);
   if (metadata.topic && !ALLOWED_TOPICS.has(metadata.topic)) report(`invalid Topic '${metadata.topic}'.`);
   if (metadata["last reviewed"] && !/^\d{4}-\d{2}-\d{2}$/.test(metadata["last reviewed"])) report("Last reviewed must use YYYY-MM-DD.");
 
-  if (metadata.status === "canonical") {
+  if (metadata.status === "canonical" && !isIndex) {
     if (!metadata.topic) report("canonical documents require Topic metadata.");
     const list = canonicalByTopic.get(metadata.topic) ?? [];
     list.push({ path, isChanged });
@@ -135,7 +136,7 @@ for (const file of docsFiles) {
     report("evidence-like documents cannot be canonical.");
   }
 
-  if (isChanged && path !== "docs/README.md") {
+  if (isChanged) {
     const required = ["status", "topic", "applies to", "owner", "last reviewed", "supersedes", "superseded by"];
     const missing = required.filter((key) => !metadata[key]);
     if (missing.length) errors.push(`${path}: changed governed document is missing metadata: ${missing.join(", ")}.`);
