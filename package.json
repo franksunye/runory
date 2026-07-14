@@ -12,6 +12,7 @@
     "test": "pnpm --recursive test",
     "reset": "node scripts/dev-reset.mjs",
     "validate:v05": "node scripts/validate-v05-closure.mjs",
+    "docs:check": "node scripts/check-doc-governance.mjs",
     "mcp": "pnpm --filter @runory/mcp start"
   },
   "devDependencies": {
