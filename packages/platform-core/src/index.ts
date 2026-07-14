@@ -42,3 +42,4 @@ export * from "./migration-v04-v05";
 export * from "./visibility";
 export * from "./navigation-surfaces";
 export * from "./operational-projections";
+export * from "./voice-intake";
