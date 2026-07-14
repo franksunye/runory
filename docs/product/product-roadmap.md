@@ -145,7 +145,12 @@ Release outcome: one real service business can receive work through phone or int
 
 v0.6 turns the v0.5 single-transaction closure into a system that can continuously acquire, serve, retain, bill, and manage customers.
 
-### v0.6.0 — Lead and Customer Operations
+Architecture prerequisite: complete the staged, behavior-preserving work in
+[v0.6 Command Architecture Stabilization TODO](../architecture/v0.6-command-architecture-stabilization-todo.md).
+This stabilization preserves the v0.5 Command model; it is not a new product
+scope or a reason to delay unrelated v0.6 discovery.
+
+### v0.6.0 — Recurring Service Core
 
 ```text
 first-class Lead lifecycle, source, qualification, ownership, follow-up, and conversion

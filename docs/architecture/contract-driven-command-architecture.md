@@ -13,6 +13,7 @@ Related specifications:
 - [Module Architecture](./module-architecture.md)
 - [v0.5 Commercial FSM Technical Specification](../product/v0.5-commercial-fsm-technical-spec.md)
 - [v0.5.1 Commercial FSM Productization Technical Specification](../product/v0.5.1-commercial-fsm-productization-technical-spec.md)
+- [v0.6 Command Architecture Stabilization TODO](./v0.6-command-architecture-stabilization-todo.md)
 
 ## 1. Decision
 
