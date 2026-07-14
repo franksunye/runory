@@ -106,7 +106,9 @@ export default function ObjectListPage({
     || permissions.has("*")
     || (objectKey === "quote" ? permissions.has("quote.create")
       : objectKey === "work_order" ? permissions.has("work_order.triage")
-      : objectKey === "service_visit" ? permissions.has("assignment.manage")
+      // Visits are contextual execution records; Plan & dispatch is the sole
+      // creation path, so a standalone list never presents a misleading Add.
+      : objectKey === "service_visit" ? false
       : permissions.has(`${objectKey}.create`));
   const loading = loadingInst || (hasPack && (loadingObj || loadingViews || loadingRecords));
 

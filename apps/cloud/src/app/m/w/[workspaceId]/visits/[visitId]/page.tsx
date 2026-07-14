@@ -48,6 +48,14 @@ interface TimelineResponse {
   nextCursor: string | null;
 }
 
+interface VisitExecutionRequirement {
+  id: string;
+  label: string;
+  work_item_id: string | null;
+  work_item_status: string | null;
+  submission_status: string | null;
+}
+
 interface VisitContext {
   workOrder: VisitRecord | null;
   technician: VisitRecord | null;
@@ -336,6 +344,7 @@ function MobileVisitDetailPage() {
   });
   const [timeline, setTimeline] = useState<TimelineEntry[]>([]);
   const [workItem, setWorkItem] = useState<MyWorkItem | null>(null);
+  const [requirements, setRequirements] = useState<VisitExecutionRequirement[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -351,7 +360,7 @@ function MobileVisitDetailPage() {
         setError(null);
 
         // Fetch visit record + timeline in parallel.
-        const [visitJson, timelineJson] = await Promise.all([
+        const [visitJson, timelineJson, executionJson] = await Promise.all([
           apiFetch<{
             success: boolean;
             error?: { message: string };
@@ -367,6 +376,13 @@ function MobileVisitDetailPage() {
             `/api/workspaces/${workspaceId}/timeline?subjectType=service_visit&subjectId=${encodeURIComponent(visitId)}`,
             { cache: "no-store" }
           ).catch(() => null),
+          apiFetch<{
+            success: boolean;
+            data?: { requirements?: VisitExecutionRequirement[] };
+          }>(
+            `/api/workspaces/${workspaceId}/service-visits/${visitId}/execution`,
+            { cache: "no-store" }
+          ).catch(() => null),
         ]);
 
         if (!visitJson.success) {
@@ -380,6 +396,9 @@ function MobileVisitDetailPage() {
         if (timelineJson?.success) {
           const data = timelineJson.data as TimelineResponse;
           setTimeline(data?.entries ?? []);
+        }
+        if (executionJson?.success) {
+          setRequirements(executionJson.data?.requirements ?? []);
         }
       } catch (e) {
         setError(e instanceof Error ? e.message : t("mobile.errorOccurred"));
@@ -443,8 +462,8 @@ function MobileVisitDetailPage() {
         const json = await apiPost<{ success: boolean; error?: { message: string } }>(
           `/api/workspaces/${workspaceId}/commands/${commandType}`,
           {
-            recordId: visitId,
-            expectedVersion: visit.version ?? 1,
+            aggregateId: visitId,
+            expectedVersion: visit.aggregate_version ?? 1,
           }
         );
         if (!json.success) {
@@ -729,6 +748,37 @@ function MobileVisitDetailPage() {
                 </span>
                 <ChevronRight size={18} />
               </Link>
+            )}
+
+            {requirements.length > 0 && (
+              <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                <div className="flex items-center gap-2">
+                  <FileText size={17} className="text-indigo-600" />
+                  <h2 className="text-sm font-bold text-slate-900">Required delivery evidence</h2>
+                </div>
+                <p className="mt-1 text-xs leading-relaxed text-slate-500">
+                  Complete every checklist and attach the required evidence before closing this visit.
+                </p>
+                <div className="mt-3 space-y-2">
+                  {requirements.map((requirement) => {
+                    const complete = requirement.work_item_status === "completed" || Boolean(requirement.submission_status);
+                    return requirement.work_item_id ? (
+                      <Link
+                        key={requirement.id}
+                        href={`/m/w/${workspaceId}/work/${requirement.work_item_id}/form`}
+                        className="flex min-h-[48px] items-center justify-between gap-3 rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-800 active:bg-slate-50"
+                      >
+                        <span className="min-w-0 truncate">{requirement.label}</span>
+                        {complete ? <CheckCircle2 size={18} className="shrink-0 text-green-600" /> : <ChevronRight size={18} className="shrink-0 text-slate-400" />}
+                      </Link>
+                    ) : (
+                      <div key={requirement.id} className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                        {requirement.label}: execution form is unavailable. Refresh or contact dispatch.
+                      </div>
+                    );
+                  })}
+                </div>
+              </section>
             )}
 
             {/* Visit lifecycle command buttons (v0.5.1 Spec §4.2) */}

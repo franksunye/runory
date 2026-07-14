@@ -17,6 +17,7 @@ import {
   completeVisit,
   completeWorkOrder,
 } from "./fsm-commands";
+import { submitForm } from "./forms";
 import { moduleManifestSchema, packManifestSchema } from "@runory/contracts";
 import {
   resolveEffectiveLayout,
@@ -120,7 +121,7 @@ describe("FSM Pack installation", () => {
   });
 
   it("creates business tables for all FSM objects", async () => {
-    await installPack(workspaceId, "fsm-pack");
+    await installPack(workspaceId, "fsm-pack", { includeDemoData: true });
 
     // Verify business tables exist and are queryable
     for (const objKey of ["service_site", "asset", "technician", "work_order", "service_visit", "service_report"]) {
@@ -581,6 +582,21 @@ describe("FSM module cross-pack relation declarations", () => {
     expect(targets).toEqual(
       expect.arrayContaining(["runory.work-order", "runory.technician"])
     );
+
+    const workOrderRelation = manifest.relations!.find(
+      (relation) => relation.targetObject === "work_order"
+    );
+    expect(workOrderRelation?.backlinkPresentation).toMatchObject({
+      mode: "compact",
+      limit: 5,
+      columns: [
+        { field: "title" },
+        { field: "technician_id" },
+        { field: "scheduled_start" },
+        { field: "scheduled_end" },
+        { field: "status" },
+      ],
+    });
   });
 
   it("runory.service-report declares relations to work_order and service_visit", async () => {
@@ -645,7 +661,12 @@ describe("FSM module cross-pack relation declarations", () => {
 describe("FSM demo journey (end-to-end trial flow)", () => {
   it("completes the canonical FSM trial journey", async () => {
     // 1. Install FSM Pack
-    await installPack(workspaceId, "fsm-pack");
+    await installPack(workspaceId, "fsm-pack", { includeDemoData: true });
+    const initialOpenCount = await resolveWidgetData(workspaceId, {
+      kind: "count",
+      object: "work_order",
+      where: "status not in ('completed', 'cancelled')",
+    });
 
     // 2. Create a new work order (simulating service request)
     const wo = await createRecord(workspaceId, "work_order", {
@@ -659,23 +680,13 @@ describe("FSM demo journey (end-to-end trial flow)", () => {
     });
     expect(wo.id).toBeDefined();
 
-    // 3. Create a technician
-    const tech = await createRecord(workspaceId, "technician", {
-      name: "Emergency Tech",
-      email: "emergency@runory.fsm",
-      phone: "+1 415 555 0999",
-      skills: "Boiler, Heating, Plumbing",
-      region: "San Francisco Bay Area",
-      availability_status: "available",
-    });
-
-    // 4. Assign technician (non-governed fields via updateRecord)
-    const updated = await updateRecord(workspaceId, "work_order", wo.id, {
-      assigned_to: tech.id,
-      scheduled_start: "2026-06-23",
-      scheduled_end: "2026-06-23",
-    });
-    expect(updated?.assigned_to).toBe(tech.id);
+    // 3. Use a dispatchable technician. Scheduling belongs to Plan & dispatch,
+    // not to generic work-order fields.
+    const tech = await queryOne<{ id: string }>(
+      `SELECT id FROM ${businessTable("technician")} WHERE workspace_id = ? AND resource_id IS NOT NULL LIMIT 1`,
+      [workspaceId],
+    );
+    expect(tech).toBeDefined();
 
     // 4b. Triage the work order (new → triaged) via FSM command
     const actor = { type: "user" as const, id: "test-user" };
@@ -693,7 +704,7 @@ describe("FSM demo journey (end-to-end trial flow)", () => {
       2, // expectedVersion after triage
       {
         title: "Emergency visit",
-        technicianId: tech.id,
+        technicianId: tech!.id,
         // Spec §5.5: schedule end_at MUST be after start_at (use a time window).
         scheduledStart: "2026-06-23T09:00:00Z",
         scheduledEnd: "2026-06-23T17:00:00Z",
@@ -715,6 +726,26 @@ describe("FSM demo journey (end-to-end trial flow)", () => {
     await startTravel(workspaceId, visit!.id, actor, 1);
     await arriveOnSite(workspaceId, visit!.id, actor, 2);
     await submitWork(workspaceId, visit!.id, actor, 3);
+    const requirement = await queryOne<{ form_definition_id: string; form_version_id: string; binding_id: string }>(
+      `SELECT form_definition_id, form_version_id, binding_id
+       FROM ${TABLES.visitExecutionRequirements} WHERE workspace_id = ? AND visit_id = ?`,
+      [workspaceId, visit!.id],
+    );
+    await submitForm(workspaceId, {
+      formDefinitionId: requirement!.form_definition_id,
+      formVersionId: requirement!.form_version_id,
+      bindingId: requirement!.binding_id,
+      subjectType: "service_visit",
+      subjectId: visit!.id,
+      answers: {
+        work_performed: "Boiler repaired successfully",
+        system_status_after_service: "operational",
+        "cl-pre-service": { "cl-1": "pass", "cl-2": "pass", "cl-3": "pass", "cl-4": "pass" },
+        "evi-photos": { attachments: ["before", "after"] },
+        "sig-customer": { acknowledged: true, signedBy: "Building Manager" },
+      },
+      submittedBy: actor.id,
+    });
     await completeVisit(workspaceId, visit!.id, actor, 3);
 
     // Verify visit is completed
@@ -751,7 +782,9 @@ describe("FSM demo journey (end-to-end trial flow)", () => {
       object: "work_order",
       where: "status not in ('completed', 'cancelled')",
     });
-    expect(openCount.count).toBe(0); // The one we created is now completed
+    // The demo fixture can contain other open work orders; completing this
+    // journey must bring the workbench count back to its initial state.
+    expect(openCount.count).toBe(initialOpenCount.count);
 
     // 10. Verify the service report is in the recent list
     const recentReports = await resolveWidgetData(workspaceId, {
@@ -762,8 +795,7 @@ describe("FSM demo journey (end-to-end trial flow)", () => {
       columns: ["work_order_id", "summary"],
     });
     expect(recentReports.records).toBeDefined();
-    expect(recentReports.records!.length).toBe(1);
-    expect(recentReports.records![0].summary).toBe("Boiler repaired successfully");
+    expect(recentReports.records!.some((record) => record.summary === "Boiler repaired successfully")).toBe(true);
   });
 });
 

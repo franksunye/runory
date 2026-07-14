@@ -83,11 +83,19 @@ An Official Module owns its baseline domain behavior within the metadata-driven 
 
 ```text
 ObjectDefinitions / FieldDefinitions / RelationDefinitions
-Business Rules / Workflows / Actions
+Aggregates / Command Contracts / Business Rules
+Workflows / Automations / Actions
 Agent Skills / Views / Forms / Dashboards
 Migrations / Permissions / Extension Points
 Compatibility Contract / Upgrade Policy
 ```
+
+Governed lifecycle behavior is declared through machine-readable Command
+Contracts. Workflow and Automation may invoke those Commands but may not
+reimplement their invariant logic. Shared Runtime capabilities participate
+through versioned semantic providers, and Pack installation must resolve the
+complete provider closure. See
+[Contract-Driven Command Architecture](./contract-driven-command-architecture.md).
 
 An Official Module does **not** own workspace-specific customization.
 

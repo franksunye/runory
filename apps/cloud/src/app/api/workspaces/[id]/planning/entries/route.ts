@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import {
-  businessTable,
+  getPlanningSubjectProjection,
   getScheduleEntries,
   queryAll,
   resolveUserResourceIds,
@@ -14,7 +14,11 @@ import { successResponse, handleError, getOrCreateRequestId } from "@/lib/http";
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 
-interface ScheduleEntryWithResource extends ScheduleEntry {
+interface ScheduleEntryWithResource extends Omit<ScheduleEntry, "status"> {
+  /** Effective business status shown across every Planning view. */
+  status: string;
+  /** Original schedule lifecycle retained for audit/reschedule operations. */
+  scheduleStatus: ScheduleEntry["status"];
   resourceName: string | null;
   resourceType: string | null;
   resourceAvatarUrl: string | null;
@@ -30,16 +34,13 @@ interface ResourceRow {
 interface SubjectRow {
   id: string;
   title: string | null;
+  status: string | null;
 }
 
 interface SubjectInfo {
   name: string | null;
+  status: string | null;
 }
-
-const PLANNING_SUBJECT_TABLES: Record<string, string> = {
-  work_order: businessTable("work_order"),
-  service_visit: businessTable("service_visit"),
-};
 
 // GET: Query schedule entries with filters (from, to, resourceIds, subjectType, status)
 // Returns entries with resource info, subject info, status, location
@@ -104,7 +105,6 @@ export async function GET(
         const partial = await getScheduleEntries(workspaceId, {
           resourceId,
           subjectType,
-          status,
           from,
           to,
         });
@@ -116,7 +116,6 @@ export async function GET(
       entries = await getScheduleEntries(workspaceId, {
         resourceId: effectiveResourceIds?.[0],
         subjectType,
-        status,
         from,
         to,
       });
@@ -142,7 +141,7 @@ export async function GET(
     const subjectMap = new Map<string, SubjectInfo>();
     const subjectIdsByType = new Map<string, Set<string>>();
     for (const entry of entries) {
-      if (!PLANNING_SUBJECT_TABLES[entry.subjectType] || !entry.subjectId) continue;
+      if (!getPlanningSubjectProjection(entry.subjectType) || !entry.subjectId) continue;
       const ids = subjectIdsByType.get(entry.subjectType) ?? new Set<string>();
       ids.add(entry.subjectId);
       subjectIdsByType.set(entry.subjectType, ids);
@@ -151,15 +150,22 @@ export async function GET(
     for (const [entrySubjectType, subjectIds] of subjectIdsByType) {
       const ids = [...subjectIds];
       if (ids.length === 0) continue;
-      const table = PLANNING_SUBJECT_TABLES[entrySubjectType];
+      const projection = getPlanningSubjectProjection(entrySubjectType);
+      if (!projection) continue;
       const placeholders = ids.map(() => "?").join(",");
+      const statusSelection = projection.statusColumn
+        ? `, ${projection.statusColumn} AS status`
+        : ", NULL AS status";
       const rows = await queryAll<SubjectRow>(
-        `SELECT id, title FROM ${table}
+        `SELECT id, ${projection.titleColumn} AS title${statusSelection} FROM ${projection.table}
          WHERE workspace_id = ? AND id IN (${placeholders})`,
         [workspaceId, ...ids]
       );
       for (const row of rows) {
-        subjectMap.set(`${entrySubjectType}:${row.id}`, { name: row.title });
+        const effectiveStatus = row.status && projection.statusMap?.[row.status]
+          ? projection.statusMap[row.status]
+          : null;
+        subjectMap.set(`${entrySubjectType}:${row.id}`, { name: row.title, status: effectiveStatus });
       }
     }
 
@@ -168,6 +174,8 @@ export async function GET(
       const subject = subjectMap.get(`${entry.subjectType}:${entry.subjectId}`);
       return {
         ...entry,
+        status: subject?.status ?? entry.status,
+        scheduleStatus: entry.status,
         resourceName: resource?.display_name ?? null,
         resourceType: resource?.resource_type ?? null,
         resourceAvatarUrl: resource?.avatar_url ?? null,
@@ -175,8 +183,9 @@ export async function GET(
       };
     });
 
+    const filtered = status ? enriched.filter((entry) => entry.status === status) : enriched;
     return successResponse(
-      { entries: enriched, total: enriched.length },
+      { entries: filtered, total: filtered.length },
       200,
       ctx.requestId
     );

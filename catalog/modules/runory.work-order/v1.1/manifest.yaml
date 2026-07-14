@@ -188,6 +188,34 @@ views:
             - field: source
             - field: notes
 
+domain:
+  aggregates:
+    - key: work_order
+      stateField: status
+      versionField: aggregate_version
+  commands:
+    - key: work_order.complete
+      contractVersion: "1.0.0"
+      aggregate: work_order
+      transition:
+        from: [in_progress]
+        to: completed
+      permission: work_order.complete
+      idempotent: true
+      requiresExpectedVersion: true
+      requiredEffects:
+        - capability: scheduling.complete_reservation
+          version: "^1.0.0"
+          scope: subject_schedule
+          consistency: atomic
+          cardinality: zero_or_more
+      emits: [work_order.completed]
+      auditRequired: true
+      postconditions:
+        - work_order.status == completed
+        - work_order.completed_at != null
+        - subject_schedule.status == completed
+
 permissions:
   - work_order.read
   - work_order.create

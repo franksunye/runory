@@ -10,7 +10,7 @@
 //   Confirmed entries are checked for overlaps (conflict detection).
 
 import { genId, now, queryOne, queryAll, execute, batch as runBatch } from "./db";
-import { TABLES } from "./contracts";
+import { TABLES, businessTable } from "./contracts";
 import { BusinessError, NotFoundError } from "./context";
 import { ERROR_CODES } from "./errors";
 
@@ -290,12 +290,32 @@ export async function rescheduleSchedule(
   const ts = now();
   const newVersion = entry.version + 1;
 
-  await execute(
-    `UPDATE ${TABLES.scheduleEntries}
-     SET start_at = ?, end_at = ?, conflict_state = ?, version = ?, updated_at = ?
-     WHERE workspace_id = ? AND id = ? AND version = ?`,
-    [newStartAt, newEndAt, conflictState, newVersion, ts, workspaceId, scheduleEntryId, entry.version]
-  );
+  await runBatch([
+    {
+      sql: `UPDATE ${TABLES.scheduleEntries}
+            SET start_at = ?, end_at = ?, status = ?, conflict_state = ?, version = ?, updated_at = ?
+            WHERE workspace_id = ? AND id = ? AND version = ?`,
+      args: [
+        newStartAt, newEndAt,
+        conflicts.length > 0 ? "tentative" : "confirmed",
+        conflictState, newVersion, ts, workspaceId, scheduleEntryId, entry.version,
+      ],
+    },
+    ...(entry.subjectType === "service_visit" ? [
+      {
+        sql: `UPDATE ${businessTable("service_visit")}
+              SET scheduled_start = ?, scheduled_end = ?, updated_at = ?
+              WHERE workspace_id = ? AND id = ?`,
+        args: [newStartAt, newEndAt, ts, workspaceId, entry.subjectId],
+      },
+      {
+        sql: `UPDATE ${TABLES.visitExecutionItems}
+              SET due_at = ?, updated_at = ?
+              WHERE workspace_id = ? AND visit_id = ? AND status IN ('ready', 'active')`,
+        args: [newEndAt, ts, workspaceId, entry.subjectId],
+      },
+    ] : []),
+  ]);
 }
 
 /**

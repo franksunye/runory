@@ -1,7 +1,7 @@
 "use client";
 
 import { Suspense, useCallback, useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import {
   ArrowLeft,
   Loader2,
@@ -18,6 +18,16 @@ interface FormDef {
   form_key: string;
   name: string;
   status: string;
+}
+
+interface FormBindingRecord {
+  id: string;
+  form_definition_id: string;
+  usage_type: string;
+  usage_key: string | null;
+  label_override: string | null;
+  requirement_policy: "required" | "optional";
+  timing_json: string | null;
 }
 
 interface Toast {
@@ -44,6 +54,7 @@ export default function BindingEditorPage() {
 function BindingEditor() {
   const workspaceId = useParams().workspaceId as string;
   const router = useRouter();
+  const editBindingId = useSearchParams().get("edit");
   const { t } = useI18n();
 
   const [definitions, setDefinitions] = useState<FormDef[]>([]);
@@ -53,10 +64,13 @@ function BindingEditor() {
 
   // Form state
   const [formDefinitionId, setFormDefinitionId] = useState("");
-  const [usageType, setUsageType] = useState("workflow_step");
-  const [usageKey, setUsageKey] = useState("");
+  const [usageType, setUsageType] = useState("service_deliverable");
+  const [usageKey, setUsageKey] = useState("service_visit_completion");
   const [labelOverride, setLabelOverride] = useState("");
   const [requirementPolicy, setRequirementPolicy] = useState<"required" | "optional">("required");
+  const [postSubmissionPolicy, setPostSubmissionPolicy] = useState<
+    "editable_after_submission" | "reason_required" | "approval_required"
+  >("reason_required");
 
   const showToast = useCallback((type: Toast["type"], message: string) => {
     setToast({ type, message });
@@ -66,22 +80,42 @@ function BindingEditor() {
   useEffect(() => {
     void (async () => {
       try {
-        const json = await apiFetch<{
+        const [json, bindingsJson] = await Promise.all([apiFetch<{
           success: boolean;
           error?: { message: string };
           data?: FormDef[];
         }>(`/api/workspaces/${workspaceId}/forms/definitions`, {
           cache: "no-store",
-        });
+        }), apiFetch<{ success: boolean; data?: FormBindingRecord[] }>(
+          `/api/workspaces/${workspaceId}/forms/bindings`,
+          { cache: "no-store" }
+        )]);
         if (!json.success) throw new Error(json.error?.message ?? "Load failed");
         setDefinitions(json.data ?? []);
+        if (editBindingId) {
+          const binding = bindingsJson.data?.find((candidate) => candidate.id === editBindingId);
+          if (!binding) throw new Error("Usage policy not found");
+          setFormDefinitionId(binding.form_definition_id);
+          setUsageType(binding.usage_type);
+          setUsageKey(binding.usage_key ?? "");
+          setLabelOverride(binding.label_override ?? "");
+          setRequirementPolicy(binding.requirement_policy);
+          if (binding.timing_json) {
+            try {
+              const timing = JSON.parse(binding.timing_json) as { postSubmissionPolicy?: typeof postSubmissionPolicy };
+              if (timing.postSubmissionPolicy) setPostSubmissionPolicy(timing.postSubmissionPolicy);
+            } catch {
+              // Legacy policies use the recommended default.
+            }
+          }
+        }
       } catch (e) {
         showToast("error", e instanceof Error ? e.message : "Load failed");
       } finally {
         setLoading(false);
       }
     })();
-  }, [workspaceId, showToast]);
+  }, [workspaceId, showToast, editBindingId]);
 
   const handleSave = async () => {
     if (!formDefinitionId) {
@@ -98,6 +132,7 @@ function BindingEditor() {
           usageKey: usageKey || undefined,
           labelOverride: labelOverride || undefined,
           requirementPolicy,
+          timing: { postSubmissionPolicy },
         }
       );
       if (!json.success) throw new Error(json.error?.message ?? "Create failed");
@@ -148,8 +183,11 @@ function BindingEditor() {
         <div className="flex-1">
           <p className="app-eyebrow">{t("forms.eyebrow")}</p>
           <h1 className="mt-1 text-2xl font-bold tracking-tight text-slate-950">
-            {t("forms.createBinding")}
+            {editBindingId ? "Edit usage policy" : t("forms.createBinding")}
           </h1>
+          <p className="mt-1 text-sm text-slate-500">
+            Choose where this form becomes required in a business process.
+          </p>
         </div>
         <button
           type="button"
@@ -176,6 +214,7 @@ function BindingEditor() {
           <select
             value={formDefinitionId}
             onChange={(e) => setFormDefinitionId(e.target.value)}
+            disabled={Boolean(editBindingId)}
             className="app-input h-9"
           >
             <option value="">Select a form definition</option>
@@ -197,7 +236,14 @@ function BindingEditor() {
               <button
                 key={ut.value}
                 type="button"
-                onClick={() => setUsageType(ut.value)}
+                onClick={() => {
+                  setUsageType(ut.value);
+                  if (ut.value === "service_deliverable") {
+                    setUsageKey("service_visit_completion");
+                  } else if (usageType === "service_deliverable") {
+                    setUsageKey("");
+                  }
+                }}
                 className={`flex items-center gap-2 rounded-lg border px-3 py-2.5 text-left text-sm transition ${
                   usageType === ut.value
                     ? "border-indigo-300 bg-indigo-50 text-indigo-700"
@@ -211,10 +257,28 @@ function BindingEditor() {
           </div>
         </div>
 
-        {/* Usage Key */}
+        {/* Business scope. v0.5 exposes the governed Visit completion point;
+            technical keys remain available only for advanced contexts. */}
+        {usageType === "service_deliverable" ? (
+          <div>
+            <label className="mb-1 block text-xs font-semibold text-slate-600">
+              Required at
+            </label>
+            <select
+              value={usageKey}
+              onChange={(e) => setUsageKey(e.target.value)}
+              className="app-input h-9"
+            >
+              <option value="service_visit_completion">{t("forms.policyEveryVisit")}</option>
+            </select>
+            <p className="mt-1 text-[11px] leading-5 text-slate-400">
+              The active form version is copied to the Visit at dispatch, so later edits never change work already assigned.
+            </p>
+          </div>
+        ) : (
         <div>
           <label className="mb-1 block text-xs font-semibold text-slate-600">
-            Usage Key <span className="text-slate-400">(optional)</span>
+            {t("forms.policyTechnicalKey")} <span className="text-slate-400">(optional)</span>
           </label>
           <input
             type="text"
@@ -233,6 +297,7 @@ function BindingEditor() {
             </p>
           )}
         </div>
+        )}
 
         {/* Label Override */}
         <div>
@@ -268,6 +333,54 @@ function BindingEditor() {
                 }`}
               >
                 {p}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Post-submission corrections are governed by the usage context, not
+            the reusable form definition. */}
+        <div>
+          <label className="mb-1 block text-xs font-semibold text-slate-600">
+            After submission
+          </label>
+          <div className="space-y-2">
+            {([
+              {
+                value: "editable_after_submission" as const,
+                label: "Editable",
+                description: "Authorized users can create a new revision without entering a reason.",
+              },
+              {
+                value: "reason_required" as const,
+                label: "Reason required",
+                description: "Creates an auditable revision and requires a correction reason. Recommended for field service.",
+              },
+              {
+                value: "approval_required" as const,
+                label: "Approval required",
+                description: "The revised submission remains pending until a reviewer accepts it.",
+              },
+            ]).map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                onClick={() => setPostSubmissionPolicy(option.value)}
+                className={`flex w-full items-start gap-3 rounded-xl border px-4 py-3 text-left transition ${
+                  postSubmissionPolicy === option.value
+                    ? "border-indigo-300 bg-indigo-50"
+                    : "border-slate-200 bg-white hover:border-slate-300"
+                }`}
+              >
+                <span className={`mt-0.5 grid size-4 shrink-0 place-items-center rounded-full border ${
+                  postSubmissionPolicy === option.value ? "border-indigo-600" : "border-slate-300"
+                }`}>
+                  {postSubmissionPolicy === option.value && <span className="size-2 rounded-full bg-indigo-600" />}
+                </span>
+                <span>
+                  <span className="block text-sm font-semibold text-slate-800">{option.label}</span>
+                  <span className="mt-0.5 block text-xs leading-5 text-slate-500">{option.description}</span>
+                </span>
               </button>
             ))}
           </div>

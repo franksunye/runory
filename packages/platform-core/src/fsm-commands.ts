@@ -26,8 +26,7 @@ import {
   type CommandActor,
   type CommandHandlerResult,
 } from "./command-runtime";
-import { proposeAssignment, assignAssignment, acceptAssignment, releaseAssignment } from "./assignment";
-import { planSchedule, confirmSchedule, cancelSchedule } from "./schedule";
+import { detectConflicts } from "./schedule";
 
 // Re-export CommandActor so consumers of fsm-commands do not need to depend
 // on command-runtime directly for the actor type.
@@ -278,38 +277,130 @@ export async function createVisit(
         );
       }
 
+      // A Visit is created only through Plan & dispatch. It is deliberately
+      // not an empty child record: resource and a real time window are both
+      // required, and the delivery requirements are snapshotted below.
+      if (!visitData?.technicianId || !visitData.scheduledStart || !visitData.scheduledEnd) {
+        throw new BusinessError(
+          ERROR_CODES.REQUIRED_INPUT_MISSING,
+          "REQUIRED_INPUT_MISSING: Plan & dispatch requires a technician, scheduled start, and scheduled end.",
+          400
+        );
+      }
+      if (visitData.scheduledEnd <= visitData.scheduledStart) {
+        throw new BusinessError(
+          ERROR_CODES.INVALID_INPUT,
+          "INVALID_INPUT: Scheduled end must be after scheduled start.",
+          400
+        );
+      }
+
+      // `technician_id` is the business-record ID while assignment/schedule
+      // operate on a resource ID. Resolve the relationship once, before the
+      // command batch is built; never leak a technician record ID into a
+      // resource foreign key.
+      const technician = await queryOne<{ id: string; resource_id: string | null }>(
+        `SELECT id, resource_id FROM ${businessTable("technician")}
+         WHERE workspace_id = ? AND id = ?`,
+        [workspaceId, visitData.technicianId]
+      );
+      if (!technician?.resource_id) {
+        throw new BusinessError(
+          ERROR_CODES.INVALID_INPUT,
+          "INVALID_INPUT: The selected technician is not linked to an active dispatch resource.",
+          400
+        );
+      }
+      const resource = await queryOne<{ id: string; user_id: string | null }>(
+        `SELECT id, user_id FROM ${TABLES.resources}
+         WHERE workspace_id = ? AND id = ? AND active = 1`,
+        [workspaceId, technician.resource_id]
+      );
+      if (!resource) {
+        throw new BusinessError(
+          ERROR_CODES.INVALID_INPUT,
+          "INVALID_INPUT: The selected technician resource is inactive or unavailable.",
+          400
+        );
+      }
+
+      // Required deliverables are configuration, not an optional runtime
+      // hint. The active form version is copied to the Visit requirement so a
+      // later form edit cannot silently change a dispatched job.
+      const requirements = await queryAll<{
+        binding_id: string;
+        form_definition_id: string;
+        form_version_id: string;
+        label: string | null;
+      }>(
+        `SELECT b.id AS binding_id, b.form_definition_id,
+                d.active_version_id AS form_version_id,
+                COALESCE(b.label_override, d.name) AS label
+         FROM ${TABLES.formBindings} b
+         JOIN ${TABLES.formDefinitions} d
+           ON d.workspace_id = b.workspace_id AND d.id = b.form_definition_id
+         WHERE b.workspace_id = ?
+           AND b.active = 1
+           AND b.usage_type = 'service_deliverable'
+           AND b.usage_key = 'service_visit_completion'
+           AND b.requirement_policy = 'required'
+           AND d.status = 'active'
+           AND d.active_version_id IS NOT NULL`,
+        [workspaceId]
+      );
+      if (requirements.length === 0) {
+        throw new BusinessError(
+          ERROR_CODES.REQUIRED_INPUT_MISSING,
+          "REQUIRED_INPUT_MISSING: Configure at least one required Service Visit completion form before dispatching work.",
+          400
+        );
+      }
+
       const visitId = genId("visit");
+      const assignmentId = genId("asgn");
+      const scheduleEntryId = genId("sched");
+      const executionItemId = genId("vexec");
       const ts = now();
-
-      // Side effects: propose assignment and plan schedule if data is provided
-      let assignmentId: string | null = null;
-      let scheduleEntryId: string | null = null;
-
-      if (visitData?.technicianId) {
-        const result = await proposeAssignment(workspaceId, {
-          subjectType: "service_visit",
-          subjectId: visitId,
-          resourceId: visitData.technicianId,
-          proposedBy: actor.id,
-        });
-        assignmentId = result.assignmentId;
-      }
-
-      if (visitData?.scheduledStart) {
-        const result = await planSchedule(workspaceId, {
-          subjectType: "service_visit",
-          subjectId: visitId,
-          resourceId: visitData.technicianId ?? wo.owner_resource_id ?? "unassigned",
-          startAt: visitData.scheduledStart,
-          endAt: visitData.scheduledEnd ?? visitData.scheduledStart,
-        });
-        scheduleEntryId = result.scheduleEntryId;
-      }
+      const requirementSnapshots = requirements.map((requirement) => ({
+        ...requirement,
+        requirementId: genId("vreq"),
+        workItemId: genId("wi"),
+      }));
+      const conflicts = await detectConflicts(
+        workspaceId,
+        resource.id,
+        visitData.scheduledStart,
+        visitData.scheduledEnd
+      );
+      const hasConflict = conflicts.length > 0;
 
       const newVersion = wo.aggregate_version + 1;
       const newWoStatus = wo.status === "triaged" ? "planned" : wo.status;
 
       const statements: Array<{ sql: string; args?: unknown[] }> = [
+        // Assignment and schedule are part of the same command transaction as
+        // the Visit. A failed command therefore cannot leave orphaned slots or
+        // assignments behind.
+        {
+          sql: `INSERT INTO ${TABLES.assignments}
+                (id, workspace_id, subject_type, subject_id, resource_id, role_key,
+                 status, proposed_by, effective_from, version, created_at, updated_at)
+                VALUES (?, ?, 'service_visit', ?, ?, 'primary', 'assigned', ?, ?, 1, ?, ?)`,
+          args: [assignmentId, workspaceId, visitId, resource.id, actor.id, visitData.scheduledStart, ts, ts],
+        },
+        {
+          sql: `INSERT INTO ${TABLES.scheduleEntries}
+                (id, workspace_id, subject_type, subject_id, resource_id, start_at, end_at,
+                 timezone, status, conflict_state, version, created_at, updated_at)
+                VALUES (?, ?, 'service_visit', ?, ?, ?, ?, 'UTC', ?, ?, 1, ?, ?)`,
+          args: [
+            scheduleEntryId, workspaceId, visitId, resource.id,
+            visitData.scheduledStart, visitData.scheduledEnd,
+            hasConflict ? "tentative" : "confirmed",
+            hasConflict ? "conflict" : "none",
+            ts, ts,
+          ],
+        },
         // Create the service visit (v1.1 schema with aggregate_version, assignment_id, schedule_entry_id, outcome)
         {
           sql: `INSERT INTO ${businessTable("service_visit")}
@@ -323,14 +414,51 @@ export async function createVisit(
             visitData?.title ?? wo.title,
             workOrderId,
             visitData?.technicianId ?? null,
-            visitData?.scheduledStart ?? now(),
-            visitData?.scheduledEnd ?? null,
+            visitData.scheduledStart,
+            visitData.scheduledEnd,
             visitData?.notes ?? null,
             assignmentId,
             scheduleEntryId,
             ts, ts,
           ],
         },
+        {
+          sql: `INSERT INTO ${TABLES.visitExecutionItems}
+                (id, workspace_id, visit_id, resource_id, assignment_id, schedule_entry_id,
+                 status, due_at, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, 'ready', ?, ?, ?)`,
+          args: [executionItemId, workspaceId, visitId, resource.id, assignmentId, scheduleEntryId, visitData.scheduledEnd, ts, ts],
+        },
+        ...requirementSnapshots.flatMap((requirement) => [
+          {
+            // A lightweight execution work item gives the mobile form runner a
+            // durable, permissioned entry point without inventing a second
+            // form experience. Its special instance namespace is completed by
+            // the workflow runtime's visit-execution branch.
+            sql: `INSERT INTO ${TABLES.workItems}
+                  (id, workspace_id, instance_id, step_id, kind, status,
+                   subject_type, subject_id, assignee_type, assignee_id,
+                   candidate_rule_json, form_binding_id, due_at, version, created_at, updated_at)
+                  VALUES (?, ?, ?, ?, 'human_task', 'ready', 'service_visit', ?, ?, ?, NULL, ?, ?, 1, ?, ?)`,
+            args: [
+              requirement.workItemId, workspaceId, `visit_execution:${visitId}`,
+              requirement.requirementId, visitId,
+              resource.user_id ? "user" : null, resource.user_id,
+              requirement.binding_id, visitData.scheduledEnd, ts, ts,
+            ],
+          },
+          {
+          sql: `INSERT INTO ${TABLES.visitExecutionRequirements}
+                (id, workspace_id, visit_id, binding_id, form_definition_id, form_version_id,
+                 label, requirement_policy, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, 'required', ?)`,
+          args: [
+            requirement.requirementId, workspaceId, visitId, requirement.binding_id,
+            requirement.form_definition_id, requirement.form_version_id,
+            requirement.label ?? "Required service deliverable", ts,
+          ],
+          },
+        ]),
         // Update work order (bump version, set to planned if was triaged)
         {
           sql: `UPDATE ${businessTable("work_order")}
@@ -352,17 +480,23 @@ export async function createVisit(
           aggregateType: "work_order",
           aggregateId: workOrderId,
           eventType: "work_order.visit_created",
-          payload: { workOrderId, visitId, technicianId: visitData?.technicianId, assignmentId, scheduleEntryId },
+          payload: {
+            workOrderId, visitId, technicianId: visitData.technicianId,
+            resourceId: resource.id, assignmentId, scheduleEntryId,
+            executionItemId, requirementCount: requirementSnapshots.length,
+            conflictState: hasConflict ? "conflict" : "none",
+          },
         }],
         audit: {
           action: "work_order.create_visit",
           entityType: "work_order",
           entityId: workOrderId,
           before: { status: wo.status, aggregate_version: wo.aggregate_version },
-          after: { status: newWoStatus, aggregate_version: newVersion, visitId },
+          after: { status: newWoStatus, aggregate_version: newVersion, visitId, executionItemId },
         },
         aggregate: updatedWo,
         newVersion,
+        workItemIds: [executionItemId, ...requirementSnapshots.map((requirement) => requirement.workItemId)],
       } as CommandHandlerResult<Partial<WorkOrderRecord>>;
     }
   );
@@ -940,6 +1074,21 @@ export async function startTravel(
         );
       }
 
+      const schedule = visit.schedule_entry_id
+        ? await queryOne<{ status: string; conflict_state: string }>(
+            `SELECT status, conflict_state FROM ${TABLES.scheduleEntries}
+             WHERE workspace_id = ? AND id = ?`,
+            [workspaceId, visit.schedule_entry_id]
+          )
+        : null;
+      if (!schedule || schedule.status !== "confirmed" || schedule.conflict_state === "conflict") {
+        throw new BusinessError(
+          ERROR_CODES.SCHEDULE_CONFLICT,
+          "SCHEDULE_CONFLICT: Resolve or explicitly reschedule this visit before starting travel.",
+          409
+        );
+      }
+
       const ts = now();
       const newVersion = visit.aggregate_version + 1;
 
@@ -949,6 +1098,12 @@ export async function startTravel(
                 SET status = 'en_route', actual_start = ?, aggregate_version = ?, updated_at = ?
                 WHERE workspace_id = ? AND id = ?`,
           args: [ts, newVersion, ts, workspaceId, visitId],
+        },
+        {
+          sql: `UPDATE ${TABLES.visitExecutionItems}
+                SET status = 'active', updated_at = ?
+                WHERE workspace_id = ? AND visit_id = ? AND status = 'ready'`,
+          args: [ts, workspaceId, visitId],
         },
       ];
 
@@ -1162,18 +1317,42 @@ export async function completeVisit(
         );
       }
 
-      // Verify required forms are accepted (check for submitted-but-not-accepted forms)
-      const pendingForms = await queryOne<{ count: number }>(
-        `SELECT COUNT(*) as count FROM ${TABLES.formSubmissions}
-         WHERE workspace_id = ? AND subject_type = 'service_visit' AND subject_id = ?
-           AND status = 'submitted'`,
+      // A Visit carries an immutable set of required deliverables created by
+      // Plan & dispatch. Completion requires a valid submitted (or accepted)
+      // submission for every snapshot — zero forms is therefore never enough.
+      const requirementTotal = await queryOne<{ count: number }>(
+        `SELECT COUNT(*) AS count FROM ${TABLES.visitExecutionRequirements}
+         WHERE workspace_id = ? AND visit_id = ?`,
         [workspaceId, visitId]
       );
-      if (pendingForms && pendingForms.count > 0) {
+      if ((requirementTotal?.count ?? 0) === 0) {
         throw new BusinessError(
-          ERROR_CODES.INVALID_TRANSITION,
-          `INVALID_TRANSITION: Cannot complete visit with ${pendingForms.count} submitted-but-not-accepted form(s). All forms must be accepted first.`,
-          409
+          ERROR_CODES.REQUIRED_INPUT_MISSING,
+          "REQUIRED_INPUT_MISSING: This visit has no dispatched delivery requirements and cannot be completed. Re-plan the visit through Plan & dispatch.",
+          400
+        );
+      }
+      const missingRequirements = await queryOne<{ count: number }>(
+        `SELECT COUNT(*) AS count
+         FROM ${TABLES.visitExecutionRequirements} requirement
+         WHERE requirement.workspace_id = ? AND requirement.visit_id = ?
+           AND NOT EXISTS (
+             SELECT 1 FROM ${TABLES.formSubmissions} submission
+             WHERE submission.workspace_id = requirement.workspace_id
+               AND submission.subject_type = 'service_visit'
+               AND submission.subject_id = requirement.visit_id
+               AND submission.binding_id = requirement.binding_id
+               AND submission.form_definition_id = requirement.form_definition_id
+               AND submission.form_version_id = requirement.form_version_id
+               AND submission.status IN ('submitted', 'accepted')
+           )`,
+        [workspaceId, visitId]
+      );
+      if ((missingRequirements?.count ?? 0) > 0) {
+        throw new BusinessError(
+          ERROR_CODES.REQUIRED_INPUT_MISSING,
+          `REQUIRED_INPUT_MISSING: Cannot complete visit until ${missingRequirements!.count} required checklist/evidence form(s) are submitted.`,
+          400
         );
       }
 
@@ -1186,6 +1365,12 @@ export async function completeVisit(
                 SET status = 'completed', actual_end = ?, aggregate_version = ?, updated_at = ?
                 WHERE workspace_id = ? AND id = ?`,
           args: [ts, newVersion, ts, workspaceId, visitId],
+        },
+        {
+          sql: `UPDATE ${TABLES.visitExecutionItems}
+                SET status = 'completed', completed_at = ?, updated_at = ?
+                WHERE workspace_id = ? AND visit_id = ? AND status IN ('ready', 'active')`,
+          args: [ts, ts, workspaceId, visitId],
         },
       ];
 
@@ -1265,6 +1450,19 @@ export async function cancelVisit(
                     aggregate_version = ?, updated_at = ?
                 WHERE workspace_id = ? AND id = ?`,
           args: [`[CANCELLED: ${reason}]`, newVersion, ts, workspaceId, visitId],
+        },
+        {
+          sql: `UPDATE ${TABLES.visitExecutionItems}
+                SET status = 'cancelled', updated_at = ?
+                WHERE workspace_id = ? AND visit_id = ? AND status IN ('ready', 'active')`,
+          args: [ts, workspaceId, visitId],
+        },
+        {
+          sql: `UPDATE ${TABLES.scheduleEntries}
+                SET status = 'cancelled', version = version + 1, updated_at = ?
+                WHERE workspace_id = ? AND subject_type = 'service_visit' AND subject_id = ?
+                  AND status IN ('tentative', 'confirmed')`,
+          args: [ts, workspaceId, visitId],
         },
       ];
 

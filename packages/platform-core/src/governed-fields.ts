@@ -145,6 +145,11 @@ registerGovernedFields("work_order", [
   "completion_reason",
   "cancellation_reason",
   "reopen_reason",
+  // A work order's operational owner and appointment are projections of the
+  // Visit assignment/schedule. They must never be edited independently.
+  "assigned_to",
+  "scheduled_start",
+  "scheduled_end",
 ]);
 
 registerAggregateCommands("work_order", [

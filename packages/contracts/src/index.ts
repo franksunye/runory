@@ -252,6 +252,66 @@ export const modulePresentationSchema = z.object({
 
 export type ModulePresentation = z.infer<typeof modulePresentationSchema>;
 
+// ── Contract-Driven Commands ──
+//
+// Modules declare business semantics, while Runtime providers own physical
+// persistence. Keeping capability effects semantic lets independently
+// versioned Modules and Packs compose without embedding cross-module SQL in a
+// manifest.
+export const commandConsistencySchema = z.enum(["atomic", "outbox", "projection"]);
+
+export const aggregateContractSchema = z.object({
+  key: z.string().min(1),
+  stateField: z.string().min(1),
+  versionField: z.string().min(1),
+});
+
+export const commandEffectRequirementSchema = z.object({
+  capability: z.string().min(1),
+  version: z.string().default("*"),
+  scope: z.string().min(1),
+  consistency: commandConsistencySchema,
+  cardinality: z.enum(["one", "zero_or_one", "one_or_more", "zero_or_more"]).default("one"),
+});
+
+export const commandContractSchema = z.object({
+  key: z.string().min(1),
+  contractVersion: z.string().min(1),
+  aggregate: z.string().min(1),
+  transition: z.object({
+    from: z.array(z.string().min(1)).min(1),
+    to: z.string().min(1),
+  }),
+  permission: z.string().min(1),
+  idempotent: z.boolean().default(true),
+  requiresExpectedVersion: z.boolean().default(true),
+  requiredEffects: z.array(commandEffectRequirementSchema).default([]),
+  emits: z.array(z.string().min(1)).min(1),
+  auditRequired: z.boolean().default(true),
+  postconditions: z.array(z.string().min(1)).min(1),
+});
+
+export const commandCapabilityProviderDeclarationSchema = z.object({
+  capability: z.string().min(1),
+  version: z.string().min(1),
+  consistency: commandConsistencySchema,
+});
+
+export const moduleDomainContractSchema = z.object({
+  aggregates: z.array(aggregateContractSchema).default([]),
+  commands: z.array(commandContractSchema).default([]),
+  capabilities: z.object({
+    provides: z.array(commandCapabilityProviderDeclarationSchema).default([]),
+  }).optional(),
+});
+
+export type CommandConsistency = z.infer<typeof commandConsistencySchema>;
+export type AggregateContract = z.infer<typeof aggregateContractSchema>;
+export type CommandEffectRequirement = z.infer<typeof commandEffectRequirementSchema>;
+export type CommandContract = z.infer<typeof commandContractSchema>;
+export type CommandCapabilityProviderDeclaration = z.infer<typeof commandCapabilityProviderDeclarationSchema>;
+export type ModuleDomainContract = z.infer<typeof moduleDomainContractSchema>;
+
 export const moduleManifestSchema = z.object({
   id: z.string(),
   name: z.string(),
@@ -287,6 +347,7 @@ export const moduleManifestSchema = z.object({
     })).optional(),
   }).optional(),
   presentation: modulePresentationSchema.optional(),
+  domain: moduleDomainContractSchema.optional(),
   extensionPoints: extensionPointSchema.optional(),
   dashboard: moduleDashboardSchema.optional(),
   upgradePolicy: z.object({

@@ -20,6 +20,7 @@ import type { WorkspaceSurfaceKey } from "@runory/contracts";
 import { useI18n } from "@/i18n/locale-provider";
 import type { MessageKey } from "@/i18n/messages";
 import UserAvatar from "./UserAvatar";
+import PersonaSwitcher from "./PersonaSwitcher";
 
 // ── Types ──
 
@@ -136,6 +137,7 @@ function getRoleDisplay(role: string, t: TFunc) {
 
 const MANAGEMENT_ROUTES = [
   "/manage", "/modules", "/customize", "/members",
+  "/workflows", "/automations", "/forms", "/outbox", "/migration",
   "/audit", "/trash", "/export", "/api-keys", "/settings", "/billing",
 ];
 
@@ -596,6 +598,10 @@ export default function NavigationShell({
               <ArrowLeft size={18} />
               <span>{t("workspace.nav.myWorkspaces")}</span>
             </Link>
+
+            <div className="my-1 border-t border-slate-100" />
+
+            <PersonaSwitcher variant="account" />
 
             <div className="my-1 border-t border-slate-100" />
 

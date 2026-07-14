@@ -25,7 +25,7 @@ const MANAGE_CARDS: ManageCard[] = [
   { titleKey: "manage.customize", descriptionKey: "manage.customizeDesc", route: "/customize", icon: SlidersHorizontal },
   { titleKey: "manage.workflows", descriptionKey: "manage.workflowsDesc", route: "/workflows", icon: GitBranch },
   { titleKey: "manage.automations", descriptionKey: "manage.automationsDesc", route: "/automations", icon: Zap },
-  { titleKey: "manage.forms", descriptionKey: "manage.formsDesc", route: "/forms", icon: FileText },
+  { titleKey: "forms.title", descriptionKey: "forms.subtitle", route: "/forms", icon: FileText },
   { titleKey: "manage.outbox", descriptionKey: "manage.outboxDesc", route: "/outbox", icon: Inbox },
   { titleKey: "manage.migration", descriptionKey: "manage.migrationDesc", route: "/migration", icon: ArrowLeft },
   { titleKey: "manage.members", descriptionKey: "manage.membersDesc", route: "/members", icon: Users },

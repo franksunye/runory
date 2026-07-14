@@ -189,6 +189,22 @@ Runory is internationalized from the first Cloud release. English (`en`) is the 
 
 Detailed specification: [internationalization.md](internationalization.md).
 
+## ADR-035: Governed business change is Contract-driven and Command-owned
+
+Named Commands are the only entry point for governed business change. A
+machine-readable Command Contract declares the aggregate transition, required
+atomic capability effects, events, permissions, idempotency/version policy, and
+postconditions. Command Runtime validates the Contract, resolves installed
+providers, and commits all authoritative local effects in one transaction.
+
+Workflow and Automation orchestrate Commands and may not bypass them with generic
+field updates. External effects use Outbox; rebuildable read models use durable
+projections. Module/Pack publication, installation, upgrade, and uninstall must
+validate the complete Command/provider capability closure.
+
+Detailed specification:
+[contract-driven-command-architecture.md](contract-driven-command-architecture.md).
+
 The complete SaaS rationale, deferred scope, and acceptance definition are maintained in [../07-saas-core-boundaries.md](../07-saas-core-boundaries.md).
 
 ## Deprecated / Historical

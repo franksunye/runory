@@ -31,8 +31,10 @@ export async function POST(
       subjectId?: string;
       workItemId?: string;
       bindingId?: string;
+      formVersionId?: string;
       answers: Record<string, unknown>;
       supersedesSubmissionId?: string;
+      draftSubmissionId?: string;
     };
 
     if (!body?.formDefinitionId || !body?.answers) {
@@ -52,9 +54,11 @@ export async function POST(
         subjectId: body.subjectId,
         workItemId: body.workItemId,
         bindingId: body.bindingId,
+        formVersionId: body.formVersionId,
         answers: body.answers,
         submittedBy: userId,
         supersedesSubmissionId: body.supersedesSubmissionId,
+        draftSubmissionId: body.draftSubmissionId,
       },
       idempotencyKey,
       ctx.requestId

@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Users, Check, ChevronDown, Loader2, LogIn } from "lucide-react";
+import { createPortal } from "react-dom";
+import { Users, Check, ChevronDown, ChevronRight, Loader2, LogIn } from "lucide-react";
 import { useI18n } from "@/i18n/locale-provider";
 import type { MessageKey } from "@/i18n/messages";
 import UserAvatar from "./UserAvatar";
@@ -47,7 +48,7 @@ const PERSONA_DESCRIPTION_KEYS: Record<string, MessageKey> = {
   "persona:supervisor": "persona.desc.supervisor",
 };
 
-export default function PersonaSwitcher() {
+export default function PersonaSwitcher({ variant = "floating" }: { variant?: "floating" | "account" }) {
   const { t } = useI18n();
   const pathname = usePathname();
   const [personas, setPersonas] = useState<Persona[]>([]);
@@ -57,7 +58,11 @@ export default function PersonaSwitcher() {
   const [loaded, setLoaded] = useState(false);
   const [workspaceRole, setWorkspaceRole] = useState<string | null>(null);
   const [accessSummary, setAccessSummary] = useState<AccessSummary | null>(null);
+  const [mounted, setMounted] = useState(false);
+  const [accountPanelPosition, setAccountPanelPosition] = useState<{ left: number; bottom: number } | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const accountTriggerRef = useRef<HTMLButtonElement>(null);
+  const accountPanelRef = useRef<HTMLDivElement>(null);
   const workspaceId = pathname?.match(/^\/w\/([^/]+)/)?.[1] ?? null;
 
   const fetchPersonas = useCallback(async () => {
@@ -76,6 +81,10 @@ export default function PersonaSwitcher() {
   useEffect(() => {
     void fetchPersonas();
   }, [fetchPersonas]);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     if (!workspaceId) {
@@ -100,13 +109,33 @@ export default function PersonaSwitcher() {
   useEffect(() => {
     if (!open) return;
     const handleClickOutside = (e: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+      const target = e.target as Node;
+      if (!dropdownRef.current?.contains(target) && !accountPanelRef.current?.contains(target)) {
         setOpen(false);
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [open]);
+
+  useEffect(() => {
+    if (variant !== "account" || !open) return;
+    const updatePosition = () => {
+      const rect = accountTriggerRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      setAccountPanelPosition({
+        left: Math.min(rect.right + 8, Math.max(8, window.innerWidth - 336)),
+        bottom: Math.max(8, window.innerHeight - rect.bottom),
+      });
+    };
+    updatePosition();
+    window.addEventListener("resize", updatePosition);
+    window.addEventListener("scroll", updatePosition, true);
+    return () => {
+      window.removeEventListener("resize", updatePosition);
+      window.removeEventListener("scroll", updatePosition, true);
+    };
+  }, [open, variant]);
 
   const handleSelect = useCallback(
     async (personaId: string) => {
@@ -140,6 +169,11 @@ export default function PersonaSwitcher() {
   // Don't render until we've confirmed the endpoint is available
   if (!loaded) return null;
 
+  // Workspace pages provide the switcher through the account menu. Keep the
+  // global control available on non-workspace surfaces such as the workspace
+  // dashboard, where that menu does not exist.
+  if (variant === "floating" && pathname?.startsWith("/w/")) return null;
+
   const currentPersona = personas.find((p) => p.id === current) ?? personas[0];
   const roleLabelKey: Record<string, MessageKey> = {
     owner: "workspace.nav.roleOwner",
@@ -150,113 +184,109 @@ export default function PersonaSwitcher() {
   const currentRoleLabel = workspaceRole && roleLabelKey[workspaceRole]
     ? t(roleLabelKey[workspaceRole])
     : null;
-  const isMobileWorkspace = pathname?.startsWith("/m/w/");
-
-  return (
-    <div
-      ref={dropdownRef}
-      className={`fixed right-4 z-[9999] ${isMobileWorkspace ? "bottom-20" : "bottom-4"}`}
-    >
-      {/* Dropdown panel */}
-      {open && (
-        <div className="mb-2 w-72 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl">
-          <div className="border-b border-slate-100 px-4 py-3">
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-              {t("persona.title")}
+  const panel = (
+    <>
+      <div className="border-b border-slate-100 px-4 py-3">
+        <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">{t("persona.title")}</p>
+        <p className="mt-0.5 text-sm font-semibold text-slate-800">
+          {t("persona.viewingAs", { name: currentPersona?.label ?? t("persona.trigger") })}
+        </p>
+        <p className="mt-0.5 text-[11px] text-slate-400">{t("persona.hint")}</p>
+        {currentRoleLabel && (
+          <p className="mt-2 rounded-md bg-indigo-50 px-2 py-1.5 text-[11px] font-semibold text-indigo-700">
+            {t("persona.workspaceAccess", { role: currentRoleLabel })}
+          </p>
+        )}
+        {accessSummary && (
+          <div className="mt-2 rounded-md border border-slate-100 bg-slate-50 px-2 py-1.5 text-[11px] text-slate-600">
+            <p className="font-semibold text-slate-700">
+              {accessSummary.recordScope === "all" ? t("persona.dataScopeAll") : t("persona.dataScopeAssigned")}
             </p>
-            <p className="mt-0.5 text-[11px] text-slate-400">
-              {t("persona.hint")}
-            </p>
-            {currentRoleLabel && (
-              <p className="mt-2 rounded-md bg-indigo-50 px-2 py-1.5 text-[11px] font-semibold text-indigo-700">
-                {t("persona.workspaceAccess", { role: currentRoleLabel })}
+            {accessSummary.permissionGroups.length > 0 && (
+              <p className="mt-0.5 truncate text-slate-500">
+                {t("persona.permissionGroups", { groups: accessSummary.permissionGroups.map((group) => group.label).join(", ") })}
               </p>
             )}
-            {accessSummary && (
-              <div className="mt-2 rounded-md border border-slate-100 bg-slate-50 px-2 py-1.5 text-[11px] text-slate-600">
-                <p className="font-semibold text-slate-700">
-                  {accessSummary.recordScope === "all" ? t("persona.dataScopeAll") : t("persona.dataScopeAssigned")}
-                </p>
-                {accessSummary.permissionGroups.length > 0 && (
-                  <p className="mt-0.5 truncate text-slate-500">
-                    {t("persona.permissionGroups", { groups: accessSummary.permissionGroups.map((group) => group.label).join(", ") })}
-                  </p>
-                )}
-              </div>
-            )}
           </div>
-          <ul className="max-h-80 overflow-y-auto py-1">
-            {personas.map((persona) => {
-              const isActive = persona.id === current;
-              const descriptionKey = PERSONA_DESCRIPTION_KEYS[persona.id];
-              return (
-                <li key={persona.id}>
-                  <button
-                    type="button"
-                    disabled={switching}
-                    onClick={() => void handleSelect(persona.id)}
-                    className={`flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 ${
-                      isActive ? "bg-slate-50" : ""
-                    }`}
-                  >
-                    <UserAvatar name={persona.label} avatarUrl={persona.avatarUrl} size="md" />
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate font-medium text-slate-700">
-                        {persona.label}
-                      </span>
-                      {descriptionKey && (
-                        <span className="mt-0.5 block truncate text-[11px] text-slate-400">
-                          {t(descriptionKey)}
-                        </span>
-                      )}
-                    </span>
-                    {isActive && (
-                      <Check size={16} className={`shrink-0 ${TEXT_COLOR_CLASSES[persona.color] ?? "text-slate-500"}`} />
-                    )}
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-          <div className="border-t border-slate-100 bg-slate-50 px-4 py-3">
-            <Link
-              href="/login"
-              className="inline-flex items-center gap-1.5 text-xs font-semibold text-indigo-600 hover:text-indigo-700"
-              onClick={() => setOpen(false)}
-            >
-              <LogIn size={13} />
-              {t("persona.otpLogin")}
-            </Link>
-            <p className="mt-1 text-[11px] leading-4 text-slate-400">
-              {t("persona.otpLoginHint")}
-            </p>
-          </div>
-        </div>
-      )}
-
-      {/* Trigger button */}
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        disabled={switching}
-        className="flex items-center gap-2.5 rounded-full border border-slate-200 bg-white px-4 py-2.5 shadow-lg transition hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-60"
-        title={t("persona.title")}
-      >
-        {switching ? (
-          <Loader2 size={18} className="animate-spin text-slate-500" />
-        ) : (
-          <Users size={18} className="text-slate-600" />
         )}
+      </div>
+      <ul className="max-h-80 overflow-y-auto py-1">
+        {personas.map((persona) => {
+          const isActive = persona.id === current;
+          const descriptionKey = PERSONA_DESCRIPTION_KEYS[persona.id];
+          return (
+            <li key={persona.id}>
+              <button
+                type="button"
+                disabled={switching}
+                onClick={() => void handleSelect(persona.id)}
+                className={`flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 ${isActive ? "bg-slate-50" : ""}`}
+              >
+                <UserAvatar name={persona.label} avatarUrl={persona.avatarUrl} size="md" />
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate font-medium text-slate-700">{persona.label}</span>
+                  {descriptionKey && <span className="mt-0.5 block truncate text-[11px] text-slate-400">{t(descriptionKey)}</span>}
+                </span>
+                {isActive && <Check size={16} className={`shrink-0 ${TEXT_COLOR_CLASSES[persona.color] ?? "text-slate-500"}`} />}
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+      <div className="border-t border-slate-100 bg-slate-50 px-4 py-3">
+        <Link href="/login" className="inline-flex items-center gap-1.5 text-xs font-semibold text-indigo-600 hover:text-indigo-700" onClick={() => setOpen(false)}>
+          <LogIn size={13} />
+          {t("persona.otpLogin")}
+        </Link>
+        <p className="mt-1 text-[11px] leading-4 text-slate-400">{t("persona.otpLoginHint")}</p>
+      </div>
+    </>
+  );
+
+  if (variant === "account") {
+    return (
+      <div ref={dropdownRef} className="relative">
+        <button
+          ref={accountTriggerRef}
+          type="button"
+          onClick={() => setOpen((value) => !value)}
+          disabled={switching}
+          className="flex min-h-10 w-full items-center gap-3 rounded-lg px-3 text-left text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {switching ? <Loader2 size={18} className="animate-spin text-slate-500" /> : <Users size={18} />}
+          <span className="min-w-0 flex-1">
+            <span className="block">{t("persona.title")}</span>
+            <span className="block truncate text-[11px] font-normal text-slate-500">
+              {currentPersona ? t("persona.viewingAs", { name: currentPersona.label }) : t("persona.trigger")}
+            </span>
+          </span>
+          <ChevronRight size={17} className={`shrink-0 text-slate-400 transition-transform ${open ? "rotate-180" : ""}`} />
+        </button>
+        {open && mounted && accountPanelPosition && createPortal(
+          <div
+            ref={accountPanelRef}
+            className="fixed z-[9999] max-h-[calc(100vh-16px)] w-80 overflow-y-auto rounded-2xl border border-slate-200 bg-white shadow-[0_18px_50px_rgba(15,23,42,.18)]"
+            style={accountPanelPosition}
+          >
+            {panel}
+          </div>,
+          document.body,
+        )}
+      </div>
+    );
+  }
+
+  const isMobileWorkspace = pathname?.startsWith("/m/w/");
+  return (
+    <div ref={dropdownRef} className={`fixed right-4 z-[9999] ${isMobileWorkspace ? "bottom-20" : "bottom-4"}`}>
+      {open && <div className="mb-2 w-80 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl">{panel}</div>}
+      <button type="button" onClick={() => setOpen((value) => !value)} disabled={switching} className="flex items-center gap-2.5 rounded-full border border-slate-200 bg-white px-4 py-2.5 shadow-lg transition hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-60" title={t("persona.title")}>
+        {switching ? <Loader2 size={18} className="animate-spin text-slate-500" /> : <Users size={18} className="text-slate-600" />}
         <div className="flex items-center gap-2">
           {currentPersona && <UserAvatar name={currentPersona.label} avatarUrl={currentPersona.avatarUrl} size="sm" />}
-          <span className="text-sm font-semibold text-slate-700">
-            {currentPersona?.label ?? t("persona.trigger")}
-          </span>
+          <span className="text-sm font-semibold text-slate-700">{currentPersona?.label ?? t("persona.trigger")}</span>
         </div>
-        <ChevronDown
-          size={16}
-          className={`text-slate-400 transition-transform ${open ? "rotate-180" : ""}`}
-        />
+        <ChevronDown size={16} className={`text-slate-400 transition-transform ${open ? "rotate-180" : ""}`} />
       </button>
     </div>
   );

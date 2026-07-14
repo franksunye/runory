@@ -19,6 +19,11 @@ import { TABLES } from "./contracts";
 import { BusinessError } from "./context";
 import { ERROR_CODES } from "./errors";
 import { enqueueOutboxStatement } from "./outbox";
+import {
+  assertCommandHandlerMatchesContract,
+  prepareCommandContractEffects,
+  resolveRegisteredCommandPlan,
+} from "./command-contracts";
 
 // ── Types ──
 
@@ -237,6 +242,10 @@ export async function executeCommand<TAggregate = Record<string, unknown>>(
   handler: (envelope: CommandEnvelope) => Promise<CommandHandlerResult<TAggregate>>
 ): Promise<CommandResult<TAggregate>> {
   const inputHash = hashInput(envelope.input);
+  // Registered contracts fail closed before domain code runs. Commands that
+  // have not yet migrated to a manifest contract continue through the legacy
+  // compatibility path during the incremental rollout.
+  const contractPlan = resolveRegisteredCommandPlan(envelope.commandType);
 
   // ── Idempotency check ──
   const existing = await queryOne<{
@@ -278,10 +287,20 @@ export async function executeCommand<TAggregate = Record<string, unknown>>(
 
   // ── Execute handler ──
   const handlerResult = await handler(envelope);
+  let contractStatements: Array<{ sql: string; args?: unknown[] }> = [];
+  if (contractPlan) {
+    assertCommandHandlerMatchesContract(
+      contractPlan,
+      envelope,
+      handlerResult as CommandHandlerResult<unknown>,
+    );
+    contractStatements = await prepareCommandContractEffects(contractPlan, envelope);
+  }
 
   // ── Build the complete batch ──
   const allStatements: Array<{ sql: string; args?: unknown[] }> = [
     ...handlerResult.statements,
+    ...contractStatements,
   ];
 
   // Pre-generate event IDs so they match what gets persisted

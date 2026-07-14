@@ -10,6 +10,7 @@ Product definition: [../product/product-definition.md](../product/product-defini
 0.1 key experience scenarios: [../product/v0.1-key-experience-scenarios.md](../product/v0.1-key-experience-scenarios.md)  
 0.2 productization plan: [../product/v0.2-productization-plan.md](../product/v0.2-productization-plan.md)  
 Architecture decisions: [architecture-decision-record.md](architecture-decision-record.md)  
+Contract-driven Commands: [contract-driven-command-architecture.md](contract-driven-command-architecture.md)
 Repository structure: [repository-structure.md](repository-structure.md)
 Cloud to Local deployment: [cloud-to-local-workspace.md](cloud-to-local-workspace.md)  
 Current-stage architecture narrative: [../03-architecture.md](../03-architecture.md)
@@ -180,12 +181,18 @@ Data-change chain:
 User provides information
 → Agent understands and extracts it
 → governed API / MCP Tool
-→ Business Engine
-→ Database
-→ Business Event
+→ named Command
+→ machine-readable Command Contract
+→ Command Runtime (validation + atomic capability effects)
+→ authoritative state + Domain Event + Audit + Outbox
 → SSE / Query Refresh
 → Dynamic UI updates
 ```
+
+Governed business change follows the platform-wide **Command + Contract +
+Runtime** architecture. Workflow and Automation orchestrate named Commands; they
+do not replace domain invariants or mutate governed fields directly. See
+[Contract-Driven Command Architecture](contract-driven-command-architecture.md).
 
 ## Workspace Extension Position
 

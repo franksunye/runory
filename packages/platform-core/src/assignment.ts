@@ -12,7 +12,7 @@
 //   proposed → released
 
 import { genId, now, queryOne, queryAll, execute, batch as runBatch } from "./db";
-import { TABLES } from "./contracts";
+import { TABLES, businessTable } from "./contracts";
 import { BusinessError, NotFoundError } from "./context";
 import { ERROR_CODES } from "./errors";
 
@@ -244,6 +244,38 @@ export async function reassignAssignment(
     );
   }
 
+  const newResource = await queryOne<{ id: string }>(
+    `SELECT id FROM ${TABLES.resources} WHERE workspace_id = ? AND id = ? AND active = 1`,
+    [workspaceId, newResourceId]
+  );
+  if (!newResource) throw new NotFoundError(`Active resource not found: ${newResourceId}`);
+
+  const schedule = assignment.subjectType === "service_visit"
+    ? await queryOne<{ id: string; start_at: string; end_at: string }>(
+        `SELECT id, start_at, end_at FROM ${TABLES.scheduleEntries}
+         WHERE workspace_id = ? AND subject_type = 'service_visit' AND subject_id = ?
+           AND status IN ('tentative', 'confirmed') ORDER BY created_at DESC LIMIT 1`,
+        [workspaceId, assignment.subjectId]
+      )
+    : null;
+  const conflicts = schedule
+    ? await queryAll<{ id: string }>(
+        `SELECT * FROM ${TABLES.scheduleEntries}
+         WHERE workspace_id = ? AND resource_id = ? AND status = 'confirmed'
+           AND start_at < ? AND end_at > ? AND id != ?`,
+        [workspaceId, newResourceId, schedule.end_at, schedule.start_at, schedule.id]
+      )
+    : [];
+  const technician = assignment.subjectType === "service_visit"
+    ? await queryOne<{ id: string }>(
+        `SELECT id FROM ${businessTable("technician")} WHERE workspace_id = ? AND resource_id = ? LIMIT 1`,
+        [workspaceId, newResourceId]
+      )
+    : null;
+  if (assignment.subjectType === "service_visit" && !technician) {
+    throw new BusinessError(ERROR_CODES.INVALID_INPUT, "INVALID_INPUT: The new resource is not linked to a technician record.", 400);
+  }
+
   const newAssignmentId = genId("asgn");
   const ts = now();
   const oldVersion = assignment.version + 1;
@@ -256,12 +288,12 @@ export async function reassignAssignment(
             WHERE workspace_id = ? AND id = ? AND version = ?`,
       args: [ts, oldVersion, ts, workspaceId, assignmentId, assignment.version],
     },
-    // Create new proposed assignment for the new resource
+    // Create a dispatch-ready assignment for the new resource.
     {
       sql: `INSERT INTO ${TABLES.assignments}
             (id, workspace_id, subject_type, subject_id, resource_id, role_key,
              status, proposed_by, effective_from, version, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, 'proposed', ?, ?, 1, ?, ?)`,
+            VALUES (?, ?, ?, ?, ?, ?, 'assigned', ?, ?, 1, ?, ?)`,
       args: [
         newAssignmentId,
         workspaceId,
@@ -274,7 +306,27 @@ export async function reassignAssignment(
         ts,
         ts,
       ],
-    },
+      },
+    ...(schedule ? [{
+      sql: `UPDATE ${TABLES.scheduleEntries}
+            SET resource_id = ?, status = ?, conflict_state = ?, version = version + 1, updated_at = ?
+            WHERE workspace_id = ? AND id = ?`,
+      args: [newResourceId, conflicts.length > 0 ? "tentative" : "confirmed", conflicts.length > 0 ? "conflict" : "none", ts, workspaceId, schedule.id],
+    }] : []),
+    ...(assignment.subjectType === "service_visit" ? [
+      {
+        sql: `UPDATE ${businessTable("service_visit")}
+              SET technician_id = ?, assignment_id = ?, updated_at = ?
+              WHERE workspace_id = ? AND id = ?`,
+        args: [technician!.id, newAssignmentId, ts, workspaceId, assignment.subjectId],
+      },
+      {
+        sql: `UPDATE ${TABLES.visitExecutionItems}
+              SET resource_id = ?, assignment_id = ?, updated_at = ?
+              WHERE workspace_id = ? AND visit_id = ? AND status IN ('ready', 'active')`,
+        args: [newResourceId, newAssignmentId, ts, workspaceId, assignment.subjectId],
+      },
+    ] : []),
   ]);
 
   return { newAssignmentId };

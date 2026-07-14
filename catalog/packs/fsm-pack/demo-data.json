@@ -596,6 +596,7 @@
             "block_type": "evidence",
             "id": "evi-photos",
             "label": "Before/After Photos",
+            "required": true,
             "accepted_types": ["image/jpeg", "image/png"],
             "required_count": 2
           },
@@ -603,6 +604,7 @@
             "block_type": "signature",
             "id": "sig-customer",
             "label": "Customer Signature",
+            "required": true,
             "acknowledgment_text": "I confirm that the service described above was performed to my satisfaction."
           }
         ]
@@ -611,7 +613,8 @@
         {
           "usageType": "service_deliverable",
           "usageKey": "service_visit_completion",
-          "requirementPolicy": "required"
+          "requirementPolicy": "required",
+          "timing": { "postSubmissionPolicy": "reason_required" }
         },
         {
           "usageType": "workflow_step",
@@ -721,7 +724,7 @@
         },
         "sig-customer": {
           "acknowledged": true,
-          "signed_by": "Maya Chen",
+          "signedBy": "Maya Chen",
           "signed_at": "2026-06-05T16:30:00Z"
         }
       }
@@ -743,6 +746,10 @@
         },
         "evi-photos": {
           "attachments": ["att_acme_warehouse_leak", "att_acme_warehouse_recharge"]
+        },
+        "sig-customer": {
+          "acknowledged": true,
+          "signedBy": "Acme Warehouse Manager"
         }
       }
     },
@@ -760,6 +767,13 @@
           "cl-2": "na",
           "cl-3": "na",
           "cl-4": "na"
+        },
+        "evi-photos": {
+          "attachments": ["att_acme_hvac_before", "att_acme_hvac_after"]
+        },
+        "sig-customer": {
+          "acknowledged": true,
+          "signedBy": "Maya Chen"
         }
       },
       "returnReason": "Please provide more detail on work performed and include all required checklist items."

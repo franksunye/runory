@@ -77,6 +77,10 @@ import {
   approvalDecide,
 } from "./workflow";
 import { getCommandHistory, type CommandActor } from "./command-runtime";
+import {
+  prepareCommandContractEffects,
+  resolveRegisteredCommandPlan,
+} from "./command-contracts";
 import { requireBusinessPermission } from "./authorization";
 import { createRequestContext } from "./context";
 import {
@@ -166,6 +170,8 @@ describe("v0.5 Commercial FSM Journey", () => {
   let scheduleEntryId: string;
   let formSubmissionId: string;
   let workflowInstanceId: string;
+  let technicianRecordId: string;
+  let technicianResourceId: string;
 
   let quoteVersion = 1;
   let woVersion = 1;
@@ -174,8 +180,17 @@ describe("v0.5 Commercial FSM Journey", () => {
     await resetDatabase();
     workspaceId = await createTestWorkspace();
     await installPack(workspaceId, "sales-quote-pack");
-    await installPack(workspaceId, "fsm-pack");
+    await installPack(workspaceId, "fsm-pack", { includeDemoData: true });
     await setupPermissionGroups(workspaceId);
+    const dispatchableTechnician = await queryOne<{ id: string; resource_id: string }>(
+      `SELECT id, resource_id FROM ${businessTable("technician")}
+       WHERE workspace_id = ? AND resource_id IS NOT NULL
+       LIMIT 1`,
+      [workspaceId],
+    );
+    expect(dispatchableTechnician).toBeDefined();
+    technicianRecordId = dispatchableTechnician!.id;
+    technicianResourceId = dispatchableTechnician!.resource_id;
   });
 
   afterAll(async () => {
@@ -427,69 +442,51 @@ describe("v0.5 Commercial FSM Journey", () => {
       workOrderId,
       dispatcher,
       woVersion,
+      {
+        technicianId: technicianRecordId,
+        scheduledStart: "2026-07-15T09:00:00Z",
+        scheduledEnd: "2026-07-15T11:00:00Z",
+      },
     );
     woVersion = visitResult.newVersion;
     expect(woVersion).toBe(3);
 
     // createVisit returns the work order as aggregate, not the visit.
     // Query the service_visit table to get the visit ID.
-    const visit = await queryOne<{ id: string }>(
-      `SELECT id FROM ${businessTable("service_visit")} WHERE workspace_id = ? AND work_order_id = ?`,
+    const visit = await queryOne<{ id: string; assignment_id: string; schedule_entry_id: string }>(
+      `SELECT id, assignment_id, schedule_entry_id
+       FROM ${businessTable("service_visit")} WHERE workspace_id = ? AND work_order_id = ?`,
       [workspaceId, workOrderId],
     );
     expect(visit).toBeDefined();
     visitId = visit!.id;
+    assignmentId = visit!.assignment_id;
+    scheduleEntryId = visit!.schedule_entry_id;
     expect(visitResult.aggregate.status).toBe("planned");
 
-    // Propose assignment
-    const proposeResult = await proposeAssignment(workspaceId, {
-      subjectType: "service_visit",
-      subjectId: visitId,
-      resourceId: technician.id,
-      proposedBy: dispatcher.id,
-    });
-    assignmentId = proposeResult.assignmentId;
-    expect(assignmentId).toBeDefined();
-
-    // Assign
-    await assignAssignment(workspaceId, assignmentId, dispatcher.id);
-
-    // Accept
-    await acceptAssignment(workspaceId, assignmentId, technician.id);
-
-    // Verify current assignment
-    const current = await getCurrentAssignment(
-      workspaceId,
-      "service_visit",
-      visitId,
+    // Plan & dispatch creates the assignment atomically with the visit.
+    const current = await queryOne<{ resource_id: string; status: string }>(
+      `SELECT resource_id, status FROM ${TABLES.assignments}
+       WHERE workspace_id = ? AND id = ?`,
+      [workspaceId, assignmentId],
     );
     expect(current).toBeDefined();
-    expect(current!.resourceId).toBe(technician.id);
-    expect(current!.status).toBe("accepted");
+    expect(current!.resource_id).toBe(technicianResourceId);
+    expect(current!.status).toBe("assigned");
   });
 
   // ── Test 11: Schedule the visit ──
   it("schedules the visit for the technician", async () => {
-    const planResult = await planSchedule(workspaceId, {
-      subjectType: "service_visit",
-      subjectId: visitId,
-      resourceId: technician.id,
-      startAt: "2026-07-15T09:00:00Z",
-      endAt: "2026-07-15T11:00:00Z",
-    });
-    scheduleEntryId = planResult.scheduleEntryId;
     expect(scheduleEntryId).toBeDefined();
-    expect(planResult.conflicts).toHaveLength(0);
-
-    await confirmSchedule(workspaceId, scheduleEntryId, dispatcher.id);
 
     const entries = await getScheduleEntries(workspaceId, {
-      resourceId: technician.id,
+      resourceId: technicianResourceId,
     });
     expect(entries.length).toBeGreaterThan(0);
     const entry = entries.find((e) => e.id === scheduleEntryId);
     expect(entry).toBeDefined();
     expect(entry!.status).toBe("confirmed");
+    expect(entry!.conflictState).toBe("none");
   });
 
   // ── Test 12: Execute visit lifecycle (travel → arrive → submit work) ──
@@ -624,6 +621,36 @@ describe("v0.5 Commercial FSM Journey", () => {
     expect(report!.summary).toBe("HVAC system repaired and tested");
     expect(report!.resolution).toBe("Replaced faulty compressor and cleaned condenser coils");
     expect(report!.customer_signature).toBe("John Customer");
+
+    // The dispatch-time requirement is immutable and is the delivery gate for
+    // Visit completion. Submit the exact snapshotted version, not merely an
+    // arbitrary service report created later in the journey.
+    const requirement = await queryOne<{
+      form_definition_id: string;
+      form_version_id: string;
+      binding_id: string;
+    }>(
+      `SELECT form_definition_id, form_version_id, binding_id
+       FROM ${TABLES.visitExecutionRequirements}
+       WHERE workspace_id = ? AND visit_id = ?`,
+      [workspaceId, visitId],
+    );
+    expect(requirement).toBeDefined();
+    await submitForm(workspaceId, {
+      formDefinitionId: requirement!.form_definition_id,
+      formVersionId: requirement!.form_version_id,
+      bindingId: requirement!.binding_id,
+      subjectType: "service_visit",
+      subjectId: visitId,
+      answers: {
+        work_performed: "HVAC system repaired and tested",
+        system_status_after_service: "operational",
+        "cl-pre-service": { "cl-1": "pass", "cl-2": "pass", "cl-3": "pass", "cl-4": "pass" },
+        "evi-photos": { attachments: ["photo-001", "photo-002"] },
+        "sig-customer": { acknowledged: true, signedBy: "John Customer" },
+      },
+      submittedBy: technician.id,
+    });
   });
 
   // ── Test 14: Complete visit and work order ──
@@ -637,6 +664,26 @@ describe("v0.5 Commercial FSM Journey", () => {
     );
     expect(visitResult.newVersion).toBe(4);
     expect(visitResult.aggregate.status).toBe("completed");
+
+    const completedVisitSchedule = await queryOne<{ status: string }>(
+      `SELECT status FROM ${TABLES.scheduleEntries}
+       WHERE workspace_id = ? AND id = ?`,
+      [workspaceId, scheduleEntryId],
+    );
+    expect(completedVisitSchedule?.status).toBe("completed");
+
+    // A completed Visit no longer reserves the technician's slot. Reusing
+    // that interval for a direct Work Order booking must be conflict-free.
+    const workOrderSchedule = await planSchedule(workspaceId, {
+      subjectType: "work_order",
+      subjectId: workOrderId,
+      resourceId: technicianResourceId,
+      startAt: "2026-07-15T09:00:00Z",
+      endAt: "2026-07-15T11:00:00Z",
+      timezone: "UTC",
+    });
+    expect(workOrderSchedule.conflicts).toHaveLength(0);
+    await confirmSchedule(workspaceId, workOrderSchedule.scheduleEntryId, dispatcher.id);
 
     const startResult = await startWorkOrder(
       workspaceId,
@@ -659,6 +706,13 @@ describe("v0.5 Commercial FSM Journey", () => {
     expect(woResult.newVersion).toBe(5);
     expect(woResult.aggregate.status).toBe("completed");
     woVersion = 5;
+
+    const completedWorkOrderSchedule = await queryOne<{ status: string }>(
+      `SELECT status FROM ${TABLES.scheduleEntries}
+       WHERE workspace_id = ? AND id = ?`,
+      [workspaceId, workOrderSchedule.scheduleEntryId],
+    );
+    expect(completedWorkOrderSchedule?.status).toBe("completed");
   });
 
   // ── Test 15: Verify command history and workflow events ──
@@ -957,6 +1011,22 @@ describe("v0.5 Contract and Concurrency", () => {
     );
     expect(conflicts.length).toBeGreaterThan(0);
     expect(conflicts[0].id).toBe(planResult.scheduleEntryId);
+  });
+
+  it("fails a contracted Visit completion plan when its required Schedule is missing", async () => {
+    const plan = resolveRegisteredCommandPlan("visit.complete")!;
+
+    await expect(prepareCommandContractEffects(plan, {
+      commandId: "cmd-missing-schedule",
+      workspaceId,
+      commandType: "visit.complete",
+      aggregateType: "service_visit",
+      aggregateId: "visit-without-schedule",
+      expectedVersion: 3,
+      actor: dispatcher,
+      input: { visitId: "visit-without-schedule" },
+      occurredAt: "2026-07-14T00:00:00.000Z",
+    })).rejects.toMatchObject({ code: "COMMAND_CONTRACT_INCOMPLETE" });
   });
 
   it("rejects incomplete or out-of-range schedule coordinates", async () => {

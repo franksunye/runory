@@ -267,6 +267,7 @@ function MobileFormPage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [workItem, setWorkItem] = useState<WorkItemDetail | null>(null);
   const [formDefId, setFormDefId] = useState<string | null>(null);
+  const [formVersionId, setFormVersionId] = useState<string | null>(null);
   const [formName, setFormName] = useState<string>("");
   const [schema, setSchema] = useState<FormSchemaData | null>(null);
   const [toast, setToast] = useState<{
@@ -277,9 +278,11 @@ function MobileFormPage() {
   // work item, we prompt the user before rendering the form. `initialAnswers`
   // is set only when the user chooses to continue from the draft.
   const [draftPrompt, setDraftPrompt] = useState<{
+    id: string;
     answers: Record<string, unknown>;
     updatedAt: string;
   } | null>(null);
+  const [draftSubmissionId, setDraftSubmissionId] = useState<string | null>(null);
   const [initialAnswers, setInitialAnswers] = useState<
     Record<string, unknown> | undefined
   >(undefined);
@@ -316,46 +319,59 @@ function MobileFormPage() {
       const item = wiJson.data as WorkItemDetail;
       setWorkItem(item);
 
+      // Visits submit against the version pinned by Plan & dispatch, not a
+      // later edited active form. Other work items keep the standard active
+      // definition behaviour.
+      setFormVersionId(null);
+      let resolvedFormKey: string | null = null;
+      let resolvedFormVersionId: string | null = null;
+      if (item.instance_id.startsWith("visit_execution:") && item.subject_type === "service_visit" && item.subject_id) {
+        const executionJson = await apiFetch<{
+          success: boolean;
+          data?: { requirements?: Array<{ id: string; form_version_id: string; form_key: string }> };
+        }>(
+          `/api/workspaces/${workspaceId}/service-visits/${item.subject_id}/execution`,
+          { cache: "no-store" }
+        );
+        const requirement = executionJson.data?.requirements?.find((entry) => entry.id === item.step_id);
+        if (!requirement?.form_version_id) {
+          throw new Error("The dispatched form snapshot is unavailable. Refresh the visit or contact dispatch.");
+        }
+        setFormVersionId(requirement.form_version_id);
+        resolvedFormVersionId = requirement.form_version_id;
+        resolvedFormKey = requirement.form_key;
+      }
+
       if (!item.form_binding_id) {
         throw new Error(
           "This work item has no form binding. A form definition is required to render the form."
         );
       }
 
-      // 2. Resolve form binding → form definition (fetch both lists in parallel)
-      const [bindingsJson, definitionsJson] = await Promise.all([
-        apiFetch<{ success: boolean; data: Array<Record<string, unknown>> }>(
-          `/api/workspaces/${workspaceId}/forms/bindings`,
-          { cache: "no-store" }
-        ),
-        apiFetch<{ success: boolean; data: Array<Record<string, unknown>> }>(
-          `/api/workspaces/${workspaceId}/forms/definitions`,
-          { cache: "no-store" }
-        ),
-      ]);
-
-      if (!bindingsJson.success || !definitionsJson.success) {
-        throw new Error("Failed to load form bindings or definitions");
+      // 2. Visit execution resolves the exact form through its immutable
+      // requirement snapshot. Generic workflow form tasks retain the binding
+      // lookup fallback until they gain the same snapshot contract.
+      let formKey = resolvedFormKey;
+      if (!formKey) {
+        const [bindingsJson, definitionsJson] = await Promise.all([
+          apiFetch<{ success: boolean; data: Array<Record<string, unknown>> }>(
+            `/api/workspaces/${workspaceId}/forms/bindings`,
+            { cache: "no-store" }
+          ),
+          apiFetch<{ success: boolean; data: Array<Record<string, unknown>> }>(
+            `/api/workspaces/${workspaceId}/forms/definitions`,
+            { cache: "no-store" }
+          ),
+        ]);
+        if (!bindingsJson.success || !definitionsJson.success) {
+          throw new Error("Failed to load form bindings or definitions");
+        }
+        const binding = bindingsJson.data.find((candidate) => candidate.id === item.form_binding_id);
+        const definitionId = binding?.form_definition_id as string | undefined;
+        const definition = definitionsJson.data.find((candidate) => candidate.id === definitionId);
+        formKey = definition?.form_key as string | undefined ?? null;
       }
-
-      const binding = (bindingsJson.data as Array<Record<string, unknown>>)
-        .find((b) => b.id === item.form_binding_id);
-      if (!binding) {
-        throw new Error(
-          `Form binding not found: ${item.form_binding_id}`
-        );
-      }
-      const definitionId = binding.form_definition_id as string;
-
-      const defMeta = (
-        definitionsJson.data as Array<Record<string, unknown>>
-      ).find((d) => d.id === definitionId);
-      if (!defMeta) {
-        throw new Error(
-          `Form definition not found: ${definitionId}`
-        );
-      }
-      const formKey = defMeta.form_key as string;
+      if (!formKey) throw new Error("The required form definition could not be resolved.");
 
       // 3. Fetch the full definition (with schema) by form_key
       const defJson = await apiFetch<{
@@ -363,7 +379,7 @@ function MobileFormPage() {
         error?: { message: string };
         data: { definition: FormDefinitionMeta; schema: FormSchemaData };
       }>(
-        `/api/workspaces/${workspaceId}/forms/definitions/${formKey}`,
+        `/api/workspaces/${workspaceId}/forms/definitions/${formKey}${resolvedFormVersionId ? `?versionId=${encodeURIComponent(resolvedFormVersionId)}` : ""}`,
         { cache: "no-store" }
       );
       if (!defJson.success) {
@@ -383,6 +399,7 @@ function MobileFormPage() {
       //    rendering the form. This is best-effort: a failure here never blocks
       //    the form from rendering.
       setDraftPrompt(null);
+      setDraftSubmissionId(null);
       setInitialAnswers(undefined);
       try {
         const draftJson = await apiFetch<{
@@ -400,6 +417,8 @@ function MobileFormPage() {
           draftJson.data.length > 0
         ) {
           const draft = draftJson.data[0] as Record<string, unknown>;
+          const draftId = draft.id as string;
+          setDraftSubmissionId(draftId);
           const raw = draft.answers_json as string | undefined;
           let parsed: Record<string, unknown> = {};
           if (raw) {
@@ -411,6 +430,7 @@ function MobileFormPage() {
           }
           if (Object.keys(parsed).length > 0) {
             setDraftPrompt({
+              id: draftId,
               answers: parsed,
               updatedAt:
                 (draft.updated_at as string) ??
@@ -457,7 +477,9 @@ function MobileFormPage() {
             subjectId: workItem.subject_id ?? undefined,
             workItemId: workItem.id,
             bindingId: workItem.form_binding_id ?? undefined,
+            formVersionId: formVersionId ?? undefined,
             answers: transformed,
+            draftSubmissionId: draftSubmissionId ?? undefined,
           }
         );
         if (!subJson.success) {
@@ -466,22 +488,25 @@ function MobileFormPage() {
           );
         }
 
-        // 2. Complete the work item to advance the workflow
-        const completeJson = await apiPost<{ success: boolean; error?: { message: string } }>(
-          `/api/workspaces/${workspaceId}/work-items/${workItem.id}/complete`,
-          {
-            expectedVersion: workItem.version,
-          }
-        );
-        if (!completeJson.success) {
-          // The form was submitted but the work item couldn't be completed.
-          // Per v0.5.1 Spec §5.4: "The UI MUST never claim a governed action
-          // succeeded until the server command succeeds."
-          // Show a failure state, not a success state.
-          throw new Error(
-            completeJson.error?.message ??
-              "Work item completion failed. The form was saved but the work item could not be completed. Contact your administrator."
+        // 2. Initial delivery completes the work item. A correction revision
+        // edits the immutable submission chain without reopening or replaying
+        // an already-completed execution task.
+        if (workItem.status !== "completed") {
+          const completeJson = await apiPost<{ success: boolean; error?: { message: string } }>(
+            `/api/workspaces/${workspaceId}/work-items/${workItem.id}/complete`,
+            {
+              expectedVersion: workItem.version,
+            }
           );
+          if (!completeJson.success) {
+            // The form was submitted but the work item couldn't be completed.
+            // Per v0.5.1 Spec §5.4: "The UI MUST never claim a governed action
+            // succeeded until the server command succeeds."
+            throw new Error(
+              completeJson.error?.message ??
+                "Work item completion failed. The form was saved but the work item could not be completed. Contact your administrator."
+            );
+          }
         }
 
         notifyWorkspaceDataChanged();
@@ -494,7 +519,7 @@ function MobileFormPage() {
         setState("ready");
       }
     },
-    [workItem, formDefId, schema, workspaceId, showToast]
+    [workItem, formDefId, formVersionId, schema, workspaceId, showToast, draftSubmissionId]
   );
 
   // ── Draft auto-save (v0.5.1 Spec §5.4) ──

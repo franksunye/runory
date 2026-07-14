@@ -62,6 +62,16 @@ export async function POST(
   try {
     const { id, objectKey } = await params;
     const { ctx, workspaceId } = await requireWorkspaceContext(request, id, "member");
+    // A Service Visit is a governed execution aggregate. Creating it through
+    // generic CRUD used to produce an unassigned, unscheduled Visit that could
+    // be completed without evidence. The only supported entry point is the
+    // atomic work_order.create_visit (Plan & dispatch) command.
+    if (objectKey === "service_visit") {
+      return invalidInput(
+        "Service Visits are created through Plan & dispatch on a triaged work order.",
+        ctx.requestId
+      );
+    }
     const canCreate = ctx.principal
       ? await canCreateRecord(workspaceId, objectKey, {
           userId: ctx.principal.userId,

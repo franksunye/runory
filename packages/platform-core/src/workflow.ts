@@ -962,6 +962,35 @@ async function checkCandidateEligibility(
   }
 }
 
+/**
+ * Workspace administrators may supervise a Visit execution deliverable.
+ *
+ * This override is intentionally limited to `visit_execution:*` work items:
+ * generic workflow approvals and assigned human tasks must retain their normal
+ * candidate rules. Actor IDs can be either the internal user ID or the stable
+ * external identity used by dev/OTP authentication.
+ */
+async function canSuperviseVisitExecution(
+  workspaceId: string,
+  actor: CommandActor
+): Promise<boolean> {
+  if (actor.type !== "user") return false;
+
+  const membership = await queryOne<{ role: string }>(
+    `SELECT membership.role
+     FROM ${TABLES.workspaceMemberships} membership
+     JOIN ${TABLES.users} user ON user.id = membership.user_id
+     WHERE membership.workspace_id = ?
+       AND membership.status = 'active'
+       AND membership.role IN ('owner', 'admin')
+       AND (user.id = ? OR user.external_id = ?)
+     LIMIT 1`,
+    [workspaceId, actor.id, actor.id]
+  );
+
+  return Boolean(membership);
+}
+
 // ── Claim Work Item ──
 
 export async function claimWorkItemHandler(
@@ -1198,7 +1227,16 @@ export async function completeWorkItemHandler(
   checkOptimisticLock(workItem.version, expectedVersion);
 
   // ── Candidate eligibility check (v0.5.1 P0) ──
-  await checkCandidateEligibility(workspaceId, workItem, actor);
+  // Visit execution supports an explicit administrative supervision path so
+  // Workspace Owners/Admins can complete the documented single-role
+  // acceptance journey. Other workflow tasks keep strict assignee eligibility.
+  const isVisitExecution = workItem.instance_id.startsWith("visit_execution:");
+  const hasAdministrativeOverride = isVisitExecution
+    ? await canSuperviseVisitExecution(workspaceId, actor)
+    : false;
+  if (!hasAdministrativeOverride) {
+    await checkCandidateEligibility(workspaceId, workItem, actor);
+  }
 
   // Approval work items are completed via approvalDecide, not here
   if (workItem.kind === "approval") {
@@ -1235,6 +1273,33 @@ export async function completeWorkItemHandler(
         400
       );
     }
+  }
+
+  // Field execution is a governed operational task, not a configurable
+  // workflow definition. It deliberately reuses the durable work-item and
+  // mobile-form contracts, but has no workflow instance to advance. Completing
+  // it after the form gate is therefore a small terminal transition.
+  if (isVisitExecution) {
+    const completedVersion = workItem.version + 1;
+    return {
+      statements: [
+        {
+          sql: `UPDATE ${TABLES.workItems}
+                SET status = 'completed', completed_at = ?, version = ?, updated_at = ?
+                WHERE workspace_id = ? AND id = ? AND version = ?`,
+          args: [ts, completedVersion, ts, workspaceId, workItemId, workItem.version],
+        },
+      ],
+      audit: {
+        action: "visit_execution.deliverable_complete",
+        entityType: "service_visit",
+        entityId: workItem.subject_id ?? workItemId,
+        before: { work_item_id: workItemId, status: workItem.status },
+        after: { work_item_id: workItemId, status: "completed" },
+      },
+      aggregate: { ...workItem, status: "completed", completed_at: ts, version: completedVersion },
+      newVersion: completedVersion,
+    } as CommandHandlerResult<Partial<WorkItemRow>>;
   }
 
   // Read the instance to get the definition version

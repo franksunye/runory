@@ -342,6 +342,7 @@ export interface MyWorkItem {
   claimed_at: string | null;
   completed_at: string | null;
   form_binding_id: string | null;
+  form_name?: string | null;
   input_snapshot_json: string | null;
   input_snapshot_hash: string | null;
   version: number;
@@ -509,7 +510,10 @@ export interface PlanningEntry {
   subject_id: string;
   start_at: string;
   end_at: string;
+  /** Effective business status used for presentation and filtering. */
   status: string;
+  /** Underlying schedule lifecycle (for example confirmed or tentative). */
+  schedule_status?: string;
   notes: string | null;
   created_at: string;
   updated_at: string;

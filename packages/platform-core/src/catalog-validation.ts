@@ -17,9 +17,14 @@ import {
   type PackManifest,
   type TemplateManifest,
   type RelationDeclaration,
+  type CommandCapabilityProviderDeclaration,
 } from "@runory/contracts";
 import { valid as semverValid, validRange as semverValidRange } from "semver";
 import { validateModuleDashboard, validatePackDashboard } from "./dashboard";
+import {
+  getRegisteredCommandEffectProviders,
+  validateModuleCommandContracts,
+} from "./command-contracts";
 
 // ── Types ──
 
@@ -50,7 +55,7 @@ export interface ValidationRunRecord {
 
 // ── Constants ──
 
-const VALIDATOR_VERSION = "1.0.0";
+const VALIDATOR_VERSION = "1.1.0";
 const SHA256_HEX_PATTERN = /^[a-f0-9]{64}$/;
 
 // ── SemVer Helpers ──
@@ -353,6 +358,77 @@ function checkPermissionDeclaration(
     name: "permission_declaration",
     status: "passed",
     message: `${permissions.length} permission(s) declared, all valid strings`,
+  };
+}
+
+async function checkCommandContracts(
+  manifest: ModuleManifest | null,
+): Promise<ValidationCheck> {
+  if (!manifest) {
+    return {
+      name: "command_contracts",
+      status: "failed",
+      message: "Manifest not available for Command Contract check",
+    };
+  }
+  if (!manifest.domain || manifest.domain.commands.length === 0) {
+    return {
+      name: "command_contracts",
+      status: "passed",
+      message: "No Command Contracts declared",
+    };
+  }
+
+  const availableCapabilities: CommandCapabilityProviderDeclaration[] = [
+    ...getRegisteredCommandEffectProviders().map((provider) => ({
+      capability: provider.capability,
+      version: provider.version,
+      consistency: provider.consistency,
+    })),
+    ...(manifest.domain.capabilities?.provides ?? []),
+  ];
+
+  // A Module may consume a semantic capability supplied by a dependency.
+  // Catalog validation resolves those declarations before release rather than
+  // discovering a missing provider in a customer's live Workspace.
+  for (const dependencyId of manifest.dependencies ?? []) {
+    const dependencyItem = await queryOne<{ id: string }>(
+      `SELECT id FROM ${TABLES.catalogItems}
+       WHERE name = ? AND item_type = 'module' AND status = 'active'`,
+      [dependencyId],
+    );
+    if (!dependencyItem) continue; // dependency_graph reports this precisely
+    const dependencyVersion = await queryOne<{ manifest_json: string }>(
+      `SELECT manifest_json FROM ${TABLES.catalogVersions}
+       WHERE catalog_item_id = ? AND lifecycle_status IN ('ready', 'deprecated')
+       ORDER BY created_at DESC LIMIT 1`,
+      [dependencyItem.id],
+    );
+    if (!dependencyVersion) continue;
+    try {
+      const dependency = parseManifest(
+        dependencyVersion.manifest_json,
+        "module",
+      ) as ModuleManifest;
+      availableCapabilities.push(...(dependency.domain?.capabilities?.provides ?? []));
+    } catch {
+      // The dependency's own validation reports an invalid manifest.
+    }
+  }
+
+  const issues = validateModuleCommandContracts(manifest, availableCapabilities);
+  if (issues.length > 0) {
+    return {
+      name: "command_contracts",
+      status: "failed",
+      message: `Command Contract issues: ${issues.join("; ")}`,
+      details: { issues },
+    };
+  }
+  return {
+    name: "command_contracts",
+    status: "passed",
+    message: `${manifest.domain.commands.length} Command Contract(s) and capability closure validated`,
   };
 }
 
@@ -864,6 +940,15 @@ export async function runCatalogValidation(
     checks.push(
       await runCheck("cross_pack_relations", () =>
         checkCrossPackRelations(parsedManifest as ModuleManifest | null)
+      )
+    );
+  }
+
+  // 15. Contract-driven command structure and provider closure
+  if (item.itemType === "module") {
+    checks.push(
+      await runCheck("command_contracts", () =>
+        checkCommandContracts(parsedManifest as ModuleManifest | null)
       )
     );
   }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
   RefreshCw,
@@ -108,6 +108,90 @@ function safeParseJson(raw: string): unknown {
   }
 }
 
+interface SubmissionChain {
+  id: string;
+  current: FormSubmission;
+  revisions: FormSubmission[];
+}
+
+function buildSubmissionChains(submissions: FormSubmission[]): SubmissionChain[] {
+  const byId = new Map(submissions.map((submission) => [submission.id, submission]));
+  const groups = new Map<string, FormSubmission[]>();
+  for (const submission of submissions) {
+    let root = submission;
+    const visited = new Set<string>([submission.id]);
+    while (root.supersedes_submission_id) {
+      const parent = byId.get(root.supersedes_submission_id);
+      if (!parent || visited.has(parent.id)) break;
+      root = parent;
+      visited.add(parent.id);
+    }
+    const members = groups.get(root.id) ?? [];
+    members.push(submission);
+    groups.set(root.id, members);
+  }
+  return [...groups.entries()]
+    .map(([id, revisions]) => {
+      revisions.sort((a, b) => b.revision_number - a.revision_number || b.created_at.localeCompare(a.created_at));
+      return { id, current: revisions[0], revisions };
+    })
+    .sort((a, b) => b.current.updated_at.localeCompare(a.current.updated_at));
+}
+
+function postSubmissionPolicy(binding: FormBinding | undefined): string {
+  if (!binding?.timing_json) return "reason_required";
+  const timing = safeParseJson(binding.timing_json);
+  return timing && typeof timing === "object" && "postSubmissionPolicy" in timing
+    ? String((timing as { postSubmissionPolicy?: unknown }).postSubmissionPolicy ?? "reason_required")
+    : "reason_required";
+}
+
+function humanizeAnswerKey(key: string): string {
+  return key.replaceAll("_", " ").replaceAll("-", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function summarizeAnswer(value: unknown): string {
+  if (value === null || value === undefined || value === "") return "Not provided";
+  if (typeof value === "string" || typeof value === "number") return String(value).replaceAll("_", " ");
+  if (typeof value === "boolean") return value ? "Yes" : "No";
+  if (Array.isArray(value)) return `${value.length} item${value.length === 1 ? "" : "s"}`;
+  if (typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    if (Array.isArray(record.attachments)) {
+      return `${record.attachments.length} file${record.attachments.length === 1 ? "" : "s"} captured`;
+    }
+    const signer = typeof record.signerLabel === "string" ? record.signerLabel : record.signedBy;
+    if (typeof signer === "string") return `Signed by ${signer}`;
+    const results = Object.values(record).filter((entry) => typeof entry === "string") as string[];
+    if (results.length > 0) {
+      const passed = results.filter((entry) => entry === "pass").length;
+      const failed = results.filter((entry) => entry === "fail").length;
+      const na = results.filter((entry) => entry === "na").length;
+      return [`${passed} passed`, failed ? `${failed} failed` : "", na ? `${na} N/A` : ""].filter(Boolean).join(" · ");
+    }
+  }
+  return "Captured";
+}
+
+function SubmissionAnswerSummary({ submission }: { submission: FormSubmission }) {
+  const parsed = safeParseJson(submission.answers_json);
+  const answers = parsed && typeof parsed === "object" && !Array.isArray(parsed)
+    ? Object.entries(parsed as Record<string, unknown>)
+    : [];
+  return answers.length === 0 ? (
+    <p className="text-xs text-slate-500">No captured values.</p>
+  ) : (
+    <dl className="grid gap-x-6 gap-y-3 sm:grid-cols-2">
+      {answers.map(([key, value]) => (
+        <div key={key}>
+          <dt className="text-[10px] font-bold uppercase tracking-wide text-slate-400">{humanizeAnswerKey(key)}</dt>
+          <dd className="mt-0.5 whitespace-pre-wrap text-xs leading-5 text-slate-700">{summarizeAnswer(value)}</dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
 export default function FormsPage() {
   const params = useParams();
   const workspaceId = params.workspaceId as string;
@@ -130,6 +214,7 @@ export default function FormsPage() {
 
   // Expanded submission row
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [expandedRevisionId, setExpandedRevisionId] = useState<string | null>(null);
 
   // Action state
   const [executing, setExecuting] = useState<string | null>(null);
@@ -172,7 +257,6 @@ export default function FormsPage() {
     try {
       const qs = new URLSearchParams();
       if (filterSubjectType) qs.set("subjectType", filterSubjectType);
-      if (filterStatus) qs.set("status", filterStatus);
       const json = await apiFetch<{
         success: boolean;
         error?: { message: string };
@@ -190,7 +274,12 @@ export default function FormsPage() {
         e instanceof Error ? e.message : t("workspace.loadFailed")
       );
     }
-  }, [workspaceId, filterSubjectType, filterStatus, t, showToast]);
+  }, [workspaceId, filterSubjectType, t, showToast]);
+
+  const submissionChains = useMemo(() => {
+    const chains = buildSubmissionChains(submissions);
+    return filterStatus ? chains.filter((chain) => chain.current.status === filterStatus) : chains;
+  }, [submissions, filterStatus]);
 
   useEffect(() => {
     void load();
@@ -267,6 +356,9 @@ export default function FormsPage() {
           <h1 className="mt-2 text-2xl font-bold tracking-tight text-slate-950">
             {t("forms.title")}
           </h1>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
+            {t("forms.subtitle")}
+          </p>
         </div>
         <div className="flex items-center gap-2">
           {tab === "definitions" && (
@@ -326,7 +418,7 @@ export default function FormsPage() {
               ? definitions.length
               : key === "bindings"
                 ? bindings.length
-                : submissions.length;
+                : submissionChains.length;
           return (
             <button
               key={key}
@@ -459,6 +551,19 @@ export default function FormsPage() {
                   b.usage_type === "workflow_step" && dotIdx > 0;
                 const isServiceDeliverable =
                   b.usage_type === "service_deliverable";
+                let postSubmissionLabel = "Reason required";
+                if (b.timing_json) {
+                  try {
+                    const timing = safeParseJson(b.timing_json) as { postSubmissionPolicy?: string };
+                    postSubmissionLabel = timing.postSubmissionPolicy === "editable_after_submission"
+                      ? "Editable after submission"
+                      : timing.postSubmissionPolicy === "approval_required"
+                        ? "Approval required"
+                        : "Reason required";
+                  } catch {
+                    postSubmissionLabel = "Reason required";
+                  }
+                }
                 return (
                   <li
                     key={b.id}
@@ -512,6 +617,13 @@ export default function FormsPage() {
                             className="text-indigo-400"
                           />
                         </button>
+                      ) : isServiceDeliverable && b.usage_key === "service_visit_completion" ? (
+                        <p className="mt-1 text-xs font-medium text-slate-600">
+                          {t("forms.policyEveryVisit")}
+                          {b.label_override && (
+                            <span className="ml-2 text-slate-400">· {b.label_override}</span>
+                          )}
+                        </p>
                       ) : (
                         <p className="mt-0.5 truncate text-xs text-slate-500">
                           {b.usage_key ? (
@@ -527,10 +639,15 @@ export default function FormsPage() {
                         </p>
                       )}
                       {isServiceDeliverable && (
-                        <span className="mt-1 inline-flex items-center gap-1 rounded bg-cyan-50 px-1.5 py-0.5 text-[10px] font-semibold text-cyan-700">
-                          <CircleDot size={10} />
-                          {t("forms.usageServiceDeliverable")}
-                        </span>
+                        <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                          <span className="inline-flex items-center gap-1 rounded bg-cyan-50 px-1.5 py-0.5 text-[10px] font-semibold text-cyan-700">
+                            <CircleDot size={10} />
+                            Service Visit
+                          </span>
+                          <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-600">
+                            {postSubmissionLabel}
+                          </span>
+                        </div>
                       )}
                     </div>
                     <span
@@ -546,6 +663,13 @@ export default function FormsPage() {
                     <span className="hidden text-xs text-slate-400 sm:block">
                       {formatDate(b.created_at)}
                     </span>
+                    <button
+                      type="button"
+                      onClick={() => router.push(`/w/${workspaceId}/forms/binding-editor?edit=${b.id}`)}
+                      className="rounded-md border border-slate-200 px-2.5 py-1.5 text-xs font-semibold text-slate-600 transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700"
+                    >
+                      Edit policy
+                    </button>
                   </li>
                 );
               })}
@@ -604,7 +728,7 @@ export default function FormsPage() {
 
           {/* List */}
           <section className="app-card p-5 sm:p-6">
-            {submissions.length === 0 ? (
+            {submissionChains.length === 0 ? (
               <div className="py-12 text-center">
                 <Inbox size={32} className="mx-auto text-slate-300" />
                 <p className="mt-3 text-sm text-slate-500">
@@ -613,16 +737,20 @@ export default function FormsPage() {
               </div>
             ) : (
               <ul className="divide-y divide-slate-100">
-                {submissions.map((sub) => {
-                  const isExpanded = expandedId === sub.id;
+                {submissionChains.map((chain) => {
+                  const sub = chain.current;
+                  const isExpanded = expandedId === chain.id;
                   const statusKey = SUBMISSION_STATUS_KEY[sub.status];
-                  const canAct = sub.status === "submitted";
+                  const binding = bindings.find((candidate) => candidate.id === sub.binding_id);
+                  const requiresApproval = postSubmissionPolicy(binding) === "approval_required";
+                  const canAct = sub.status === "submitted" && requiresApproval;
+                  const definitionName = definitions.find((definition) => definition.id === sub.form_definition_id)?.name ?? "Form submission";
                   return (
-                    <li key={sub.id} className="py-4">
+                    <li key={chain.id} className="py-4">
                       <button
                         type="button"
                         onClick={() =>
-                          setExpandedId(isExpanded ? null : sub.id)
+                          setExpandedId(isExpanded ? null : chain.id)
                         }
                         className="flex w-full items-start gap-3 text-left"
                       >
@@ -634,6 +762,7 @@ export default function FormsPage() {
                           )}
                         </span>
                         <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-bold text-slate-900">{definitionName}</p>
                           <div className="flex flex-wrap items-center gap-2">
                             <span
                               className={`app-badge ${
@@ -645,12 +774,17 @@ export default function FormsPage() {
                             </span>
                             {sub.subject_type && (
                               <span className="app-badge bg-indigo-50 text-indigo-700">
-                                {sub.subject_type}
+                                {humanizeAnswerKey(sub.subject_type)}
                               </span>
                             )}
-                            <span className="text-xs font-semibold text-slate-500">
-                              {t("forms.revision")} {sub.revision_number}
+                            <span className="app-badge bg-slate-100 text-slate-600">
+                              Current · {t("forms.revision")} {sub.revision_number}
                             </span>
+                            {chain.revisions.length > 1 && (
+                              <span className="text-xs font-medium text-slate-400">
+                                {chain.revisions.length} revisions
+                              </span>
+                            )}
                           </div>
                           <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500">
                             <span>
@@ -662,8 +796,8 @@ export default function FormsPage() {
                             {sub.return_reason && (
                               <>
                                 <span className="text-slate-300">·</span>
-                                <span className="text-red-600">
-                                  {t("forms.returnReason")}:{" "}
+                                <span className="text-amber-700">
+                                  Change reason:{" "}
                                   {sub.return_reason}
                                 </span>
                               </>
@@ -672,20 +806,61 @@ export default function FormsPage() {
                         </div>
                       </button>
 
-                      {/* Expanded answers */}
+                      {/* Progressive disclosure: one business record by
+                          default, revision history only when requested. */}
                       {isExpanded && (
                         <div className="mt-3 pl-7">
-                          <div className="rounded-md border border-slate-100 bg-slate-50 p-3">
-                            <p className="mb-1.5 text-[10px] font-bold uppercase tracking-wide text-slate-400">
-                              answers_json
-                            </p>
-                            <pre className="overflow-x-auto text-[11px] leading-relaxed text-slate-600">
-                              {JSON.stringify(
-                                safeParseJson(sub.answers_json),
-                                null,
-                                2
-                              )}
-                            </pre>
+                          <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-4">
+                            <div className="flex items-center justify-between gap-3">
+                              <div>
+                                <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Revision history</p>
+                                <p className="mt-0.5 text-xs text-slate-400">The latest revision is used by the business record.</p>
+                              </div>
+                              <span className="text-xs font-semibold text-slate-500">{chain.revisions.length} total</span>
+                            </div>
+                            <ul className="mt-3 divide-y divide-slate-200">
+                              {chain.revisions.map((revision, index) => {
+                                const revisionExpanded = expandedRevisionId === revision.id;
+                                const revisionStatusKey = SUBMISSION_STATUS_KEY[revision.status];
+                                return (
+                                  <li key={revision.id} className="py-3 first:pt-0 last:pb-0">
+                                    <button
+                                      type="button"
+                                      onClick={() => setExpandedRevisionId(revisionExpanded ? null : revision.id)}
+                                      className="flex w-full items-start gap-3 text-left"
+                                    >
+                                      <span className="mt-0.5 text-slate-400">
+                                        {revisionExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                                      </span>
+                                      <span className="min-w-0 flex-1">
+                                        <span className="flex flex-wrap items-center gap-2">
+                                          <span className="text-sm font-semibold text-slate-800">
+                                            {t("forms.revision")} {revision.revision_number}
+                                          </span>
+                                          <span className={`app-badge ${index === 0 ? "bg-indigo-50 text-indigo-700" : "bg-slate-100 text-slate-500"}`}>
+                                            {index === 0 ? "Current" : "Previous"}
+                                          </span>
+                                          <span className={`app-badge ${SUBMISSION_STATUS_COLOR[revision.status] ?? "bg-slate-100 text-slate-600"}`}>
+                                            {revisionStatusKey ? t(revisionStatusKey) : revision.status}
+                                          </span>
+                                        </span>
+                                        <span className="mt-1 block text-xs text-slate-500">
+                                          {revision.submitted_by ?? "—"} · {formatDate(revision.submitted_at ?? revision.updated_at)}
+                                        </span>
+                                        {revision.return_reason && (
+                                          <span className="mt-1 block text-xs text-amber-700">Reason: {revision.return_reason}</span>
+                                        )}
+                                      </span>
+                                    </button>
+                                    {revisionExpanded && (
+                                      <div className="mt-3 rounded-lg border border-slate-200 bg-white p-3 sm:ml-7">
+                                        <SubmissionAnswerSummary submission={revision} />
+                                      </div>
+                                    )}
+                                  </li>
+                                );
+                              })}
+                            </ul>
                           </div>
 
                           {canAct && (
@@ -722,6 +897,11 @@ export default function FormsPage() {
                                 {t("forms.actionReturn")}
                               </button>
                             </div>
+                          )}
+                          {sub.status === "submitted" && !requiresApproval && (
+                            <p className="mt-3 text-xs text-slate-500">
+                              No review is required by this usage policy. This is the current submitted revision.
+                            </p>
                           )}
                         </div>
                       )}

@@ -22,7 +22,7 @@ export async function POST(
     const { ctx, workspaceId } = await requireWorkspaceContext(
       request,
       id,
-      "member"
+      "admin"
     );
 
     const body = (await request.json()) as {

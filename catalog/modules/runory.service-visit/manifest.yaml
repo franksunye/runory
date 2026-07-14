@@ -119,6 +119,35 @@ views:
           fields:
             - field: notes
 
+domain:
+  aggregates:
+    - key: service_visit
+      stateField: status
+      versionField: aggregate_version
+  commands:
+    - key: visit.complete
+      contractVersion: "1.0.0"
+      aggregate: service_visit
+      transition:
+        from: [on_site]
+        to: completed
+      permission: visit.execute
+      idempotent: true
+      requiresExpectedVersion: true
+      requiredEffects:
+        - capability: scheduling.complete_reservation
+          version: "^1.0.0"
+          scope: linked_schedule
+          consistency: atomic
+          cardinality: one
+      emits: [visit.completed]
+      auditRequired: true
+      postconditions:
+        - service_visit.status == completed
+        - service_visit.actual_end != null
+        - visit_execution.status == completed
+        - linked_schedule.status == completed
+
 permissions:
   - service_visit.read
   - visit.execute
@@ -131,6 +160,15 @@ relations:
     type: many_to_one
     foreignKey: work_order_id
     label: Related Work Order
+    backlinkPresentation:
+      mode: compact
+      columns:
+        - field: title
+        - field: technician_id
+        - field: scheduled_start
+        - field: scheduled_end
+        - field: status
+      limit: 5
   - object: service_visit
     targetObject: technician
     targetModule: runory.technician

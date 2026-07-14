@@ -42,6 +42,15 @@ Authoring uses the typed `defineModule` / `definePack` / `defineTemplate` helper
 
 A module manifest declares objects, fields, views, forms, permissions, workflows, agent skills, migrations, and UI slots. A pack manifest references modules with version ranges and adds a template, dashboard layout, onboarding checklist, and optional permission groups.
 
+Modules that own governed lifecycle changes also declare `domain.aggregates`
+and `domain.commands`. A Command Contract names the legal transition,
+permission, required atomic capability effects, emitted events, and
+postconditions. It must reference semantic capabilities such as
+`scheduling.complete_reservation`, never another Module's SQL or physical
+tables. The validator rejects an incomplete provider closure before install or
+release. See
+[Contract-Driven Command Architecture](./architecture/contract-driven-command-architecture.md).
+
 A pack manifest (see `catalog/packs/crm-lite-pack/manifest.yaml` for the real example) looks like:
 
 ```yaml

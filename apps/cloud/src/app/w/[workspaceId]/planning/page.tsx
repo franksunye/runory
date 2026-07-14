@@ -275,6 +275,8 @@ interface PlanningEntryRaw {
   end_at?: string;
   endAt?: string;
   status: string;
+  schedule_status?: string;
+  scheduleStatus?: string;
   notes?: string | null;
   created_at?: string;
   createdAt?: string;
@@ -311,6 +313,7 @@ function normalizeEntry(raw: PlanningEntryRaw): PlanningEntryWithAvatar {
     start_at: r.start_at ?? r.startAt ?? "",
     end_at: r.end_at ?? r.endAt ?? "",
     status: r.status,
+    schedule_status: r.schedule_status ?? r.scheduleStatus,
     notes: r.notes ?? null,
     created_at: r.created_at ?? r.createdAt ?? "",
     updated_at: r.updated_at ?? r.updatedAt ?? "",

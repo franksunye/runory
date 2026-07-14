@@ -25,7 +25,8 @@ export async function GET(
       "viewer"
     );
 
-    const definition = await getFormDefinition(workspaceId, formKey);
+    const versionId = new URL(request.url).searchParams.get("versionId") ?? undefined;
+    const definition = await getFormDefinition(workspaceId, formKey, versionId);
     if (!definition) {
       return notFound(
         `Form definition not found: ${formKey}`,

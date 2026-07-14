@@ -111,9 +111,10 @@ export async function GET(
 
     const variants = getSubjectTypeVariants(subjectType);
 
-    const [workflowEntries, auditEntries, formEntries, scheduleEntries] =
+    const [workflowEntries, domainEntries, auditEntries, formEntries, scheduleEntries] =
       await Promise.all([
         queryWorkflowEvents(workspaceId, variants, subjectId, cursor, MAX_FETCH),
+        queryDomainEvents(workspaceId, variants, subjectId, cursor, MAX_FETCH),
         queryAuditEvents(workspaceId, variants, subjectId, cursor, MAX_FETCH),
         queryFormSubmissions(workspaceId, variants, subjectId, cursor, MAX_FETCH),
         queryScheduleEntries(workspaceId, variants, subjectId, cursor, MAX_FETCH),
@@ -123,6 +124,7 @@ export async function GET(
 
     const allEntries: TimelineEntry[] = [
       ...workflowEntries,
+      ...domainEntries,
       ...auditEntries,
       ...formEntries,
       ...scheduleEntries,
@@ -313,7 +315,53 @@ async function queryWorkflowEvents(
   }));
 }
 
-// ── Source 2: Audit Events ──
+// ── Source 2: Governed domain events ──
+// Commands are the canonical lifecycle fact. Including them here keeps the
+// record timeline aligned with My Work and Planning instead of showing only
+// incidental audit rows.
+async function queryDomainEvents(
+  workspaceId: string,
+  subjectTypes: string[],
+  subjectId: string,
+  cursor: string | null,
+  limit: number
+): Promise<TimelineEntry[]> {
+  const conditions = [
+    "workspace_id = ?",
+    `aggregate_type IN (${subjectTypes.map(() => "?").join(", ")})`,
+    "aggregate_id = ?",
+  ];
+  const args: unknown[] = [workspaceId, ...subjectTypes, subjectId];
+  if (cursor) {
+    conditions.push("occurred_at < ?");
+    args.push(cursor);
+  }
+  args.push(limit);
+  const rows = await queryAll<{
+    id: string; aggregate_type: string; aggregate_id: string; event_type: string;
+    payload_json: string; actor_type: string; actor_id: string | null; occurred_at: string;
+  }>(
+    `SELECT id, aggregate_type, aggregate_id, event_type, payload_json,
+            actor_type, actor_id, occurred_at
+     FROM ${TABLES.domainEvents}
+     WHERE ${conditions.join(" AND ")}
+     ORDER BY occurred_at DESC
+     LIMIT ?`,
+    args
+  );
+  return rows.map((row) => ({
+    id: row.id,
+    event_type: row.event_type,
+    occurred_at: row.occurred_at,
+    subject_type: row.aggregate_type,
+    subject_id: row.aggregate_id,
+    actor_id: row.actor_id,
+    summary: row.event_type.replace(/_/g, " "),
+    metadata: { source: "command", actor_type: row.actor_type, payload: safeJsonParse(row.payload_json) },
+  }));
+}
+
+// ── Source 3: Audit Events ──
 //
 // Audit logs use entity_type / entity_id as the subject reference.
 

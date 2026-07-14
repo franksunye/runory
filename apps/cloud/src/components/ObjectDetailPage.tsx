@@ -6,11 +6,17 @@ import Link from "next/link";
 import {
   ArrowLeft,
   Ban,
+  Calendar,
+  Camera,
+  Check,
   CheckCircle2,
   ClipboardList,
+  FileText,
   Loader2,
   MapPin,
+  Minus,
   Navigation,
+  PenLine,
   Pencil,
   Play,
   Plus,
@@ -26,6 +32,7 @@ import UserAvatar from "./UserAvatar";
 import RecordWorkflowPanel from "./RecordWorkflowPanel";
 import RecordTimelineSection, { isValidTimelineSubject } from "./RecordTimelineSection";
 import type { FieldDefinition } from "@runory/platform-core";
+import type { FormBlock } from "@runory/contracts";
 import {
   useFields,
   useViews,
@@ -41,7 +48,7 @@ import { useI18n } from "@/i18n/locale-provider";
 import type { Locale } from "@/i18n/config";
 import { objectKeyToRouteSegment } from "@/lib/dynamic-object";
 import type { MessageKey } from "@/i18n/messages";
-import { apiFetch, apiDelete } from "@/lib/api-fetch";
+import { apiFetch, apiDelete, apiPost } from "@/lib/api-fetch";
 
 // Maps object keys to i18n label keys for backlink panel labels.
 // Without this, backlink panels show the relation's child→parent label
@@ -55,10 +62,14 @@ const OBJECT_KEY_LABEL: Record<string, MessageKey> = {
   customer: "workspace.nav.objectCustomer",
   asset: "workspace.nav.objectAsset",
   "work-order": "workspace.nav.objectWorkOrder",
+  work_order: "workspace.nav.objectWorkOrder",
   "service-site": "workspace.nav.objectServiceSite",
+  service_site: "workspace.nav.objectServiceSite",
   technician: "workspace.nav.objectTechnician",
   "service-report": "workspace.nav.objectServiceReport",
+  service_report: "workspace.nav.objectServiceReport",
   "service-visit": "workspace.nav.objectServiceVisit",
+  service_visit: "workspace.nav.objectServiceVisit",
   campaign: "workspace.nav.objectCampaign",
   "landing-page": "workspace.nav.objectLandingPage",
   form: "workspace.nav.objectForm",
@@ -166,6 +177,14 @@ const GOVERNED_FIELD_KEYS: Record<string, string[]> = {
   quote: ["status", "aggregate_version", "subtotal", "discount_total", "tax_total", "grand_total", "approved_at", "accepted_at", "rejected_reason", "withdrawn_at", "snapshot_hash", "locked_at", "root_quote_id", "previous_version_id", "revision_number", "price_book_id", "currency"],
   work_order: ["status", "aggregate_version", "source_type", "source_id", "source_snapshot_hash", "owner_resource_id", "completed_at", "cancelled_at", "reopened_at", "completion_reason", "cancellation_reason", "reopen_reason"],
   service_visit: ["status", "aggregate_version", "assignment_id", "schedule_entry_id", "outcome", "actual_start", "actual_end"],
+};
+
+// Work Order assignment/schedule scalar fields are retained only for legacy
+// data compatibility. New FSM work is represented by Service Visit +
+// Assignment + Schedule Entry, so showing empty legacy values beside the real
+// Visit is actively misleading.
+const CANONICAL_DETAIL_HIDDEN_FIELDS: Record<string, Set<string>> = {
+  work_order: new Set(["assigned_to", "scheduled_start", "scheduled_end"]),
 };
 
 function getDisplayField(fields: FieldDefinition[], preferred?: string): string {
@@ -352,6 +371,563 @@ function RelatedRecordsPanel({
   );
 }
 
+interface VisitRequirement {
+  id: string;
+  label: string;
+  form_name: string;
+  form_key: string;
+  form_version_id: string;
+  requirement_policy: string;
+  work_item_id: string | null;
+  work_item_status: string | null;
+  submission_id: string | null;
+  submission_status: string | null;
+  submission_revision: number | null;
+  submitted_at: string | null;
+  post_submission_policy: "editable_after_submission" | "reason_required" | "approval_required";
+}
+
+interface FormDefinitionDetail {
+  definition: {
+    id: string;
+    name: string;
+    version_number: number;
+  };
+  schema: { blocks: FormBlock[] };
+}
+
+interface FormSubmissionDetail {
+  id: string;
+  status: string;
+  answers_json: string;
+  submitted_at: string | null;
+  accepted_at: string | null;
+}
+
+interface WorkOrderDeliverableRequirement {
+  id: string;
+  label: string;
+  policy: string;
+  formKey: string | null;
+  formName: string | null;
+  workItemId: string | null;
+  workItemStatus: string | null;
+  submissionId: string | null;
+  submissionStatus: string | null;
+  submissionRevision: number | null;
+}
+
+function requirementStatusLabel(
+  workItemStatus: string | null,
+  submissionStatus: string | null
+): { label: string; className: string; complete: boolean } {
+  if (submissionStatus === "draft") {
+    return { label: "Revision draft", className: "bg-amber-50 text-amber-700", complete: false };
+  }
+  if (submissionStatus === "returned") {
+    return { label: "Returned", className: "bg-rose-50 text-rose-700", complete: false };
+  }
+  if (workItemStatus === "completed") {
+    return { label: "Completed", className: "bg-emerald-50 text-emerald-700", complete: true };
+  }
+  if (submissionStatus === "accepted") {
+    return { label: "Accepted", className: "bg-emerald-50 text-emerald-700", complete: false };
+  }
+  if (submissionStatus === "submitted") {
+    return { label: "Submitted", className: "bg-blue-50 text-blue-700", complete: false };
+  }
+  return { label: "Required", className: "bg-slate-100 text-slate-600", complete: false };
+}
+
+function parseSubmissionAnswers(value: string | null | undefined): Record<string, unknown> {
+  if (!value) return {};
+  try {
+    const parsed = JSON.parse(value) as unknown;
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed)
+      ? (parsed as Record<string, unknown>)
+      : {};
+  } catch {
+    return {};
+  }
+}
+
+function humanizeFormValue(value: unknown): string {
+  if (value === null || value === undefined || value === "") return "Not provided";
+  if (typeof value === "boolean") return value ? "Yes" : "No";
+  if (typeof value === "string" || typeof value === "number") {
+    return String(value).replaceAll("_", " ");
+  }
+  return "Captured";
+}
+
+function checklistResult(value: unknown): { result: string | null; notes: string | null } {
+  if (typeof value === "string") return { result: value, notes: null };
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return { result: null, notes: null };
+  }
+  const answer = value as Record<string, unknown>;
+  return {
+    result: typeof answer.result === "string" ? answer.result : null,
+    notes: typeof answer.notes === "string" && answer.notes.trim() ? answer.notes : null,
+  };
+}
+
+function VisitFormBlockResult({
+  block,
+  answers,
+}: {
+  block: FormBlock;
+  answers: Record<string, unknown>;
+}) {
+  if (block.block_type === "header") {
+    return (
+      <div className="border-b border-slate-200 pb-2 pt-2 first:pt-0">
+        <h5 className="text-xs font-bold uppercase tracking-[0.12em] text-slate-500">
+          {block.label}
+        </h5>
+      </div>
+    );
+  }
+
+  if (block.block_type === "checklist") {
+    const blockAnswer = answers[block.id];
+    const itemAnswers = blockAnswer && typeof blockAnswer === "object" && !Array.isArray(blockAnswer)
+      ? (blockAnswer as Record<string, unknown>)
+      : {};
+    return (
+      <div className="rounded-xl border border-slate-200 bg-white p-4">
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <h5 className="text-sm font-semibold text-slate-900">{block.label}</h5>
+          <span className="text-xs font-medium text-slate-500">Checklist</span>
+        </div>
+        <ul className="divide-y divide-slate-100">
+          {(block.items ?? []).map((item) => {
+            const answer = checklistResult(itemAnswers[item.id]);
+            const passed = answer.result === "pass";
+            const failed = answer.result === "fail";
+            const notApplicable = answer.result === "na";
+            return (
+              <li key={item.id} className="flex items-start gap-3 py-2.5 first:pt-0 last:pb-0">
+                <span
+                  className={`mt-0.5 grid size-6 shrink-0 place-items-center rounded-full ${
+                    passed
+                      ? "bg-emerald-100 text-emerald-700"
+                      : failed
+                        ? "bg-rose-100 text-rose-700"
+                        : notApplicable
+                          ? "bg-slate-100 text-slate-500"
+                          : "border border-slate-200 text-slate-400"
+                  }`}
+                >
+                  {passed ? <Check size={14} /> : failed ? <XCircle size={14} /> : <Minus size={13} />}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm text-slate-800">{item.label}</span>
+                  {answer.notes && <span className="mt-0.5 block text-xs text-slate-500">{answer.notes}</span>}
+                </span>
+                <span className={`text-xs font-semibold ${failed ? "text-rose-600" : passed ? "text-emerald-700" : "text-slate-500"}`}>
+                  {passed ? "Pass" : failed ? "Fail" : notApplicable ? "N/A" : "Pending"}
+                </span>
+              </li>
+            );
+          })}
+        </ul>
+      </div>
+    );
+  }
+
+  if (block.block_type === "evidence") {
+    const value = answers[block.id];
+    const attachments = value && typeof value === "object" && !Array.isArray(value)
+      ? (value as { attachments?: unknown }).attachments
+      : undefined;
+    const count = Array.isArray(attachments) ? attachments.length : 0;
+    return (
+      <div className="rounded-xl border border-slate-200 bg-white p-4">
+        <div className="flex items-center gap-3">
+          <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-indigo-50 text-indigo-600">
+            <Camera size={17} />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-sm font-semibold text-slate-900">{block.label}</span>
+            <span className="mt-0.5 block text-xs text-slate-500">
+              {count > 0 ? `${count} file${count === 1 ? "" : "s"} captured` : "No evidence captured"}
+              {block.required_count ? ` · ${block.required_count} required` : ""}
+            </span>
+          </span>
+          {count > 0 && <CheckCircle2 size={18} className="text-emerald-600" />}
+        </div>
+      </div>
+    );
+  }
+
+  if (block.block_type === "signature") {
+    const value = answers[block.id];
+    const signature = value && typeof value === "object" && !Array.isArray(value)
+      ? (value as Record<string, unknown>)
+      : {};
+    const signer = typeof signature.signerLabel === "string"
+      ? signature.signerLabel
+      : typeof signature.signedBy === "string"
+        ? signature.signedBy
+        : null;
+    const signedAt = typeof signature.timestamp === "string"
+      ? signature.timestamp
+      : typeof signature.signed_at === "string"
+        ? signature.signed_at
+        : null;
+    return (
+      <div className="rounded-xl border border-slate-200 bg-white p-4">
+        <div className="flex items-start gap-3">
+          <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-indigo-50 text-indigo-600">
+            <PenLine size={17} />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-sm font-semibold text-slate-900">{block.label}</span>
+            {block.acknowledgment_text && (
+              <span className="mt-1 block text-xs leading-5 text-slate-500">{block.acknowledgment_text}</span>
+            )}
+            <span className={`mt-2 block text-sm font-medium ${signer ? "text-slate-800" : "text-slate-400"}`}>
+              {signer ? `Signed by ${signer}` : "Signature pending"}
+            </span>
+            {signedAt && <span className="mt-0.5 block text-xs text-slate-500">{formatMetaDate(signedAt, "en")}</span>}
+          </span>
+          {signature.acknowledged === true && <CheckCircle2 size={18} className="mt-0.5 text-emerald-600" />}
+        </div>
+      </div>
+    );
+  }
+
+  const answerKey = block.field_key ?? block.id;
+  const value = answers[answerKey];
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white p-4">
+      <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+        {block.label}{block.required ? " *" : ""}
+      </dt>
+      <dd className={`mt-1.5 whitespace-pre-wrap text-sm leading-6 ${value === null || value === undefined || value === "" ? "text-slate-400" : "text-slate-800"}`}>
+        {humanizeFormValue(value)}
+      </dd>
+    </div>
+  );
+}
+
+function VisitRequirementDetails({
+  workspaceId,
+  requirement,
+}: {
+  workspaceId: string;
+  requirement: VisitRequirement;
+}) {
+  const definitionUrl = requirement.form_key && requirement.form_version_id
+    ? `/api/workspaces/${workspaceId}/forms/definitions/${encodeURIComponent(requirement.form_key)}?versionId=${encodeURIComponent(requirement.form_version_id)}`
+    : null;
+  const { data: form, isLoading: formLoading, error: formError } = useSWR<FormDefinitionDetail>(definitionUrl);
+  const submissionUrl = requirement.submission_id
+    ? `/api/workspaces/${workspaceId}/forms/submissions/${requirement.submission_id}`
+    : null;
+  const { data: submission, isLoading: submissionLoading, error: submissionError } = useSWR<FormSubmissionDetail>(submissionUrl);
+  const answers = useMemo(() => parseSubmissionAnswers(submission?.answers_json), [submission?.answers_json]);
+  const status = requirementStatusLabel(requirement.work_item_status, requirement.submission_status);
+  const router = useRouter();
+  const [revisionOpen, setRevisionOpen] = useState(false);
+  const [revisionReason, setRevisionReason] = useState("");
+  const [revisionError, setRevisionError] = useState<string | null>(null);
+  const [startingRevision, setStartingRevision] = useState(false);
+  const canExecute = Boolean(requirement.work_item_id)
+    && !status.complete
+    && requirement.submission_status !== "submitted"
+    && requirement.submission_status !== "accepted";
+  const canRevise = Boolean(requirement.submission_id && requirement.work_item_id)
+    && (requirement.submission_status === "submitted" || requirement.submission_status === "accepted");
+
+  const startRevision = async () => {
+    if (!requirement.submission_id || !requirement.work_item_id) return;
+    if (requirement.post_submission_policy === "reason_required" && !revisionReason.trim()) {
+      setRevisionError("Enter a reason for this correction.");
+      return;
+    }
+    try {
+      setStartingRevision(true);
+      setRevisionError(null);
+      const response = await apiPost<{
+        success: boolean;
+        error?: { message?: string };
+      }>(
+        `/api/workspaces/${workspaceId}/forms/submissions/${requirement.submission_id}/revise`,
+        { reason: revisionReason.trim() || undefined }
+      );
+      if (!response.success) throw new Error(response.error?.message ?? "Revision could not be started");
+      router.push(`/m/w/${workspaceId}/work/${requirement.work_item_id}/form`);
+    } catch (error) {
+      setRevisionError(error instanceof Error ? error.message : "Revision could not be started");
+    } finally {
+      setStartingRevision(false);
+    }
+  };
+
+  return (
+    <li className="px-5 py-5 sm:px-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex min-w-0 items-start gap-3">
+          <span className={`grid size-9 shrink-0 place-items-center rounded-lg ${status.complete ? "bg-emerald-50 text-emerald-600" : "bg-indigo-50 text-indigo-600"}`}>
+            {status.complete ? <CheckCircle2 size={18} /> : <ClipboardList size={17} />}
+          </span>
+          <span className="min-w-0">
+            <span className="block text-sm font-bold text-slate-900">{requirement.label}</span>
+            <span className="mt-0.5 block text-xs text-slate-500">
+              {requirement.form_name} · Version {form?.definition.version_number ?? "—"}
+              {requirement.submission_revision ? ` · Revision ${requirement.submission_revision}` : ""}
+            </span>
+          </span>
+        </div>
+        <div className="flex shrink-0 items-center gap-2 pl-12 sm:pl-0">
+          <span className={`app-badge ${status.className}`}>{status.label}</span>
+          {canExecute && requirement.work_item_id && (
+            <Link
+              href={`/m/w/${workspaceId}/work/${requirement.work_item_id}/form`}
+              className="text-xs font-semibold text-indigo-600 hover:text-indigo-800"
+            >
+              {submission ? "Continue" : "Start"} →
+            </Link>
+          )}
+          {canRevise && (
+            <button
+              type="button"
+              onClick={() => {
+                if (requirement.post_submission_policy === "editable_after_submission") {
+                  void startRevision();
+                } else {
+                  setRevisionOpen(true);
+                }
+              }}
+              disabled={startingRevision}
+              className="text-xs font-semibold text-indigo-600 hover:text-indigo-800 disabled:opacity-50"
+            >
+              {startingRevision ? "Starting…" : "Edit submitted form"}
+            </button>
+          )}
+        </div>
+      </div>
+
+      {revisionOpen && (
+        <div className="mt-4 rounded-xl border border-indigo-200 bg-indigo-50/70 p-4">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <h5 className="text-sm font-bold text-slate-900">Create a new revision</h5>
+              <p className="mt-1 text-xs leading-5 text-slate-600">
+                Revision {requirement.submission_revision ?? 1} remains unchanged. Its answers will be copied into an editable revision.
+                {requirement.post_submission_policy === "approval_required"
+                  ? " The revised submission will require reviewer approval."
+                  : " The correction reason is retained in the audit history."}
+              </p>
+            </div>
+            <button type="button" onClick={() => setRevisionOpen(false)} className="text-slate-400 hover:text-slate-600">
+              <XCircle size={17} />
+            </button>
+          </div>
+          <label className="mt-3 block text-xs font-semibold text-slate-600">
+            Correction reason{requirement.post_submission_policy === "reason_required" ? " *" : ""}
+          </label>
+          <textarea
+            value={revisionReason}
+            onChange={(event) => {
+              setRevisionReason(event.target.value);
+              setRevisionError(null);
+            }}
+            placeholder="Describe why the submitted field record needs to change"
+            className="app-input mt-1 min-h-20 resize-y text-sm"
+          />
+          {revisionError && <p className="mt-2 text-xs font-medium text-rose-600">{revisionError}</p>}
+          <div className="mt-3 flex justify-end gap-2">
+            <button type="button" onClick={() => setRevisionOpen(false)} className="app-button-secondary">
+              Cancel
+            </button>
+            <button type="button" onClick={() => void startRevision()} disabled={startingRevision} className="app-button-primary">
+              {startingRevision ? <Loader2 size={15} className="animate-spin" /> : <Pencil size={15} />}
+              Create revision
+            </button>
+          </div>
+        </div>
+      )}
+
+      {formLoading || submissionLoading ? (
+        <div className="mt-4 flex items-center gap-2 rounded-xl bg-slate-50 px-4 py-5 text-sm text-slate-500">
+          <Loader2 size={16} className="animate-spin" /> Loading field service form…
+        </div>
+      ) : formError || submissionError || !form ? (
+        <div className="mt-4 rounded-xl bg-rose-50 px-4 py-3 text-sm text-rose-700">
+          The field service form could not be loaded.
+        </div>
+      ) : (
+        <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50/70 p-3 sm:p-4">
+          {!submission && (
+            <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+              This form is required and has not been submitted. The dispatched checklist is shown below.
+            </div>
+          )}
+          <div className="space-y-3">
+            {form.schema.blocks.map((block) => (
+              <VisitFormBlockResult key={block.id} block={block} answers={answers} />
+            ))}
+          </div>
+        </div>
+      )}
+    </li>
+  );
+}
+
+function ServiceVisitRequiredWorkPanel({
+  workspaceId,
+  visitId,
+}: {
+  workspaceId: string;
+  visitId: string;
+}) {
+  const { data, isLoading, error } = useSWR<{ requirements: VisitRequirement[] }>(
+    `/api/workspaces/${workspaceId}/service-visits/${visitId}/execution`
+  );
+  const { data: workspaceAccess } = useWorkspaceAccess(workspaceId);
+  if (isLoading) return null;
+  const requirements = data?.requirements ?? [];
+  const completed = requirements.filter(
+    (requirement) => requirement.work_item_status === "completed" && requirement.submission_status !== "draft"
+  ).length;
+
+  return (
+    <section className="app-card overflow-hidden p-0">
+      <div className="flex flex-col gap-2 border-b border-slate-100 px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+        <div>
+          <div className="flex items-center gap-2">
+            <ClipboardList size={17} className="text-indigo-600" />
+            <h3 className="text-sm font-bold text-slate-900">Field service work</h3>
+          </div>
+          <p className="mt-1 text-xs text-slate-500">
+            The dispatched form, checklist results, evidence, and customer sign-off for this Visit.
+          </p>
+        </div>
+        {requirements.length > 0 && (
+          <span className="self-start rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600">
+            {completed} / {requirements.length} completed
+          </span>
+        )}
+      </div>
+
+      {error ? (
+        <p className="px-5 py-4 text-sm text-rose-600">Required work could not be loaded.</p>
+      ) : requirements.length === 0 ? (
+        <div className="px-5 py-5 sm:px-6">
+          <p className="text-sm font-semibold text-slate-800">No required forms were captured for this Visit.</p>
+          <p className="mt-1 text-xs leading-5 text-slate-500">
+            Legacy or manually created Visits may not have a dispatch-time requirement snapshot.
+          </p>
+          {workspaceAccess?.workspaceRole === "admin" && (
+            <Link href={`/w/${workspaceId}/forms`} className="mt-3 inline-flex text-sm font-semibold text-indigo-600 hover:text-indigo-800">
+              Manage forms &amp; usage policies →
+            </Link>
+          )}
+        </div>
+      ) : (
+        <ul className="divide-y divide-slate-100">
+          {requirements.map((requirement) => (
+            <VisitRequirementDetails
+              key={requirement.id}
+              workspaceId={workspaceId}
+              requirement={requirement}
+            />
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+function WorkOrderDeliverablesPanel({
+  workspaceId,
+  workOrderId,
+}: {
+  workspaceId: string;
+  workOrderId: string;
+}) {
+  const { data, isLoading, error } = useSWR<{
+    summary: { total: number; completed: number };
+    visits: Array<{
+      id: string;
+      title: string;
+      status: string;
+      scheduledStart: string | null;
+      scheduledEnd: string | null;
+      technicianName: string | null;
+      requirements: WorkOrderDeliverableRequirement[];
+    }>;
+  }>(`/api/workspaces/${workspaceId}/work-orders/${workOrderId}/deliverables`);
+  const { data: workspaceAccess } = useWorkspaceAccess(workspaceId);
+  if (isLoading || (!error && (data?.visits.length ?? 0) === 0)) return null;
+
+  return (
+    <section className="app-card overflow-hidden p-0">
+      <div className="flex flex-col gap-2 border-b border-slate-100 px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+        <div>
+          <div className="flex items-center gap-2">
+            <ClipboardList size={17} className="text-indigo-600" />
+            <h3 className="text-sm font-bold text-slate-900">Service deliverables</h3>
+          </div>
+          <p className="mt-1 text-xs text-slate-500">Required forms roll up from each Service Visit.</p>
+        </div>
+        {data && data.summary.total > 0 && (
+          <span className="self-start rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600">
+            {data.summary.completed} / {data.summary.total} completed
+          </span>
+        )}
+      </div>
+
+      {error ? (
+        <p className="px-5 py-4 text-sm text-rose-600">Service deliverables could not be loaded.</p>
+      ) : (
+        <div className="divide-y divide-slate-100">
+          {data?.visits.map((visit) => (
+            <div key={visit.id} className="px-5 py-4 sm:px-6">
+              <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                <Link href={`/w/${workspaceId}/service-visits/${visit.id}`} className="text-sm font-bold text-slate-900 hover:text-indigo-700">
+                  {visit.title}
+                </Link>
+                <span className="text-xs text-slate-500">
+                  {[visit.technicianName, visit.scheduledStart ? new Date(visit.scheduledStart).toLocaleDateString() : null]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </span>
+              </div>
+              {visit.requirements.length === 0 ? (
+                <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
+                  <p className="text-xs font-semibold text-amber-800">No dispatch-time form requirements were captured.</p>
+                  {workspaceAccess?.workspaceRole === "admin" && (
+                    <Link href={`/w/${workspaceId}/forms`} className="mt-1 inline-flex text-xs font-semibold text-amber-900 underline">
+                      Review usage policies
+                    </Link>
+                  )}
+                </div>
+              ) : (
+                <ul className="mt-3 space-y-2">
+                  {visit.requirements.map((requirement) => {
+                    const status = requirementStatusLabel(requirement.workItemStatus, requirement.submissionStatus);
+                    return (
+                      <li key={requirement.id} className="flex items-center gap-2 text-sm">
+                        <CheckCircle2 size={15} className={status.complete ? "text-emerald-600" : "text-slate-300"} />
+                        <span className="min-w-0 flex-1 truncate text-slate-700">{requirement.label}</span>
+                        <span className={`app-badge shrink-0 ${status.className}`}>{status.label}</span>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
 interface BusinessCommandAction {
   command: string;
   label: string;
@@ -367,8 +943,14 @@ function getBusinessCommandActions(objectKey: string, record: WorkspaceRecord): 
     if (status === "new") {
       actions.push({ command: "work_order.triage", label: "Triage", tone: "primary" });
     }
+    if (status === "triaged") {
+      actions.push({ command: "work_order.create_visit", label: "Plan & dispatch", tone: "primary" });
+    }
     if (status === "planned" || status === "reopened") {
       actions.push({ command: "work_order.start", label: "Start work", tone: "primary" });
+    }
+    if (status === "planned" || status === "in_progress") {
+      actions.push({ command: "work_order.create_visit", label: "Add visit", tone: "secondary" });
     }
     if (status === "blocked") {
       actions.push({ command: "work_order.unblock", label: "Unblock", tone: "secondary" });
@@ -428,6 +1010,8 @@ function iconForBusinessCommand(command: string): typeof Play {
       return RotateCcw;
     case "work_order.triage":
       return ClipboardList;
+    case "work_order.create_visit":
+      return Calendar;
     case "visit.start_travel":
       return Navigation;
     case "visit.arrive":
@@ -460,6 +1044,7 @@ export default function ObjectDetailPage({
   const { data: views = [], isLoading: loadingViews } = useViews(workspaceId, objectKey);
   const { data: record, error: recordError, isLoading: loadingRecord, mutate: mutateRecord } = useRecord(workspaceId, objectKey, recordId);
   const { data: relationsData } = useRelations(workspaceId, objectKey);
+  const { data: technicians = [] } = useRecords(workspaceId, "technician", { sortBy: "name", sortOrder: "asc" });
 
   useWorkspaceChangeEvent(workspaceId);
 
@@ -468,6 +1053,11 @@ export default function ObjectDetailPage({
   const [deleting, setDeleting] = useState(false);
   const [runningCommand, setRunningCommand] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [dispatchOpen, setDispatchOpen] = useState(false);
+  const [dispatchTechnicianId, setDispatchTechnicianId] = useState("");
+  const [dispatchStart, setDispatchStart] = useState("");
+  const [dispatchEnd, setDispatchEnd] = useState("");
+  const [dispatchNotes, setDispatchNotes] = useState("");
 
   const loading = loadingObj || loadingViews || loadingRecord;
   const fields: FieldDefinition[] = objDetail?.fields ?? [];
@@ -586,6 +1176,10 @@ export default function ObjectDetailPage({
 
   const executeBusinessCommand = async (action: BusinessCommandAction) => {
     if (!record) return;
+    if (action.command === "work_order.create_visit" && !dispatchOpen) {
+      setDispatchOpen(true);
+      return;
+    }
     const reason = action.reasonPrompt ? window.prompt(action.reasonPrompt) : undefined;
     if (action.reasonPrompt && !reason) return;
 
@@ -607,6 +1201,12 @@ export default function ObjectDetailPage({
             reason,
             completionReason: reason,
             ...(action.body ?? {}),
+            ...(action.command === "work_order.create_visit" ? {
+              technicianId: dispatchTechnicianId,
+              scheduledStart: dispatchStart ? new Date(dispatchStart).toISOString() : undefined,
+              scheduledEnd: dispatchEnd ? new Date(dispatchEnd).toISOString() : undefined,
+              notes: dispatchNotes || undefined,
+            } : {}),
           }),
         }
       );
@@ -616,6 +1216,10 @@ export default function ObjectDetailPage({
       }
       await mutateRecord();
       notifyWorkspaceDataChanged();
+      if (action.command === "work_order.create_visit") {
+        setDispatchOpen(false);
+        setDispatchNotes("");
+      }
       router.refresh();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Command failed");
@@ -805,12 +1409,89 @@ export default function ObjectDetailPage({
             </div>
           )}
 
+          {dispatchOpen && objectKey === "work_order" && (
+            <section className="app-card p-5 sm:p-6" aria-labelledby="plan-dispatch-title">
+              <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <h2 id="plan-dispatch-title" className="text-base font-bold text-slate-900">Plan &amp; dispatch</h2>
+                  <p className="mt-1 text-sm text-slate-500">
+                    Creates the visit, assignment, confirmed appointment, execution work, and required evidence together.
+                  </p>
+                </div>
+                <button type="button" onClick={() => setDispatchOpen(false)} className="text-sm font-semibold text-slate-500 hover:text-slate-800">
+                  Cancel
+                </button>
+              </div>
+              <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <label className="text-sm font-semibold text-slate-700">
+                  Technician
+                  <select
+                    value={dispatchTechnicianId}
+                    onChange={(event) => setDispatchTechnicianId(event.target.value)}
+                    className="mt-1.5 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900"
+                    required
+                  >
+                    <option value="">Select a technician</option>
+                    {technicians.map((technician) => (
+                      <option key={String(technician.id)} value={String(technician.id)}>
+                        {String(technician.name ?? technician.id)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="text-sm font-semibold text-slate-700">
+                  Scheduled start
+                  <input
+                    type="datetime-local"
+                    value={dispatchStart}
+                    onChange={(event) => setDispatchStart(event.target.value)}
+                    className="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900"
+                    required
+                  />
+                </label>
+                <label className="text-sm font-semibold text-slate-700">
+                  Scheduled end
+                  <input
+                    type="datetime-local"
+                    value={dispatchEnd}
+                    onChange={(event) => setDispatchEnd(event.target.value)}
+                    className="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900"
+                    required
+                  />
+                </label>
+                <label className="text-sm font-semibold text-slate-700">
+                  Dispatch notes <span className="font-normal text-slate-400">(optional)</span>
+                  <input
+                    value={dispatchNotes}
+                    onChange={(event) => setDispatchNotes(event.target.value)}
+                    className="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900"
+                  />
+                </label>
+              </div>
+              <div className="mt-5 flex justify-end">
+                <button
+                  type="button"
+                  disabled={!dispatchTechnicianId || !dispatchStart || !dispatchEnd || runningCommand !== null}
+                  onClick={() => void executeBusinessCommand({ command: "work_order.create_visit", label: "Plan & dispatch", tone: "primary" })}
+                  className="app-button-primary"
+                >
+                  {runningCommand === "work_order.create_visit" ? <Loader2 size={15} className="animate-spin" /> : <Calendar size={15} />}
+                  Dispatch visit
+                </button>
+              </div>
+            </section>
+          )}
+
           {/* Field sections (grouped cards) */}
           {viewSections.length > 0 ? (
             viewSections.map((section, si) => {
               const sectionFields = section.fields
                 .map((sf) => fieldMap.get(sf.field))
-                .filter((f): f is FieldDefinition => !!f && !fkFieldKeys.has(f.fieldKey));
+                .filter((f): f is FieldDefinition => (
+                  Boolean(f)
+                  && !fkFieldKeys.has(f!.fieldKey)
+                  && !CANONICAL_DETAIL_HIDDEN_FIELDS[objectKey]?.has(f!.fieldKey)
+                ));
               if (sectionFields.length === 0) return null;
               return (
                 <div key={si} className="app-card p-5 sm:p-6">
@@ -848,6 +1529,16 @@ export default function ObjectDetailPage({
                 />
               ))}
             </div>
+          )}
+
+          {/* FSM execution requirements are first-class business context.
+              A Visit owns the immutable requirement snapshot; its Work Order
+              receives an aggregate, read-only roll-up across all Visits. */}
+          {objectKey === "service_visit" && (
+            <ServiceVisitRequiredWorkPanel workspaceId={workspaceId} visitId={recordId} />
+          )}
+          {objectKey === "work_order" && (
+            <WorkOrderDeliverablesPanel workspaceId={workspaceId} workOrderId={recordId} />
           )}
 
           {/* Related collections, including composition-style child tables. */}

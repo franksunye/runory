@@ -37,6 +37,7 @@ import {
   cancelSchedule,
   submitForm,
   saveFormDraft,
+  reviseFormSubmission,
   returnFormSubmission,
   acceptFormSubmission,
   approvalDecide,
@@ -104,6 +105,7 @@ const COMMAND_PERMISSIONS: Record<string, string> = {
   // Form submission commands (§6.2)
   "form_submission.save_draft": "form.submit",
   "form_submission.submit": "form.submit",
+  "form_submission.revise": "form.submit",
   "form_submission.return": "form.review",
   "form_submission.accept": "form.review",
 
@@ -472,8 +474,11 @@ export async function POST(
           subjectId: body.subjectId as string | undefined,
           workItemId: body.workItemId as string | undefined,
           bindingId: body.bindingId as string | undefined,
+          formVersionId: body.formVersionId as string | undefined,
           answers: body.answers as Record<string, unknown>,
           submittedBy: actor.id,
+          supersedesSubmissionId: body.supersedesSubmissionId as string | undefined,
+          draftSubmissionId: body.draftSubmissionId as string | undefined,
         }, idempotencyKey, ctx.requestId);
         break;
 
@@ -483,6 +488,17 @@ export async function POST(
           body.aggregateId,
           actor.id,
           body.reason as string,
+          idempotencyKey,
+          ctx.requestId
+        );
+        break;
+
+      case "form_submission.revise":
+        result = await reviseFormSubmission(
+          workspaceId,
+          body.aggregateId,
+          actor.id,
+          body.reason as string | undefined,
           idempotencyKey,
           ctx.requestId
         );

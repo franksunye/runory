@@ -115,6 +115,10 @@ export const TABLES = {
   assignments: `${PREFIXES.runoryRuntime}assignments`,
   scheduleEntries: `${PREFIXES.runoryRuntime}schedule_entries`,
 
+  // FSM execution projection. Created by the governed Plan & dispatch command.
+  visitExecutionItems: `${PREFIXES.runoryRuntime}visit_execution_items`,
+  visitExecutionRequirements: `${PREFIXES.runoryRuntime}visit_execution_requirements`,
+
   // Runory Catalog & Release Control Plane.
   catalogItems: `${PREFIXES.runoryCatalog}items`,
   catalogVersions: `${PREFIXES.runoryCatalog}versions`,

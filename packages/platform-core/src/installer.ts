@@ -22,6 +22,10 @@ import { publishFormDefinition, createFormBinding, submitForm, type FormSchema }
 import { startWorkflow } from "./workflow";
 import type { CommandActor } from "./command-runtime";
 import { getOutboxMessages } from "./outbox";
+import {
+  getRegisteredCommandEffectProviders,
+  validateModuleCommandContracts,
+} from "./command-contracts";
 
 // ── Manifest in-memory cache ──
 // Manifest YAML files are static at runtime (they ship with the deploy and do
@@ -83,6 +87,7 @@ interface DemoFormDefinition {
     usageKey?: string;
     labelOverride?: string;
     requirementPolicy?: "optional" | "required";
+    timing?: Record<string, unknown>;
     targetMapping?: Record<string, unknown>;
   }>;
 }
@@ -719,6 +724,7 @@ async function seedPackDemoData(workspaceId: string, packId: string): Promise<nu
                 usageKey: b.usageKey,
                 labelOverride: b.labelOverride,
                 requirementPolicy: b.requirementPolicy ?? "required",
+                timing: b.timing,
                 targetMapping: b.targetMapping,
               });
               created++;
@@ -766,20 +772,29 @@ async function seedPackDemoData(workspaceId: string, packId: string): Promise<nu
             // data seeding; normal submissions remain immutable through the
             // product command path.
             const nextAnswers = fs.answers as Record<string, unknown>;
-            if (nextAnswers["evi-photos"] !== undefined) {
+            if (nextAnswers["evi-photos"] !== undefined || nextAnswers["sig-customer"] !== undefined) {
               let currentAnswers: Record<string, unknown> = {};
               try {
                 currentAnswers = JSON.parse(existingSub.answers_json) as Record<string, unknown>;
               } catch {
                 currentAnswers = {};
               }
-              if (currentAnswers["evi-photos"] === undefined) {
+              const patchedAnswers = {
+                ...currentAnswers,
+                ...(currentAnswers["evi-photos"] === undefined && nextAnswers["evi-photos"] !== undefined
+                  ? { "evi-photos": nextAnswers["evi-photos"] }
+                  : {}),
+                ...(currentAnswers["sig-customer"] === undefined && nextAnswers["sig-customer"] !== undefined
+                  ? { "sig-customer": nextAnswers["sig-customer"] }
+                  : {}),
+              };
+              if (JSON.stringify(patchedAnswers) !== JSON.stringify(currentAnswers)) {
                 await execute(
                   `UPDATE ${TABLES.formSubmissions}
                    SET answers_json = ?, updated_at = ?
                    WHERE workspace_id = ? AND id = ?`,
                   [
-                    JSON.stringify({ ...currentAnswers, "evi-photos": nextAnswers["evi-photos"] }),
+                    JSON.stringify(patchedAnswers),
                     now(),
                     workspaceId,
                     existingSub.id,
@@ -895,6 +910,51 @@ async function seedPackDemoData(workspaceId: string, packId: string): Promise<nu
         ]
       );
       created++;
+    }
+  }
+
+  // Materialize the governed execution projection for seeded (legacy) visits.
+  // New visits get this atomically from Plan & dispatch; demo visits predate
+  // that command and need the same canonical My Work source on reset.
+  if (demo.records.some((record) => record.object === "service_visit")) {
+    try {
+      const visits = await queryAll<{
+        visit_id: string; resource_id: string; assignment_id: string | null;
+        schedule_entry_id: string; due_at: string;
+      }>(
+        `SELECT visit.id AS visit_id, schedule.resource_id, assignment.id AS assignment_id,
+                schedule.id AS schedule_entry_id, schedule.end_at AS due_at
+         FROM ${businessTable("service_visit")} visit
+         JOIN ${TABLES.scheduleEntries} schedule
+           ON schedule.workspace_id = visit.workspace_id
+          AND schedule.subject_type = 'service_visit' AND schedule.subject_id = visit.id
+          AND schedule.status IN ('tentative', 'confirmed')
+         LEFT JOIN ${TABLES.assignments} assignment
+           ON assignment.workspace_id = visit.workspace_id
+          AND assignment.subject_type = 'service_visit' AND assignment.subject_id = visit.id
+          AND assignment.resource_id = schedule.resource_id
+          AND assignment.status IN ('proposed', 'assigned', 'accepted')
+         WHERE visit.workspace_id = ? AND visit.status IN ('scheduled', 'en_route', 'on_site')`,
+        [workspaceId]
+      );
+      for (const visit of visits) {
+        const exists = await queryOne<{ id: string }>(
+          `SELECT id FROM ${TABLES.visitExecutionItems} WHERE workspace_id = ? AND visit_id = ?`,
+          [workspaceId, visit.visit_id]
+        );
+        if (exists) continue;
+        const ts = now();
+        await execute(
+          `INSERT INTO ${TABLES.visitExecutionItems}
+           (id, workspace_id, visit_id, resource_id, assignment_id, schedule_entry_id, status, due_at, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, 'ready', ?, ?, ?)`,
+          [genId("vexec"), workspaceId, visit.visit_id, visit.resource_id,
+           visit.assignment_id ?? `legacy:${visit.visit_id}`, visit.schedule_entry_id, visit.due_at, ts, ts]
+        );
+        created++;
+      }
+    } catch (err) {
+      console.error("[installer] Demo visit execution projection failed:", err);
     }
   }
 
@@ -1148,6 +1208,30 @@ export async function installModule(
       `Skipping installation; existing tables are left read-only.`
     );
     return { moduleId, objectsCreated, viewsCreated, navigationItemsCreated, ddlExecuted, skipped: true };
+  }
+
+  const dependencyCapabilities = (manifest.dependencies ?? []).flatMap((dependencyId) => {
+    try {
+      return loadModuleManifest(dependencyId).domain?.capabilities?.provides ?? [];
+    } catch {
+      // Dependency installation/lookup reports the missing Module separately.
+      return [];
+    }
+  });
+  const commandContractIssues = validateModuleCommandContracts(manifest, [
+    ...getRegisteredCommandEffectProviders().map((provider) => ({
+      capability: provider.capability,
+      version: provider.version,
+      consistency: provider.consistency,
+    })),
+    ...(manifest.domain?.capabilities?.provides ?? []),
+    ...dependencyCapabilities,
+  ]);
+  if (commandContractIssues.length > 0) {
+    throw new Error(
+      `COMMAND_CONTRACT_INCOMPLETE: Module '${moduleId}' cannot be installed: `
+      + commandContractIssues.join("; "),
+    );
   }
 
   // Check if already installed (idempotent — skip if present)

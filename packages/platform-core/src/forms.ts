@@ -94,6 +94,49 @@ interface FormBindingRow {
   updated_at: string;
 }
 
+export type PostSubmissionPolicy =
+  | "editable_after_submission"
+  | "reason_required"
+  | "approval_required";
+
+export const DEFAULT_POST_SUBMISSION_POLICY: PostSubmissionPolicy = "reason_required";
+
+function parsePostSubmissionPolicy(timingJson: string | null): PostSubmissionPolicy {
+  if (!timingJson) return DEFAULT_POST_SUBMISSION_POLICY;
+  try {
+    const timing = JSON.parse(timingJson) as { postSubmissionPolicy?: unknown };
+    if (
+      timing.postSubmissionPolicy === "editable_after_submission"
+      || timing.postSubmissionPolicy === "reason_required"
+      || timing.postSubmissionPolicy === "approval_required"
+    ) {
+      return timing.postSubmissionPolicy;
+    }
+  } catch {
+    // Invalid legacy timing metadata falls back to the safe commercial default.
+  }
+  return DEFAULT_POST_SUBMISSION_POLICY;
+}
+
+async function assertSubmissionIsLatest(
+  workspaceId: string,
+  submissionId: string
+): Promise<void> {
+  const newer = await queryOne<{ id: string; revision_number: number }>(
+    `SELECT id, revision_number FROM ${TABLES.formSubmissions}
+     WHERE workspace_id = ? AND supersedes_submission_id = ? AND status != 'void'
+     ORDER BY revision_number DESC LIMIT 1`,
+    [workspaceId, submissionId]
+  );
+  if (newer) {
+    throw new BusinessError(
+      ERROR_CODES.INVALID_TRANSITION,
+      `Submission has a newer revision (${newer.revision_number}); only the current revision can be changed or reviewed`,
+      409
+    );
+  }
+}
+
 interface FormSubmissionRow {
   id: string;
   workspace_id: string;
@@ -342,6 +385,47 @@ export async function createFormBinding(
     throw new NotFoundError(`Form definition not found: ${formDefinitionId}`);
   }
 
+  // Re-saving the same usage policy must not multiply a Visit's required
+  // deliverables. Multiple different forms may intentionally share a usage
+  // context, so idempotency is scoped to definition + type + key.
+  const existing = await queryOne<{ id: string }>(
+    `SELECT id FROM ${TABLES.formBindings}
+     WHERE workspace_id = ? AND form_definition_id = ?
+       AND usage_type = ?
+       AND ((usage_key IS NULL AND ? IS NULL) OR usage_key = ?)
+       AND active = 1
+     ORDER BY created_at DESC
+     LIMIT 1`,
+    [
+      workspaceId,
+      formDefinitionId,
+      params.usageType,
+      params.usageKey ?? null,
+      params.usageKey ?? null,
+    ]
+  );
+  if (existing) {
+    // The binding identity is stable, but its business policy is editable.
+    // Updating in place prevents duplicate Visit requirements while allowing
+    // administrators to evolve requirement and post-submission behaviour.
+    await execute(
+      `UPDATE ${TABLES.formBindings}
+       SET label_override = ?, timing_json = ?, requirement_policy = ?,
+           target_mapping_json = ?, updated_at = ?
+       WHERE id = ? AND workspace_id = ?`,
+      [
+        params.labelOverride ?? null,
+        params.timing ? JSON.stringify(params.timing) : null,
+        params.requirementPolicy ?? "optional",
+        params.targetMapping ? JSON.stringify(params.targetMapping) : null,
+        now(),
+        existing.id,
+        workspaceId,
+      ]
+    );
+    return { bindingId: existing.id };
+  }
+
   const ts = now();
   const bindingId = genId("fbnd");
 
@@ -391,9 +475,13 @@ export interface SubmitFormParams {
   subjectId?: string;
   workItemId?: string;
   bindingId?: string;
+  /** Immutable version selected by a governed requirement snapshot. */
+  formVersionId?: string;
   answers: Record<string, unknown>;
   submittedBy: string;
   supersedesSubmissionId?: string;
+  /** Promote an existing draft revision instead of inserting another row. */
+  draftSubmissionId?: string;
 }
 
 export interface SubmitFormAggregate {
@@ -417,7 +505,8 @@ export async function submitFormHandler(
     throw new InvalidInputError("answers is required");
   }
 
-  // Fetch the active form definition + version to get the schema
+  // Fetch the form definition and the requested immutable version (or the
+  // current active version for ordinary forms).
   const def = await queryOne<
     Pick<FormDefinitionRow, "id" | "active_version_id">
   >(
@@ -438,16 +527,17 @@ export async function submitFormHandler(
     );
   }
 
+  const resolvedVersionId = params.formVersionId ?? def.active_version_id;
   const versionRow = await queryOne<
     Pick<FormDefinitionVersionRow, "id" | "schema_json">
   >(
     `SELECT id, schema_json FROM ${TABLES.formDefinitionVersions}
-     WHERE id = ?`,
-    [def.active_version_id]
+     WHERE id = ? AND workspace_id = ? AND form_definition_id = ?`,
+    [resolvedVersionId, workspaceId, params.formDefinitionId]
   );
   if (!versionRow) {
     throw new NotFoundError(
-      `Form definition version not found: ${def.active_version_id}`
+      `Form definition version not found: ${resolvedVersionId}`
     );
   }
 
@@ -466,6 +556,55 @@ export async function submitFormHandler(
   validateAnswers(schema, params.answers);
 
   const ts = now();
+
+  if (params.draftSubmissionId) {
+    const draft = await queryOne<FormSubmissionRow>(
+      `SELECT * FROM ${TABLES.formSubmissions}
+       WHERE workspace_id = ? AND id = ?`,
+      [workspaceId, params.draftSubmissionId]
+    );
+    if (!draft) throw new NotFoundError(`Draft submission not found: ${params.draftSubmissionId}`);
+    if (draft.status !== "draft") {
+      throw new BusinessError(
+        ERROR_CODES.INVALID_TRANSITION,
+        `Cannot submit form revision in status '${draft.status}'; expected 'draft'`,
+        409
+      );
+    }
+    if (
+      draft.form_definition_id !== params.formDefinitionId
+      || draft.form_version_id !== versionRow.id
+      || (draft.subject_type ?? null) !== (params.subjectType ?? null)
+      || (draft.subject_id ?? null) !== (params.subjectId ?? null)
+    ) {
+      throw new InvalidInputError("Draft submission does not match this form and subject");
+    }
+    return {
+      statements: [
+        {
+          sql: `UPDATE ${TABLES.formSubmissions}
+                SET status = 'submitted', answers_json = ?, submitted_by = ?,
+                    submitted_at = ?, updated_at = ?
+                WHERE id = ? AND workspace_id = ? AND status = 'draft'`,
+          args: [JSON.stringify(params.answers), params.submittedBy, ts, ts, draft.id, workspaceId],
+        },
+      ],
+      audit: {
+        action: "form_submission.submit",
+        entityType: params.subjectType ?? "form_submission",
+        entityId: draft.id,
+        before: { status: "draft", revision_number: draft.revision_number },
+        after: {
+          status: "submitted",
+          revision_number: draft.revision_number,
+          supersedes_submission_id: draft.supersedes_submission_id,
+        },
+      },
+      aggregate: { submissionId: draft.id, revisionNumber: draft.revision_number },
+      newVersion: 1,
+    };
+  }
+
   const submissionId = genId("fsub");
 
   // Determine revision number (handle revision chain)
@@ -750,6 +889,188 @@ export async function saveFormDraft(
   return result.aggregate;
 }
 
+// ── reviseFormSubmission ──
+
+export interface ReviseFormSubmissionAggregate {
+  draftSubmissionId: string;
+  revisionNumber: number;
+  policy: PostSubmissionPolicy;
+  reused: boolean;
+}
+
+/**
+ * Start an auditable correction without overwriting the submitted record.
+ * The previous answers and immutable form version are copied into a new draft
+ * revision. Whether a reason or later approval is required is governed by the
+ * binding's postSubmissionPolicy, allowing the capability to be reused by any
+ * pack and business context.
+ */
+export async function reviseFormSubmissionHandler(
+  workspaceId: string,
+  submissionId: string,
+  revisedBy: string,
+  reason?: string | null
+): Promise<CommandHandlerResult<ReviseFormSubmissionAggregate>> {
+  const submission = await queryOne<FormSubmissionRow>(
+    `SELECT * FROM ${TABLES.formSubmissions}
+     WHERE workspace_id = ? AND id = ?`,
+    [workspaceId, submissionId]
+  );
+  if (!submission) throw new NotFoundError(`Form submission not found: ${submissionId}`);
+  if (submission.status !== "submitted" && submission.status !== "accepted") {
+    throw new BusinessError(
+      ERROR_CODES.INVALID_TRANSITION,
+      `Cannot revise submission in status '${submission.status}'; expected 'submitted' or 'accepted'`,
+      409
+    );
+  }
+  const binding = submission.binding_id
+    ? await queryOne<Pick<FormBindingRow, "timing_json">>(
+        `SELECT timing_json FROM ${TABLES.formBindings}
+         WHERE workspace_id = ? AND id = ?`,
+        [workspaceId, submission.binding_id]
+      )
+    : undefined;
+  const policy = parsePostSubmissionPolicy(binding?.timing_json ?? null);
+  const normalizedReason = reason?.trim() || null;
+  if (policy === "reason_required" && !normalizedReason) {
+    throw new InvalidInputError("A correction reason is required by this form's usage policy");
+  }
+
+  const existingDraft = await queryOne<Pick<FormSubmissionRow, "id" | "revision_number">>(
+    `SELECT id, revision_number FROM ${TABLES.formSubmissions}
+     WHERE workspace_id = ? AND supersedes_submission_id = ? AND status = 'draft'
+     ORDER BY created_at DESC LIMIT 1`,
+    [workspaceId, submissionId]
+  );
+  if (existingDraft) {
+    return {
+      statements: [],
+      audit: {
+        action: "form_submission.revise",
+        entityType: "form_submission",
+        entityId: submissionId,
+        before: { status: submission.status, revision_number: submission.revision_number },
+        after: { draft_submission_id: existingDraft.id, reused: true },
+      },
+      aggregate: {
+        draftSubmissionId: existingDraft.id,
+        revisionNumber: existingDraft.revision_number,
+        policy,
+        reused: true,
+      },
+      newVersion: 1,
+    };
+  }
+  await assertSubmissionIsLatest(workspaceId, submissionId);
+
+  const ts = now();
+  const draftSubmissionId = genId("fsub");
+  const revisionNumber = submission.revision_number + 1;
+  let copiedAnswers: Record<string, unknown> = {};
+  try {
+    copiedAnswers = JSON.parse(submission.answers_json) as Record<string, unknown>;
+  } catch {
+    throw new BusinessError(
+      ERROR_CODES.INTERNAL_ERROR,
+      `Cannot revise submission ${submissionId}: stored answers are invalid`,
+      500
+    );
+  }
+  // A signature attests to one immutable answer set. A new revision may carry
+  // forward ordinary answers and evidence, but it must be signed again.
+  const version = await queryOne<Pick<FormDefinitionVersionRow, "schema_json">>(
+    `SELECT schema_json FROM ${TABLES.formDefinitionVersions}
+     WHERE workspace_id = ? AND id = ?`,
+    [workspaceId, submission.form_version_id]
+  );
+  if (version) {
+    try {
+      const schema = JSON.parse(version.schema_json) as FormSchema;
+      for (const block of schema.blocks) {
+        if (block.block_type === "signature") delete copiedAnswers[block.id];
+      }
+    } catch {
+      throw new BusinessError(
+        ERROR_CODES.INTERNAL_ERROR,
+        `Cannot revise submission ${submissionId}: form schema is invalid`,
+        500
+      );
+    }
+  } else {
+    throw new NotFoundError(`Form definition version not found: ${submission.form_version_id}`);
+  }
+  return {
+    statements: [
+      {
+        sql: `INSERT INTO ${TABLES.formSubmissions}
+              (id, workspace_id, form_definition_id, form_version_id, binding_id,
+               subject_type, subject_id, work_item_id, revision_number, status,
+               answers_json, submitted_by, submitted_at, accepted_by, accepted_at,
+               return_reason, supersedes_submission_id, created_at, updated_at)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'draft', ?, ?, NULL, NULL, NULL, ?, ?, ?, ?)`,
+        args: [
+          draftSubmissionId,
+          workspaceId,
+          submission.form_definition_id,
+          submission.form_version_id,
+          submission.binding_id,
+          submission.subject_type,
+          submission.subject_id,
+          submission.work_item_id,
+          revisionNumber,
+          JSON.stringify(copiedAnswers),
+          revisedBy,
+          normalizedReason,
+          submissionId,
+          ts,
+          ts,
+        ],
+      },
+    ],
+    audit: {
+      action: "form_submission.revise",
+      entityType: submission.subject_type ?? "form_submission",
+      entityId: submission.subject_id ?? submissionId,
+      before: { submission_id: submissionId, status: submission.status, revision_number: submission.revision_number },
+      after: {
+        draft_submission_id: draftSubmissionId,
+        revision_number: revisionNumber,
+        reason: normalizedReason,
+        policy,
+      },
+    },
+    aggregate: { draftSubmissionId, revisionNumber, policy, reused: false },
+    newVersion: 1,
+  };
+}
+
+export async function reviseFormSubmission(
+  workspaceId: string,
+  submissionId: string,
+  revisedBy: string,
+  reason?: string | null,
+  commandId?: string,
+  requestId?: string | null
+): Promise<ReviseFormSubmissionAggregate> {
+  const result = await executeCommand<ReviseFormSubmissionAggregate>(
+    {
+      commandId: commandId ?? genId("cmd"),
+      workspaceId,
+      commandType: "form_submission.revise",
+      aggregateType: "form_submission",
+      aggregateId: submissionId,
+      expectedVersion: null,
+      actor: { type: "user", id: revisedBy },
+      input: { submissionId, revisedBy, reason: reason ?? null },
+      occurredAt: now(),
+      requestId: requestId ?? null,
+    },
+    async () => reviseFormSubmissionHandler(workspaceId, submissionId, revisedBy, reason)
+  );
+  return result.aggregate;
+}
+
 // ── returnFormSubmission ──
 
 /**
@@ -795,6 +1116,7 @@ export async function returnFormSubmissionHandler(
       409
     );
   }
+  await assertSubmissionIsLatest(workspaceId, submissionId);
 
   const newSubmissionId = genId("fsub");
   const newRevisionNumber = submission.revision_number + 1;
@@ -932,6 +1254,7 @@ export async function acceptFormSubmissionHandler(
       409
     );
   }
+  await assertSubmissionIsLatest(workspaceId, submissionId);
 
   // Resolve the binding (if any) to determine whether a service report
   // projection should be created.
@@ -1113,7 +1436,8 @@ export async function getFormBinding(
  */
 export async function getFormDefinition(
   workspaceId: string,
-  formKey: string
+  formKey: string,
+  versionId?: string
 ): Promise<
   { definition: Record<string, unknown>; schema: FormSchema } | undefined
 > {
@@ -1122,14 +1446,14 @@ export async function getFormDefinition(
      WHERE workspace_id = ? AND form_key = ?`,
     [workspaceId, formKey]
   );
-  if (!def || !def.active_version_id) {
+  if (!def || (!def.active_version_id && !versionId)) {
     return undefined;
   }
 
   const versionRow = await queryOne<FormDefinitionVersionRow>(
     `SELECT * FROM ${TABLES.formDefinitionVersions}
-     WHERE id = ?`,
-    [def.active_version_id]
+     WHERE id = ? AND workspace_id = ? AND form_definition_id = ?`,
+    [versionId ?? def.active_version_id, workspaceId, def.id]
   );
   if (!versionRow) {
     return undefined;

@@ -345,8 +345,9 @@ function MyWorkPage() {
                           </span>
                         )}
                         {item.form_binding_id && (
-                          <span className="text-purple-600">
-                            {t("workflow.formBinding")}: {item.form_binding_id.slice(0, 8)}
+                          <span className="flex items-center gap-1 text-purple-600">
+                            <FileText size={12} />
+                            {item.form_name ?? t("myWork.kindForm")}
                           </span>
                         )}
                       </div>
