@@ -35,6 +35,7 @@ Runory documentation is organized by topic authority and lifecycle rather than b
 - [Product Definition](product/product-definition.md) — canonical product boundary and positioning.
 - [Post-v0.5 Product Milestone Roadmap](product/post-v0.5-product-milestone-roadmap.md) — active milestone sequence.
 - [v1.0 GA Release Goal](product/v1.0-ga-release-goal.md) — proposed GA target.
+- [Voice Intake Product Definition](product/voice-intake-product-definition.md) — proposed phone-to-work-order product boundary.
 - [Commercial FSM Customer Demand Benchmark](research/commercial-fsm-customer-demand-benchmark.md) — supporting research.
 
 Versioned iteration plans provide implementation history but do not override the Product Definition or a newer active specification.
@@ -61,6 +62,8 @@ Versioned iteration plans provide implementation history but do not override the
 - [FSM Owner E2E Run — 2026-07-14](releases/fsm-owner-e2e-run-2026-07-14.md) — release evidence.
 - [FSM Pack Plan](product/fsm-pack-plan.md) — Pack planning context.
 - [v0.5 Commercial FSM Execution Plan](product/v0.5-commercial-fsm-execution-plan.md) — historical implementation context.
+- [Voice Intake Technical Specification](product/voice-intake-technical-spec.md) — proposed Twilio + Retell + Runory implementation.
+- [Voice Intake POC Execution Plan](product/voice-intake-poc-execution-plan.md) — active bounded delivery and acceptance plan.
 
 ### 4. Platform & Extensibility
 
@@ -73,6 +76,7 @@ Versioned iteration plans provide implementation history but do not override the
 - [SDK / Module Development](sdk-module-development.md) — active authoring guide.
 - [Module SDK](sdk/module-sdk.md) — SDK reference.
 - [v0.5 Layered Architecture Review](architecture/v0.5-layered-architecture-review.md) — architecture review and rationale.
+- [Voice Intake Integration Boundary](architecture/voice-intake-integration-boundary.md) — proposed conversation-channel adapter and command boundary.
 - [Command Runtime Performance Baseline](architecture/command-runtime-performance-baseline.md) — proposed performance model, budgets, and v0.6 acceptance baseline.
 - [Performance Optimization Plan](architecture/performance-optimization-plan.md) — deployment-specific optimization work.
 - [Internationalization Architecture](architecture/internationalization.md) — localization architecture.
