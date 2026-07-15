@@ -18,36 +18,35 @@ export default function SecurityPage() {
     { title: t("security.ossTitle"), body: t("security.ossBody") },
     { title: t("security.contactTitle"), body: t("security.contactBody") },
   ];
+
   return (
-    <main className="min-h-screen bg-[#f7f8fc]">
+    <main className="min-h-screen bg-[#fbf8f1] text-neutral-950">
       <MarketingHeader />
-      <section className="relative overflow-hidden bg-slate-950 px-6 py-24 text-white sm:py-32 lg:px-10">
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_0%,rgba(99,102,241,.32),transparent_35%),radial-gradient(circle_at_85%_90%,rgba(16,185,129,.15),transparent_30%)]" />
-        <div className="relative mx-auto max-w-5xl">
-          <p className="text-sm font-bold uppercase tracking-[.18em] text-indigo-300">{t("security.eyebrow")}</p>
-          <h1 className="mt-6 max-w-4xl text-4xl font-bold tracking-[-.045em] sm:text-6xl">{t("security.title")}</h1>
-          <p className="mt-7 max-w-2xl text-lg leading-8 text-slate-300">{t("security.subtitle")}</p>
-          <div className="mt-9 flex flex-wrap gap-3">
-            <Link href="/login" className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-white px-5 text-sm font-bold text-slate-950 hover:bg-indigo-50"><ShieldCheck size={18} /> {t("security.cta")} <ArrowRight size={16} /></Link>
-            <Link href="https://github.com/franksunye/runory" target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-slate-700 px-5 text-sm font-bold text-white hover:bg-slate-900"><GitBranch size={18} /> {t("oss.viewGithub")}</Link>
-          </div>
+      <section className="mx-auto max-w-7xl px-6 py-20 lg:px-10 lg:py-28">
+        <p className="text-sm font-semibold uppercase tracking-[.18em] text-orange-600">{t("security.eyebrow")}</p>
+        <h1 className="mt-6 max-w-4xl font-serif text-5xl leading-[1.02] tracking-[-.045em] sm:text-7xl">{t("security.title")}</h1>
+        <p className="mt-8 max-w-2xl text-lg leading-8 text-neutral-600">{t("security.subtitle")}</p>
+        <div className="mt-10 flex flex-wrap gap-3">
+          <Link href="/login" className="inline-flex items-center gap-2 rounded-full bg-neutral-950 px-6 py-3 font-semibold text-white"><ShieldCheck size={18} /> {t("security.cta")} <ArrowRight size={16} /></Link>
+          <Link href="https://github.com/franksunye/runory" target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-full border border-black/15 bg-white px-6 py-3 font-semibold"><GitBranch size={18} /> {t("oss.viewGithub")}</Link>
         </div>
       </section>
 
-      <section className="py-20 sm:py-28">
-        <div className="mx-auto max-w-4xl px-6 lg:px-10">
-          <div className="divide-y divide-slate-200 border-y border-slate-200">
-            {sections.map((section) => (
-              <article key={section.title} className="py-8">
-                <h2 className="text-lg font-bold text-slate-950">{section.title}</h2>
-                <p className="mt-3 text-sm leading-7 text-slate-600">{section.body}</p>
+      <section className="border-y border-black/10 bg-white py-20 sm:py-24">
+        <div className="mx-auto max-w-5xl px-6 lg:px-10">
+          <div className="grid gap-5 md:grid-cols-2">
+            {sections.map((section, index) => (
+              <article key={section.title} className="rounded-2xl border border-black/10 bg-[#fbf8f1] p-6">
+                <span className="text-xs font-semibold text-orange-600">{String(index + 1).padStart(2, "0")}</span>
+                <h2 className="mt-6 text-lg font-semibold">{section.title}</h2>
+                <p className="mt-3 text-sm leading-7 text-neutral-600">{section.body}</p>
               </article>
             ))}
           </div>
           <div className="mt-10 flex flex-wrap items-center gap-4">
-            <Link href="/pricing" className="app-button-secondary"><ScrollText size={17} /> {t("common.pricing")}</Link>
-            <Link href="/open-source" className="app-button-secondary"><BookOpen size={17} /> {t("common.openSource")}</Link>
-            <Link href="https://github.com/franksunye/runory" target="_blank" rel="noreferrer" className="app-button-secondary"><GitBranch size={17} /> GitHub</Link>
+            <Link href="/pricing" className="inline-flex items-center gap-2 rounded-full border border-black/15 bg-white px-5 py-2.5 text-sm font-semibold"><ScrollText size={17} /> {t("common.pricing")}</Link>
+            <Link href="/open-source" className="inline-flex items-center gap-2 rounded-full border border-black/15 bg-white px-5 py-2.5 text-sm font-semibold"><BookOpen size={17} /> {t("common.openSource")}</Link>
+            <Link href="https://github.com/franksunye/runory" target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-full border border-black/15 bg-white px-5 py-2.5 text-sm font-semibold"><GitBranch size={17} /> GitHub</Link>
           </div>
         </div>
       </section>
