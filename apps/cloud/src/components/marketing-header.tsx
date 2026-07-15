@@ -14,6 +14,7 @@ export function MarketingHeader({ authenticated = false }: { authenticated?: boo
     { href: "/product", label: "Product" },
     { href: "/solutions", label: "Solutions" },
     { href: "/platform", label: "Platform" },
+    { href: "/pricing", label: "Pricing" },
     { href: "/resources", label: "Resources" },
   ];
 
