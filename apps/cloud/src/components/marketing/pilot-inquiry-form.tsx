@@ -3,13 +3,21 @@
 import { FormEvent, useState } from "react";
 import { ArrowRight, CheckCircle2 } from "lucide-react";
 
-const fields = [
+type PilotField = {
+  name: string;
+  label: string;
+  placeholder: string;
+  required?: boolean;
+  type?: "text" | "email";
+};
+
+const fields: PilotField[] = [
   { name: "name", label: "Name", placeholder: "Your name", required: true },
   { name: "email", label: "Work email", placeholder: "you@company.com", required: true, type: "email" },
   { name: "company", label: "Company", placeholder: "Company name", required: true },
   { name: "industry", label: "Service industry", placeholder: "HVAC, repair, installation..." },
   { name: "teamSize", label: "Team size", placeholder: "1–10, 11–50, 51+" },
-] as const;
+];
 
 export function PilotInquiryForm() {
   const [status, setStatus] = useState<"idle" | "submitting" | "success" | "error">("idle");
@@ -20,7 +28,8 @@ export function PilotInquiryForm() {
     setStatus("submitting");
     setMessage("");
 
-    const form = new FormData(event.currentTarget);
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
     const payload = Object.fromEntries(form.entries());
 
     try {
@@ -31,7 +40,7 @@ export function PilotInquiryForm() {
       });
       const result = await response.json();
       if (!response.ok || !result.success) throw new Error(result.error?.message || "Submission failed");
-      event.currentTarget.reset();
+      formElement.reset();
       setStatus("success");
     } catch (error) {
       setStatus("error");
@@ -57,7 +66,7 @@ export function PilotInquiryForm() {
             {field.label}
             <input
               name={field.name}
-              type={field.type || "text"}
+              type={field.type ?? "text"}
               required={field.required}
               placeholder={field.placeholder}
               className="mt-2 min-h-12 w-full rounded-xl border border-black/10 bg-[#fbf8f1] px-4 text-sm outline-none transition focus:border-orange-500"
@@ -67,13 +76,7 @@ export function PilotInquiryForm() {
       </div>
       <label className="mt-5 block text-sm font-semibold text-neutral-800">
         Priority workflow or operational problem
-        <textarea
-          name="workflow"
-          required
-          rows={5}
-          placeholder="Describe the process you want to improve, the current tools, and the desired outcome."
-          className="mt-2 w-full rounded-xl border border-black/10 bg-[#fbf8f1] px-4 py-3 text-sm leading-6 outline-none transition focus:border-orange-500"
-        />
+        <textarea name="workflow" required rows={5} placeholder="Describe the process you want to improve, the current tools, and the desired outcome." className="mt-2 w-full rounded-xl border border-black/10 bg-[#fbf8f1] px-4 py-3 text-sm leading-6 outline-none transition focus:border-orange-500" />
       </label>
       <input name="website" tabIndex={-1} autoComplete="off" className="hidden" aria-hidden="true" />
       {status === "error" && <p className="mt-4 text-sm text-red-700">{message}</p>}
