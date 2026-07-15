@@ -7,14 +7,19 @@ import { SWRProvider } from "@/lib/swr-provider";
 import PersonaSwitcher from "@/components/PersonaSwitcher";
 
 export const metadata: Metadata = {
-  title: "Runory | Composable Agent-native Business Runtime",
-  description: "Start with one Workspace, install capabilities as needed, and adapt your business through a governed Agent.",
+  title: "Runory | Field Service Operating System for the Agent Era",
+  description: "Runory unifies CRM, Sales, Voice Intake, and field service operations in one adaptive, governed operating system for service businesses.",
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"),
   manifest: "/m/manifest.json",
   openGraph: {
-    title: "Runory | Tell it. Run it.",
-    description: "A composable, Cloud-first and Agent-native business runtime.",
+    title: "Runory | Field Service Operating System for the Agent Era",
+    description: "CRM, Sales, Voice Intake, and FSM in one adaptive operating system, designed to work with external Super Agents.",
     type: "website",
+  },
+  twitter: {
+    card: "summary",
+    title: "Runory | Field Service Operating System for the Agent Era",
+    description: "CRM, Sales, Voice Intake, and FSM in one adaptive operating system for service businesses.",
   },
 };
 
