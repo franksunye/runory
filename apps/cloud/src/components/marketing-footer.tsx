@@ -8,7 +8,7 @@ export function MarketingFooter() {
   const gh = SITE_CONFIG.githubUrl;
   const groups = [
     { title: "Product", links: [["Overview", "/product"], ["Voice & Messaging", "/voice"], ["Agent Interface", "/agent"], ["Platform", "/platform"]] },
-    { title: "Solutions", links: [["Service Businesses", "/solutions"], ["Focused Pilot", "/pilot"], ["Security", "/security"], ["Sign in", "/login"]] },
+    { title: "Solutions", links: [["Service Businesses", "/solutions"], ["Pricing", "/pricing"], ["Focused Pilot", "/pilot"], ["Security", "/security"], ["Sign in", "/login"]] },
     { title: "Resources", links: [["Insights", "/resources"], ["Documentation", "/docs"], ["Open Source", "/open-source"], ["GitHub", gh]] },
   ];
 
