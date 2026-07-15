@@ -43,11 +43,25 @@ export default function SecurityPage() {
               </article>
             ))}
           </div>
-          <div className="mt-10 flex flex-wrap items-center gap-4">
-            <Link href="/pricing" className="inline-flex items-center gap-2 rounded-full border border-black/15 bg-white px-5 py-2.5 text-sm font-semibold"><ScrollText size={17} /> {t("common.pricing")}</Link>
-            <Link href="/open-source" className="inline-flex items-center gap-2 rounded-full border border-black/15 bg-white px-5 py-2.5 text-sm font-semibold"><BookOpen size={17} /> {t("common.openSource")}</Link>
-            <Link href="https://github.com/franksunye/runory" target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-full border border-black/15 bg-white px-5 py-2.5 text-sm font-semibold"><GitBranch size={17} /> GitHub</Link>
-          </div>
+        </div>
+      </section>
+
+      <section className="mx-auto max-w-5xl px-6 py-20 lg:px-10">
+        <p className="text-sm font-semibold uppercase tracking-[.18em] text-orange-600">Agent governance</p>
+        <h2 className="mt-4 max-w-3xl font-serif text-4xl tracking-[-.035em]">External Agents operate the business. Runory keeps execution controlled.</h2>
+        <p className="mt-5 max-w-3xl text-neutral-600 leading-8">Runory is designed to work with external Super Agents through MCP, Skills, and SDK integrations. Business actions flow through the Runtime where permissions, validation, confirmation, and audit can be applied.</p>
+        <div className="mt-10 grid gap-4 rounded-3xl border border-black/10 bg-white p-8 md:grid-cols-6">
+          {["Super Agent", "MCP / Skill / SDK", "Runory Runtime", "Permission", "Business Action", "Audit Trail"].map((item) => (
+            <div key={item} className="rounded-xl bg-[#fbf8f1] p-4 text-center text-sm font-semibold">{item}</div>
+          ))}
+        </div>
+      </section>
+
+      <section className="mx-auto max-w-5xl px-6 pb-20 lg:px-10">
+        <div className="flex flex-wrap items-center gap-4">
+          <Link href="/pricing" className="inline-flex items-center gap-2 rounded-full border border-black/15 bg-white px-5 py-2.5 text-sm font-semibold"><ScrollText size={17} /> {t("common.pricing")}</Link>
+          <Link href="/open-source" className="inline-flex items-center gap-2 rounded-full border border-black/15 bg-white px-5 py-2.5 text-sm font-semibold"><BookOpen size={17} /> {t("common.openSource")}</Link>
+          <Link href="https://github.com/franksunye/runory" target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-full border border-black/15 bg-white px-5 py-2.5 text-sm font-semibold"><GitBranch size={17} /> GitHub</Link>
         </div>
       </section>
       <MarketingFooter />
