@@ -40,24 +40,27 @@ const articles = {
 } as const;
 
 type Slug = keyof typeof articles;
+type PageProps = { params: Promise<{ slug: string }> };
 
 export function generateStaticParams() {
   return Object.keys(articles).map((slug) => ({ slug }));
 }
 
-export function generateMetadata({ params }: { params: { slug: string } }): Metadata {
-  const article = articles[params.slug as Slug];
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+  const { slug } = await params;
+  const article = articles[slug as Slug];
   if (!article) return {};
   return {
-    title: `${article.title} | Runory`,
+    title: article.title,
     description: article.description,
-    alternates: { canonical: `/resources/${params.slug}` },
+    alternates: { canonical: `/resources/${slug}` },
     openGraph: { title: article.title, description: article.description, type: "article" },
   };
 }
 
-export default function ResourceArticlePage({ params }: { params: { slug: string } }) {
-  const article = articles[params.slug as Slug];
+export default async function ResourceArticlePage({ params }: PageProps) {
+  const { slug } = await params;
+  const article = articles[slug as Slug];
   if (!article) notFound();
 
   return (
