@@ -16,7 +16,7 @@ export function RunoryHomeV2() {
             CRM, Sales, Voice Intake, and FSM unified in one adaptive operating system for service businesses.
           </p>
           <div className="mt-10 flex flex-wrap gap-3">
-            <Link href="/login" className="inline-flex items-center gap-2 rounded-full bg-neutral-950 px-6 py-3 font-semibold text-white">Start a Pilot <ArrowRight size={18} /></Link>
+            <Link href="/pilot" className="inline-flex items-center gap-2 rounded-full bg-neutral-950 px-6 py-3 font-semibold text-white">Start a Pilot <ArrowRight size={18} /></Link>
             <Link href="/product" className="inline-flex items-center gap-2 rounded-full border border-black/15 bg-white px-6 py-3 font-semibold text-neutral-900">Explore the Product</Link>
           </div>
           <p className="mt-5 text-sm text-neutral-500">Mature use cases can often launch in 1–2 weeks.</p>
@@ -30,7 +30,23 @@ export function RunoryHomeV2() {
             <div className="mt-5 grid gap-3 sm:grid-cols-3">
               {["12 new leads", "8 visits scheduled", "3 quotes pending"].map((item) => <div key={item} className="rounded-xl bg-white/5 p-4 text-sm text-neutral-200">{item}</div>)}
             </div>
-            <div className="mt-4 rounded-xl border border-dashed border-white/20 p-8 text-center text-sm text-neutral-400">Product workspace screenshot placeholder</div>
+            <div className="mt-4 grid gap-3 sm:grid-cols-[1.25fr_.75fr]">
+              <div className="rounded-xl border border-white/10 bg-white/[.04] p-4">
+                <div className="flex items-center justify-between text-xs text-neutral-400"><span>Service pipeline</span><span>Today</span></div>
+                <div className="mt-4 space-y-3">
+                  {["New request captured", "Site visit confirmed", "Quote awaiting approval"].map((item, index) => (
+                    <div key={item} className="flex items-center gap-3 rounded-lg bg-white/[.04] px-3 py-2.5 text-sm text-neutral-200">
+                      <span className="grid size-6 place-items-center rounded-full bg-orange-400/15 text-xs text-orange-300">{index + 1}</span>{item}
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="rounded-xl border border-white/10 bg-white/[.04] p-4">
+                <p className="text-xs text-neutral-400">Agent action</p>
+                <p className="mt-3 text-sm leading-6 text-neutral-200">“Schedule tomorrow’s highest-priority visits.”</p>
+                <div className="mt-4 rounded-lg bg-orange-400/10 p-3 text-xs leading-5 text-orange-200">3 technicians matched · 5 visits ready for confirmation</div>
+              </div>
+            </div>
           </div>
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
             <div className="rounded-2xl border border-black/10 p-5"><Smartphone size={20} /><p className="mt-3 font-semibold">Mobile field work</p><p className="mt-1 text-sm text-neutral-500">Tasks, forms, evidence, completion.</p></div>
@@ -94,7 +110,7 @@ export function RunoryHomeV2() {
             <h2 className="mt-4 font-serif text-4xl tracking-[-.035em] text-neutral-950 sm:text-5xl">Start small. Go live fast. Expand with confidence.</h2>
             <p className="mt-5 max-w-2xl text-lg leading-8 text-neutral-600">Begin with one priority workflow and one operating team. Mature use cases can often launch in 1–2 weeks.</p>
           </div>
-          <Link href="/login" className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-orange-600 px-7 font-semibold text-white">Start a Pilot <ArrowRight size={18} /></Link>
+          <Link href="/pilot" className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-orange-600 px-7 font-semibold text-white">Start a Pilot <ArrowRight size={18} /></Link>
         </div>
       </section>
     </>
