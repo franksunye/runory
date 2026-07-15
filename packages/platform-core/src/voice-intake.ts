@@ -197,6 +197,7 @@ export async function previewServiceIntake(workspaceId: string, input: ServiceIn
   session = session
     ? await updateRecord(workspaceId, "voice_intake_session", String(session.id), payload)
     : await createRecord(workspaceId, "voice_intake_session", payload);
+  if (!session) throw new Error("VOICE_INTAKE_SESSION_PERSIST_FAILED");
 
   return {
     intakeSessionId: session.id,
