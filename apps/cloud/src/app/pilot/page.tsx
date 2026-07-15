@@ -1,7 +1,10 @@
-import { CheckCircle2 } from "lucide-react";
+import Link from "next/link";
+import { ArrowRight, CheckCircle2, Mail } from "lucide-react";
 import { MarketingFooter } from "@/components/marketing-footer";
 import { MarketingHeader } from "@/components/marketing-header";
-import { PilotInquiryForm } from "@/components/marketing/pilot-inquiry-form";
+
+const pilotEmail = "support@visutry.com";
+const mailto = `mailto:${pilotEmail}?subject=${encodeURIComponent("Runory Pilot Inquiry")}&body=${encodeURIComponent("Company:\nIndustry:\nTeam size:\nPriority workflow or operational problem:\n\nPreferred next step:\n")}`;
 
 export default function PilotPage() {
   const items = [
@@ -14,7 +17,7 @@ export default function PilotPage() {
   return (
     <main className="min-h-screen bg-[#fbf8f1] text-neutral-950">
       <MarketingHeader />
-      <section className="mx-auto grid max-w-7xl gap-12 px-6 py-16 lg:grid-cols-[.86fr_1.14fr] lg:px-10 lg:py-24">
+      <section className="mx-auto grid max-w-7xl gap-12 px-6 py-16 lg:grid-cols-[.9fr_1.1fr] lg:px-10 lg:py-24">
         <div>
           <p className="text-sm font-semibold uppercase tracking-[.18em] text-orange-600">Focused Pilot</p>
           <h1 className="mt-6 max-w-4xl font-serif text-5xl leading-[1.02] tracking-[-.045em] sm:text-7xl">Start small. Go live fast. Prove operational value.</h1>
@@ -25,7 +28,16 @@ export default function PilotPage() {
             ))}
           </div>
         </div>
-        <PilotInquiryForm />
+
+        <div className="rounded-[28px] border border-black/10 bg-white p-7 shadow-[0_24px_70px_rgba(50,35,20,.08)] sm:p-10">
+          <Mail size={28} className="text-orange-600" />
+          <h2 className="mt-5 font-serif text-3xl tracking-[-.03em]">Discuss a focused pilot.</h2>
+          <p className="mt-4 max-w-xl leading-7 text-neutral-600">Email us with your company, team size, current workflow, and the operational problem you want to improve.</p>
+          <Link href={mailto} className="mt-8 inline-flex min-h-12 items-center gap-2 rounded-full bg-orange-600 px-7 font-semibold text-white">
+            Email {pilotEmail} <ArrowRight size={18} />
+          </Link>
+          <p className="mt-5 text-sm text-neutral-500">We typically respond with an initial fit assessment and suggested pilot scope.</p>
+        </div>
       </section>
 
       <section className="border-y border-black/10 bg-white py-16 sm:py-20">
