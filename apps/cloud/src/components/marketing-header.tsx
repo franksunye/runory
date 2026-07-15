@@ -13,8 +13,9 @@ export function MarketingHeader({ authenticated = false }: { authenticated?: boo
   const { locale, setLocale, t } = useI18n();
   const links = [
     { href: "/product", label: "Product" },
-    { href: "/voice", label: "Voice & Messaging" },
-    { href: "/agent", label: "Agent Interface" },
+    { href: "/solutions", label: "Solutions" },
+    { href: "/voice", label: "Voice" },
+    { href: "/agent", label: "Agent" },
     { href: "/platform", label: "Platform" },
     { href: "/docs", label: "Resources" },
   ];
@@ -27,7 +28,7 @@ export function MarketingHeader({ authenticated = false }: { authenticated?: boo
           <span className="ml-3 text-lg font-semibold tracking-tight text-neutral-950">Runory</span>
         </Link>
 
-        <nav className="hidden items-center gap-7 md:flex" aria-label={t("common.mainNavigation")}>
+        <nav className="hidden items-center gap-6 md:flex" aria-label={t("common.mainNavigation")}>
           {links.map((link) => (
             <Link key={link.href} href={link.href} className={`text-sm font-medium transition hover:text-neutral-950 ${pathname === link.href ? "text-orange-600" : "text-neutral-600"}`}>
               {link.label}
@@ -46,7 +47,7 @@ export function MarketingHeader({ authenticated = false }: { authenticated?: boo
               </button>
             ))}
           </div>
-          <Link href={authenticated ? "/dashboard" : "/login"} className="inline-flex min-h-10 items-center rounded-full bg-neutral-950 px-5 text-sm font-semibold text-white">
+          <Link href={authenticated ? "/dashboard" : "/pilot"} className="inline-flex min-h-10 items-center rounded-full bg-neutral-950 px-5 text-sm font-semibold text-white">
             {authenticated ? t("common.workspace") : "Start a Pilot"}
           </Link>
         </div>
@@ -64,7 +65,7 @@ export function MarketingHeader({ authenticated = false }: { authenticated?: boo
                 {link.label}
               </Link>
             ))}
-            <Link href={authenticated ? "/dashboard" : "/login"} className="mt-3 inline-flex min-h-11 items-center justify-center rounded-full bg-neutral-950 px-5 text-sm font-semibold text-white">
+            <Link href={authenticated ? "/dashboard" : "/pilot"} className="mt-3 inline-flex min-h-11 items-center justify-center rounded-full bg-neutral-950 px-5 text-sm font-semibold text-white">
               {authenticated ? t("common.workspace") : "Start a Pilot"}
             </Link>
           </nav>
