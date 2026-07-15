@@ -1,0 +1,7 @@
+import Link from "next/link";
+import { MarketingFooter } from "@/components/marketing-footer";
+import { MarketingHeader } from "@/components/marketing-header";
+
+export default function HvacPage() {
+  return <main className="min-h-screen bg-[#fbf8f1] text-neutral-950"><MarketingHeader /><section className="mx-auto max-w-7xl px-5 py-20 lg:px-10"><p className="text-sm font-semibold uppercase tracking-[.18em] text-orange-600">HVAC OPERATIONS</p><h1 className="mt-5 max-w-4xl font-serif text-5xl tracking-[-.045em] sm:text-7xl">Turn HVAC calls into managed service operations.</h1><p className="mt-7 max-w-2xl text-lg leading-8 text-neutral-600">Runory connects customer intake, sales follow-up, scheduling and field execution into one operating loop.</p></section><section className="border-y border-black/10 bg-white py-16"><div className="mx-auto grid max-w-7xl gap-5 px-5 md:grid-cols-4 lg:px-10">{["Customer request","AI intake","Dispatch & schedule","Service completion"].map((x,i)=><div key={x} className="rounded-2xl border border-black/10 p-6"><span className="text-orange-600">0{i+1}</span><h2 className="mt-4 font-semibold">{x}</h2></div>)}</div></section><section className="mx-auto flex max-w-7xl items-center justify-between gap-6 px-5 py-16 lg:px-10"><h2 className="font-serif text-4xl">Start with one HVAC workflow.</h2><Link className="rounded-full bg-neutral-950 px-6 py-3 text-white" href="/pilot">Start a Pilot</Link></section><MarketingFooter /></main>;
+}
