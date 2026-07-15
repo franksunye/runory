@@ -1,53 +1,13 @@
+"use client";
+
 import Link from "next/link";
 import { MarketingFooter } from "@/components/marketing-footer";
 import { MarketingHeader } from "@/components/marketing-header";
+import { useI18n } from "@/i18n/locale-provider";
 
 export default function AgentPage() {
-  return (
-    <main className="min-h-screen bg-[#fbf8f1] text-neutral-950">
-      <MarketingHeader />
-
-      <section className="mx-auto max-w-7xl px-6 py-24 lg:px-10">
-        <p className="text-sm font-semibold uppercase tracking-[0.18em] text-orange-600">Agent Interface</p>
-        <h1 className="mt-6 max-w-4xl font-serif text-5xl leading-[1.02] tracking-[-0.045em] sm:text-7xl">
-          Your Super Agent operates Runory. Runory keeps business execution governed.
-        </h1>
-        <p className="mt-8 max-w-3xl text-lg leading-8 text-neutral-600">
-          Runory does not replace Super Agents. It provides the business runtime, data model, permissions, and execution layer that allow external Agents to configure and operate service businesses safely.
-        </p>
-
-        <div className="mt-16 grid gap-6 md:grid-cols-3">
-          {[
-            ["Configure", "Customize workflows, fields, roles, and business rules through Agent-assisted operations."],
-            ["Operate", "Use natural language to manage customers, sales, schedules, and field execution."],
-            ["Automate", "Create scheduled and event-driven actions with controlled execution."],
-          ].map(([title, body]) => (
-            <article key={title} className="rounded-2xl border border-black/10 bg-white p-7">
-              <h2 className="text-xl font-semibold">{title}</h2>
-              <p className="mt-3 leading-7 text-neutral-600">{body}</p>
-            </article>
-          ))}
-        </div>
-
-        <div className="mt-16 rounded-3xl border border-black/10 bg-white p-10">
-          <p className="text-sm uppercase tracking-[0.15em] text-neutral-500">Integration</p>
-          <h2 className="mt-4 font-serif text-3xl tracking-[-0.03em]">External Super Agents + Runory Runtime</h2>
-          <p className="mt-4 max-w-2xl leading-7 text-neutral-600">
-            MCP, Skills, and SDK provide the connection layer. Runory provides governed business capabilities.
-          </p>
-        </div>
-
-        <div className="mt-12 flex flex-wrap gap-3">
-          <Link href="/pilot" className="inline-flex rounded-full bg-neutral-950 px-6 py-3 font-semibold text-white">
-            Start a Pilot
-          </Link>
-          <Link href="/platform" className="inline-flex rounded-full border border-black/15 bg-white px-6 py-3 font-semibold text-neutral-900">
-            Explore the Platform
-          </Link>
-        </div>
-      </section>
-
-      <MarketingFooter />
-    </main>
-  );
+  const { locale } = useI18n();
+  const zh = locale === "zh";
+  const cards = zh ? [["配置", "通过 Agent 辅助操作，定制流程、字段、角色与业务规则。"], ["运营", "使用自然语言管理客户、销售、排期与现场执行。"], ["自动化", "创建定时和事件驱动动作，并保持受控执行。"]] : [["Configure", "Customize workflows, fields, roles, and business rules through Agent-assisted operations."], ["Operate", "Use natural language to manage customers, sales, schedules, and field execution."], ["Automate", "Create scheduled and event-driven actions with controlled execution."]];
+  return <main className="min-h-screen bg-[#fbf8f1] text-neutral-950"><MarketingHeader /><section className="mx-auto max-w-7xl px-6 py-24 lg:px-10"><p className="text-sm font-semibold uppercase tracking-[0.18em] text-orange-600">{zh ? "Agent 接口" : "Agent Interface"}</p><h1 className="mt-6 max-w-4xl font-serif text-5xl leading-[1.02] tracking-[-0.045em] sm:text-7xl">{zh ? "你的超级 Agent 操作 Runory，Runory 确保业务执行受治理。" : "Your Super Agent operates Runory. Runory keeps business execution governed."}</h1><p className="mt-8 max-w-3xl text-lg leading-8 text-neutral-600">{zh ? "Runory 不替代超级 Agent，而是提供业务运行时、数据模型、权限与执行层，使外部 Agent 能够安全地配置和运营服务型企业。" : "Runory does not replace Super Agents. It provides the business runtime, data model, permissions, and execution layer that allow external Agents to configure and operate service businesses safely."}</p><div className="mt-16 grid gap-6 md:grid-cols-3">{cards.map(([title, body]) => <article key={title} className="rounded-2xl border border-black/10 bg-white p-7"><h2 className="text-xl font-semibold">{title}</h2><p className="mt-3 leading-7 text-neutral-600">{body}</p></article>)}</div><div className="mt-16 rounded-3xl border border-black/10 bg-white p-10"><p className="text-sm uppercase tracking-[0.15em] text-neutral-500">{zh ? "集成" : "Integration"}</p><h2 className="mt-4 font-serif text-3xl tracking-[-0.03em]">{zh ? "外部超级 Agent + Runory Runtime" : "External Super Agents + Runory Runtime"}</h2><p className="mt-4 max-w-2xl leading-7 text-neutral-600">{zh ? "MCP、Skills 与 SDK 提供连接层，Runory 提供受治理的业务能力。" : "MCP, Skills, and SDK provide the connection layer. Runory provides governed business capabilities."}</p></div><div className="mt-12 flex flex-wrap gap-3"><Link href="/pilot" className="inline-flex rounded-full bg-neutral-950 px-6 py-3 font-semibold text-white">{zh ? "启动试点" : "Start a Pilot"}</Link><Link href="/platform" className="inline-flex rounded-full border border-black/15 bg-white px-6 py-3 font-semibold text-neutral-900">{zh ? "了解平台" : "Explore the Platform"}</Link></div></section><MarketingFooter /></main>;
 }
