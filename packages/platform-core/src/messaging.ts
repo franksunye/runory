@@ -43,6 +43,18 @@ export async function createVoiceMessage(workspaceId: string, input: { conversat
   return { id, channel: "voice" as const, bodyText, createdAt: timestamp };
 }
 
+export async function ingestInboundMessage(workspaceId: string, input: { channel: Exclude<MessageChannel, "internal">; provider: string; externalId: string; senderAddress: string; senderName?: string; bodyText: string; subject?: string; contactId?: string; workOrderId?: string }) {
+  const duplicate = await queryOne<Record<string, unknown>>(`SELECT id, conversation_id FROM ${TABLES.messages} WHERE workspace_id = ? AND provider = ? AND external_id = ? LIMIT 1`, [workspaceId, input.provider, input.externalId]);
+  if (duplicate) return { duplicate: true, messageId: String(duplicate.id), conversationId: String(duplicate.conversation_id) };
+  const participant = await queryOne<Record<string, unknown>>(`SELECT c.* FROM ${TABLES.conversationParticipants} p JOIN ${TABLES.conversations} c ON c.id = p.conversation_id AND c.workspace_id = p.workspace_id WHERE p.workspace_id = ? AND p.address = ? AND c.status = 'open' ORDER BY COALESCE(c.last_message_at, c.created_at) DESC LIMIT 1`, [workspaceId, input.senderAddress]);
+  const conversation = participant ?? await createConversation(workspaceId, { contactId: input.contactId, workOrderId: input.workOrderId, subject: input.subject });
+  await addConversationParticipant(workspaceId, { conversationId: String(conversation.id), participantType: input.contactId ? "contact" : "external", participantId: input.contactId, address: input.senderAddress, displayName: input.senderName, role: "sender" });
+  const id = genId("msg"); const timestamp = now();
+  await execute(`INSERT INTO ${TABLES.messages} (id, workspace_id, conversation_id, direction, channel, author_type, author_id, subject, body_text, provider, external_id, created_at) VALUES (?, ?, ?, 'inbound', ?, ?, ?, ?, ?, ?, ?, ?)`, [id, workspaceId, conversation.id, input.channel, input.contactId ? "contact" : "external", input.contactId ?? null, input.subject ?? null, input.bodyText, input.provider, input.externalId, timestamp]);
+  await execute(`UPDATE ${TABLES.conversations} SET status = 'open', last_message_at = ?, updated_at = ? WHERE id = ? AND workspace_id = ?`, [timestamp, timestamp, conversation.id, workspaceId]);
+  return { duplicate: false, messageId: id, conversationId: String(conversation.id) };
+}
+
 export async function markMessageDeliveryAccepted(workspaceId: string, deliveryId: string): Promise<void> {
   const timestamp = now();
   await execute(`UPDATE ${TABLES.messageDeliveries} SET status = 'accepted', accepted_at = ?, last_error = NULL, updated_at = ? WHERE id = ? AND workspace_id = ?`, [timestamp, timestamp, deliveryId, workspaceId]);

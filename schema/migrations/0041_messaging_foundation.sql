@@ -57,7 +57,7 @@ CREATE TABLE IF NOT EXISTS {{RUNORY_RUNTIME_TABLE_PREFIX}}messages (
   notification_id TEXT,
   direction TEXT NOT NULL CHECK (direction IN ('inbound','outbound','system')),
   channel TEXT NOT NULL CHECK (channel IN ('email','sms','voice','web','internal')),
-  author_type TEXT NOT NULL CHECK (author_type IN ('contact','user','agent','system')),
+  author_type TEXT NOT NULL CHECK (author_type IN ('contact','user','agent','system','external')),
   author_id TEXT,
   subject TEXT,
   body_text TEXT,

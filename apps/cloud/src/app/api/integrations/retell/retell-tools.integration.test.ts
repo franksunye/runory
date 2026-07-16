@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { NextRequest } from "next/server";
-import { getAuditEvents, getOutboxMessages, ingestVoiceEvent, upsertVoiceCall } from "@runory/platform-core";
+import { getAuditEvents, getOutboxMessages, ingestInboundMessage, ingestVoiceEvent, upsertVoiceCall } from "@runory/platform-core";
 import { businessTable, TABLES } from "@runory/platform-core";
 import { createRecord } from "@runory/platform-core";
 import { db, execute, genId, now, queryAll } from "@runory/platform-core";
@@ -198,5 +198,15 @@ describe("Retell custom tool routes", () => {
     expect(response.status).toBe(200);
     const voiceMessages = await queryAll(`SELECT * FROM ${TABLES.messages} WHERE workspace_id = ? AND channel = 'voice'`, [workspaceId]);
     expect(voiceMessages).toEqual([expect.objectContaining({ direction: "inbound", body_text: "Customer reports water leaking under the kitchen sink.", provider: "retell" })]);
+  });
+
+  it("ingests an inbound provider message into the participant's open conversation idempotently", async () => {
+    const args = { ...completeArgs("call_cloud_inbound_001"), customerEmail: "reply@example.com" };
+    await createWorkOrder(toolRequest(args, { invocationId: "tool_cloud_inbound_001" }));
+    const first = await ingestInboundMessage(workspaceId, { channel: "email", provider: "resend", externalId: "email_inbound_001", senderAddress: "reply@example.com", bodyText: "Please schedule this for tomorrow morning." });
+    const second = await ingestInboundMessage(workspaceId, { channel: "email", provider: "resend", externalId: "email_inbound_001", senderAddress: "reply@example.com", bodyText: "Please schedule this for tomorrow morning." });
+    expect(second).toMatchObject({ duplicate: true, messageId: first.messageId, conversationId: first.conversationId });
+    const messages = await queryAll(`SELECT * FROM ${TABLES.messages} WHERE workspace_id = ? AND direction = 'inbound'`, [workspaceId]);
+    expect(messages).toEqual([expect.objectContaining({ conversation_id: first.conversationId, channel: "email", author_type: "external", provider: "resend" })]);
   });
 });
