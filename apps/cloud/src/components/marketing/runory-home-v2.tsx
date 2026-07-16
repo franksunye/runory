@@ -10,15 +10,58 @@ export function RunoryHomeV2() {
   const c = marketingCopy[locale].home;
   const agentIcons = [BriefcaseBusiness, Wrench, CalendarClock, CheckCircle2];
   const capabilityIcons = [Headphones, Layers3, Bot, ShieldCheck];
+  const isZh = locale === "zh";
+
+  const operatingModel = isZh
+    ? [
+        ["业务用户", "表达目标、规则与优先级"],
+        ["外部超级 Agent", "理解、规划并发起操作"],
+        ["Runory Runtime", "校验、授权、执行与审计"],
+        ["业务结果", "线索、报价、工单、排期与收款"],
+      ]
+    : [
+        ["Business user", "Express goals, rules, and priorities"],
+        ["External Super Agent", "Understand, plan, and initiate work"],
+        ["Runory Runtime", "Validate, authorize, execute, and audit"],
+        ["Business outcomes", "Leads, quotes, work orders, schedules, and payments"],
+      ];
+
+  const roles = isZh
+    ? [
+        ["接单与客服", "识别客户、记录需求、确认紧急程度并创建业务记录。"],
+        ["销售与顾问", "推进跟进、勘查、报价、审批与签约。"],
+        ["调度与运营", "协调人员、时间、区域、优先级与服务能力。"],
+        ["现场团队", "通过移动端完成任务、表单、证据、变更与完工。"],
+        ["管理者", "查看业务节奏、异常、转化、履约与经营结果。"],
+        ["外部 Agent", "在权限和业务规则范围内配置、操作、调度与自动化。"],
+      ]
+    : [
+        ["Intake & service", "Identify customers, capture demand, confirm urgency, and create business records."],
+        ["Sales & advisors", "Move follow-up, inspection, quote, approval, and contract work forward."],
+        ["Dispatch & operations", "Coordinate people, time, territory, priority, and service capacity."],
+        ["Field teams", "Complete tasks, forms, evidence, changes, and closeout from mobile."],
+        ["Managers", "See operating rhythm, exceptions, conversion, delivery, and business outcomes."],
+        ["External Agents", "Configure, operate, schedule, and automate within governed boundaries."],
+      ];
 
   return <>
     <section className="mx-auto grid max-w-7xl gap-12 px-5 pb-16 pt-12 sm:px-6 sm:pb-24 sm:pt-16 lg:grid-cols-[1.02fr_.98fr] lg:px-10 lg:pt-24">
       <div><p className="text-sm font-semibold uppercase tracking-[0.18em] text-orange-600">{c.eyebrow}</p><h1 className="mt-5 max-w-3xl font-serif text-5xl leading-[1.02] tracking-[-0.045em] text-neutral-950 sm:mt-6 sm:text-7xl">{c.title}</h1><p className="mt-6 max-w-2xl text-base leading-7 text-neutral-600 sm:mt-8 sm:text-lg sm:leading-8">{c.subtitle}</p><div className="mt-8 flex flex-wrap gap-3 sm:mt-10"><Link href="/pilot" className="inline-flex min-h-12 items-center gap-2 rounded-full bg-neutral-950 px-6 font-semibold text-white">{c.pilot} <ArrowRight size={18} /></Link><Link href="/product" className="inline-flex min-h-12 items-center gap-2 rounded-full border border-black/15 bg-white px-6 font-semibold text-neutral-900">{c.explore}</Link></div><p className="mt-5 text-sm text-neutral-500">{c.launch}</p></div>
       <div className="rounded-[26px] border border-black/10 bg-white p-3 shadow-[0_30px_90px_rgba(50,35,20,.10)] sm:rounded-[30px] sm:p-4"><div className="rounded-[20px] bg-neutral-950 p-4 text-white sm:rounded-[22px] sm:p-5"><div className="flex items-center justify-between border-b border-white/10 pb-4 text-sm"><span className="font-semibold">{c.ops}</span><span className="text-orange-300">{c.live}</span></div><div className="mt-4 grid gap-2 sm:mt-5 sm:grid-cols-3 sm:gap-3">{c.stats.map((item) => <div key={item} className="rounded-xl bg-white/5 p-3 text-sm text-neutral-200 sm:p-4">{item}</div>)}</div><div className="mt-3 grid gap-3 sm:mt-4 sm:grid-cols-[1.25fr_.75fr]"><div className="rounded-xl border border-white/10 bg-white/[.04] p-4"><div className="flex items-center justify-between text-xs text-neutral-400"><span>{c.pipeline}</span><span>{c.today}</span></div><div className="mt-4 space-y-2">{c.pipelineItems.map((item, index) => <div key={item} className="flex items-center gap-3 rounded-lg bg-white/[.04] px-3 py-2.5 text-sm text-neutral-200"><span className="grid size-6 place-items-center rounded-full bg-orange-400/15 text-xs text-orange-300">{index + 1}</span>{item}</div>)}</div></div><div className="rounded-xl border border-white/10 bg-white/[.04] p-4"><p className="text-xs text-neutral-400">{c.agentAction}</p><p className="mt-3 text-sm leading-6 text-neutral-200">“{c.agentPrompt}”</p><div className="mt-4 rounded-lg bg-orange-400/10 p-3 text-xs leading-5 text-orange-200">{c.agentResult}</div></div></div></div><div className="mt-3 grid gap-3 sm:mt-4 sm:grid-cols-2"><div className="rounded-2xl border border-black/10 p-4 sm:p-5"><Smartphone size={20} /><p className="mt-3 font-semibold">{c.mobile}</p><p className="mt-1 text-sm text-neutral-500">{c.mobileBody}</p></div><div className="rounded-2xl border border-black/10 p-4 sm:p-5"><Bot size={20} /><p className="mt-3 font-semibold">{c.externalAgent}</p><p className="mt-1 text-sm text-neutral-500">{c.externalAgentBody}</p></div></div></div>
     </section>
+
     <section className="border-y border-black/10 bg-white py-16 sm:py-20"><div className="mx-auto max-w-7xl px-5 sm:px-6 lg:px-10"><div className="max-w-3xl"><p className="text-sm font-semibold uppercase tracking-[.18em] text-orange-600">{c.platformEyebrow}</p><h2 className="mt-4 font-serif text-4xl tracking-[-.035em] text-neutral-950 sm:text-5xl">{c.platformTitle}</h2></div><div className="mt-10 grid gap-3 sm:mt-12 md:grid-cols-5">{c.journey.map((item, index) => <div key={item} className="rounded-2xl border border-black/10 bg-[#fbf8f1] p-5"><span className="text-xs font-semibold text-orange-600">0{index + 1}</span><p className="mt-7 font-semibold text-neutral-900 sm:mt-8">{item}</p></div>)}</div></div></section>
-    <section className="py-16 sm:py-24"><div className="mx-auto max-w-7xl px-5 sm:px-6 lg:px-10"><div className="max-w-3xl"><p className="text-sm font-semibold uppercase tracking-[.18em] text-orange-600">{c.outcomeEyebrow}</p><h2 className="mt-4 font-serif text-4xl tracking-[-.035em] sm:text-5xl">{c.outcomeTitle}</h2></div><div className="mt-10 grid gap-px overflow-hidden rounded-[24px] border border-black/10 bg-black/10 sm:mt-12 md:grid-cols-2 lg:grid-cols-4">{c.outcomes.map(([title, body]) => <article key={title} className="bg-white p-6 sm:p-7"><h3 className="text-lg font-semibold">{title}</h3><p className="mt-3 text-sm leading-6 text-neutral-600">{body}</p></article>)}</div></div></section>
+
+    <section className="py-16 sm:py-24"><div className="mx-auto max-w-7xl px-5 sm:px-6 lg:px-10"><div className="grid gap-10 lg:grid-cols-[.8fr_1.2fr]"><div><p className="text-sm font-semibold uppercase tracking-[.18em] text-orange-600">{isZh ? "运行方式" : "Operating model"}</p><h2 className="mt-4 max-w-xl font-serif text-4xl tracking-[-.035em] sm:text-5xl">{isZh ? "Agent 提供智能，Runory 负责让业务安全运行。" : "Agents provide intelligence. Runory makes the business run safely."}</h2><p className="mt-5 max-w-xl text-base leading-7 text-neutral-600">{isZh ? "Runory 不是另一个封闭的 AI 应用。它是外部 Agent 与真实业务执行之间的受治理运行层。" : "Runory is not another closed AI application. It is the governed operating layer between external Agents and real business execution."}</p></div><div className="grid gap-3">{operatingModel.map(([title, body], index) => <div key={title} className="grid gap-3 rounded-2xl border border-black/10 bg-white p-5 sm:grid-cols-[56px_180px_1fr] sm:items-center"><span className="grid size-10 place-items-center rounded-full bg-orange-50 text-sm font-semibold text-orange-700">0{index + 1}</span><h3 className="font-semibold">{title}</h3><p className="text-sm leading-6 text-neutral-600">{body}</p></div>)}</div></div></div></section>
+
     <section className="bg-neutral-950 py-16 text-white sm:py-24"><div className="mx-auto grid max-w-7xl gap-10 px-5 sm:px-6 lg:grid-cols-2 lg:gap-14 lg:px-10"><div><p className="text-sm font-semibold uppercase tracking-[.18em] text-orange-300">{c.agentEyebrow}</p><h2 className="mt-5 font-serif text-4xl tracking-[-.035em] sm:text-5xl">{c.agentTitle}</h2></div><div className="grid gap-4 sm:grid-cols-2">{c.agentCards.map(([title, body], i) => { const Icon = agentIcons[i]; return <div key={title} className="rounded-2xl border border-white/10 bg-white/5 p-5"><Icon size={20} className="text-orange-300" /><h3 className="mt-4 font-semibold">{title}</h3><p className="mt-2 text-sm leading-6 text-neutral-400">{body}</p></div>; })}</div></div></section>
+
+    <section className="py-16 sm:py-24"><div className="mx-auto max-w-7xl px-5 sm:px-6 lg:px-10"><div className="max-w-3xl"><p className="text-sm font-semibold uppercase tracking-[.18em] text-orange-600">{isZh ? "服务企业的每一个角色" : "Every role in the service business"}</p><h2 className="mt-4 font-serif text-4xl tracking-[-.035em] sm:text-5xl">{isZh ? "同一套业务记录，不同角色的专属体验。" : "One shared business record, role-specific experiences."}</h2></div><div className="mt-10 grid gap-px overflow-hidden rounded-[24px] border border-black/10 bg-black/10 sm:mt-12 md:grid-cols-2 lg:grid-cols-3">{roles.map(([title, body]) => <article key={title} className="bg-white p-6 sm:p-7"><h3 className="text-lg font-semibold">{title}</h3><p className="mt-3 text-sm leading-6 text-neutral-600">{body}</p></article>)}</div></div></section>
+
+    <section className="border-y border-black/10 bg-white py-16 sm:py-24"><div className="mx-auto max-w-7xl px-5 sm:px-6 lg:px-10"><div className="grid gap-10 lg:grid-cols-[1fr_.85fr] lg:items-end"><div><p className="text-sm font-semibold uppercase tracking-[.18em] text-orange-600">{c.outcomeEyebrow}</p><h2 className="mt-4 font-serif text-4xl tracking-[-.035em] sm:text-5xl">{c.outcomeTitle}</h2></div><p className="max-w-xl text-base leading-7 text-neutral-600">{isZh ? "从更快接单到更稳定履约，Runory 的价值不是增加一个工具，而是减少系统割裂、重复录入和失控的人工交接。" : "From faster intake to more disciplined delivery, Runory creates value by reducing fragmented systems, duplicate entry, and uncontrolled handoffs."}</p></div><div className="mt-10 grid gap-px overflow-hidden rounded-[24px] border border-black/10 bg-black/10 sm:mt-12 md:grid-cols-2 lg:grid-cols-4">{c.outcomes.map(([title, body]) => <article key={title} className="bg-[#fbf8f1] p-6 sm:p-7"><h3 className="text-lg font-semibold">{title}</h3><p className="mt-3 text-sm leading-6 text-neutral-600">{body}</p></article>)}</div></div></section>
+
     <section className="py-16 sm:py-24"><div className="mx-auto max-w-7xl px-5 sm:px-6 lg:px-10"><div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">{c.capabilityCards.map(([title, body], i) => { const Icon = capabilityIcons[i]; return <article key={title} className="rounded-2xl border border-black/10 bg-white p-6"><Icon size={22} className="text-orange-600" /><h3 className="mt-5 text-lg font-semibold">{title}</h3><p className="mt-3 text-sm leading-6 text-neutral-600">{body}</p></article>; })}</div></div></section>
+
+    <section className="px-5 pb-20 sm:px-6 sm:pb-28 lg:px-10"><div className="mx-auto max-w-7xl overflow-hidden rounded-[28px] bg-neutral-950 px-6 py-10 text-white sm:px-10 sm:py-14 lg:flex lg:items-end lg:justify-between lg:gap-12"><div><p className="text-sm font-semibold uppercase tracking-[.18em] text-orange-300">{isZh ? "聚焦试点" : "Focused pilot"}</p><h2 className="mt-4 max-w-3xl font-serif text-4xl tracking-[-.035em] sm:text-5xl">{isZh ? "先让一个关键流程真正运行，再逐步扩展。" : "Make one priority workflow run first, then expand with confidence."}</h2><p className="mt-5 max-w-2xl text-base leading-7 text-neutral-300">{isZh ? "选择一个可衡量的 CRM、销售、接单或 FSM 流程，在 1–2 周内验证数据、角色、规则和执行闭环。" : "Choose one measurable CRM, sales, intake, or FSM workflow and validate the data, roles, rules, and execution loop in 1–2 weeks."}</p></div><Link href="/pilot" className="mt-8 inline-flex min-h-12 shrink-0 items-center gap-2 rounded-full bg-white px-6 font-semibold text-neutral-950 lg:mt-0">{c.pilot} <ArrowRight size={18} /></Link></div></section>
   </>;
 }
