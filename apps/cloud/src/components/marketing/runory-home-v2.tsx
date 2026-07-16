@@ -13,36 +13,16 @@ export function RunoryHomeV2() {
   const isZh = locale === "zh";
 
   const operatingModel = isZh
-    ? [
-        ["业务用户", "表达目标、规则与优先级"],
-        ["外部超级 Agent", "理解、规划并发起操作"],
-        ["Runory Runtime", "校验、授权、执行与审计"],
-        ["业务结果", "线索、报价、工单、排期与收款"],
-      ]
-    : [
-        ["Business user", "Express goals, rules, and priorities"],
-        ["External Super Agent", "Understand, plan, and initiate work"],
-        ["Runory Runtime", "Validate, authorize, execute, and audit"],
-        ["Business outcomes", "Leads, quotes, work orders, schedules, and payments"],
-      ];
+    ? [["业务用户", "表达目标、规则与优先级"], ["外部超级 Agent", "理解、规划并发起操作"], ["Runory Runtime", "校验、授权、执行与审计"], ["业务结果", "线索、报价、工单、排期与收款"]]
+    : [["Business user", "Express goals, rules, and priorities"], ["External Super Agent", "Understand, plan, and initiate work"], ["Runory Runtime", "Validate, authorize, execute, and audit"], ["Business outcomes", "Leads, quotes, work orders, schedules, and payments"]];
 
   const roles = isZh
-    ? [
-        ["接单与客服", "识别客户、记录需求、确认紧急程度并创建业务记录。"],
-        ["销售与顾问", "推进跟进、勘查、报价、审批与签约。"],
-        ["调度与运营", "协调人员、时间、区域、优先级与服务能力。"],
-        ["现场团队", "通过移动端完成任务、表单、证据、变更与完工。"],
-        ["管理者", "查看业务节奏、异常、转化、履约与经营结果。"],
-        ["外部 Agent", "在权限和业务规则范围内配置、操作、调度与自动化。"],
-      ]
-    : [
-        ["Intake & service", "Identify customers, capture demand, confirm urgency, and create business records."],
-        ["Sales & advisors", "Move follow-up, inspection, quote, approval, and contract work forward."],
-        ["Dispatch & operations", "Coordinate people, time, territory, priority, and service capacity."],
-        ["Field teams", "Complete tasks, forms, evidence, changes, and closeout from mobile."],
-        ["Managers", "See operating rhythm, exceptions, conversion, delivery, and business outcomes."],
-        ["External Agents", "Configure, operate, schedule, and automate within governed boundaries."],
-      ];
+    ? [["接单与客服", "识别客户、记录需求、确认紧急程度并创建业务记录。"], ["销售与顾问", "推进跟进、勘查、报价、审批与签约。"], ["调度与运营", "协调人员、时间、区域、优先级与服务能力。"], ["现场团队", "通过移动端完成任务、表单、证据、变更与完工。"], ["管理者", "查看业务节奏、异常、转化、履约与经营结果。"], ["外部 Agent", "在权限和业务规则范围内配置、操作、调度与自动化。"]]
+    : [["Intake & service", "Identify customers, capture demand, confirm urgency, and create business records."], ["Sales & advisors", "Move follow-up, inspection, quote, approval, and contract work forward."], ["Dispatch & operations", "Coordinate people, time, territory, priority, and service capacity."], ["Field teams", "Complete tasks, forms, evidence, changes, and closeout from mobile."], ["Managers", "See operating rhythm, exceptions, conversion, delivery, and business outcomes."], ["External Agents", "Configure, operate, schedule, and automate within governed boundaries."]];
+
+  const productionVoice = isZh
+    ? [["Twilio", "真实电话号码、PSTN 接入与 SIP 路由"], ["Retell AI", "实时语音识别、对话与 Tool Calling"], ["Runory", "客户匹配、工单、预约与 Follow-up"]]
+    : [["Twilio", "Real phone numbers, PSTN access, and SIP routing"], ["Retell AI", "Real-time speech, dialogue, and tool calling"], ["Runory", "Customer matching, work orders, appointments, and follow-up"]];
 
   return <>
     <section className="mx-auto grid max-w-7xl gap-12 px-5 pb-16 pt-12 sm:px-6 sm:pb-24 sm:pt-16 lg:grid-cols-[1.02fr_.98fr] lg:px-10 lg:pt-24">
@@ -52,7 +32,9 @@ export function RunoryHomeV2() {
 
     <section className="border-y border-black/10 bg-white py-16 sm:py-20"><div className="mx-auto max-w-7xl px-5 sm:px-6 lg:px-10"><div className="max-w-3xl"><p className="text-sm font-semibold uppercase tracking-[.18em] text-orange-600">{c.platformEyebrow}</p><h2 className="mt-4 font-serif text-4xl tracking-[-.035em] text-neutral-950 sm:text-5xl">{c.platformTitle}</h2></div><div className="mt-10 grid gap-3 sm:mt-12 md:grid-cols-5">{c.journey.map((item, index) => <div key={item} className="rounded-2xl border border-black/10 bg-[#fbf8f1] p-5"><span className="text-xs font-semibold text-orange-600">0{index + 1}</span><p className="mt-7 font-semibold text-neutral-900 sm:mt-8">{item}</p></div>)}</div></div></section>
 
-    <section className="py-16 sm:py-24"><div className="mx-auto max-w-7xl px-5 sm:px-6 lg:px-10"><div className="grid gap-10 lg:grid-cols-[.8fr_1.2fr]"><div><p className="text-sm font-semibold uppercase tracking-[.18em] text-orange-600">{isZh ? "运行方式" : "Operating model"}</p><h2 className="mt-4 max-w-xl font-serif text-4xl tracking-[-.035em] sm:text-5xl">{isZh ? "Agent 提供智能，Runory 负责让业务安全运行。" : "Agents provide intelligence. Runory makes the business run safely."}</h2><p className="mt-5 max-w-xl text-base leading-7 text-neutral-600">{isZh ? "Runory 不是另一个封闭的 AI 应用。它是外部 Agent 与真实业务执行之间的受治理运行层。" : "Runory is not another closed AI application. It is the governed operating layer between external Agents and real business execution."}</p></div><div className="grid gap-3">{operatingModel.map(([title, body], index) => <div key={title} className="grid gap-3 rounded-2xl border border-black/10 bg-white p-5 sm:grid-cols-[56px_180px_1fr] sm:items-center"><span className="grid size-10 place-items-center rounded-full bg-orange-50 text-sm font-semibold text-orange-700">0{index + 1}</span><h3 className="font-semibold">{title}</h3><p className="text-sm leading-6 text-neutral-600">{body}</p></div>)}</div></div></div></section>
+    <section className="py-16 sm:py-24"><div className="mx-auto max-w-7xl px-5 sm:px-6 lg:px-10"><div className="grid gap-10 lg:grid-cols-[.82fr_1.18fr] lg:items-center"><div><div className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700"><span className="size-2 rounded-full bg-emerald-500" />{isZh ? "生产环境已打通" : "Running in production"}</div><p className="mt-6 text-sm font-semibold uppercase tracking-[.18em] text-orange-600">{isZh ? "语音接单" : "Voice intake"}</p><h2 className="mt-4 max-w-xl font-serif text-4xl tracking-[-.035em] sm:text-5xl">{isZh ? "真实电话进入，工单与预约直接生成。" : "Real calls come in. Work orders and appointments come out."}</h2><p className="mt-5 max-w-xl leading-7 text-neutral-600">{isZh ? "当前生产链路采用 Twilio 接入真实电话号码与 PSTN，Retell AI 负责实时对话与 Tool Calling，Runory 完成业务执行。" : "Our live stack uses Twilio for real phone numbers and PSTN access, Retell AI for real-time conversation and tool calling, and Runory for business execution."}</p><Link href="/voice#architecture" className="mt-7 inline-flex min-h-12 items-center gap-2 rounded-full border border-black/15 bg-white px-6 font-semibold">{isZh ? "查看语音架构" : "See the Voice Architecture"}<ArrowRight size={18}/></Link></div><div className="grid gap-3 sm:grid-cols-3">{productionVoice.map(([title,body],index)=><article key={title} className="min-h-[196px] rounded-2xl border border-black/10 bg-white p-6"><span className="text-xs font-semibold text-orange-600">0{index+1}</span><h3 className="mt-7 text-xl font-semibold">{title}</h3><p className="mt-3 text-sm leading-6 text-neutral-600">{body}</p></article>)}</div></div></div></section>
+
+    <section className="border-y border-black/10 bg-white py-16 sm:py-24"><div className="mx-auto max-w-7xl px-5 sm:px-6 lg:px-10"><div className="grid gap-10 lg:grid-cols-[.8fr_1.2fr]"><div><p className="text-sm font-semibold uppercase tracking-[.18em] text-orange-600">{isZh ? "运行方式" : "Operating model"}</p><h2 className="mt-4 max-w-xl font-serif text-4xl tracking-[-.035em] sm:text-5xl">{isZh ? "Agent 提供智能，Runory 负责让业务安全运行。" : "Agents provide intelligence. Runory makes the business run safely."}</h2><p className="mt-5 max-w-xl text-base leading-7 text-neutral-600">{isZh ? "Runory 不是另一个封闭的 AI 应用。它是外部 Agent 与真实业务执行之间的受治理运行层。" : "Runory is not another closed AI application. It is the governed operating layer between external Agents and real business execution."}</p></div><div className="grid gap-3">{operatingModel.map(([title, body], index) => <div key={title} className="grid gap-3 rounded-2xl border border-black/10 bg-[#fbf8f1] p-5 sm:grid-cols-[56px_180px_1fr] sm:items-center"><span className="grid size-10 place-items-center rounded-full bg-orange-50 text-sm font-semibold text-orange-700">0{index + 1}</span><h3 className="font-semibold">{title}</h3><p className="text-sm leading-6 text-neutral-600">{body}</p></div>)}</div></div></div></section>
 
     <section className="bg-neutral-950 py-16 text-white sm:py-24"><div className="mx-auto grid max-w-7xl gap-10 px-5 sm:px-6 lg:grid-cols-2 lg:gap-14 lg:px-10"><div><p className="text-sm font-semibold uppercase tracking-[.18em] text-orange-300">{c.agentEyebrow}</p><h2 className="mt-5 font-serif text-4xl tracking-[-.035em] sm:text-5xl">{c.agentTitle}</h2></div><div className="grid gap-4 sm:grid-cols-2">{c.agentCards.map(([title, body], i) => { const Icon = agentIcons[i]; return <div key={title} className="rounded-2xl border border-white/10 bg-white/5 p-5"><Icon size={20} className="text-orange-300" /><h3 className="mt-4 font-semibold">{title}</h3><p className="mt-2 text-sm leading-6 text-neutral-400">{body}</p></div>; })}</div></div></section>
 
