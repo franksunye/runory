@@ -55,9 +55,9 @@ export async function ingestInboundMessage(workspaceId: string, input: { channel
   return { duplicate: false, messageId: id, conversationId: String(conversation.id) };
 }
 
-export async function markMessageDeliveryAccepted(workspaceId: string, deliveryId: string): Promise<void> {
+export async function markMessageDeliveryAccepted(workspaceId: string, deliveryId: string, providerMessageId?: string): Promise<void> {
   const timestamp = now();
-  await execute(`UPDATE ${TABLES.messageDeliveries} SET status = 'accepted', accepted_at = ?, last_error = NULL, updated_at = ? WHERE id = ? AND workspace_id = ?`, [timestamp, timestamp, deliveryId, workspaceId]);
+  await execute(`UPDATE ${TABLES.messageDeliveries} SET status = 'accepted', provider_message_id = COALESCE(?, provider_message_id), accepted_at = ?, last_error = NULL, updated_at = ? WHERE id = ? AND workspace_id = ?`, [providerMessageId ?? null, timestamp, timestamp, deliveryId, workspaceId]);
   await execute(`UPDATE ${TABLES.notifications} SET status = 'sent', updated_at = ? WHERE workspace_id = ? AND id = (SELECT notification_id FROM ${TABLES.messages} WHERE workspace_id = ? AND id = (SELECT message_id FROM ${TABLES.messageDeliveries} WHERE workspace_id = ? AND id = ?))`, [timestamp, workspaceId, workspaceId, workspaceId, deliveryId]);
 }
 
