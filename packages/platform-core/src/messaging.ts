@@ -63,4 +63,40 @@ export async function markMessageDeliveryAccepted(workspaceId: string, deliveryI
 
 export async function markMessageDeliveryFailed(workspaceId: string, deliveryId: string, error: string): Promise<void> {
   await execute(`UPDATE ${TABLES.messageDeliveries} SET status = 'failed', attempts = attempts + 1, last_error = ?, updated_at = ? WHERE id = ? AND workspace_id = ?`, [error, now(), deliveryId, workspaceId]);
+  await refreshNotificationDeliveryStatus(workspaceId, deliveryId);
+}
+
+export type FinalDeliveryStatus = "delivered" | "failed" | "bounced" | "suppressed" | "cancelled";
+
+/**
+ * Records an asynchronous provider receipt (for example, Resend's delivered or
+ * bounced webhook). The provider message ID is the stable cross-system key; the
+ * outbox ID is deliberately not part of this product-facing model.
+ */
+export async function recordMessageDeliveryStatus(workspaceId: string, input: { provider: string; providerMessageId: string; status: FinalDeliveryStatus; error?: string }) {
+  const delivery = await queryOne<Record<string, unknown>>(`SELECT id FROM ${TABLES.messageDeliveries} WHERE workspace_id = ? AND provider = ? AND provider_message_id = ? LIMIT 1`, [workspaceId, input.provider, input.providerMessageId]);
+  if (!delivery) return { matched: false };
+  const timestamp = now();
+  await execute(
+    `UPDATE ${TABLES.messageDeliveries} SET status = ?, delivered_at = CASE WHEN ? = 'delivered' THEN COALESCE(delivered_at, ?) ELSE delivered_at END, last_error = ?, updated_at = ? WHERE workspace_id = ? AND id = ?`,
+    [input.status, input.status, timestamp, input.error ?? null, timestamp, workspaceId, String(delivery.id)],
+  );
+  await refreshNotificationDeliveryStatus(workspaceId, String(delivery.id));
+  return { matched: true, deliveryId: String(delivery.id) };
+}
+
+async function refreshNotificationDeliveryStatus(workspaceId: string, deliveryId: string): Promise<void> {
+  const notification = await queryOne<Record<string, unknown>>(
+    `SELECT m.notification_id FROM ${TABLES.messageDeliveries} d JOIN ${TABLES.messages} m ON m.id = d.message_id AND m.workspace_id = d.workspace_id WHERE d.workspace_id = ? AND d.id = ?`,
+    [workspaceId, deliveryId],
+  );
+  const notificationId = notification?.notification_id ? String(notification.notification_id) : null;
+  if (!notificationId) return;
+  const counts = await queryOne<Record<string, unknown>>(
+    `SELECT COUNT(*) AS total, SUM(CASE WHEN d.status IN ('pending', 'accepted', 'delivered') THEN 1 ELSE 0 END) AS active FROM ${TABLES.messageDeliveries} d JOIN ${TABLES.messages} m ON m.id = d.message_id AND m.workspace_id = d.workspace_id WHERE d.workspace_id = ? AND m.notification_id = ?`,
+    [workspaceId, notificationId],
+  );
+  if (Number(counts?.total ?? 0) > 0 && Number(counts?.active ?? 0) === 0) {
+    await execute(`UPDATE ${TABLES.notifications} SET status = 'failed', updated_at = ? WHERE workspace_id = ? AND id = ?`, [now(), workspaceId, notificationId]);
+  }
 }

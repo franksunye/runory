@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { NextRequest } from "next/server";
-import { getAuditEvents, getOutboxMessages, ingestInboundMessage, ingestVoiceEvent, upsertVoiceCall } from "@runory/platform-core";
+import { getAuditEvents, getOutboxMessages, ingestInboundMessage, ingestVoiceEvent, markMessageDeliveryAccepted, recordMessageDeliveryStatus, upsertVoiceCall } from "@runory/platform-core";
 import { businessTable, TABLES } from "@runory/platform-core";
 import { createRecord } from "@runory/platform-core";
 import { db, execute, genId, now, queryAll } from "@runory/platform-core";
@@ -208,5 +208,18 @@ describe("Retell custom tool routes", () => {
     expect(second).toMatchObject({ duplicate: true, messageId: first.messageId, conversationId: first.conversationId });
     const messages = await queryAll(`SELECT * FROM ${TABLES.messages} WHERE workspace_id = ? AND direction = 'inbound'`, [workspaceId]);
     expect(messages).toEqual([expect.objectContaining({ conversation_id: first.conversationId, channel: "email", author_type: "external", provider: "resend" })]);
+  });
+
+  it("projects provider delivery receipts into the notification lifecycle", async () => {
+    const args = { ...completeArgs("call_cloud_delivery_001"), customerEmail: "delivery@example.com" };
+    await createWorkOrder(toolRequest(args, { invocationId: "tool_cloud_delivery_001" }));
+    const [delivery] = await queryAll<{ id: string }>(`SELECT id FROM ${TABLES.messageDeliveries} WHERE workspace_id = ?`, [workspaceId]);
+    await markMessageDeliveryAccepted(workspaceId, delivery.id, "resend_outbound_001");
+    const result = await recordMessageDeliveryStatus(workspaceId, { provider: "resend", providerMessageId: "resend_outbound_001", status: "delivered" });
+    expect(result).toMatchObject({ matched: true, deliveryId: delivery.id });
+    const [stored] = await queryAll(`SELECT status, delivered_at FROM ${TABLES.messageDeliveries} WHERE workspace_id = ?`, [workspaceId]);
+    const [notification] = await queryAll(`SELECT status FROM ${TABLES.notifications} WHERE workspace_id = ?`, [workspaceId]);
+    expect(stored).toMatchObject({ status: "delivered", delivered_at: expect.any(String) });
+    expect(notification).toMatchObject({ status: "sent" });
   });
 });

@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import {
-  ArrowLeft, CreditCard, Download, FileText, GitBranch, Inbox, Key,
+  ArrowLeft, CreditCard, Download, FileText, GitBranch, Inbox, Key, MessageCircle,
   Package, ScrollText, Settings, SlidersHorizontal, Trash2, Users, Zap,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -26,6 +26,7 @@ const MANAGE_CARDS: ManageCard[] = [
   { titleKey: "manage.workflows", descriptionKey: "manage.workflowsDesc", route: "/workflows", icon: GitBranch },
   { titleKey: "manage.automations", descriptionKey: "manage.automationsDesc", route: "/automations", icon: Zap },
   { titleKey: "forms.title", descriptionKey: "forms.subtitle", route: "/forms", icon: FileText },
+  { titleKey: "manage.conversations", descriptionKey: "manage.conversationsDesc", route: "/conversations", icon: MessageCircle },
   { titleKey: "manage.outbox", descriptionKey: "manage.outboxDesc", route: "/outbox", icon: Inbox },
   { titleKey: "manage.migration", descriptionKey: "manage.migrationDesc", route: "/migration", icon: ArrowLeft },
   { titleKey: "manage.members", descriptionKey: "manage.membersDesc", route: "/members", icon: Users },
