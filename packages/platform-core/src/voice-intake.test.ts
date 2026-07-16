@@ -4,8 +4,10 @@ import { existsSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { db, execute, genId, now, queryAll } from "./db";
 import { TABLES, businessTable } from "./contracts";
+import { getAuditEvents } from "./audit-service";
 import { runMigrations } from "./migrations";
 import { installPack } from "./installer";
+import { createRecord } from "./metadata";
 import {
   createVoiceFollowUp,
   createVoiceWorkOrder,
@@ -26,7 +28,7 @@ async function resetDatabase() {
   globalThis.__platformMigrationsRun = undefined;
   await db.execute({ sql: "PRAGMA foreign_keys = OFF" });
   const tables = await db.execute({ sql: "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name NOT LIKE '_cf_%'" });
-  for (const row of tables.rows) await db.execute({ sql: `DROP TABLE IF EXISTS "${String((row as { name: string }).name)}"` });
+  for (const row of tables.rows) await db.execute({ sql: `DROP TABLE IF EXISTS "${String((row as unknown as { name: string }).name)}"` });
   await db.execute({ sql: "PRAGMA foreign_keys = ON" });
   await runMigrations();
 }
@@ -92,6 +94,36 @@ describe("voice intake POC flows", () => {
     expect(second).toEqual(first);
     const workOrders = await queryAll(`SELECT id FROM ${businessTable("work_order")} WHERE workspace_id = ?`, [workspaceId]);
     expect(workOrders).toHaveLength(1);
+    const order = await queryAll<{ contact_id: string; service_site_id: string; notes: string }>(
+      `SELECT contact_id, service_site_id, notes FROM ${businessTable("work_order")} WHERE workspace_id = ?`, [workspaceId]
+    );
+    expect(order[0]).toMatchObject({ contact_id: first.contactId, service_site_id: first.serviceSiteId });
+    expect(order[0]?.notes).toContain("Runory Voice Intake (retell)");
+
+    const activity = await getAuditEvents(workspaceId);
+    expect(activity.filter(event => event.actorId === "Runory Voice Intake (retell)")).toHaveLength(4);
+    expect(activity.map(event => event.entityType)).toEqual(expect.arrayContaining(["contact", "service_site", "work_order", "voice_call"]));
+  });
+
+  it("reuses an existing customer and service site when name and address match", async () => {
+    const existingContact = await createRecord(workspaceId, "contact", {
+      name: complete.contactName,
+      phone: "+15125550123",
+      source: "manual",
+    });
+    const existingSite = await createRecord(workspaceId, "service_site", {
+      name: "Existing Main Street site",
+      address: complete.serviceAddress,
+      primary_contact_id: existingContact.id,
+      status: "active",
+    });
+    const actor = { provider: "retell" as const, providerCallId: complete.providerCallId, integrationPrincipalId: "integration:test" };
+    const result = await createVoiceWorkOrder(workspaceId, complete, actor, "idem:existing:1");
+
+    expect(result).toMatchObject({ contactId: existingContact.id, serviceSiteId: existingSite.id });
+    const activity = await getAuditEvents(workspaceId);
+    expect(activity.filter(event => event.entityType === "work_order")).toHaveLength(1);
+    expect(activity.some(event => event.entityType === "contact" && event.after?.source === "voice")).toBe(false);
   });
 
   it("deduplicates lifecycle events and prevents status regression", async () => {

@@ -1,4 +1,5 @@
 import { createHmac, timingSafeEqual, randomUUID } from "node:crypto";
+import { writeAuditEvent } from "./audit-service";
 import { businessTable } from "./contracts";
 import { execute, now, queryAll, queryOne } from "./db";
 import { createRecord, getRecord, getRecords, updateRecord } from "./metadata";
@@ -22,6 +23,29 @@ export interface VoiceActor {
   provider: "retell";
   providerCallId: string;
   integrationPrincipalId: string;
+}
+
+function voiceActorLabel(actor: VoiceActor): string {
+  return `Runory Voice Intake (${actor.provider})`;
+}
+
+async function recordVoiceCreationActivity(
+  workspaceId: string,
+  actor: VoiceActor,
+  entityType: string,
+  entity: Record<string, unknown>,
+  details: Record<string, unknown>,
+): Promise<void> {
+  await writeAuditEvent({
+    workspaceId,
+    actorType: "agent",
+    actorId: voiceActorLabel(actor),
+    action: "record.create",
+    entityType,
+    entityId: String(entity.id),
+    // Keep the feed useful without duplicating the complete caller payload.
+    after: { id: entity.id, ...details, createdBy: actor.integrationPrincipalId },
+  });
 }
 
 const REQUIRED_FIELDS: Array<keyof ServiceIntakeInput> = [
@@ -144,12 +168,35 @@ export async function ingestVoiceEvent(workspaceId: string, event: {
   return { duplicate: false, callId: String(call.id) };
 }
 
-export async function lookupCaller(workspaceId: string, callerPhone: string) {
+export async function lookupCaller(workspaceId: string, callerPhone: string, hints?: {
+  contactName?: string;
+  serviceAddress?: string;
+}) {
   const phone = normalizeE164(callerPhone);
   const contacts = await getRecords(workspaceId, "contact", { filters: { phone } });
-  const candidate = contacts[0];
+  let candidate = contacts[0];
+  let candidateSites: Record<string, unknown>[] = [];
+
+  // Phone remains the primary identity.  When a caller uses a different number,
+  // reuse CRM data only when both their spoken name and service address match.
+  // This avoids attaching a job to an unrelated customer with the same name.
+  if (!candidate && hints?.contactName && hints.serviceAddress) {
+    const namedContacts = await getRecords(workspaceId, "contact", { filters: { name: hints.contactName } });
+    for (const namedContact of namedContacts) {
+      const sites = await getRecords(workspaceId, "service_site", {
+        filters: { primary_contact_id: String(namedContact.id) },
+        limit: 20,
+      });
+      const addressMatch = sites.filter(site => site.address === hints.serviceAddress);
+      if (addressMatch.length > 0) {
+        candidate = namedContact;
+        candidateSites = addressMatch;
+        break;
+      }
+    }
+  }
   const sites = candidate
-    ? await getRecords(workspaceId, "service_site", { filters: { primary_contact_id: String(candidate.id) }, limit: 5 })
+    ? (candidateSites.length > 0 ? candidateSites : await getRecords(workspaceId, "service_site", { filters: { primary_contact_id: String(candidate.id) }, limit: 5 }))
     : [];
   const openWork = candidate
     ? await queryAll<Record<string, unknown>>(
@@ -171,7 +218,7 @@ export async function previewServiceIntake(workspaceId: string, input: ServiceIn
   const missingFields = REQUIRED_FIELDS.filter(field => !input[field]);
   const confirmed = new Set(input.confirmedFields ?? []);
   const requiresConfirmation = CONFIRM_FIELDS.filter(field => input[field] && !confirmed.has(String(field)));
-  const caller = await lookupCaller(workspaceId, callerPhone);
+  const caller = await lookupCaller(workspaceId, callerPhone, input);
   const call = await queryOne<Record<string, unknown>>(
     `SELECT * FROM ${businessTable("voice_call")} WHERE workspace_id = ? AND provider = 'retell' AND provider_call_id = ?`,
     [workspaceId, input.providerCallId],
@@ -221,7 +268,7 @@ export async function previewServiceIntake(workspaceId: string, input: ServiceIn
 }
 
 async function resolveContactAndSite(workspaceId: string, input: ServiceIntakeInput) {
-  const caller = await lookupCaller(workspaceId, input.callerPhone);
+  const caller = await lookupCaller(workspaceId, input.callerPhone, input);
   const contact = caller.contact
     ? await getRecord(workspaceId, "contact", String(caller.contact.id))
     : await createRecord(workspaceId, "contact", { name: input.contactName, phone: normalizeE164(input.callerPhone), source: "voice" });
@@ -242,6 +289,7 @@ export async function createVoiceWorkOrder(workspaceId: string, input: ServiceIn
   if (prior) return prior;
   const preview = await previewServiceIntake(workspaceId, input);
   if (preview.missingFields.length || preview.requiresConfirmation.length) throw new Error("VOICE_INTAKE_NOT_CONFIRMED");
+  const callerBeforeCreate = await lookupCaller(workspaceId, input.callerPhone, input);
   const { contact, site } = await resolveContactAndSite(workspaceId, input);
   const workOrder = await createRecord(workspaceId, "work_order", {
     title: `${input.serviceCategory}: ${input.issueDescription?.slice(0, 80)}`,
@@ -254,7 +302,7 @@ export async function createVoiceWorkOrder(workspaceId: string, input: ServiceIn
     source: "voice",
     source_type: "voice_call",
     source_id: input.providerCallId,
-    notes: `Created by ${actor.integrationPrincipalId}`,
+    notes: `Created automatically by ${voiceActorLabel(actor)}. Integration principal: ${actor.integrationPrincipalId}`,
     aggregate_version: 1,
   });
   const call = await queryOne<Record<string, unknown>>(
@@ -267,6 +315,42 @@ export async function createVoiceWorkOrder(workspaceId: string, input: ServiceIn
     outcome: "work_order_created", review_status: "not_required", primary_intent: input.serviceCategory,
   });
   await updateRecord(workspaceId, "voice_intake_session", String(preview.intakeSessionId), { status: "completed", completed_at: now() });
+  await recordVoiceCreationActivity(workspaceId, actor, "work_order", workOrder, {
+    title: workOrder.title,
+    source: "voice",
+    voiceCallId: input.providerCallId,
+    contactId: contact.id,
+    serviceSiteId: site.id,
+  });
+  if (!callerBeforeCreate.contact?.id) {
+    await recordVoiceCreationActivity(workspaceId, actor, "contact", contact, {
+      name: contact.name,
+      source: "voice",
+      voiceCallId: input.providerCallId,
+    });
+  }
+  if (!callerBeforeCreate.sites.some(siteRecord => String(siteRecord.id) === String(site.id))) {
+    await recordVoiceCreationActivity(workspaceId, actor, "service_site", site, {
+      name: site.name,
+      contactId: contact.id,
+      voiceCallId: input.providerCallId,
+    });
+  }
+  await writeAuditEvent({
+    workspaceId,
+    actorType: "agent",
+    actorId: voiceActorLabel(actor),
+    action: "record.update",
+    entityType: "voice_call",
+    entityId: String(call.id),
+    after: {
+      outcome: "work_order_created",
+      workOrderId: workOrder.id,
+      contactId: contact.id,
+      serviceSiteId: site.id,
+      createdBy: actor.integrationPrincipalId,
+    },
+  });
   const result = { workOrderId: workOrder.id, contactId: contact.id, serviceSiteId: site.id, confirmationCode: String(workOrder.id).slice(-8).toUpperCase() };
   await remember(workspaceId, idempotencyKey, "service_intake.create_work_order", result);
   return result;
