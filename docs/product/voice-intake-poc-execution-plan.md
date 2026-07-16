@@ -12,6 +12,8 @@
 
 This plan turns the proposed [Voice Intake Product Definition](voice-intake-product-definition.md) and [Voice Intake Technical Specification](voice-intake-technical-spec.md) into a bounded implementation and acceptance sequence.
 
+> **v0.5 scope decision (2026-07-16):** the current implementation accepts Retell Test Audio as its voice execution surface and does not require a Twilio phone number. The customer-visible v0.5 loop and deferred communications work are locked in [Voice Intake v0.5 Scope Decision](voice-intake-v0.5-scope-decision.md). Where this older POC plan describes Twilio/PSTN setup or broader conversation work, the scope decision controls v0.5 acceptance.
+
 The POC validates one proposition:
 
 > A real inbound phone call can create a correct, governed, reviewable Runory Work Order and optionally schedule a Service Visit.

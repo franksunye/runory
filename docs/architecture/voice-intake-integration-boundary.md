@@ -12,6 +12,8 @@
 
 This document specializes, but does not replace, the canonical [Architecture Overview](overview.md) and [Contract-driven Command Architecture](contract-driven-command-architecture.md).
 
+> **v0.5 scope decision (2026-07-16):** Retell Test Audio is sufficient for the current Voice Intake acceptance; Twilio/PSTN and generalized messaging execution are deferred. See [Voice Intake v0.5 Scope Decision](../product/voice-intake-v0.5-scope-decision.md). The provider-neutral boundary in this document remains the long-term architectural direction, not a mandate to build its deferred adapters now.
+
 ## Boundary
 
 External conversation channels follow the same governed entry boundary as Cloud UI, mobile, MCP, Workflow, Automation, and Skills:
