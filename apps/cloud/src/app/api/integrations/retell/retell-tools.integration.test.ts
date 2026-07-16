@@ -157,10 +157,18 @@ describe("Retell custom tool routes", () => {
     const messages = await getOutboxMessages(workspaceId);
     expect(messages).toHaveLength(1);
     expect(messages[0]).toMatchObject({
-      messageType: "email.work_order_confirmation",
+      messageType: "message_delivery.email",
       status: "pending",
       payload: expect.objectContaining({ to: "alex@example.com" }),
     });
+    const conversations = await queryAll(`SELECT * FROM ${TABLES.conversations} WHERE workspace_id = ?`, [workspaceId]);
+    const notifications = await queryAll(`SELECT * FROM ${TABLES.notifications} WHERE workspace_id = ?`, [workspaceId]);
+    const communicationMessages = await queryAll(`SELECT * FROM ${TABLES.messages} WHERE workspace_id = ?`, [workspaceId]);
+    const deliveries = await queryAll(`SELECT * FROM ${TABLES.messageDeliveries} WHERE workspace_id = ?`, [workspaceId]);
+    expect(conversations).toHaveLength(1);
+    expect(notifications).toEqual([expect.objectContaining({ notification_type: "work_order_confirmation", status: "pending" })]);
+    expect(communicationMessages).toEqual([expect.objectContaining({ direction: "outbound", channel: "email" })]);
+    expect(deliveries).toEqual([expect.objectContaining({ channel: "email", provider: "resend", status: "pending", recipient_address: "alex@example.com" })]);
   });
 
   it("stores a newly provided caller email and queues its confirmation", async () => {
@@ -170,7 +178,7 @@ describe("Retell custom tool routes", () => {
     const messages = await getOutboxMessages(workspaceId);
     expect(messages).toHaveLength(1);
     expect(messages[0]).toMatchObject({
-      messageType: "email.work_order_confirmation",
+      messageType: "message_delivery.email",
       status: "pending",
       payload: expect.objectContaining({ to: "new.customer@example.com" }),
     });

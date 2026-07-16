@@ -95,6 +95,13 @@ export const TABLES = {
   domainEvents: `${PREFIXES.runoryRuntime}domain_events`,
   outboxMessages: `${PREFIXES.runoryRuntime}outbox_messages`,
 
+  // Customer communication domain.
+  conversations: `${PREFIXES.runoryRuntime}conversations`,
+  conversationParticipants: `${PREFIXES.runoryRuntime}conversation_participants`,
+  notifications: `${PREFIXES.runoryRuntime}notifications`,
+  messages: `${PREFIXES.runoryRuntime}messages`,
+  messageDeliveries: `${PREFIXES.runoryRuntime}message_deliveries`,
+
   // Workflow engine.
   workflowDefinitions: `${PREFIXES.runoryRuntime}workflow_definitions`,
   workflowDefinitionVersions: `${PREFIXES.runoryRuntime}workflow_definition_versions`,

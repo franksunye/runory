@@ -1,4 +1,4 @@
-import { getOutboxMessages, markOutboxDelivered, markOutboxFailed } from "@runory/platform-core";
+import { getOutboxMessages, markMessageDeliveryAccepted, markMessageDeliveryFailed, markOutboxDelivered, markOutboxFailed } from "@runory/platform-core";
 
 function escapeHtml(value: string): string {
   return value.replace(/[&<>"']/g, (character) => ({
@@ -21,8 +21,10 @@ export async function deliverWorkOrderConfirmation(workspaceId: string, messageI
     ? message.payload as Record<string, unknown>
     : {};
   const to = stringField(payload, "to");
+  const deliveryId = stringField(payload, "deliveryId");
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) {
     await markOutboxFailed(messageId, "INVALID_RECIPIENT_EMAIL");
+    if (deliveryId) await markMessageDeliveryFailed(workspaceId, deliveryId, "INVALID_RECIPIENT_EMAIL");
     return { delivered: false, skipped: false };
   }
   const contactName = stringField(payload, "contactName", "Customer");
@@ -41,9 +43,11 @@ export async function deliverWorkOrderConfirmation(workspaceId: string, messageI
     });
     if (!response.ok) throw new Error(`RESEND_${response.status}`);
     await markOutboxDelivered(messageId);
+    if (deliveryId) await markMessageDeliveryAccepted(workspaceId, deliveryId);
     return { delivered: true, skipped: false };
   } catch (error) {
     await markOutboxFailed(messageId, error instanceof Error ? error.message : "RESEND_SEND_FAILED");
+    if (deliveryId) await markMessageDeliveryFailed(workspaceId, deliveryId, error instanceof Error ? error.message : "RESEND_SEND_FAILED");
     return { delivered: false, skipped: false };
   }
 }

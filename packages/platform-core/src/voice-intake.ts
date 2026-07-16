@@ -4,6 +4,7 @@ import { businessTable } from "./contracts";
 import { execute, now, queryAll, queryOne } from "./db";
 import { createRecord, getRecord, getRecords, updateRecord } from "./metadata";
 import { enqueueOutboxMessage } from "./outbox";
+import { createConversation, createNotificationMessage } from "./messaging";
 
 export type Urgency = "low" | "medium" | "high" | "urgent";
 export type VoiceCallStatus = "initiated" | "ringing" | "answered" | "ended" | "analyzed" | "failed";
@@ -362,18 +363,37 @@ export async function createVoiceWorkOrder(workspaceId: string, input: ServiceIn
     },
   });
   const recipientEmail = typeof contact.email === "string" ? contact.email.trim() : "";
-  const confirmationEmailOutboxId = recipientEmail
-    ? await enqueueOutboxMessage(workspaceId, "email.work_order_confirmation", {
+  const confirmation = recipientEmail
+    ? await (async () => {
+        const conversation = await createConversation(workspaceId, {
+          contactId: String(contact.id), workOrderId: String(workOrder.id), serviceSiteId: String(site.id), voiceCallId: String(call.id), subject: String(workOrder.title ?? "Service request"),
+        });
+        const confirmationCode = String(workOrder.id).slice(-8).toUpperCase();
+        const message = await createNotificationMessage(workspaceId, {
+          conversationId: String(conversation.id), contactId: String(contact.id), workOrderId: String(workOrder.id),
+          notificationType: "work_order_confirmation", channel: "email", recipientAddress: recipientEmail,
+          subject: `Service request received — ${confirmationCode}`,
+          bodyText: `Hi ${String(contact.name ?? "Customer")}, we received your service request and created work order ${confirmationCode}. ${String(workOrder.title)}. Our team will follow up with scheduling details.`,
+          provider: "resend",
+          payload: { source: "voice_intake", confirmationCode },
+        });
+        const outboxId = await enqueueOutboxMessage(workspaceId, "message_delivery.email", {
         to: recipientEmail,
         contactName: contact.name,
         workOrderId: workOrder.id,
         title: workOrder.title,
         priority: input.urgency,
         serviceAddress: input.serviceAddress,
-        confirmationCode: String(workOrder.id).slice(-8).toUpperCase(),
-      })
+          confirmationCode,
+          conversationId: conversation.id,
+          notificationId: message.notificationId,
+          messageId: message.messageId,
+          deliveryId: message.deliveryId,
+        });
+        return { outboxId, conversationId: conversation.id, notificationId: message.notificationId, messageId: message.messageId, deliveryId: message.deliveryId };
+      })()
     : null;
-  const result = { workOrderId: workOrder.id, contactId: contact.id, serviceSiteId: site.id, confirmationCode: String(workOrder.id).slice(-8).toUpperCase(), confirmationEmailOutboxId };
+  const result = { workOrderId: workOrder.id, contactId: contact.id, serviceSiteId: site.id, confirmationCode: String(workOrder.id).slice(-8).toUpperCase(), confirmationEmailOutboxId: confirmation?.outboxId ?? null, conversationId: confirmation?.conversationId ?? null, notificationId: confirmation?.notificationId ?? null, messageId: confirmation?.messageId ?? null, deliveryId: confirmation?.deliveryId ?? null };
   await remember(workspaceId, idempotencyKey, "service_intake.create_work_order", result);
   return result;
 }

@@ -29,6 +29,7 @@ export * from "./permission-groups";
 export * from "./command-runtime";
 export * from "./command-contracts";
 export * from "./outbox";
+export * from "./messaging";
 export * from "./governed-fields";
 export * from "./managed-fields";
 export * from "./workflow";

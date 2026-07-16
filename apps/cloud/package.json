@@ -7,6 +7,7 @@
     "dev": "next dev --port 3000",
     "prebuild": "node scripts/sync-resources.mjs",
     "build": "next build",
+    "pretest": "node scripts/sync-resources.mjs",
     "start": "next start --port 3000",
     "clean": "rm -rf .next .next-dev",
     "typecheck": "tsc --noEmit",
