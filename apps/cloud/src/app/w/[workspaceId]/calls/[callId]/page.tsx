@@ -12,7 +12,7 @@ export default function VoiceCallDetailPage() {
   const { data: call, isLoading } = useRecord(workspaceId, "voice_call", callId);
   if (isLoading) return <div className="space-y-4"><div className="app-skeleton h-8 w-52" /><div className="app-skeleton h-64 w-full" /></div>;
   if (!call) return <div className="app-card p-8 text-sm text-slate-500">This voice call is unavailable.</div>;
-  const recording = typeof call.recording_reference === "string" ? call.recording_reference : "";
+  const recording = typeof call.recording_reference === "string" ? `/api/workspaces/${workspaceId}/voice-calls/${callId}/recording` : "";
   const transcript = typeof call.transcript_text === "string" ? call.transcript_text : "";
   return <div className="mx-auto max-w-5xl space-y-6 page-enter">
     <Link href={`/w/${workspaceId}/calls`} className="inline-flex items-center gap-2 text-sm font-medium text-slate-600 hover:text-slate-950"><ArrowLeft size={15} />Back to calls</Link>
