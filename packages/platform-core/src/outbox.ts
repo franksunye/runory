@@ -157,7 +157,7 @@ export async function getOutboxMessages(
 export async function markOutboxDelivered(messageId: string): Promise<void> {
   await execute(
     `UPDATE ${TABLES.outboxMessages}
-     SET status = 'delivered', delivered_at = ? WHERE id = ?`,
+     SET status = 'delivered', delivered_at = ?, last_error = NULL WHERE id = ?`,
     [now(), messageId]
   );
 }
