@@ -24,6 +24,40 @@ It supports the canonical [Product Definition](product-definition.md) and demons
 
 The experience should show real product surfaces and realistic business data. Marketing animation may guide the experience, but it must not imply capabilities that the product cannot perform.
 
+## Reference patterns and products
+
+The following products provide useful reference patterns for interaction design, product storytelling, and demo delivery. They are references rather than templates: Runory should borrow the strongest interaction ideas without copying another product's visual identity, positioning, or product boundary.
+
+| Reference | Pattern to study | Runory application |
+| --- | --- | --- |
+| WaniWani | An interactive homepage that lets visitors enter a natural-language request and immediately see a result | Use a bounded Agent input in the hero and show a real work-order, scheduling, or follow-up outcome |
+| Retool | Prompt-to-product interaction combined with authentic application surfaces and operational data | Let a visitor issue an instruction and then open the affected customer, work order, quote, or schedule record |
+| Attio | Product UI as the primary narrative device, with clear state transitions rather than feature-heavy marketing copy | Tell the Runory story through customer, quote, dispatch, field-work, and completion state changes |
+| Fin | End-to-end Agent task execution, including procedure, decision, action, and result | Demonstrate Voice Intake and Agent Follow-up as complete operational loops rather than isolated AI features |
+| Navattic | Guided, clickable product tours that work without registration or a live tenant | Use for the first scenario walkthroughs before the full public sandbox is available |
+| Arcade | Embedded interactive demos with annotations, transitions, and reusable marketing assets | Produce short homepage demos that can also be reused in sales and documentation |
+| Supademo | Fast, low-cost creation of multiple guided product scenarios | Use for early scenario validation and supporting demo assets |
+
+### What Runory should borrow
+
+- Immediate interaction above the fold
+- Real product UI rather than conceptual illustrations
+- A visible input-to-result sequence
+- Short, scenario-based walkthroughs
+- Clear transitions between business states
+- Low-friction access without mandatory registration
+- Reusable demo assets across the website, sales, and documentation
+
+### What Runory should not copy
+
+- Another product's visual system or information architecture
+- Open-ended prompts that exceed current product capability
+- Simulated outcomes that cannot be reproduced in the real system
+- Generic AI-chat demonstrations disconnected from FSM execution
+- Long product tours that delay the first meaningful result
+
+The benchmark for Runory is not visual similarity to these products. The benchmark is whether a visitor can understand and trust the product faster because the experience makes real business execution visible.
+
 ## Desired visitor outcome
 
 Within 30–60 seconds, a visitor should be able to understand or experience the following sequence:
