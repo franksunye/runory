@@ -8,7 +8,7 @@
 | Topic | `documentation-governance` |
 | Applies to | `v0.5+` |
 | Owner | Product / Engineering |
-| Last reviewed | 2026-07-14 |
+| Last reviewed | 2026-07-16 |
 | Supersedes | Earlier directory-based navigation |
 | Superseded by | — |
 
@@ -35,6 +35,7 @@ Runory documentation is organized by topic authority and lifecycle rather than b
 - [Product Definition](product/product-definition.md) — canonical product boundary and positioning.
 - [Product Roadmap](product/product-roadmap.md) — active FSM-first milestone sequence through v4.0.
 - [v1.0 GA Release Goal](product/v1.0-ga-release-goal.md) — proposed GA target.
+- [Live Product Experience Plan](product/live-product-experience-plan.md) — proposed website, interactive demo, and public sandbox initiative.
 - [Voice Intake Product Definition](product/voice-intake-product-definition.md) — proposed phone-to-work-order product boundary.
 - [Payment Product Definition](product/payment-product-definition.md) — proposed customer-payment product boundary and SaaS-billing separation.
 - [Payment POC Execution Plan](product/payment-poc-execution-plan.md) — active bounded delivery and acceptance plan.
