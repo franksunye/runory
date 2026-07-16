@@ -3,11 +3,11 @@ import { execute, genId, now, queryOne } from "./db";
 
 export type MessageChannel = "email" | "sms" | "voice" | "web" | "internal";
 
-export async function addConversationParticipant(workspaceId: string, input: { conversationId: string; participantType: "contact" | "user" | "agent" | "system" | "external"; participantId?: string; address?: string; displayName?: string; role?: "sender" | "recipient" | "observer" }) {
+export async function addConversationParticipant(workspaceId: string, input: { conversationId: string; participantType: "contact" | "user" | "agent" | "system" | "external"; participantId?: string; address?: string; displayName?: string; role?: "participant" | "observer" }) {
   const existing = await queryOne<Record<string, unknown>>(`SELECT id FROM ${TABLES.conversationParticipants} WHERE workspace_id = ? AND conversation_id = ? AND participant_type = ? AND COALESCE(participant_id, '') = ? AND COALESCE(address, '') = ? LIMIT 1`, [workspaceId, input.conversationId, input.participantType, input.participantId ?? "", input.address ?? ""]);
   if (existing) return existing;
   const id = genId("cpt");
-  await execute(`INSERT INTO ${TABLES.conversationParticipants} (id, workspace_id, conversation_id, participant_type, participant_id, address, display_name, role, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`, [id, workspaceId, input.conversationId, input.participantType, input.participantId ?? null, input.address ?? null, input.displayName ?? null, input.role ?? "recipient", now()]);
+  await execute(`INSERT INTO ${TABLES.conversationParticipants} (id, workspace_id, conversation_id, participant_type, participant_id, address, display_name, role, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`, [id, workspaceId, input.conversationId, input.participantType, input.participantId ?? null, input.address ?? null, input.displayName ?? null, input.role ?? "participant", now()]);
   return { id, workspaceId, ...input };
 }
 
@@ -19,14 +19,14 @@ export async function createConversation(workspaceId: string, input: { contactId
   const id = genId("conv"); const timestamp = now();
   await execute(`INSERT INTO ${TABLES.conversations} (id, workspace_id, contact_id, work_order_id, service_site_id, voice_call_id, subject, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`, [id, workspaceId, input.contactId ?? null, input.workOrderId ?? null, input.serviceSiteId ?? null, input.voiceCallId ?? null, input.subject ?? null, timestamp, timestamp]);
   const conversation = { id, workspaceId, ...input, status: "open", createdAt: timestamp };
-  if (input.contactId) await addConversationParticipant(workspaceId, { conversationId: id, participantType: "contact", participantId: input.contactId, role: "recipient" });
-  await addConversationParticipant(workspaceId, { conversationId: id, participantType: "system", displayName: "Runory", role: "sender" });
+  if (input.contactId) await addConversationParticipant(workspaceId, { conversationId: id, participantType: "contact", participantId: input.contactId });
+  await addConversationParticipant(workspaceId, { conversationId: id, participantType: "system", displayName: "Runory" });
   return conversation;
 }
 
 export async function createNotificationMessage(workspaceId: string, input: { conversationId: string; contactId?: string; workOrderId?: string; notificationType: string; channel: MessageChannel; recipientAddress: string; subject?: string; bodyText: string; bodyHtml?: string; provider: string; payload?: Record<string, unknown> }) {
   const timestamp = now(); const notificationId = genId("ntf"); const messageId = genId("msg"); const deliveryId = genId("dlv");
-  await addConversationParticipant(workspaceId, { conversationId: input.conversationId, participantType: "external", address: input.recipientAddress, role: "recipient" });
+  await addConversationParticipant(workspaceId, { conversationId: input.conversationId, participantType: "external", address: input.recipientAddress });
   await execute(`INSERT INTO ${TABLES.notifications} (id, workspace_id, notification_type, conversation_id, contact_id, work_order_id, payload_json, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`, [notificationId, workspaceId, input.notificationType, input.conversationId, input.contactId ?? null, input.workOrderId ?? null, JSON.stringify(input.payload ?? {}), timestamp, timestamp]);
   await execute(`INSERT INTO ${TABLES.messages} (id, workspace_id, conversation_id, notification_id, direction, channel, author_type, subject, body_text, body_html, provider, created_at) VALUES (?, ?, ?, ?, 'outbound', ?, 'system', ?, ?, ?, ?, ?)`, [messageId, workspaceId, input.conversationId, notificationId, input.channel, input.subject ?? null, input.bodyText, input.bodyHtml ?? null, input.provider, timestamp]);
   await execute(`INSERT INTO ${TABLES.messageDeliveries} (id, workspace_id, message_id, channel, provider, recipient_address, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`, [deliveryId, workspaceId, messageId, input.channel, input.provider, input.recipientAddress, timestamp, timestamp]);
@@ -48,7 +48,7 @@ export async function ingestInboundMessage(workspaceId: string, input: { channel
   if (duplicate) return { duplicate: true, messageId: String(duplicate.id), conversationId: String(duplicate.conversation_id) };
   const participant = await queryOne<Record<string, unknown>>(`SELECT c.* FROM ${TABLES.conversationParticipants} p JOIN ${TABLES.conversations} c ON c.id = p.conversation_id AND c.workspace_id = p.workspace_id WHERE p.workspace_id = ? AND p.address = ? AND c.status = 'open' ORDER BY COALESCE(c.last_message_at, c.created_at) DESC LIMIT 1`, [workspaceId, input.senderAddress]);
   const conversation = participant ?? await createConversation(workspaceId, { contactId: input.contactId, workOrderId: input.workOrderId, subject: input.subject });
-  await addConversationParticipant(workspaceId, { conversationId: String(conversation.id), participantType: input.contactId ? "contact" : "external", participantId: input.contactId, address: input.senderAddress, displayName: input.senderName, role: "sender" });
+  await addConversationParticipant(workspaceId, { conversationId: String(conversation.id), participantType: input.contactId ? "contact" : "external", participantId: input.contactId, address: input.senderAddress, displayName: input.senderName });
   const id = genId("msg"); const timestamp = now();
   await execute(`INSERT INTO ${TABLES.messages} (id, workspace_id, conversation_id, direction, channel, author_type, author_id, subject, body_text, provider, external_id, created_at) VALUES (?, ?, ?, 'inbound', ?, ?, ?, ?, ?, ?, ?, ?)`, [id, workspaceId, conversation.id, input.channel, input.contactId ? "contact" : "external", input.contactId ?? null, input.subject ?? null, input.bodyText, input.provider, input.externalId, timestamp]);
   await execute(`UPDATE ${TABLES.conversations} SET status = 'open', last_message_at = ?, updated_at = ? WHERE id = ? AND workspace_id = ?`, [timestamp, timestamp, conversation.id, workspaceId]);

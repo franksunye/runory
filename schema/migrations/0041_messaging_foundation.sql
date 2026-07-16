@@ -29,7 +29,7 @@ CREATE TABLE IF NOT EXISTS {{RUNORY_RUNTIME_TABLE_PREFIX}}conversation_participa
   participant_id TEXT,
   address TEXT,
   display_name TEXT,
-  role TEXT NOT NULL DEFAULT 'recipient' CHECK (role IN ('sender','recipient','observer')),
+  role TEXT NOT NULL DEFAULT 'participant' CHECK (role IN ('participant','observer')),
   created_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_conversation_participants_conversation ON {{RUNORY_RUNTIME_TABLE_PREFIX}}conversation_participants(workspace_id, conversation_id);
