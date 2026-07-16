@@ -7,15 +7,6 @@ description: "Optional Retell voice-intake slice layered on the Field Service Ma
 recommended: false
 
 modules:
-  - "runory.company:^1.0.0"
-  - "runory.contact:^2.0.0"
-  - "runory.task:^2.0.0"
-  - "runory.service-site:^1.0.0"
-  - "runory.asset:^1.0.0"
-  - "runory.technician:^1.1.0"
-  - "runory.work-order:^1.1.0"
-  - "runory.service-visit:^1.1.0"
-  - "runory.service-report:^1.0.0"
   - "runory.voice-intake:^0.1.0"
 
 permissionGroups:

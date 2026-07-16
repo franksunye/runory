@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { db, execute, genId, now, queryAll } from "./db";
 import { TABLES, businessTable } from "./contracts";
 import { runMigrations } from "./migrations";
-import { installModule, installPack } from "./installer";
+import { installPack } from "./installer";
 import {
   createVoiceFollowUp,
   createVoiceWorkOrder,
@@ -36,7 +36,7 @@ async function setupWorkspace() {
   const ts = now();
   await execute(`INSERT INTO ${TABLES.workspaces} (id, name, slug, created_at, updated_at) VALUES (?, ?, ?, ?, ?)`, [workspaceId, "Voice Test", `voice-${workspaceId.slice(-8)}`, ts, ts]);
   await installPack(workspaceId, "fsm-pack");
-  await installModule(workspaceId, "runory.voice-intake", "voice-intake-poc");
+  await installPack(workspaceId, "voice-intake-poc-pack");
 }
 
 beforeAll(resetDatabase);
