@@ -4,7 +4,7 @@ import { businessTable } from "./contracts";
 import { execute, now, queryAll, queryOne } from "./db";
 import { createRecord, getRecord, getRecords, updateRecord } from "./metadata";
 import { enqueueOutboxMessage } from "./outbox";
-import { createConversation, createNotificationMessage } from "./messaging";
+import { createConversation, createNotificationMessage, createVoiceMessage } from "./messaging";
 
 export type Urgency = "low" | "medium" | "high" | "urgent";
 export type VoiceCallStatus = "initiated" | "ringing" | "answered" | "ended" | "analyzed" | "failed";
@@ -367,6 +367,12 @@ export async function createVoiceWorkOrder(workspaceId: string, input: ServiceIn
     ? await (async () => {
         const conversation = await createConversation(workspaceId, {
           contactId: String(contact.id), workOrderId: String(workOrder.id), serviceSiteId: String(site.id), voiceCallId: String(call.id), subject: String(workOrder.title ?? "Service request"),
+        });
+        await createVoiceMessage(workspaceId, {
+          conversationId: String(conversation.id), contactId: String(contact.id), voiceCallId: input.providerCallId,
+          transcript: typeof call.transcript_text === "string" ? call.transcript_text : undefined,
+          summary: typeof call.summary === "string" ? call.summary : undefined,
+          createdAt: typeof call.ended_at === "string" ? call.ended_at : undefined,
         });
         const confirmationCode = String(workOrder.id).slice(-8).toUpperCase();
         const message = await createNotificationMessage(workspaceId, {

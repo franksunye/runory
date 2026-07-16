@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { NextRequest } from "next/server";
-import { getAuditEvents, getOutboxMessages } from "@runory/platform-core";
+import { getAuditEvents, getOutboxMessages, ingestVoiceEvent, upsertVoiceCall } from "@runory/platform-core";
 import { businessTable, TABLES } from "@runory/platform-core";
 import { createRecord } from "@runory/platform-core";
 import { db, execute, genId, now, queryAll } from "@runory/platform-core";
@@ -162,10 +162,16 @@ describe("Retell custom tool routes", () => {
       payload: expect.objectContaining({ to: "alex@example.com" }),
     });
     const conversations = await queryAll(`SELECT * FROM ${TABLES.conversations} WHERE workspace_id = ?`, [workspaceId]);
+    const participants = await queryAll(`SELECT * FROM ${TABLES.conversationParticipants} WHERE workspace_id = ?`, [workspaceId]);
     const notifications = await queryAll(`SELECT * FROM ${TABLES.notifications} WHERE workspace_id = ?`, [workspaceId]);
     const communicationMessages = await queryAll(`SELECT * FROM ${TABLES.messages} WHERE workspace_id = ?`, [workspaceId]);
     const deliveries = await queryAll(`SELECT * FROM ${TABLES.messageDeliveries} WHERE workspace_id = ?`, [workspaceId]);
     expect(conversations).toHaveLength(1);
+    expect(participants).toEqual(expect.arrayContaining([
+      expect.objectContaining({ participant_type: "contact" }),
+      expect.objectContaining({ participant_type: "system" }),
+      expect.objectContaining({ participant_type: "external", address: "alex@example.com" }),
+    ]));
     expect(notifications).toEqual([expect.objectContaining({ notification_type: "work_order_confirmation", status: "pending" })]);
     expect(communicationMessages).toEqual([expect.objectContaining({ direction: "outbound", channel: "email" })]);
     expect(deliveries).toEqual([expect.objectContaining({ channel: "email", provider: "resend", status: "pending", recipient_address: "alex@example.com" })]);
@@ -182,5 +188,15 @@ describe("Retell custom tool routes", () => {
       status: "pending",
       payload: expect.objectContaining({ to: "new.customer@example.com" }),
     });
+  });
+
+  it("projects a Retell transcript into the created conversation", async () => {
+    const args = { ...completeArgs("call_cloud_voice_message_001"), customerEmail: "voice@example.com" };
+    await upsertVoiceCall(workspaceId, { providerCallId: args.providerCallId, callerPhone: args.callerPhone });
+    await ingestVoiceEvent(workspaceId, { eventId: "evt_cloud_voice_message_001", providerCallId: args.providerCallId, eventType: "call_analyzed", status: "analyzed", transcript: "Customer reports water leaking under the kitchen sink." });
+    const response = await createWorkOrder(toolRequest(args, { invocationId: "tool_cloud_voice_message_001" }));
+    expect(response.status).toBe(200);
+    const voiceMessages = await queryAll(`SELECT * FROM ${TABLES.messages} WHERE workspace_id = ? AND channel = 'voice'`, [workspaceId]);
+    expect(voiceMessages).toEqual([expect.objectContaining({ direction: "inbound", body_text: "Customer reports water leaking under the kitchen sink.", provider: "retell" })]);
   });
 });
