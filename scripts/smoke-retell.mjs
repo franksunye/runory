@@ -10,12 +10,16 @@ if (!secret || !agentId) {
 
 const callId = process.env.RETELL_SMOKE_CALL_ID ?? `retell_smoke_${Date.now()}`;
 const callerPhone = process.env.RETELL_SMOKE_PHONE ?? "+12125550123";
+const contactName = process.env.RETELL_SMOKE_CONTACT_NAME ?? "Retell HTTP Smoke Test";
+const serviceAddress = process.env.RETELL_SMOKE_ADDRESS ?? "123 Main Street, Austin, TX";
+const serviceCategory = process.env.RETELL_SMOKE_CATEGORY ?? "water_leak";
+const issueDescription = process.env.RETELL_SMOKE_ISSUE_DESCRIPTION ?? `Kitchen pipe smoke test leak ${callId}`;
 const commonArgs = {
   callerPhone,
-  contactName: "Retell HTTP Smoke Test",
-  serviceAddress: "123 Main Street, Austin, TX",
-  serviceCategory: "water_leak",
-  issueDescription: `Kitchen pipe smoke test leak ${callId}`,
+  contactName,
+  serviceAddress,
+  serviceCategory,
+  issueDescription,
   urgency: "urgent",
   confirmedFields: ["serviceAddress", "serviceCategory", "urgency"],
 };
