@@ -69,6 +69,9 @@ const MIGRATION_FILENAME = /^(\d{4})_([a-z0-9_]+)\.sql$/i;
 // 0023 was edited in v0.5.1: corrected workflow_definitions schema to match the
 // actual code queries (workflow_key → workflow_id, removed active_version_id/status,
 // added definition_json). Existing dev databases applied the prior version.
+// 0027 was amended after release only to mark its duplicate deleted_at ALTER as
+// tolerant. The deleted_at column was already created by 0024, so databases that
+// applied the original 0027 schema are compatible with the amended file.
 // Unknown checksum changes still fail.
 const ACCEPTED_HISTORICAL_CHECKSUMS: Readonly<Record<string, readonly string[]>> = {
   "0008": [
@@ -83,6 +86,7 @@ const ACCEPTED_HISTORICAL_CHECKSUMS: Readonly<Record<string, readonly string[]>>
   ],
   "0024": ["d58707d86f5b83d02fa8c7f04f2ab21ee2dc6e552b1083eab712a50a4a8ea4cd"],
   "0025": ["096cf6186a4915b53de019485aaa83f7fce9897a6a29e274c5e641b79f500ebc"],
+  "0027": ["1d71400071387e34926b69c4fc994943ed829d5dc7794e1492a59495305898e5"],
 };
 
 function checksumMatches(file: MigrationFile, stored: string): boolean {

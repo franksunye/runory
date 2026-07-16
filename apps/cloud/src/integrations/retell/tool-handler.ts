@@ -10,8 +10,16 @@ import {
   type ServiceIntakeInput,
 } from "@runory/platform-core";
 import { authenticateRetell, idempotencyKey, retellError, retellJson } from "./gateway";
+import { deliverWorkOrderConfirmation } from "@/integrations/email/resend-outbox";
 
 export type RetellTool = "customer-lookup" | "intake-preview" | "available-slots" | "create-work-order" | "create-and-schedule" | "create-follow-up";
+
+async function dispatchConfirmationEmail(workspaceId: string, result: unknown): Promise<void> {
+  const outboxId = (result as { confirmationEmailOutboxId?: unknown }).confirmationEmailOutboxId;
+  if (typeof outboxId === "string" && outboxId) {
+    await deliverWorkOrderConfirmation(workspaceId, outboxId);
+  }
+}
 
 export async function handleRetellTool(request: NextRequest, tool: RetellTool) {
   const raw = await request.text();
@@ -39,9 +47,11 @@ export async function handleRetellTool(request: NextRequest, tool: RetellTool) {
         break;
       case "create-work-order":
         result = await createVoiceWorkOrder(auth.workspaceId, input as unknown as ServiceIntakeInput, actor, idempotencyKey(request, body, tool));
+        await dispatchConfirmationEmail(auth.workspaceId, result);
         break;
       case "create-and-schedule":
         result = await createAndScheduleVoiceWork(auth.workspaceId, input as unknown as ServiceIntakeInput, actor, idempotencyKey(request, body, tool));
+        await dispatchConfirmationEmail(auth.workspaceId, result);
         break;
       case "create-follow-up":
         result = await createVoiceFollowUp(auth.workspaceId, {

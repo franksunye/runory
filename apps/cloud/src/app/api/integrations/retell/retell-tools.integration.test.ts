@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { NextRequest } from "next/server";
-import { getAuditEvents } from "@runory/platform-core";
+import { getAuditEvents, getOutboxMessages } from "@runory/platform-core";
 import { businessTable, TABLES } from "@runory/platform-core";
 import { createRecord } from "@runory/platform-core";
 import { db, execute, genId, now, queryAll } from "@runory/platform-core";
@@ -147,5 +147,32 @@ describe("Retell custom tool routes", () => {
     const activity = await getAuditEvents(workspaceId);
     expect(activity.filter(event => event.actorId === "Runory Voice Intake (retell)")).toHaveLength(4);
     expect(activity.map(event => event.entityType)).toEqual(expect.arrayContaining(["contact", "service_site", "work_order", "voice_call"]));
+  });
+
+  it("queues a customer confirmation email when the matched contact has an email", async () => {
+    const args = completeArgs("call_cloud_email_001");
+    await createRecord(workspaceId, "contact", { name: args.contactName, phone: "+12125550123", email: "alex@example.com", source: "manual" });
+    const response = await createWorkOrder(toolRequest(args, { invocationId: "tool_cloud_email_001" }));
+    expect(response.status).toBe(200);
+    const messages = await getOutboxMessages(workspaceId);
+    expect(messages).toHaveLength(1);
+    expect(messages[0]).toMatchObject({
+      messageType: "email.work_order_confirmation",
+      status: "pending",
+      payload: expect.objectContaining({ to: "alex@example.com" }),
+    });
+  });
+
+  it("stores a newly provided caller email and queues its confirmation", async () => {
+    const args = { ...completeArgs("call_cloud_email_new_001"), customerEmail: "new.customer@example.com" };
+    const response = await createWorkOrder(toolRequest(args, { invocationId: "tool_cloud_email_new_001" }));
+    expect(response.status).toBe(200);
+    const messages = await getOutboxMessages(workspaceId);
+    expect(messages).toHaveLength(1);
+    expect(messages[0]).toMatchObject({
+      messageType: "email.work_order_confirmation",
+      status: "pending",
+      payload: expect.objectContaining({ to: "new.customer@example.com" }),
+    });
   });
 });

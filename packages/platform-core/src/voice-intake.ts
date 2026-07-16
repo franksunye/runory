@@ -3,6 +3,7 @@ import { writeAuditEvent } from "./audit-service";
 import { businessTable } from "./contracts";
 import { execute, now, queryAll, queryOne } from "./db";
 import { createRecord, getRecord, getRecords, updateRecord } from "./metadata";
+import { enqueueOutboxMessage } from "./outbox";
 
 export type Urgency = "low" | "medium" | "high" | "urgent";
 export type VoiceCallStatus = "initiated" | "ringing" | "answered" | "ended" | "analyzed" | "failed";
@@ -11,6 +12,7 @@ export interface ServiceIntakeInput {
   providerCallId: string;
   callerPhone: string;
   contactName?: string;
+  customerEmail?: string;
   serviceAddress?: string;
   serviceCategory?: string;
   issueDescription?: string;
@@ -269,9 +271,17 @@ export async function previewServiceIntake(workspaceId: string, input: ServiceIn
 
 async function resolveContactAndSite(workspaceId: string, input: ServiceIntakeInput) {
   const caller = await lookupCaller(workspaceId, input.callerPhone, input);
-  const contact = caller.contact
+  const resolvedContact = caller.contact
     ? await getRecord(workspaceId, "contact", String(caller.contact.id))
-    : await createRecord(workspaceId, "contact", { name: input.contactName, phone: normalizeE164(input.callerPhone), source: "voice" });
+    : await createRecord(workspaceId, "contact", {
+        name: input.contactName,
+        phone: normalizeE164(input.callerPhone),
+        email: input.customerEmail?.trim() || undefined,
+        source: "voice",
+      });
+  const contact = resolvedContact && input.customerEmail?.trim() && !resolvedContact.email
+    ? await updateRecord(workspaceId, "contact", String(resolvedContact.id), { email: input.customerEmail.trim() })
+    : resolvedContact;
   if (!contact) throw new Error("VOICE_CONTACT_RESOLUTION_FAILED");
   const matchingSite = caller.sites.find(site => site.address === input.serviceAddress);
   const site = matchingSite
@@ -351,7 +361,19 @@ export async function createVoiceWorkOrder(workspaceId: string, input: ServiceIn
       createdBy: actor.integrationPrincipalId,
     },
   });
-  const result = { workOrderId: workOrder.id, contactId: contact.id, serviceSiteId: site.id, confirmationCode: String(workOrder.id).slice(-8).toUpperCase() };
+  const recipientEmail = typeof contact.email === "string" ? contact.email.trim() : "";
+  const confirmationEmailOutboxId = recipientEmail
+    ? await enqueueOutboxMessage(workspaceId, "email.work_order_confirmation", {
+        to: recipientEmail,
+        contactName: contact.name,
+        workOrderId: workOrder.id,
+        title: workOrder.title,
+        priority: input.urgency,
+        serviceAddress: input.serviceAddress,
+        confirmationCode: String(workOrder.id).slice(-8).toUpperCase(),
+      })
+    : null;
+  const result = { workOrderId: workOrder.id, contactId: contact.id, serviceSiteId: site.id, confirmationCode: String(workOrder.id).slice(-8).toUpperCase(), confirmationEmailOutboxId };
   await remember(workspaceId, idempotencyKey, "service_intake.create_work_order", result);
   return result;
 }

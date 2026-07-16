@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { getOutboxMessages, execute, TABLES, now } from "@runory/platform-core";
 import { requireWorkspaceContext } from "@/lib/auth";
 import { successResponse, handleError, getOrCreateRequestId } from "@/lib/http";
+import { deliverWorkOrderConfirmation } from "@/integrations/email/resend-outbox";
 
 export const dynamic = "force-dynamic";
 
@@ -64,7 +65,8 @@ export async function POST(
          WHERE id = ? AND workspace_id = ? AND status = 'failed'`,
         [now(), body.messageId, workspaceId]
       );
-      return successResponse({ retried: true }, 200, ctx.requestId);
+      const delivery = await deliverWorkOrderConfirmation(workspaceId, body.messageId);
+      return successResponse({ retried: true, delivery }, 200, ctx.requestId);
     }
 
     if (body.action === "mark_delivered") {

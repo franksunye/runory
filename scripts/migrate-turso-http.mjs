@@ -38,6 +38,9 @@ const acceptedHistoricalChecksums = {
   ],
   "0024": ["d58707d86f5b83d02fa8c7f04f2ab21ee2dc6e552b1083eab712a50a4a8ea4cd"],
   "0025": ["096cf6186a4915b53de019485aaa83f7fce9897a6a29e274c5e641b79f500ebc"],
+  // 0027 was amended after release to make its duplicate deleted_at ALTER
+  // tolerant; that column was already created by 0024.
+  "0027": ["1d71400071387e34926b69c4fc994943ed829d5dc7794e1492a59495305898e5"],
 };
 
 function pipeline(statements) {
