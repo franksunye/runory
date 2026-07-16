@@ -40,8 +40,12 @@ export function middleware(request: NextRequest) {
   // This check ALWAYS runs (not gated by NODE_ENV) so dev/test catches issues too.
   const method = request.method.toUpperCase();
   const isStateChange = ["POST", "PUT", "PATCH", "DELETE"].includes(method);
+  // Provider callbacks are machine-to-machine requests without browser Origin
+  // headers. Their routes authenticate the raw Retell signature or the scoped
+  // Tool bearer secret and do not use cookie/session authorization.
+  const isRetellIntegration = request.nextUrl.pathname.startsWith("/api/integrations/retell/");
 
-  if (isStateChange) {
+  if (isStateChange && !isRetellIntegration) {
     const origin = request.headers.get("origin");
     const host = request.headers.get("host");
 

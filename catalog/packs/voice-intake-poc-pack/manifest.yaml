@@ -1,0 +1,34 @@
+id: voice-intake-poc-pack
+name: Voice Intake POC Pack
+version: 0.1.0
+coreCompatibility: ">=0.1.0"
+
+description: "Optional Retell voice-intake slice layered on the Field Service Management pack"
+recommended: false
+
+modules:
+  - "runory.company:^1.0.0"
+  - "runory.contact:^2.0.0"
+  - "runory.task:^2.0.0"
+  - "runory.service-site:^1.0.0"
+  - "runory.asset:^1.0.0"
+  - "runory.technician:^1.1.0"
+  - "runory.work-order:^1.1.0"
+  - "runory.service-visit:^1.1.0"
+  - "runory.service-report:^1.0.0"
+  - "runory.voice-intake:^0.1.0"
+
+permissionGroups:
+  - key: voice_intake_operator
+    label: Voice Intake Operator
+    description: "Can review calls and handle intake exceptions"
+    permissions: ["voice_intake.read", "voice_intake.review"]
+  - key: workspace_administrator
+    label: Workspace Administrator
+    description: "Can configure and execute the Voice Intake integration"
+    permissions: ["*"]
+
+marketplace:
+  category: field_service
+  license: runory_official
+  publisher: runory

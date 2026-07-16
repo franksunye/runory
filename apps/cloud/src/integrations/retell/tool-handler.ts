@@ -6,6 +6,7 @@ import {
   getAvailableVoiceSlots,
   lookupCaller,
   previewServiceIntake,
+  upsertVoiceCall,
   type ServiceIntakeInput,
 } from "@runory/platform-core";
 import { authenticateRetell, idempotencyKey, retellError, retellJson } from "./gateway";
@@ -15,10 +16,15 @@ export type RetellTool = "customer-lookup" | "intake-preview" | "available-slots
 export async function handleRetellTool(request: NextRequest, tool: RetellTool) {
   const raw = await request.text();
   try {
-    const auth = await authenticateRetell(request, raw);
+    const auth = await authenticateRetell(request, raw, { allowToolSecret: true });
     const body = JSON.parse(raw) as Record<string, unknown>;
-    const input = (body.arguments ?? body.input ?? body) as Record<string, unknown>;
-    const providerCallId = String(input.providerCallId ?? input.call_id ?? body.call_id ?? "");
+    const input = (body.args ?? body.arguments ?? body.input ?? body) as Record<string, unknown>;
+    const call = body.call && typeof body.call === "object" ? body.call as Record<string, unknown> : {};
+    const providerCallId = String(input.providerCallId ?? input.call_id ?? call.call_id ?? body.call_id ?? "");
+    if (!providerCallId) throw new Error("VOICE_CALL_FIELDS_REQUIRED");
+    input.providerCallId = providerCallId;
+    const callerPhone = String(input.callerPhone ?? input.phone ?? "");
+    if (callerPhone) await upsertVoiceCall(auth.workspaceId, { providerCallId, callerPhone });
     const actor = { provider: "retell" as const, providerCallId, integrationPrincipalId: auth.principalId };
     let result: unknown;
     switch (tool) {

@@ -76,7 +76,13 @@ const ACCEPTED_HISTORICAL_CHECKSUMS: Readonly<Record<string, readonly string[]>>
     "ef1274f395990fb639796db16d25e1cd13762a10cb1b07d39cac1bf14fa50517",
   ],
   "0011": ["22d273441f560b0d2f1bf39f5d147901bdf053e21073a07a81207eb8a810a5ad"],
-  "0023": ["23b3e17bbb2b4e6321d62f3c7c84d167554f7cc37d2b4e208616e32b44fd13bb"],
+  "0022": ["2b4bc8c67b107fa2f664fffb424d154ca1840ed6488f19741befcb689d6bcfa7"],
+  "0023": [
+    "bec8ae49e7bdff205e5a43f806ca3c1c0677f757d08f09e37015a30b758d637c",
+    "23b3e17bbb2b4e6321d62f3c7c84d167554f7cc37d2b4e208616e32b44fd13bb",
+  ],
+  "0024": ["d58707d86f5b83d02fa8c7f04f2ab21ee2dc6e552b1083eab712a50a4a8ea4cd"],
+  "0025": ["096cf6186a4915b53de019485aaa83f7fce9897a6a29e274c5e641b79f500ebc"],
 };
 
 function checksumMatches(file: MigrationFile, stored: string): boolean {

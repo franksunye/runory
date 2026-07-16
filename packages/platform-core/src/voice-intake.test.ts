@@ -3,7 +3,7 @@ import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { existsSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { db, execute, genId, now, queryAll } from "./db";
-import { TABLES } from "./contracts";
+import { TABLES, businessTable } from "./contracts";
 import { runMigrations } from "./migrations";
 import { installModule, installPack } from "./installer";
 import {
@@ -52,9 +52,12 @@ describe("voice intake provider boundary", () => {
   it("verifies Retell HMAC without accepting a modified body", () => {
     const secret = "test-secret";
     const body = JSON.stringify({ call_id: "call_1" });
-    const signature = createHmac("sha256", secret).update(body).digest("hex");
-    expect(verifyRetellSignature(body, signature, secret)).toBe(true);
-    expect(verifyRetellSignature(`${body}x`, signature, secret)).toBe(false);
+    const timestamp = 1_720_000_000_000;
+    const digest = createHmac("sha256", secret).update(`${body}${timestamp}`).digest("hex");
+    const signature = `v=${timestamp},d=${digest}`;
+    expect(verifyRetellSignature(body, signature, secret, timestamp)).toBe(true);
+    expect(verifyRetellSignature(`${body}x`, signature, secret, timestamp)).toBe(false);
+    expect(verifyRetellSignature(body, signature, secret, timestamp + 5 * 60 * 1000 + 1)).toBe(false);
   });
 });
 
@@ -78,7 +81,7 @@ describe("voice intake POC flows", () => {
     const result = await previewServiceIntake(workspaceId, complete);
     expect(result.missingFields).toEqual([]);
     expect(result.requiresConfirmation).toEqual([]);
-    const workOrders = await queryAll(`SELECT id FROM business_work_order WHERE workspace_id = ?`, [workspaceId]);
+    const workOrders = await queryAll(`SELECT id FROM ${businessTable("work_order")} WHERE workspace_id = ?`, [workspaceId]);
     expect(workOrders).toHaveLength(0);
   });
 
@@ -87,7 +90,7 @@ describe("voice intake POC flows", () => {
     const first = await createVoiceWorkOrder(workspaceId, complete, actor, "idem:create:1");
     const second = await createVoiceWorkOrder(workspaceId, complete, actor, "idem:create:1");
     expect(second).toEqual(first);
-    const workOrders = await queryAll(`SELECT id FROM business_work_order WHERE workspace_id = ?`, [workspaceId]);
+    const workOrders = await queryAll(`SELECT id FROM ${businessTable("work_order")} WHERE workspace_id = ?`, [workspaceId]);
     expect(workOrders).toHaveLength(1);
   });
 
@@ -97,14 +100,14 @@ describe("voice intake POC flows", () => {
     await ingestVoiceEvent(workspaceId, { eventId: "evt_2", providerCallId: complete.providerCallId, eventType: "call_started", status: "ringing", sequence: 1 });
     expect(first.duplicate).toBe(false);
     expect(duplicate.duplicate).toBe(true);
-    const rows = await queryAll<{ status: string }>(`SELECT status FROM business_voice_call WHERE workspace_id = ?`, [workspaceId]);
+    const rows = await queryAll<{ status: string }>(`SELECT status FROM ${businessTable("voice_call")} WHERE workspace_id = ?`, [workspaceId]);
     expect(rows[0]?.status).toBe("ended");
   });
 
   it("creates visible follow-up and marks the call for review", async () => {
     const result = await createVoiceFollowUp(workspaceId, { providerCallId: complete.providerCallId, reason: "human_requested" }, "idem:follow:1");
     expect(result.accepted).toBe(true);
-    const calls = await queryAll<{ review_status: string; outcome: string }>(`SELECT review_status, outcome FROM business_voice_call WHERE workspace_id = ?`, [workspaceId]);
+    const calls = await queryAll<{ review_status: string; outcome: string }>(`SELECT review_status, outcome FROM ${businessTable("voice_call")} WHERE workspace_id = ?`, [workspaceId]);
     expect(calls[0]).toMatchObject({ review_status: "needs_review", outcome: "follow_up_created" });
   });
 });

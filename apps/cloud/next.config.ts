@@ -3,6 +3,12 @@ import { PHASE_DEVELOPMENT_SERVER } from "next/constants";
 
 const baseConfig: NextConfig = {
   serverExternalPackages: ["@libsql/client", "libsql"],
+  // Catalog manifests and SQL migrations are discovered dynamically at runtime.
+  // Explicitly trace them so newly added artifacts are available in Vercel
+  // Serverless Functions instead of only files referenced by static imports.
+  outputFileTracingIncludes: {
+    "/*": ["./.resources/**/*"],
+  },
   // Expose the OTP dev-code toggle to client bundles. The value is resolved at
   // build time from PLATFORM_OTP_RETURN_DEV_CODE so that client components can
   // conditionally render the dev-code hint without a separate round-trip.

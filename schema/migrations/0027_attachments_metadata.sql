@@ -1,4 +1,5 @@
 -- 0027_attachments_metadata.sql
+-- Tolerant: true
 -- v0.5.1 Spec §5.5 (Mobile Field-Work / Evidence): Attachments are first-class
 -- metadata associated with the submission revision and the Visit/Work Item subject.
 -- They are NOT stored as untyped URLs inside form answers.
@@ -24,6 +25,9 @@ ALTER TABLE {{RUNORY_RUNTIME_TABLE_PREFIX}}attachments ADD COLUMN size_bytes INT
 ALTER TABLE {{RUNORY_RUNTIME_TABLE_PREFIX}}attachments ADD COLUMN storage_path TEXT;
 ALTER TABLE {{RUNORY_RUNTIME_TABLE_PREFIX}}attachments ADD COLUMN work_item_id TEXT;
 ALTER TABLE {{RUNORY_RUNTIME_TABLE_PREFIX}}attachments ADD COLUMN form_submission_id TEXT;
+-- Historical 0024 installations predate soft-delete support on attachments.
+-- The tolerant marker makes this safe when a newer 0024 already created it.
+ALTER TABLE {{RUNORY_RUNTIME_TABLE_PREFIX}}attachments ADD COLUMN deleted_at TEXT;
 
 -- Backfill the canonical columns from the 0024 columns so existing rows stay
 -- queryable through the new field names. NULLs are preserved.

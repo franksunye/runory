@@ -69,6 +69,17 @@ export function handleError(error: unknown, requestId?: string): NextResponse<Er
   const status = errorToHttpStatus(error);
   const code = errorToCode(error);
   const message = safeErrorMessage(error);
+  const diagnostic =
+    error instanceof Error
+      ? { name: error.name, message: error.message, stack: error.stack }
+      : { name: "UnknownError", message: String(error) };
+
+  console.error("[http:error]", {
+    requestId: requestId ?? null,
+    status,
+    code,
+    ...diagnostic,
+  });
   return errorResponse(code, message, status, requestId);
 }
 

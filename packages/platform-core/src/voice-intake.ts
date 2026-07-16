@@ -41,12 +41,21 @@ export function normalizeE164(phone: string): string {
   throw new Error("VOICE_INVALID_PHONE");
 }
 
-export function verifyRetellSignature(rawBody: string, signature: string | null, secret: string): boolean {
+export function verifyRetellSignature(
+  rawBody: string,
+  signature: string | null,
+  secret: string,
+  nowMs = Date.now(),
+): boolean {
   if (!signature || !secret) return false;
-  const expected = createHmac("sha256", secret).update(rawBody).digest("hex");
-  const supplied = signature.replace(/^sha256=/, "");
+  const match = /^v=(\d+),d=([a-f\d]+)$/i.exec(signature);
+  if (!match) return false;
+  const timestamp = Number(match[1]);
+  if (!Number.isSafeInteger(timestamp) || Math.abs(nowMs - timestamp) > 5 * 60 * 1000) return false;
+  const expected = createHmac("sha256", secret).update(`${rawBody}${match[1]}`).digest("hex");
+  const supplied = match[2];
   if (expected.length !== supplied.length) return false;
-  return timingSafeEqual(Buffer.from(expected), Buffer.from(supplied));
+  return timingSafeEqual(Buffer.from(expected, "hex"), Buffer.from(supplied, "hex"));
 }
 
 async function replay<T>(workspaceId: string, key: string): Promise<T | undefined> {

@@ -246,6 +246,8 @@ export const modulePresentationSchema = z.object({
     "forms",
     "my_work",
     "customers",
+    "calls",
+    "payments",
   ]).optional(),
   audience: z.array(z.string()).optional(),
 });
