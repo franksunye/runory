@@ -25,6 +25,7 @@ export async function createNotificationMessage(workspaceId: string, input: { co
 export async function markMessageDeliveryAccepted(workspaceId: string, deliveryId: string): Promise<void> {
   const timestamp = now();
   await execute(`UPDATE ${TABLES.messageDeliveries} SET status = 'accepted', accepted_at = ?, last_error = NULL, updated_at = ? WHERE id = ? AND workspace_id = ?`, [timestamp, timestamp, deliveryId, workspaceId]);
+  await execute(`UPDATE ${TABLES.notifications} SET status = 'sent', updated_at = ? WHERE workspace_id = ? AND id = (SELECT notification_id FROM ${TABLES.messages} WHERE workspace_id = ? AND id = (SELECT message_id FROM ${TABLES.messageDeliveries} WHERE workspace_id = ? AND id = ?))`, [timestamp, workspaceId, workspaceId, workspaceId, deliveryId]);
 }
 
 export async function markMessageDeliveryFailed(workspaceId: string, deliveryId: string, error: string): Promise<void> {
