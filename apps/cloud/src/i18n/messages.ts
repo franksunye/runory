@@ -753,9 +753,9 @@ export const en = {
   "billing.orgInfoFailed": "Unable to load organization info",
   "billing.loadFailed": "Failed to load billing info",
   "billing.currentPlan": "Current plan",
-  "billing.planDesc": "You are using the Early Access plan, which includes core platform capabilities. Stripe paid subscription integration is coming soon.",
+  "billing.planDesc": "Your Organization plan and access are derived from verified Stripe subscription events.",
   "billing.free": "Free",
-  "billing.stripeComingSoon": "Stripe integration coming soon",
+  "billing.stripeComingSoon": "Subscription management is securely hosted by Stripe",
   "billing.manageSubscription": "Manage subscription",
   "billing.usageStats": "Usage statistics",
   "billing.usageDesc": "Resource usage in the current cycle",
@@ -765,8 +765,8 @@ export const en = {
   "billing.remaining": "Remaining {value}",
   "billing.features": "Feature entitlements",
   "billing.featuresDesc": "Features included in the current plan",
-  "billing.comingSoon": "Coming soon",
-  "billing.comingSoonBody": "Stripe subscription billing integration is under development. It will support online upgrade, downgrade, and billing management for Pro and Enterprise plans.",
+  "billing.comingSoon": "Runory Cloud plans",
+  "billing.comingSoonBody": "Organization owners can subscribe to Pro through Stripe Checkout and manage billing in the Stripe Customer Portal.",
   "billing.proPlan": "Pro · $29/month",
   "billing.enterprisePlan": "Enterprise · Custom",
   "billing.history": "Billing history",
@@ -2055,7 +2055,7 @@ export const zh: Messages = {
   // API Keys page (v0.3.6)
   "apiKeys.title": "API 密钥", "apiKeys.subtitle": "管理用于程序化访问工作区的 API 密钥", "apiKeys.created": "API 密钥已创建，请立即保存下方显示的完整密钥", "apiKeys.createFailed": "创建失败", "apiKeys.revoked": "已吊销 API 密钥", "apiKeys.revokeFailed": "吊销失败", "apiKeys.rotated": "API 密钥已轮换，请立即保存下方显示的新密钥", "apiKeys.rotateFailed": "轮换失败", "apiKeys.saveWarning": "请妥善保存，此密钥不会再次显示", "apiKeys.revealedMeta": "密钥名称：{name} · 前缀：{prefix}", "apiKeys.copied": "已复制", "apiKeys.copy": "复制", "apiKeys.saved": "我已保存", "apiKeys.createNew": "创建新密钥", "apiKeys.nameLabel": "密钥名称", "apiKeys.namePlaceholder": "例如：生产环境集成", "apiKeys.createKey": "创建密钥", "apiKeys.creating": "创建中...", "apiKeys.scopeHintPrefix": "新密钥默认授予 ", "apiKeys.scopeHintSuffix": " 权限。完整密钥仅在创建时显示一次。", "apiKeys.activeKeys": "活跃密钥", "apiKeys.empty": "暂无 API 密钥，点击上方按钮创建第一个", "apiKeys.keyMeta": "创建于 {created} · 最后使用 {lastUsed}", "apiKeys.expiresMeta": " · 过期于 {expires}", "apiKeys.rotate": "轮换", "apiKeys.rotating": "轮换中...", "apiKeys.revoke": "吊销", "apiKeys.revoking": "吊销中...", "apiKeys.revokeTitle": "吊销 API 密钥", "apiKeys.revokeConfirmPrefix": "确定要吊销密钥 ", "apiKeys.revokeConfirmSuffix": " 吗？吊销后，使用此密钥的所有请求将立即失败。此操作不可撤销。", "apiKeys.confirmRevoke": "确认吊销", "apiKeys.rotateTitle": "轮换 API 密钥", "apiKeys.rotateConfirmPrefix": "确定要轮换密钥 ", "apiKeys.rotateConfirmSuffix": " 吗？旧密钥将立即失效，并生成新密钥。新密钥仅显示一次，请准备好保存。", "apiKeys.confirmRotate": "确认轮换",
   // Billing page (v0.3.6)
-  "billing.title": "账单", "billing.subtitle": "查看当前方案、用量与功能权益", "billing.orgInfoFailed": "无法获取组织信息", "billing.loadFailed": "加载账单信息失败", "billing.currentPlan": "当前方案", "billing.planDesc": "您正在使用 Early Access 方案，包含核心平台能力。Stripe 付费订阅集成即将上线。", "billing.free": "免费", "billing.stripeComingSoon": "Stripe 集成即将上线", "billing.manageSubscription": "管理订阅", "billing.usageStats": "用量统计", "billing.usageDesc": "当前周期内各项资源使用情况", "billing.noUsage": "暂无用量数据", "billing.hardLimit": "硬限制", "billing.softLimit": "软限制", "billing.remaining": "剩余 {value}", "billing.features": "功能权益", "billing.featuresDesc": "当前方案包含的功能", "billing.comingSoon": "即将推出", "billing.comingSoonBody": "Stripe 订阅计费集成正在开发中。届时将支持 Pro 与 Enterprise 方案的在线升级、降级与账单管理。", "billing.proPlan": "Pro · $29/月", "billing.enterprisePlan": "Enterprise · 定制", "billing.history": "账单记录", "billing.historyDesc": "历史账单与支付记录", "billing.noHistory": "暂无账单记录", "billing.feature.crmLite": "CRM Lite 模块", "billing.feature.extensions": "扩展与定制", "billing.feature.apiAccess": "API 访问", "billing.feature.auditLog": "审计日志", "billing.metric.records": "记录数", "billing.metric.workspaces": "工作区", "billing.metric.members": "成员数", "billing.metric.apiRequests": "API 调用", "billing.metric.agentOperations": "Agent 操作", "billing.metric.storageBytes": "存储空间",
+  "billing.title": "账单", "billing.subtitle": "查看当前方案、用量与功能权益", "billing.orgInfoFailed": "无法获取组织信息", "billing.loadFailed": "加载账单信息失败", "billing.currentPlan": "当前方案", "billing.planDesc": "组织方案与访问权益仅由经过签名验证的 Stripe 订阅事件更新。", "billing.free": "免费", "billing.stripeComingSoon": "订阅管理由 Stripe 安全托管", "billing.manageSubscription": "管理订阅", "billing.usageStats": "用量统计", "billing.usageDesc": "当前周期内各项资源使用情况", "billing.noUsage": "暂无用量数据", "billing.hardLimit": "硬限制", "billing.softLimit": "软限制", "billing.remaining": "剩余 {value}", "billing.features": "功能权益", "billing.featuresDesc": "当前方案包含的功能", "billing.comingSoon": "Runory Cloud 方案", "billing.comingSoonBody": "组织 Owner 可通过 Stripe Checkout 订阅 Pro，并在 Stripe Customer Portal 管理账单。", "billing.proPlan": "Pro · $29/月", "billing.enterprisePlan": "Enterprise · 定制", "billing.history": "账单记录", "billing.historyDesc": "历史账单与支付记录", "billing.noHistory": "暂无账单记录", "billing.feature.crmLite": "CRM Lite 模块", "billing.feature.extensions": "扩展与定制", "billing.feature.apiAccess": "API 访问", "billing.feature.auditLog": "审计日志", "billing.metric.records": "记录数", "billing.metric.workspaces": "工作区", "billing.metric.members": "成员数", "billing.metric.apiRequests": "API 调用", "billing.metric.agentOperations": "Agent 操作", "billing.metric.storageBytes": "存储空间",
   // Trash page (v0.3.6)
   "trash.title": "回收站", "trash.subtitle": "查看和恢复已删除的记录。软删除的记录可在此恢复，也可永久删除。", "trash.recordRestored": "记录已恢复", "trash.restoreFailed": "恢复失败", "trash.hardDeleteConfirm": "永久删除后无法恢复，确定继续吗？", "trash.recordPurged": "记录已永久删除", "trash.noObjects": "工作区暂无业务对象", "trash.noDeletedRecords": "{label} 没有已删除的记录", "trash.selectObject": "请选择一个对象", "trash.colRecordId": "记录 ID", "trash.colName": "名称 / 标识", "trash.colDeletedAt": "删除时间", "trash.colDeletedBy": "删除者", "trash.restore": "恢复", "trash.hardDelete": "永久删除",
   // Export page (v0.3.6)

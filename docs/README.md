@@ -39,6 +39,7 @@ Runory documentation is organized by topic authority and lifecycle rather than b
 - [Voice Intake Product Definition](product/voice-intake-product-definition.md) — proposed phone-to-work-order product boundary.
 - [Payment Product Definition](product/payment-product-definition.md) — proposed customer-payment product boundary and SaaS-billing separation.
 - [Payment POC Execution Plan](product/payment-poc-execution-plan.md) — active bounded delivery and acceptance plan.
+- [Stripe Connect Pre-GA Completion Plan](product/stripe-connect-pre-ga-plan.md) — required merchant-owned Stripe settlement path before 1.0 GA.
 - [Commercial FSM Customer Demand Benchmark](research/commercial-fsm-customer-demand-benchmark.md) — supporting research.
 
 Versioned iteration plans provide implementation history but do not override the Product Definition or a newer active specification.
@@ -83,6 +84,7 @@ Versioned iteration plans provide implementation history but do not override the
 - [Voice Intake Integration Boundary](architecture/voice-intake-integration-boundary.md) — proposed conversation-channel adapter and command boundary.
 - [Payment Integration Boundary](architecture/payment-integration-boundary.md) — proposed business-payment Module and provider-adapter boundary.
 - [Payment Technical Specification](product/payment-technical-spec.md) — proposed Stripe-first provider-neutral implementation.
+- [Stripe Connect Pre-GA Completion Plan](product/stripe-connect-pre-ga-plan.md) — Connect Direct Charges delivery and GA acceptance gate.
 - [Command Runtime Performance Baseline](architecture/command-runtime-performance-baseline.md) — proposed performance model, budgets, and v0.6 acceptance baseline.
 - [Performance Optimization Plan](architecture/performance-optimization-plan.md) — deployment-specific optimization work.
 - [Internationalization Architecture](architecture/internationalization.md) — localization architecture.

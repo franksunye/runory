@@ -74,9 +74,9 @@ describe("runory.payment module", () => {
     expect(await getObject(workspaceId, "refund")).toBeDefined();
 
     const navigation = await getNavigation(workspaceId);
-    expect(navigation.map((item) => item.route)).toContain("/payments");
+    expect(navigation.map((item) => item.route)).toContain("/payment-requests");
 
-    const table = businessTable(workspaceId, "payment_provider_reference");
+    const table = businessTable("payment_provider_reference");
     const ts = now();
     const values = [
       genId("ppr"),

@@ -57,11 +57,11 @@ beforeEach(async () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Acceptance 1: Sales Quote Pack installs with all 6 modules (3 shared + 3 quote)
+// Acceptance 1: Sales Quote Pack installs with all 7 modules, including Payment.
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe("Sales Quote Pack installation", () => {
-  it("installs all 6 modules with correct object definitions and navigation", async () => {
+  it("installs all 7 modules with correct object definitions and navigation", async () => {
     const result = await installPack(workspaceId, "sales-quote-pack");
 
     expect(result.packId).toBe("sales-quote-pack");
@@ -70,6 +70,7 @@ describe("Sales Quote Pack installation", () => {
         "runory.company",
         "runory.contact",
         "runory.deal",
+        "runory.payment",
         "runory.product-service",
         "runory.price-book",
         "runory.quote",
@@ -77,9 +78,9 @@ describe("Sales Quote Pack installation", () => {
     );
     expect(result.ddlExecuted).toBe(true);
 
-    // Verify all 6 modules are registered as installations
+    // Verify all 7 modules are registered as installations
     const installations = await getInstallations(workspaceId);
-    expect(installations).toHaveLength(6);
+    expect(installations).toHaveLength(7);
 
     // Verify quote-owned objects are created
     const quoteObjects = ["product_service", "price_book", "price_book_item", "quote", "quote_line"];
@@ -120,7 +121,7 @@ describe("Sales Quote Pack installation", () => {
     const pack = loadPackManifest("sales-quote-pack");
     const reparsed = packManifestSchema.parse(pack);
     expect(reparsed.id).toBe("sales-quote-pack");
-    expect(reparsed.modules).toHaveLength(6);
+    expect(reparsed.modules).toHaveLength(7);
     expect(reparsed.dashboard?.defaultLayout).toBeDefined();
     expect(reparsed.terminology).toBeDefined();
   });
@@ -146,12 +147,13 @@ describe("shared module dedupe with CRM Lite Pack", () => {
         "runory.product-service",
         "runory.price-book",
         "runory.quote",
+        "runory.payment",
       ].sort()
     );
 
     // Verify no duplicate installations
     const installations = await getInstallations(workspaceId);
-    expect(installations).toHaveLength(7); // 4 CRM + 3 Quote
+    expect(installations).toHaveLength(8); // 4 CRM + 3 Quote + Payment
 
     const moduleCounts = new Map<string, number>();
     for (const inst of installations) {
@@ -179,14 +181,14 @@ describe("shared module dedupe with CRM Lite Pack", () => {
 
   it("installs in reverse order (Sales Quote first, then CRM Lite) without duplicates", async () => {
     const sqResult = await installPack(workspaceId, "sales-quote-pack");
-    expect(sqResult.modulesInstalled).toHaveLength(6);
+    expect(sqResult.modulesInstalled).toHaveLength(7);
 
     // CRM Lite Pack should skip company/contact/deal, install only task
     const crmResult = await installPack(workspaceId, "crm-lite-pack");
     expect(crmResult.modulesInstalled).toEqual(["runory.task"]);
 
     const installations = await getInstallations(workspaceId);
-    expect(installations).toHaveLength(7);
+    expect(installations).toHaveLength(8);
   });
 });
 

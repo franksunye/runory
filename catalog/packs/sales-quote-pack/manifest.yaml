@@ -47,6 +47,7 @@ modules:
   - "runory.product-service:^1.0.0"
   - "runory.price-book:^1.0.0"
   - "runory.quote:^1.0.0"
+  - "runory.payment:^0.1.0"
 
 # v0.4 — Pack-aware permission groups.
 # The standalone quote_approval module is retired (v0.5); quote approval is now
@@ -60,7 +61,7 @@ permissionGroups:
       key: sales_representative
       label: "Sales Representative"
       description: "Manages customers, opportunities, and commercial proposals"
-    permissions: ["quote.read", "quote.create", "quote.edit_draft", "quote.submit", "product_service.read", "price_book.read", "price_book_item.read"]
+    permissions: ["quote.read", "quote.create", "quote.edit_draft", "quote.submit", "payment.view", "payment.request", "product_service.read", "price_book.read", "price_book_item.read"]
   - key: sales_manager
     label: "Sales Manager"
     description: "Can approve or reject submitted quotes"
@@ -68,7 +69,7 @@ permissionGroups:
       key: sales_manager
       label: "Sales Manager"
       description: "Leads the commercial team across CRM, quotes, and approvals"
-    permissions: ["quote.read", "quote.create", "quote.edit_draft", "quote.submit", "quote.approve", "quote.reject", "quote.accept", "quote.convert", "workflow.approval.decide", "product_service.read", "product_service.create", "product_service.update", "product_service.delete", "price_book.read", "price_book.create", "price_book.update", "price_book.delete", "price_book_item.read", "price_book_item.create", "price_book_item.update", "price_book_item.delete"]
+    permissions: ["quote.read", "quote.create", "quote.edit_draft", "quote.submit", "quote.approve", "quote.reject", "quote.accept", "quote.convert", "payment.view", "payment.request", "payment.refund", "workflow.approval.decide", "product_service.read", "product_service.create", "product_service.update", "product_service.delete", "price_book.read", "price_book.create", "price_book.update", "price_book.delete", "price_book_item.read", "price_book_item.create", "price_book_item.update", "price_book_item.delete"]
   - key: workspace_administrator
     label: "Workspace Administrator"
     description: "Full access to all sales operations"

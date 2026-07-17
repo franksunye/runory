@@ -2,11 +2,11 @@
 
 | Metadata | Value |
 | --- | --- |
-| Status | `proposed` |
+| Status | `active` |
 | Topic | `architecture` |
-| Applies to | `post-v0.5 POC` |
+| Applies to | `v0.5–v1.0` |
 | Owner | Engineering |
-| Last reviewed | 2026-07-14 |
+| Last reviewed | 2026-07-17 |
 | Supersedes | — |
 | Superseded by | — |
 
@@ -108,9 +108,9 @@ Workspace business record
 
 These flows must not share Payment records or settlement assumptions. Stripe may implement both in the future, but through separate adapters, credentials, webhooks, and domain models.
 
-## 6. Stripe Connect readiness
+## 6. Stripe Connect pre-GA requirement
 
-The POC may map one Workspace to one Stripe test account. The canonical design must still preserve:
+The v0.5 implementation maps one Workspace to one Stripe account and one currency. The canonical design preserves:
 
 ```text
 workspace_id
@@ -119,7 +119,34 @@ provider
 mode
 ```
 
-Future Connect onboarding is an adapter and account-lifecycle extension. It must not require rewriting Payment Request, Payment, Refund, or source-object relationships.
+The v0.5 single-account Stripe configuration is test-only architecture and must
+not be enabled for production merchant collection.
+
+Before Runory 1.0, each Workspace merchant must use its own Stripe Connected
+Account. Stripe payments use Direct Charges so that the charge, balance,
+refund, dispute, and payout context belongs to the merchant account rather than
+the Runory platform account.
+
+```text
+Workspace
+→ governed provider-account mapping
+→ Stripe Connected Account
+→ Direct Checkout / PaymentIntent
+→ merchant balance and payout
+```
+
+Connect onboarding is an adapter and account-lifecycle extension. It must not
+require rewriting Payment Request, Payment, Refund, or source-object
+relationships.
+
+Destination Charges and Separate Charges and Transfers are outside the approved
+default boundary because they create platform-level financial responsibility.
+Using either requires a separate architecture, risk, finance, legal, and
+operations decision.
+
+Connect webhooks must resolve the Workspace from the verified connected-account
+context, enforce mode and account identity, and use a separate event ledger
+from Runory SaaS Billing.
 
 ## 7. Regional provider readiness
 
@@ -142,5 +169,6 @@ A provider does not redefine Payment business states.
 - [Payment Product Definition](../product/payment-product-definition.md)
 - [Payment Technical Specification](../product/payment-technical-spec.md)
 - [Payment POC Execution Plan](../product/payment-poc-execution-plan.md)
+- [Stripe Connect Pre-GA Completion Plan](../product/stripe-connect-pre-ga-plan.md)
 - [Architecture Overview](overview.md)
 - [Contract-driven Command Architecture](contract-driven-command-architecture.md)

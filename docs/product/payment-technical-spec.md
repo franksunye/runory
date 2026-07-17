@@ -2,15 +2,15 @@
 
 | Metadata | Value |
 | --- | --- |
-| Status | `proposed` |
+| Status | `active` |
 | Topic | `architecture` |
-| Applies to | `post-v0.5 POC` |
+| Applies to | `v0.5–v1.0` |
 | Owner | Product / Engineering |
-| Last reviewed | 2026-07-14 |
+| Last reviewed | 2026-07-17 |
 | Supersedes | — |
 | Superseded by | — |
 
-This specification defines the proposed `runory.payment` Module, Stripe adapter, Commands, data model, security boundary, webhook processing, and POC acceptance requirements.
+This specification defines the implemented `runory.payment` Module, Stripe adapter, Commands, data model, security boundary, webhook processing, and v0.5 acceptance requirements.
 
 It specializes the canonical [Architecture Overview](../architecture/overview.md), [Module Architecture](../architecture/module-architecture.md), and [Contract-driven Command Architecture](../architecture/contract-driven-command-architecture.md). It does not replace SaaS Core billing.
 
@@ -44,7 +44,7 @@ Provider redirects and client callbacks are presentation events only. They canno
 
 ## 2. Module boundary
 
-Proposed location:
+Canonical location:
 
 ```text
 catalog/modules/runory.payment/
@@ -181,6 +181,11 @@ updated_at
 ```
 
 Provider credentials remain in secret storage, not this object.
+
+For v0.5, one test Workspace can map to the configured Stripe test account.
+This mapping must not be used for production merchant collection. Before GA,
+`provider_account_ref` identifies the Workspace merchant's Stripe Connected
+Account and every provider API call executes in that account context.
 
 ### 4.5 payment_provider_reference
 

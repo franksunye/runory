@@ -41,11 +41,14 @@ export function middleware(request: NextRequest) {
   const method = request.method.toUpperCase();
   const isStateChange = ["POST", "PUT", "PATCH", "DELETE"].includes(method);
   // Provider callbacks are machine-to-machine requests without browser Origin
-  // headers. Their routes authenticate the raw Retell signature or the scoped
-  // Tool bearer secret and do not use cookie/session authorization.
+  // headers. Their routes authenticate provider signatures or scoped bearer
+  // secrets and do not use cookie/session authorization.
   const isRetellIntegration = request.nextUrl.pathname.startsWith("/api/integrations/retell/");
+  const isStripeWebhook = request.nextUrl.pathname === "/api/integrations/stripe/webhook";
+  const isStripeBillingWebhook = request.nextUrl.pathname === "/api/integrations/stripe/billing-webhook";
+  const isProviderCallback = isRetellIntegration || isStripeWebhook || isStripeBillingWebhook;
 
-  if (isStateChange && !isRetellIntegration) {
+  if (isStateChange && !isProviderCallback) {
     const origin = request.headers.get("origin");
     const host = request.headers.get("host");
 

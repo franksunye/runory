@@ -55,6 +55,7 @@ modules:
   - "runory.work-order:^1.1.0"
   - "runory.service-visit:^1.1.0"
   - "runory.service-report:^1.0.0"
+  - "runory.payment:^0.1.0"
 
 # v0.4 — Pack-aware permission groups.
 permissionGroups:
@@ -65,7 +66,7 @@ permissionGroups:
       key: dispatcher
       label: "Dispatcher"
       description: "Coordinates field work, assignments, and schedules"
-    permissions: ["work_order.read", "work_order.triage", "work_order.start", "assignment.manage", "schedule.manage", "schedule.conflict.override"]
+    permissions: ["work_order.read", "work_order.triage", "work_order.start", "payment.view", "assignment.manage", "schedule.manage", "schedule.conflict.override"]
   - key: field_technician
     label: "Field Technician"
     description: "Can execute assigned visits and submit forms"
@@ -81,7 +82,7 @@ permissionGroups:
       key: service_supervisor
       label: "Service Supervisor"
       description: "Supervises service execution, evidence, and completion"
-    permissions: ["work_order.read", "work_order.start", "work_order.complete", "work_order.reopen", "form.review", "workflow.approval.decide"]
+    permissions: ["work_order.read", "work_order.start", "work_order.complete", "work_order.reopen", "payment.view", "payment.request", "payment.refund", "form.review", "workflow.approval.decide"]
   - key: workspace_administrator
     label: "Workspace Administrator"
     description: "Full access to all FSM operations"

@@ -2,11 +2,11 @@
 
 | Metadata | Value |
 | --- | --- |
-| Status | `proposed` |
+| Status | `active` |
 | Topic | `product` |
-| Applies to | `post-v0.5 POC` |
+| Applies to | `v0.5–v1.0` |
 | Owner | Product / Engineering |
-| Last reviewed | 2026-07-14 |
+| Last reviewed | 2026-07-17 |
 | Supersedes | — |
 | Superseded by | — |
 
@@ -16,7 +16,7 @@ This document defines the product boundary. It supports the canonical [Product D
 
 ## 1. Product decision
 
-Runory should introduce one proposed official Module:
+Runory provides one official horizontal Module:
 
 ```text
 runory.payment
@@ -55,6 +55,11 @@ Quote / Work Order / Invoice
 This belongs to `runory.payment` and is the scope of the first Payment POC.
 
 The two domains must not share records, provider accounts, authorization, reporting, or settlement assumptions.
+
+For production Workspace payments, the Workspace merchant must receive customer
+funds into its own provider account. The Stripe implementation uses a Connected
+Account and Direct Charges. Merchant gross receipts must not settle into the
+Runory platform balance.
 
 ## 3. Product proposition
 
@@ -147,6 +152,10 @@ Authorized operator requests refund
 - WeChat Pay, Alipay, or other regional providers;
 - automatic accounting reconciliation;
 - production-grade financial reporting.
+
+These exclusions describe the v0.5 POC. Stripe Connect onboarding and
+merchant-owned Direct Charges are required before merchant payments can become
+a Runory 1.0 GA production capability.
 
 ## 7. Product objects
 
@@ -254,12 +263,15 @@ The POC is successful when:
 6. Payment status cannot be manually changed through generic record editing.
 7. Financial operations require explicit permissions and complete audit attribution.
 8. The initial implementation remains narrow enough to replace or add providers later.
+9. Runory software revenue and Workspace merchant receipts must never share a settlement account.
+10. Production Stripe merchant payments use Connect Direct Charges unless a separately approved financial architecture supersedes this decision.
 
 ## 13. Related documents
 
 - [Payment Technical Specification](payment-technical-spec.md)
 - [Payment POC Execution Plan](payment-poc-execution-plan.md)
 - [Payment Integration Boundary](../architecture/payment-integration-boundary.md)
+- [Stripe Connect Pre-GA Completion Plan](stripe-connect-pre-ga-plan.md)
 - [Sales Quote Pack Plan](sales-quote-pack-plan.md)
 - [FSM Canonical Execution Product Architecture](fsm-canonical-execution-product-architecture.md)
 - [Contract-driven Command Architecture](../architecture/contract-driven-command-architecture.md)

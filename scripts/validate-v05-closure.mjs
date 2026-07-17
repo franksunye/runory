@@ -93,6 +93,11 @@ function main() {
     "runory_business_service_visit",
     "runory_business_service_report",
     "runory_business_technician",
+    "runory_business_payment_request",
+    "runory_business_payment",
+    "runory_business_refund",
+    "runory_business_payment_provider_account",
+    "runory_business_payment_provider_reference",
   ];
 
   const failures = [];

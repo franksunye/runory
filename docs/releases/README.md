@@ -21,4 +21,9 @@ This directory contains point-in-time acceptance, test, drill, migration, and pe
 
 - [FSM Owner E2E Run — 2026-07-14](fsm-owner-e2e-run-2026-07-14.md)
 
+## Payments
+
+- [Subscription Billing v0.5 Engineering Review — 2026-07-17](subscription-billing-v0.5-engineering-review-2026-07-17.md)
+- [Payment v0.5 Engineering Review — 2026-07-17](payment-v0.5-engineering-review-2026-07-17.md)
+
 New evidence documents must link to the specification, runbook, or release criterion they validate.

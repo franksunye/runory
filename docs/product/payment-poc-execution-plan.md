@@ -4,9 +4,9 @@
 | --- | --- |
 | Status | `active` |
 | Topic | `product` |
-| Applies to | `post-v0.5 POC` |
+| Applies to | `v0.5` |
 | Owner | Product / Engineering |
-| Last reviewed | 2026-07-14 |
+| Last reviewed | 2026-07-17 |
 | Supersedes | — |
 | Superseded by | — |
 

@@ -1,13 +1,15 @@
 import { NextRequest } from "next/server";
-import { getEntitlement, getUsageSummary } from "@runory/platform-core";
+import {
+  getBillingCustomer,
+  getBillingSubscription,
+  getEntitlement,
+  getUsageSummary,
+} from "@runory/platform-core";
 import { requireOrganizationAccess } from "@/lib/auth";
 import { successResponse, handleError, getOrCreateRequestId } from "@/lib/http";
-import { getCurrentPlan } from "@/lib/plans";
+import { getCurrentPlan, getPlanById, type PlanId } from "@/lib/plans";
 
 export const dynamic = "force-dynamic";
-
-// ── Features included in the current early_access plan ──
-const PLAN_FEATURES = ["crm_lite", "extensions", "api_access", "audit_log"];
 
 export async function GET(
   request: NextRequest,
@@ -16,11 +18,13 @@ export async function GET(
   const requestId = getOrCreateRequestId(request.headers.get("x-request-id"));
   try {
     const { id } = await params;
-    await requireOrganizationAccess(request, id);
+    const { membership } = await requireOrganizationAccess(request, id);
 
-    const [entitlement, usage] = await Promise.all([
+    const [entitlement, usage, customer, subscription] = await Promise.all([
       getEntitlement(id),
       getUsageSummary(id),
+      getBillingCustomer(id),
+      getBillingSubscription(id),
     ]);
 
     // Gracefully handle the case where entitlements don't exist yet:
@@ -47,13 +51,24 @@ export async function GET(
         updatedAt: null,
       };
 
+    const effectivePlan = getPlanById((entitlements.plan ?? "early_access") as PlanId)
+      ?? getCurrentPlan();
+
     return successResponse(
       {
-        plan: "early_access",
-        status: "active",
+        plan: entitlements.plan,
+        status: entitlements.status,
         entitlements,
         usage,
-        features: PLAN_FEATURES,
+        features: effectivePlan.features,
+        subscription,
+        hasBillingCustomer: Boolean(customer),
+        canManageBilling: membership.role === "owner",
+        selfServePlans: [{
+          id: "pro",
+          name: "Pro",
+          price: getPlanById("pro")?.price ?? "$29/month",
+        }],
         billingHistory: [],
       },
       200,

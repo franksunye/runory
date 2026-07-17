@@ -1,6 +1,8 @@
 import { NextRequest } from "next/server";
 import {
   getRecord,
+  getGovernedPaymentRecord,
+  requireBusinessPermission,
   updateRecord,
   deleteRecord,
   restoreRecord,
@@ -10,12 +12,21 @@ import {
   getManagedFieldCommand,
   ERROR_CODES,
   type VisibilityScope,
+  type GovernedPaymentObjectKey,
 } from "@runory/platform-core";
 import { requireWorkspaceContext } from "@/lib/auth";
 import { successResponse, handleError, notFound, errorResponse, getOrCreateRequestId } from "@/lib/http";
 import { enrichUserReferences, listUserReferenceFieldKeys } from "@/lib/identity";
 
 export const dynamic = "force-dynamic";
+
+const COMMAND_ONLY_OBJECTS = new Set([
+  "payment_request",
+  "payment",
+  "refund",
+  "payment_provider_account",
+  "payment_provider_reference",
+]);
 
 function visibilityScopeFor(ctx: { principal: { userId: string } | null; workspaceRole: string | null; organizationRole: string | null }): VisibilityScope | undefined {
   return ctx.principal
@@ -31,8 +42,21 @@ export async function GET(
   try {
     const { id, objectKey, recordId } = await params;
     const { ctx, workspaceId } = await requireWorkspaceContext(request, id);
+    if (COMMAND_ONLY_OBJECTS.has(objectKey)) {
+      await requireBusinessPermission(ctx, "payment.view");
+    }
     const url = new URL(request.url);
     const includeDeleted = url.searchParams.get("includeDeleted") === "true";
+    if (COMMAND_ONLY_OBJECTS.has(objectKey)) {
+      const record = await getGovernedPaymentRecord(
+        workspaceId,
+        objectKey as GovernedPaymentObjectKey,
+        recordId,
+        { includeDeleted },
+      );
+      if (!record) return notFound(`Record ${recordId} not found`, ctx.requestId);
+      return successResponse(record, 200, ctx.requestId);
+    }
     const record = await getRecord(workspaceId, objectKey, recordId, {
       includeDeleted,
       visibilityScope: visibilityScopeFor(ctx),
@@ -56,6 +80,14 @@ export async function PUT(
   try {
     const { id, objectKey, recordId } = await params;
     const { ctx, workspaceId } = await requireWorkspaceContext(request, id, "member");
+    if (COMMAND_ONLY_OBJECTS.has(objectKey)) {
+      return errorResponse(
+        ERROR_CODES.GOVERNED_FIELD_REQUIRES_COMMAND,
+        `'${objectKey}' is a governed financial object and can only be changed through Payment commands.`,
+        409,
+        ctx.requestId,
+      );
+    }
     const data = await request.json() as Record<string, unknown>;
 
     // ── Guard: managed lifecycle fields require a named command (v0.5.1 P0) ──
@@ -120,6 +152,14 @@ export async function DELETE(
   try {
     const { id, objectKey, recordId } = await params;
     const { ctx, workspaceId } = await requireWorkspaceContext(request, id, "member");
+    if (COMMAND_ONLY_OBJECTS.has(objectKey)) {
+      return errorResponse(
+        ERROR_CODES.GOVERNED_FIELD_REQUIRES_COMMAND,
+        `'${objectKey}' is a governed financial object and cannot be deleted through generic record APIs.`,
+        409,
+        ctx.requestId,
+      );
+    }
     const url = new URL(request.url);
     const hard = url.searchParams.get("hard") === "true";
     const before = await getRecord(workspaceId, objectKey, recordId, {
@@ -162,6 +202,14 @@ export async function PATCH(
   try {
     const { id, objectKey, recordId } = await params;
     const { ctx, workspaceId } = await requireWorkspaceContext(request, id, "member");
+    if (COMMAND_ONLY_OBJECTS.has(objectKey)) {
+      return errorResponse(
+        ERROR_CODES.GOVERNED_FIELD_REQUIRES_COMMAND,
+        `'${objectKey}' is a governed financial object and can only be changed through Payment commands.`,
+        409,
+        ctx.requestId,
+      );
+    }
     const body = await request.json().catch(() => ({})) as { action?: string };
 
     // ── Restore action ──

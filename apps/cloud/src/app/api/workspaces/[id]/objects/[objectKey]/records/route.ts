@@ -1,10 +1,18 @@
 import { NextRequest } from "next/server";
-import { getRecords, createRecord, canCreateRecord, writeAuditEvent, enforceQuota, type GetRecordsOptions, type VisibilityScope, ERROR_CODES } from "@runory/platform-core";
+import { getRecords, createRecord, canCreateRecord, writeAuditEvent, enforceQuota, requireBusinessPermission, listGovernedPaymentRecords, type GovernedPaymentObjectKey, type GetRecordsOptions, type VisibilityScope, ERROR_CODES } from "@runory/platform-core";
 import { requireWorkspaceContext } from "@/lib/auth";
 import { successResponse, handleError, invalidInput, errorResponse, getOrCreateRequestId } from "@/lib/http";
 import { enrichUserReferences, listUserReferenceFieldKeys } from "@/lib/identity";
 
 export const dynamic = "force-dynamic";
+
+const COMMAND_ONLY_OBJECTS = new Set([
+  "payment_request",
+  "payment",
+  "refund",
+  "payment_provider_account",
+  "payment_provider_reference",
+]);
 
 function parsePositiveInt(value: string | null): number | undefined {
   if (value === null) return undefined;
@@ -20,6 +28,9 @@ export async function GET(
   try {
     const { id, objectKey } = await params;
     const { ctx, workspaceId } = await requireWorkspaceContext(request, id);
+    if (COMMAND_ONLY_OBJECTS.has(objectKey)) {
+      await requireBusinessPermission(ctx, "payment.view");
+    }
 
     const url = new URL(request.url);
     const sortOrderParam = url.searchParams.get("sortOrder");
@@ -45,6 +56,15 @@ export async function GET(
       visibilityScope,
     };
 
+    if (COMMAND_ONLY_OBJECTS.has(objectKey)) {
+      const records = await listGovernedPaymentRecords(
+        workspaceId,
+        objectKey as GovernedPaymentObjectKey,
+        options,
+      );
+      return successResponse(records, 200, ctx.requestId);
+    }
+
     const records = await getRecords(workspaceId, objectKey, options);
     const userFieldKeys = await listUserReferenceFieldKeys(workspaceId, objectKey);
     const enrichedRecords = await enrichUserReferences(records, userFieldKeys);
@@ -62,6 +82,14 @@ export async function POST(
   try {
     const { id, objectKey } = await params;
     const { ctx, workspaceId } = await requireWorkspaceContext(request, id, "member");
+    if (COMMAND_ONLY_OBJECTS.has(objectKey)) {
+      return errorResponse(
+        ERROR_CODES.GOVERNED_FIELD_REQUIRES_COMMAND,
+        `'${objectKey}' is a governed financial object and can only be created through Payment commands.`,
+        409,
+        ctx.requestId,
+      );
+    }
     // A Service Visit is a governed execution aggregate. Creating it through
     // generic CRUD used to produce an unassigned, unscheduled Visit that could
     // be completed without evidence. The only supported entry point is the

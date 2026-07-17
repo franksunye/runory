@@ -7,6 +7,7 @@ import {
   CreditCard,
   HardDrive,
   KeyRound,
+  Loader2,
   Package,
   RefreshCw,
   ScrollText,
@@ -16,7 +17,7 @@ import {
 } from "lucide-react";
 import { useI18n } from "@/i18n/locale-provider";
 import type { MessageKey } from "@/i18n/messages";
-import { apiFetch } from "@/lib/api-fetch";
+import { apiFetch, apiPost } from "@/lib/api-fetch";
 
 interface UsageItem {
   metric: string;
@@ -36,6 +37,14 @@ interface BillingData {
   } | null;
   usage: UsageItem[];
   features: string[];
+  subscription: {
+    status: string;
+    cancelAtPeriodEnd: boolean;
+    currentPeriodEnd: string | null;
+  } | null;
+  hasBillingCustomer: boolean;
+  canManageBilling: boolean;
+  selfServePlans: Array<{ id: string; name: string; price: string }>;
   billingHistory: unknown[];
 }
 
@@ -75,6 +84,8 @@ export default function BillingPage() {
   const [data, setData] = useState<BillingData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [organizationId, setOrganizationId] = useState<string | null>(null);
+  const [billingAction, setBillingAction] = useState<"checkout" | "portal" | null>(null);
 
   const loadBilling = useCallback(async () => {
     try {
@@ -89,6 +100,7 @@ export default function BillingPage() {
         throw new Error(wsJson.error?.message ?? t("billing.orgInfoFailed"));
       }
       const orgId = wsJson.data.organizationId as string;
+      setOrganizationId(orgId);
 
       const billingJson = await apiFetch<{
         success: boolean;
@@ -105,6 +117,45 @@ export default function BillingPage() {
       setLoading(false);
     }
   }, [workspaceId]);
+
+  const startCheckout = async () => {
+    if (!organizationId) return;
+    setBillingAction("checkout");
+    setError(null);
+    try {
+      const result = await apiPost<{
+        success: boolean;
+        data: { checkoutUrl: string };
+      }>(`/api/organizations/${organizationId}/billing/checkout`, {
+        plan: "pro",
+        returnPath: `/w/${workspaceId}/billing`,
+      }, {
+        headers: { "Idempotency-Key": `billing-checkout:${organizationId}:${crypto.randomUUID()}` },
+      });
+      window.location.assign(result.data.checkoutUrl);
+    } catch (actionError) {
+      setError(actionError instanceof Error ? actionError.message : t("billing.loadFailed"));
+      setBillingAction(null);
+    }
+  };
+
+  const openPortal = async () => {
+    if (!organizationId) return;
+    setBillingAction("portal");
+    setError(null);
+    try {
+      const result = await apiPost<{
+        success: boolean;
+        data: { portalUrl: string };
+      }>(`/api/organizations/${organizationId}/billing/portal`, {
+        returnPath: `/w/${workspaceId}/billing`,
+      });
+      window.location.assign(result.data.portalUrl);
+    } catch (actionError) {
+      setError(actionError instanceof Error ? actionError.message : t("billing.loadFailed"));
+      setBillingAction(null);
+    }
+  };
 
   useEffect(() => {
     loadBilling();
@@ -142,7 +193,9 @@ export default function BillingPage() {
             <div className="flex items-center gap-2 text-sm font-bold text-indigo-600">
               <Sparkles size={17} />{t("billing.currentPlan")}
             </div>
-            <h2 className="mt-3 text-2xl font-bold tracking-tight text-slate-950">Early Access</h2>
+            <h2 className="mt-3 text-2xl font-bold capitalize tracking-tight text-slate-950">
+              {(data?.plan ?? "early_access").replace("_", " ")}
+            </h2>
             <p className="mt-2 max-w-xl text-sm leading-6 text-slate-600">
               {t("billing.planDesc")}
             </p>
@@ -150,17 +203,27 @@ export default function BillingPage() {
               <span className="app-badge bg-emerald-50 text-emerald-700">
                 <CheckCircle2 size={14} />{data?.status ?? "active"}
               </span>
-              <span className="text-sm font-semibold text-slate-700">{t("billing.free")}</span>
+              <span className="text-sm font-semibold text-slate-700">
+                {data?.plan === "pro" ? t("billing.proPlan") : t("billing.free")}
+              </span>
             </div>
+            {data?.subscription && (
+              <p className="mt-3 text-xs font-medium text-slate-500">
+                Stripe subscription: {data.subscription.status}
+                {data.subscription.cancelAtPeriodEnd ? " · cancels at period end" : ""}
+              </p>
+            )}
           </div>
           <div className="flex min-w-fit flex-col items-end gap-2">
             <button
               type="button"
-              disabled
-              title={t("billing.stripeComingSoon")}
-              className="app-button-primary cursor-not-allowed opacity-60"
+              disabled={!data?.canManageBilling || !data.subscription || billingAction !== null}
+              onClick={() => void openPortal()}
+              title={data?.canManageBilling ? undefined : "Organization owner required"}
+              className="app-button-primary disabled:cursor-not-allowed disabled:opacity-60"
             >
-              <CreditCard size={18} />{t("billing.manageSubscription")}
+              {billingAction === "portal" ? <Loader2 size={18} className="animate-spin" /> : <CreditCard size={18} />}
+              {t("billing.manageSubscription")}
             </button>
             <span className="text-xs text-slate-400">{t("billing.stripeComingSoon")}</span>
           </div>
@@ -282,8 +345,8 @@ export default function BillingPage() {
         </div>
       </section>
 
-      {/* Coming Soon Section */}
-      <section className="app-card border-dashed bg-slate-50/50 p-6 sm:p-8">
+      {/* Self-serve subscription */}
+      <section className="app-card bg-slate-50/50 p-6 sm:p-8">
         <div className="flex flex-col items-center text-center">
           <div className="grid size-12 place-items-center rounded-xl bg-indigo-100 text-indigo-600">
             <CreditCard size={24} />
@@ -296,6 +359,17 @@ export default function BillingPage() {
             <span className="app-badge bg-white text-slate-600">{t("billing.proPlan")}</span>
             <span className="app-badge bg-white text-slate-600">{t("billing.enterprisePlan")}</span>
           </div>
+          {data?.plan !== "pro" && (
+            <button
+              type="button"
+              disabled={!data?.canManageBilling || billingAction !== null}
+              onClick={() => void startCheckout()}
+              className="app-button-primary mt-5 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {billingAction === "checkout" ? <Loader2 size={18} className="animate-spin" /> : <CreditCard size={18} />}
+              {t("billing.proPlan")}
+            </button>
+          )}
         </div>
       </section>
 

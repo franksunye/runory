@@ -11,6 +11,7 @@ import {
   Check,
   CheckCircle2,
   ClipboardList,
+  CreditCard,
   FileText,
   Loader2,
   MapPin,
@@ -178,6 +179,14 @@ const GOVERNED_FIELD_KEYS: Record<string, string[]> = {
   work_order: ["status", "aggregate_version", "source_type", "source_id", "source_snapshot_hash", "owner_resource_id", "completed_at", "cancelled_at", "reopened_at", "completion_reason", "cancellation_reason", "reopen_reason"],
   service_visit: ["status", "aggregate_version", "assignment_id", "schedule_entry_id", "outcome", "actual_start", "actual_end"],
 };
+
+const FINANCIAL_OBJECTS = new Set([
+  "payment_request",
+  "payment",
+  "refund",
+  "payment_provider_account",
+  "payment_provider_reference",
+]);
 
 // Work Order assignment/schedule scalar fields are retained only for legacy
 // data compatibility. New FSM work is represented by Service Visit +
@@ -1024,6 +1033,223 @@ function iconForBusinessCommand(command: string): typeof Play {
   }
 }
 
+interface SourcePaymentRequest {
+  id: string;
+  number: string;
+  purpose: string;
+  amount_due_minor: number;
+  currency: string;
+  status: string;
+  checkout_url?: string | null;
+  payment?: { id: string; status: string; refunded_amount_minor: number } | null;
+}
+
+function SourcePaymentPanel({
+  workspaceId,
+  objectKey,
+  recordId,
+  record,
+}: {
+  workspaceId: string;
+  objectKey: "quote" | "work_order";
+  recordId: string;
+  record: WorkspaceRecord;
+}) {
+  const endpoint = `/api/workspaces/${workspaceId}/payments/requests?sourceObjectType=${objectKey}&sourceObjectId=${encodeURIComponent(recordId)}`;
+  const { data: requests = [], mutate } = useSWR<SourcePaymentRequest[]>(endpoint);
+  const eligible = (objectKey === "quote" && record.status === "accepted")
+    || (objectKey === "work_order" && record.status === "completed");
+  const defaultAmount = objectKey === "quote" && Number(record.grand_total) > 0
+    ? Math.round(Number(record.grand_total) * 100)
+    : 0;
+  const [amountMinor, setAmountMinor] = useState(defaultAmount);
+  const [currency, setCurrency] = useState(String(record.currency ?? "USD").toUpperCase());
+  const [purpose, setPurpose] = useState<"deposit" | "final" | "general">(
+    objectKey === "quote" ? "deposit" : "final",
+  );
+  const [submitting, setSubmitting] = useState(false);
+  const [paymentError, setPaymentError] = useState<string | null>(null);
+
+  const createCheckout = async () => {
+    setSubmitting(true);
+    setPaymentError(null);
+    try {
+      const response = await apiPost<{
+        success: boolean;
+        data?: { checkoutUrl?: string | null };
+        error?: { message?: string };
+      }>(`/api/workspaces/${workspaceId}/payments/requests`, {
+        sourceObjectType: objectKey,
+        sourceObjectId: recordId,
+        purpose,
+        amountMinor,
+        currency,
+        description: `${objectKey === "quote" ? "Quote" : "Work order"} ${String(record.number ?? record.quote_number ?? record.work_order_number ?? recordId)}`,
+      }, {
+        headers: {
+          "Idempotency-Key": `payment.request:${objectKey}:${recordId}:${purpose}:${amountMinor}:${currency}:${crypto.randomUUID()}`,
+        },
+      });
+      if (!response.success || !response.data?.checkoutUrl) {
+        throw new Error(response.error?.message ?? "Checkout could not be created.");
+      }
+      await mutate();
+      window.location.assign(response.data.checkoutUrl);
+    } catch (error) {
+      setPaymentError(error instanceof Error ? error.message : "Checkout could not be created.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <section className="app-card p-5 sm:p-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <div className="flex items-center gap-2">
+            <CreditCard size={17} className="text-indigo-600" />
+            <h3 className="text-sm font-bold text-slate-900">Customer payment</h3>
+          </div>
+          <p className="mt-1 text-xs text-slate-500">
+            Stripe-hosted Checkout collects card details. Runory confirms payment only from a signed provider event.
+          </p>
+        </div>
+        {!eligible && (
+          <span className="app-badge self-start bg-amber-50 text-amber-700">
+            {objectKey === "quote" ? "Accept quote first" : "Complete work order first"}
+          </span>
+        )}
+      </div>
+
+      {requests.length > 0 && (
+        <div className="mt-4 space-y-2">
+          {requests.map((paymentRequest) => (
+            <div key={paymentRequest.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 px-4 py-3">
+              <div>
+                <p className="text-sm font-semibold text-slate-900">{paymentRequest.number}</p>
+                <p className="mt-0.5 text-xs text-slate-500">
+                  {paymentRequest.purpose} · {(paymentRequest.amount_due_minor / 100).toLocaleString(undefined, {
+                    style: "currency",
+                    currency: paymentRequest.currency,
+                  })}
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="app-badge bg-slate-100 text-slate-700">
+                  {paymentRequest.payment?.status ?? paymentRequest.status}
+                </span>
+                {paymentRequest.checkout_url && paymentRequest.status === "open" && (
+                  <a href={paymentRequest.checkout_url} className="text-xs font-semibold text-indigo-600 hover:text-indigo-800">
+                    Open Checkout →
+                  </a>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {eligible && (
+        <div className="mt-4 grid gap-3 border-t border-slate-100 pt-4 sm:grid-cols-[1fr_1fr_1fr_auto] sm:items-end">
+          <label className="text-xs font-semibold text-slate-600">
+            Purpose
+            <select value={purpose} onChange={(event) => setPurpose(event.target.value as typeof purpose)} className="app-input mt-1">
+              <option value="deposit">Deposit</option>
+              <option value="final">Final payment</option>
+              <option value="general">General</option>
+            </select>
+          </label>
+          <label className="text-xs font-semibold text-slate-600">
+            Amount (minor units)
+            <input type="number" min={1} step={1} value={amountMinor || ""} onChange={(event) => setAmountMinor(Number(event.target.value))} className="app-input mt-1" />
+          </label>
+          <label className="text-xs font-semibold text-slate-600">
+            Currency
+            <input value={currency} maxLength={3} onChange={(event) => setCurrency(event.target.value.toUpperCase())} className="app-input mt-1 uppercase" />
+          </label>
+          <button type="button" disabled={submitting || amountMinor <= 0 || currency.length !== 3} onClick={() => void createCheckout()} className="app-button-primary">
+            {submitting ? <Loader2 size={15} className="animate-spin" /> : <CreditCard size={15} />}
+            Request payment
+          </button>
+        </div>
+      )}
+      {paymentError && <p className="mt-3 text-xs font-semibold text-rose-600">{paymentError}</p>}
+    </section>
+  );
+}
+
+function PaymentRefundPanel({
+  workspaceId,
+  payment,
+  onChanged,
+}: {
+  workspaceId: string;
+  payment: WorkspaceRecord;
+  onChanged: () => Promise<unknown>;
+}) {
+  const amount = Number(payment.amount_minor ?? 0);
+  const refunded = Number(payment.refunded_amount_minor ?? 0);
+  const remaining = Math.max(0, amount - refunded);
+  const refundable = ["succeeded", "partially_refunded"].includes(String(payment.status))
+    && remaining > 0;
+  const [refundAmount, setRefundAmount] = useState(remaining);
+  const [submitting, setSubmitting] = useState(false);
+  const [refundError, setRefundError] = useState<string | null>(null);
+
+  const requestRefund = async () => {
+    setSubmitting(true);
+    setRefundError(null);
+    try {
+      await apiPost(`/api/workspaces/${workspaceId}/payments/${payment.id}/refunds`, {
+        amountMinor: refundAmount,
+        reason: "Operator-requested refund",
+      }, {
+        headers: {
+          "Idempotency-Key": `payment.refund:${payment.id}:${refundAmount}:${refunded}`,
+        },
+      });
+      await onChanged();
+      notifyWorkspaceDataChanged();
+    } catch (error) {
+      setRefundError(error instanceof Error ? error.message : "Refund could not be requested.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <section className="app-card p-5 sm:p-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <div className="flex items-center gap-2">
+            <RotateCcw size={16} className="text-indigo-600" />
+            <h3 className="text-sm font-bold text-slate-900">Refund</h3>
+          </div>
+          <p className="mt-1 text-xs text-slate-500">
+            Refundable balance: {(remaining / 100).toLocaleString(undefined, {
+              style: "currency",
+              currency: String(payment.currency ?? "USD"),
+            })}.
+          </p>
+        </div>
+        {refundable && (
+          <div className="flex items-end gap-2">
+            <label className="text-xs font-semibold text-slate-600">
+              Amount (minor units)
+              <input type="number" min={1} max={remaining} value={refundAmount} onChange={(event) => setRefundAmount(Number(event.target.value))} className="app-input mt-1 w-44" />
+            </label>
+            <button type="button" disabled={submitting || refundAmount <= 0 || refundAmount > remaining} onClick={() => void requestRefund()} className="app-button-danger">
+              {submitting ? <Loader2 size={15} className="animate-spin" /> : <RotateCcw size={15} />}
+              Request refund
+            </button>
+          </div>
+        )}
+      </div>
+      {refundError && <p className="mt-3 text-xs font-semibold text-rose-600">{refundError}</p>}
+    </section>
+  );
+}
+
 export default function ObjectDetailPage({
   objectKey,
   viewKey,
@@ -1343,7 +1569,7 @@ export default function ObjectDetailPage({
           {identityAvatarUrl && <p className="mt-1 text-sm font-medium text-slate-500">{identityName}</p>}
           </div>
         </div>
-        {!editing && (
+        {!editing && !FINANCIAL_OBJECTS.has(objectKey) && (
           <div className="flex gap-2 self-start">
             <button
               type="button"
@@ -1379,6 +1605,22 @@ export default function ObjectDetailPage({
         />
       ) : (
         <div className="space-y-6">
+          {(objectKey === "quote" || objectKey === "work_order") && (
+            <SourcePaymentPanel
+              workspaceId={workspaceId}
+              objectKey={objectKey}
+              recordId={recordId}
+              record={record}
+            />
+          )}
+          {objectKey === "payment" && (
+            <PaymentRefundPanel
+              workspaceId={workspaceId}
+              payment={record}
+              onChanged={() => mutateRecord()}
+            />
+          )}
+
           {businessActions.length > 0 && (
             <div className="app-card flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
               <div>

@@ -34,6 +34,7 @@ objects:
       - { key: source_object_type, label: Source Object Type, type: text, ownership: module_owned, required: true }
       - { key: source_object_id, label: Source Object ID, type: text, ownership: module_owned, required: true }
       - { key: provider_account_id, label: Provider Account, type: text, ownership: module_owned }
+      - { key: provider_checkout_id, label: Provider Checkout ID, type: text, ownership: module_owned }
       - { key: checkout_url, label: Checkout URL, type: text, ownership: module_owned }
       - { key: expires_at, label: Expires At, type: date, ownership: module_owned }
       - { key: created_by, label: Created By, type: user, ownership: module_owned }
@@ -182,7 +183,7 @@ domain:
     - key: payment.confirm_provider_result
       contractVersion: "1.0.0"
       aggregate: payment
-      transition: { from: [pending, processing], to: succeeded }
+      transition: { from: [pending, processing, failed], to: succeeded }
       permission: payment.provider_event
       idempotent: true
       requiresExpectedVersion: false
@@ -234,6 +235,17 @@ domain:
       emits: [payment.refunded]
       auditRequired: true
       postconditions: [refund.status == succeeded]
+    - key: payment.fail_refund
+      contractVersion: "1.0.0"
+      aggregate: refund
+      transition: { from: [requested, processing], to: failed }
+      permission: payment.provider_event
+      idempotent: true
+      requiresExpectedVersion: false
+      requiredEffects: []
+      emits: [payment.refund_failed]
+      auditRequired: true
+      postconditions: [refund.status == failed]
 
 permissions:
   - payment.view
@@ -277,6 +289,6 @@ presentation:
 ui:
   navigation:
     - label: Payments
-      route: /payments
+      route: /payment-requests
       icon: credit-card
       sortOrder: 65

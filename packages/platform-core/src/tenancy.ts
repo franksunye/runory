@@ -125,6 +125,11 @@ export async function provisionWorkspaceTenant(
     // Entitlement already exists — no action needed
   }
 
+  // authorizeWorkspace caches the initial "no tenant" lookup used to enter
+  // this bootstrap path. Invalidate it now so the very next request observes
+  // the memberships committed above instead of returning a stale denial.
+  _clearAccessCache();
+
   return {
     workspaceId,
     organizationId,

@@ -242,7 +242,7 @@ describe("v0.5 Commercial FSM Journey", () => {
        WHERE workspace_id = ?`,
       [workspaceId],
     );
-    expect(registered?.count).toBe(37);
+    expect(registered?.count).toBe(44);
     expect((await resolveWorkspaceCommandPlan(workspaceId, "visit.start_travel"))?.effects)
       .toHaveLength(1);
     expect((await resolveWorkspaceCommandPlan(workspaceId, "work_order.cancel"))?.effects)

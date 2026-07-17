@@ -14,6 +14,8 @@
 
 - [Architecture Overview](overview.md) — canonical platform architecture.
 - [Contract-driven Command Architecture](contract-driven-command-architecture.md) — canonical Command and mutation architecture.
+- [Subscription Billing Boundary](subscription-billing-boundary.md) — Runory SaaS subscription, Stripe Billing, and Organization entitlement boundary.
+- [Payment Integration Boundary](payment-integration-boundary.md) — Workspace merchant payment boundary.
 
 ## Performance
 

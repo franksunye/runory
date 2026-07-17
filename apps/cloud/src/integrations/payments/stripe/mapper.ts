@@ -5,7 +5,7 @@ interface StripeEventLike {
   type: string;
   created?: number;
   account?: string;
-  data?: { object?: Record<string, unknown> };
+  data?: { object?: unknown };
 }
 
 function asString(value: unknown): string | undefined {
@@ -40,8 +40,11 @@ function metadata(object: Record<string, unknown>): Record<string, unknown> {
 }
 
 export function mapStripeEvent(event: StripeEventLike): NormalizedPaymentEvent | null {
-  const object = event.data?.object;
-  if (!object) throw new Error("STRIPE_EVENT_OBJECT_MISSING");
+  const candidate = event.data?.object;
+  if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) {
+    throw new Error("STRIPE_EVENT_OBJECT_MISSING");
+  }
+  const object = candidate as Record<string, unknown>;
 
   const providerAccountId = asString(event.account);
   const eventTime = occurredAt(event);

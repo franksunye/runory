@@ -1,8 +1,7 @@
 // ── Plan definitions for billing UI ──
 //
-// Phase 6 (Billing/Stripe) is not yet implemented. These definitions power the
-// billing UI foundation (P1-5) so the interface is ready when Stripe lands.
-// `early_access` is the only active plan; `pro` and `enterprise` are placeholders.
+// Server-owned commercial catalog. Stripe Price IDs are configured separately
+// and never accepted from the browser.
 
 export type PlanId = "early_access" | "pro" | "enterprise";
 
@@ -44,7 +43,7 @@ export const PLANS: PlanDefinition[] = [
     id: "pro",
     name: "Pro",
     price: "$29/月",
-    description: "适合成长型团队，提供更高额度与高级功能。（即将推出）",
+    description: "适合成长型团队，提供更高额度与高级功能。",
     features: [
       "crm_lite",
       "extensions",
@@ -62,7 +61,7 @@ export const PLANS: PlanDefinition[] = [
       apiRequests: 1_000_000,
       agentOperations: 10_000,
     },
-    active: false,
+    active: true,
   },
   {
     id: "enterprise",

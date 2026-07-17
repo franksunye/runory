@@ -67,6 +67,9 @@ export const TABLES = {
   organizationEntitlements: `${PREFIXES.saas}organization_entitlements`,
   usageEvents: `${PREFIXES.saas}usage_events`,
   usageRollups: `${PREFIXES.saas}usage_rollups`,
+  billingCustomers: `${PREFIXES.saas}billing_customers`,
+  subscriptions: `${PREFIXES.saas}subscriptions`,
+  billingWebhookEvents: `${PREFIXES.saas}billing_webhook_events`,
   exportJobs: `${PREFIXES.saas}export_jobs`,
   deletionJobs: `${PREFIXES.saas}deletion_jobs`,
 
