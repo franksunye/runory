@@ -1,5 +1,11 @@
 import { NextRequest } from "next/server";
-import { getOutboxMessages, execute, TABLES, now } from "@runory/platform-core";
+import {
+  getOutboxMessages,
+  retryOutboxMessage,
+  execute,
+  TABLES,
+  now,
+} from "@runory/platform-core";
 import { requireWorkspaceContext } from "@/lib/auth";
 import { successResponse, handleError, getOrCreateRequestId } from "@/lib/http";
 import { deliverWorkOrderConfirmation } from "@/integrations/email/resend-outbox";
@@ -58,13 +64,10 @@ export async function POST(
     }
 
     if (body.action === "retry") {
-      // Reset status to pending for retry
-      await execute(
-        `UPDATE ${TABLES.outboxMessages}
-         SET status = 'pending', last_error = NULL, updated_at = ?
-         WHERE id = ? AND workspace_id = ? AND status = 'failed'`,
-        [now(), body.messageId, workspaceId]
-      );
+      const reset = await retryOutboxMessage(workspaceId, body.messageId);
+      if (!reset) {
+        return successResponse({ retried: false, delivery: null }, 200, ctx.requestId);
+      }
       const delivery = await deliverWorkOrderConfirmation(workspaceId, body.messageId);
       return successResponse({ retried: true, delivery }, 200, ctx.requestId);
     }

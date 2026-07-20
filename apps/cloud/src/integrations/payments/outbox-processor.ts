@@ -1,6 +1,7 @@
 import {
   attachCheckoutToPaymentRequest,
   attachProviderRefund,
+  claimOutboxMessage,
   getOutboxMessages,
   markOutboxDelivered,
   markOutboxFailed,
@@ -31,9 +32,11 @@ export async function processPaymentOutboxForAggregate(
       : payload.refundId === aggregateId;
   });
   if (!message) throw new Error("PAYMENT_OUTBOX_MESSAGE_NOT_FOUND");
+  const claimed = await claimOutboxMessage(workspaceId, message.id);
+  if (!claimed) throw new Error("PAYMENT_OUTBOX_MESSAGE_NOT_DUE");
 
   try {
-    const payload = message.payload as unknown as Record<string, unknown>;
+    const payload = claimed.payload as unknown as Record<string, unknown>;
     const provider = getPaymentProvider(String(payload.provider));
     if (messageType === "payment.checkout.create") {
       const checkout = await provider.createCheckout(payload as unknown as CreateCheckoutInput);
@@ -45,7 +48,7 @@ export async function processPaymentOutboxForAggregate(
         checkoutUrl: checkout.checkoutUrl,
         expiresAt: checkout.expiresAt,
       });
-      await markOutboxDelivered(String(message.id));
+      await markOutboxDelivered(workspaceId, claimed.id);
       return request;
     }
 
@@ -55,10 +58,10 @@ export async function processPaymentOutboxForAggregate(
       refundId: String(payload.refundId),
       providerRefundId: refund.providerRefundId,
     });
-    await markOutboxDelivered(String(message.id));
+    await markOutboxDelivered(workspaceId, claimed.id);
     return record;
   } catch (error) {
-    await markOutboxFailed(String(message.id), safeProviderError(error));
+    await markOutboxFailed(workspaceId, claimed.id, safeProviderError(error));
     throw error;
   }
 }

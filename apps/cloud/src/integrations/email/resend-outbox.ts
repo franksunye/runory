@@ -1,4 +1,11 @@
-import { getOutboxMessages, markMessageDeliveryAccepted, markMessageDeliveryFailed, markOutboxDelivered, markOutboxFailed } from "@runory/platform-core";
+import {
+  claimOutboxMessage,
+  getOutboxMessages,
+  markMessageDeliveryAccepted,
+  markMessageDeliveryFailed,
+  markOutboxDelivered,
+  markOutboxFailed,
+} from "@runory/platform-core";
 
 function escapeHtml(value: string): string {
   return value.replace(/[&<>"']/g, (character) => ({
@@ -17,14 +24,16 @@ export async function deliverWorkOrderConfirmation(workspaceId: string, messageI
   const apiKey = process.env.RESEND_API_KEY;
   const from = process.env.RUNORY_EMAIL_FROM;
   if (!apiKey || !from) return { delivered: false, skipped: true };
-  const payload = message.payload && typeof message.payload === "object"
-    ? message.payload as Record<string, unknown>
+  const claimed = await claimOutboxMessage(workspaceId, messageId);
+  if (!claimed) return { delivered: false, skipped: true };
+  const payload = claimed.payload && typeof claimed.payload === "object"
+    ? claimed.payload as Record<string, unknown>
     : {};
   const to = stringField(payload, "to");
   const deliveryId = stringField(payload, "deliveryId");
   const conversationId = stringField(payload, "conversationId");
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) {
-    await markOutboxFailed(messageId, "INVALID_RECIPIENT_EMAIL");
+    await markOutboxFailed(workspaceId, messageId, "INVALID_RECIPIENT_EMAIL");
     if (deliveryId) await markMessageDeliveryFailed(workspaceId, deliveryId, "INVALID_RECIPIENT_EMAIL");
     return { delivered: false, skipped: false };
   }
@@ -48,11 +57,15 @@ export async function deliverWorkOrderConfirmation(workspaceId: string, messageI
     });
     if (!response.ok) throw new Error(`RESEND_${response.status}`);
     const accepted = await response.json() as { id?: unknown };
-    await markOutboxDelivered(messageId);
+    await markOutboxDelivered(workspaceId, messageId);
     if (deliveryId) await markMessageDeliveryAccepted(workspaceId, deliveryId, typeof accepted.id === "string" ? accepted.id : undefined);
     return { delivered: true, skipped: false };
   } catch (error) {
-    await markOutboxFailed(messageId, error instanceof Error ? error.message : "RESEND_SEND_FAILED");
+    await markOutboxFailed(
+      workspaceId,
+      messageId,
+      error instanceof Error ? error.message : "RESEND_SEND_FAILED",
+    );
     if (deliveryId) await markMessageDeliveryFailed(workspaceId, deliveryId, error instanceof Error ? error.message : "RESEND_SEND_FAILED");
     return { delivered: false, skipped: false };
   }

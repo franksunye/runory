@@ -209,8 +209,14 @@ export async function getAuditEvents(
     args.push(options.endDate);
   }
 
-  const limit = options?.limit ?? 100;
-  const offset = options?.offset ?? 0;
+  const requestedLimit = options?.limit;
+  const limit = Number.isFinite(requestedLimit)
+    ? Math.max(1, Math.min(Math.trunc(requestedLimit!), 500))
+    : 100;
+  const requestedOffset = options?.offset;
+  const offset = Number.isFinite(requestedOffset)
+    ? Math.max(0, Math.trunc(requestedOffset!))
+    : 0;
   args.push(limit, offset);
 
   const rows = await queryAll<{

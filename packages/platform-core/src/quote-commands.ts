@@ -11,6 +11,7 @@
 //   - Atomic persistence (business state + events + audit + outbox in one batch)
 //   - Diagnostics (command_executions table)
 
+import { createHash } from "node:crypto";
 import { genId, now, queryOne, queryAll, batch } from "./db";
 import { TABLES, businessTable } from "./contracts";
 import { BusinessError, NotFoundError, InvalidInputError } from "./context";
@@ -81,7 +82,6 @@ async function readQuote(workspaceId: string, quoteId: string): Promise<QuoteRec
 // ── Helper: Compute Snapshot Hash ──
 
 function computeSnapshotHash(quote: QuoteRecord, lines: Array<Record<string, unknown>>): string {
-  const crypto = require("node:crypto");
   const data = {
     quote_number: quote.quote_number,
     status: quote.status,
@@ -96,7 +96,7 @@ function computeSnapshotHash(quote: QuoteRecord, lines: Array<Record<string, unk
       line_total: l.line_total,
     })),
   };
-  return crypto.createHash("sha256").update(JSON.stringify(data)).digest("hex").slice(0, 32);
+  return createHash("sha256").update(JSON.stringify(data)).digest("hex").slice(0, 32);
 }
 
 // ── Commands ──

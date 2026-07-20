@@ -250,6 +250,9 @@ Each benchmark run should capture:
 
 Results should be stored as release evidence under `docs/releases/` and linked from this document.
 
+Current evidence:
+[v0.6.0 Foundation Performance Baseline — 2026-07-20](../releases/v0.6.0-foundation-performance-baseline-2026-07-20.md).
+
 ## Optimization order
 
 When a benchmark violates the budget, optimize in this order:

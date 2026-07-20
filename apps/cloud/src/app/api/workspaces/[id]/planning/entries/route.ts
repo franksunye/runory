@@ -66,7 +66,7 @@ export async function GET(
 
     // Parse comma-separated resource IDs
     const resourceIds = resourceIdsParam
-      ? resourceIdsParam.split(",").map((r) => r.trim()).filter(Boolean)
+      ? resourceIdsParam.split(",").map((r) => r.trim()).filter(Boolean).slice(0, 100)
       : undefined;
 
     // ── Row-level visibility (v0.5.2) ──
@@ -101,23 +101,28 @@ export async function GET(
     let entries: ScheduleEntry[];
     if (effectiveResourceIds && effectiveResourceIds.length > 1) {
       const allEntries: ScheduleEntry[] = [];
+      const perResourceLimit = Math.max(1, Math.ceil(2_000 / effectiveResourceIds.length));
       for (const resourceId of effectiveResourceIds) {
         const partial = await getScheduleEntries(workspaceId, {
           resourceId,
           subjectType,
           from,
           to,
+          limit: perResourceLimit,
         });
         allEntries.push(...partial);
       }
       // Sort merged results by start_at
-      entries = allEntries.sort((a, b) => a.startAt.localeCompare(b.startAt));
+      entries = allEntries
+        .sort((a, b) => a.startAt.localeCompare(b.startAt))
+        .slice(0, 2_000);
     } else {
       entries = await getScheduleEntries(workspaceId, {
         resourceId: effectiveResourceIds?.[0],
         subjectType,
         from,
         to,
+        limit: 2_000,
       });
     }
 

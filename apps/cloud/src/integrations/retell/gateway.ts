@@ -34,7 +34,11 @@ export function retellJson(data: unknown, status = 200) {
 export function retellError(error: unknown) {
   if (error instanceof RetellHttpError) return NextResponse.json({ ok: false, error: error.message }, { status: error.status });
   const message = error instanceof Error ? error.message : "VOICE_INTAKE_INTERNAL_ERROR";
-  const status = message.includes("NOT_FOUND") ? 404 : message.includes("INVALID") || message.includes("REQUIRED") || message.includes("CONFIRMED") ? 400 : 500;
+  const status = message.includes("NOT_FOUND") || message.includes("NOT_MAPPED")
+    ? 404
+    : message.includes("INVALID") || message.includes("REQUIRED") || message.includes("CONFIRMED")
+      ? 400
+      : 500;
   return NextResponse.json({ ok: false, error: message }, { status });
 }
 

@@ -105,7 +105,10 @@ if (isTrustHeadersEnabled() && process.env.PLATFORM_TRUST_PROXY_VERIFIED !== "tr
 // Shared by getRequestActor and requireWorkspaceContext so both code paths
 // honor trusted identity headers consistently.
 function resolvePrincipalFromTrustHeaders(request: NextRequest): Principal | null {
-  if (!isTrustHeadersEnabled()) return null;
+  if (
+    !isTrustHeadersEnabled()
+    || process.env.PLATFORM_TRUST_PROXY_VERIFIED !== "true"
+  ) return null;
   const externalId = request.headers.get(PLATFORM_CONFIG.userIdHeader);
   if (!externalId) return null;
   return {

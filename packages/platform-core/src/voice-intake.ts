@@ -395,7 +395,7 @@ export async function createVoiceWorkOrder(workspaceId: string, input: ServiceIn
           notificationId: message.notificationId,
           messageId: message.messageId,
           deliveryId: message.deliveryId,
-        });
+        }, { correlationId: input.providerCallId });
         return { outboxId, conversationId: conversation.id, notificationId: message.notificationId, messageId: message.messageId, deliveryId: message.deliveryId };
       })()
     : null;

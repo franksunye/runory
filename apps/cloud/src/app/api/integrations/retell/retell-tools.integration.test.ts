@@ -35,18 +35,22 @@ function completeArgs(callId = "call_cloud_route_001") {
   };
 }
 
-function toolRequest(args: Record<string, unknown>, options: { secret?: string; invocationId?: string } = {}) {
+function toolRequest(
+  args: Record<string, unknown>,
+  options: { secret?: string; invocationId?: string; agentId?: string } = {},
+) {
+  const agentId = options.agentId ?? AGENT_ID;
   return new NextRequest("https://runory.example/api/integrations/retell/tools/create-work-order", {
     method: "POST",
     headers: {
       "content-type": "application/json",
       "authorization": `Bearer ${options.secret ?? TOOL_SECRET}`,
-      "x-retell-agent-id": AGENT_ID,
+      "x-retell-agent-id": agentId,
       "idempotency-key": "retell-cloud-route-idempotency-001",
     },
     body: JSON.stringify({
       args,
-      call: { call_id: args.providerCallId, agent_id: AGENT_ID },
+      call: { call_id: args.providerCallId, agent_id: agentId },
       tool_invocation_id: options.invocationId ?? "tool_cloud_route_001",
     }),
   });
@@ -96,6 +100,18 @@ describe("Retell custom tool routes", () => {
     const response = await createWorkOrder(toolRequest(completeArgs(), { secret: "wrong-secret" }));
     expect(response.status).toBe(401);
     await expect(response.json()).resolves.toMatchObject({ ok: false, error: "INVALID_RETELL_SIGNATURE" });
+  });
+
+  it("rejects an authenticated provider resource that is not mapped to a workspace", async () => {
+    const response = await createWorkOrder(toolRequest(
+      completeArgs("call_unmapped_agent"),
+      { agentId: "agent_not_mapped" },
+    ));
+    expect(response.status).toBe(404);
+    await expect(response.json()).resolves.toMatchObject({
+      ok: false,
+      error: "VOICE_WORKSPACE_NOT_MAPPED",
+    });
   });
 
   it("does not create a work order before the caller confirms the required fields", async () => {

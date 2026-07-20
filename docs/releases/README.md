@@ -16,6 +16,12 @@ This directory contains point-in-time acceptance, test, drill, migration, and pe
 
 - [Performance Baseline Report Template](performance-baseline-report-template.md) — required structure for performance evidence.
 - [Performance Baseline and Budget](../architecture/performance-baseline-and-budget.md) — active performance requirements and v0.6 acceptance criteria.
+- [v0.6.0 Foundation Performance Baseline — 2026-07-20](v0.6.0-foundation-performance-baseline-2026-07-20.md)
+
+## v0.6
+
+- [v0.6.0 Foundation Acceptance Review — 2026-07-20](v0.6.0-foundation-acceptance-review-2026-07-20.md)
+- [v0.6.0 Architecture Inventory Baseline — 2026-07-20](v0.6.0-architecture-inventory-baseline-2026-07-20.md)
 
 ## FSM
 

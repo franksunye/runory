@@ -366,6 +366,7 @@ export async function getScheduleEntries(
     status?: string;
     from?: string;
     to?: string;
+    limit?: number;
   }
 ): Promise<ScheduleEntry[]> {
   const conditions: string[] = ["workspace_id = ?"];
@@ -396,9 +397,16 @@ export async function getScheduleEntries(
     args.push(filters.to);
   }
 
+  const requestedLimit = filters.limit;
+  const limit = Number.isFinite(requestedLimit)
+    ? Math.max(1, Math.min(Math.trunc(requestedLimit!), 2_000))
+    : 1_000;
+  args.push(limit);
+
   const sql = `SELECT * FROM ${TABLES.scheduleEntries}
                WHERE ${conditions.join(" AND ")}
-               ORDER BY start_at ASC`;
+               ORDER BY start_at ASC
+               LIMIT ?`;
   const rows = await queryAll<ScheduleEntryRow>(sql, args);
   return rows.map(mapScheduleEntry);
 }

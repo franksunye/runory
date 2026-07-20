@@ -14,6 +14,7 @@
 //   - Atomic persistence: business state + events + audit + outbox in one batch
 //   - Diagnostics: command_executions table for replay/audit
 
+import { createHash } from "node:crypto";
 import {
   BatchRowsAffectedError,
   genId,
@@ -111,9 +112,8 @@ export interface CommandResult<TAggregate = Record<string, unknown>> {
  * Uses JSON.stringify with sorted keys for determinism.
  */
 export function hashInput(input: unknown): string {
-  const crypto = require("node:crypto");
   const json = stableStringify(input);
-  return crypto.createHash("sha256").update(json).digest("hex").slice(0, 32);
+  return createHash("sha256").update(json).digest("hex").slice(0, 32);
 }
 
 function stableStringify(obj: unknown): string {
@@ -371,7 +371,8 @@ export async function executeCommand<TAggregate = Record<string, unknown>>(
         enqueueOutboxStatement(
           envelope.workspaceId,
           msg.messageType,
-          msg.payload
+          msg.payload,
+          { correlationId: envelope.requestId ?? envelope.commandId },
         )
       );
     }
