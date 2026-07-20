@@ -66,7 +66,7 @@ The preferred adaptation order is:
 
 ### 3.1 Business Command
 
-Use an existing named Command for day-to-day business execution, such as creating a Lead, scheduling a Visit, approving a Quote, issuing an Invoice, or sending a notification.
+Use an existing named Command for day-to-day business execution, such as creating a Contact or Company in a Lead lifecycle stage, scheduling a Visit, approving a Quote, issuing an Invoice, or sending a notification.
 
 ### 3.2 Declarative Configuration
 

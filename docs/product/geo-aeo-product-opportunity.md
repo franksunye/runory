@@ -299,7 +299,8 @@ Then add AI visibility monitoring and optimization.
 CRM:
 
 ```text
-question maps can create leads or deals when users submit forms.
+question maps can create Contact/Company records in a Lead lifecycle stage, or
+Deals, when users submit forms.
 ```
 
 Sales Quote:
@@ -341,4 +342,3 @@ Connect submissions back to CRM.
 ```
 
 At that point, GEO/AEO is not a buzzword layer. It becomes a natural public-growth layer on top of Runory's business operating system.
-

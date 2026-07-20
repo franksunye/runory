@@ -186,7 +186,7 @@ The website should not present Operations, Mobile, and Agent as three disconnect
 
 Representative content:
 
-- Leads and customers
+- Contacts and Companies across Lead/customer lifecycle stages
 - Quotes and contracts
 - Work orders and visits
 - Scheduling and dispatch
@@ -337,7 +337,7 @@ A dedicated public demo environment should be created at a separate domain or su
 The first dataset should represent one coherent home-service company rather than disconnected examples. It should be designed around the canonical scheduling scenario first, then reused by supporting scenarios. It should contain:
 
 - 20–30 customers and service sites
-- Multiple lead sources
+- Multiple acquisition sources on Lead-stage Contact/Company records
 - Quotes in draft, sent, accepted, rejected, and overdue states
 - Work orders across scheduling, field execution, completion, and follow-up
 - A small dispatcher and technician roster

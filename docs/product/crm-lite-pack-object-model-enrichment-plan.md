@@ -67,6 +67,15 @@ Problems:
 
 ## 3. Target Object Model
 
+### 3.0 Canonical Lead Modeling Decision
+
+Runory does not model Lead as a separate business object. A Lead is a
+`lifecycle_stage` of a `contact` or `company`, while qualification, ownership,
+source, follow-up, and conversion are governed behaviors around that same
+record. References elsewhere in the product to "Lead management" mean managing
+Contact/Company records in Lead lifecycle stages, not creating a parallel
+`lead` object.
+
 ### 3.1 Company
 
 Object key: `company`

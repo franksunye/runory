@@ -198,7 +198,7 @@ decision history and transferred as follows:
 
 | Earlier proposal | Disposition |
 | --- | --- |
-| Lead and Customer Operations | `V06-P01`, v0.7 candidate discussion |
+| Contact/Company Lead Lifecycle and Customer Operations | Existing unified CRM lifecycle retained; follow-up depth remains evidence-driven |
 | Recurring Service Baseline | `V06-P02`, post-1.0 product discovery |
 | Contract, Invoice, and Receivables | Invoice/payment-allocation subset selected for v0.7; Contract and advanced receivables deferred |
 | Operational Inbox and Reporting | Invoice outstanding/overdue visibility selected for v0.7; general inbox/reporting deferred |
@@ -209,6 +209,10 @@ Canonical disposition:
 [v0.6 Deferred Work Handoff](../architecture/v0.6-deferred-work-handoff.md).
 The next planning document is
 [v0.7 Planning Brief](./v0.7-planning-brief.md).
+
+Canonical CRM modeling rule: Lead is a lifecycle stage of Contact or Company,
+not a separate object. Future "Lead" work means qualification, ownership,
+source, follow-up, lifecycle views, and conversion behavior on those records.
 
 Release outcome: v0.6 provides the accepted, machine-auditable Foundation on
 which the next customer-selected FSM capability can be built. It does not claim

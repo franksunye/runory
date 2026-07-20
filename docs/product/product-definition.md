@@ -208,7 +208,7 @@ Early Cloud does not depend on universal bidirectional Cloud–Local synchroniza
 
 Runory through v1.0 is a focused Agent-ready FSM product covering:
 
-* demand intake and Lead handling;
+* demand intake and Contact/Company Lead lifecycle handling;
 * Customer, Contact, Site, and Asset context;
 * Quote, Contract, Invoice, and Payment;
 * Work Order, Visit, Scheduling, Dispatch, and field execution;

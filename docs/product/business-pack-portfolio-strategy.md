@@ -260,7 +260,7 @@ landing pages
 minisites
 campaigns
 submissions
-lead/contact creation
+Contact/Company creation in a Lead lifecycle stage
 source attribution
 consent
 ```
@@ -354,7 +354,7 @@ public routes
 anonymous submissions
 spam/rate limits
 consent/audit
-lead deduplication
+Contact/Company deduplication across Lead/customer lifecycle stages
 safe page publishing
 Agent-generated public content review
 ```

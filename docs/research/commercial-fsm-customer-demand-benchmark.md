@@ -287,6 +287,10 @@ role-specific product surfaces
 
 ## 6. Marketplace-Level Demand Findings
 
+Terminology note: source material often uses "Lead" as a market-facing noun.
+In Runory's implementation, this maps to a Contact or Company in a Lead
+lifecycle stage; it does not imply a separate `lead` object.
+
 The current sample is small, but the demand shape is consistent and commercially meaningful.
 
 ### 6.1 Buyers Purchase An Operating System, Not Isolated CRUD
@@ -294,7 +298,7 @@ The current sample is small, but the demand shape is consistent and commercially
 Across the three commercial briefs, buyers ask for a connected chain:
 
 ```text
-Lead / Request
+Lead-stage Contact or Company / Request
 → Customer / Site / Asset
 → Quote / Contract
 → Work Order / Visit
@@ -550,7 +554,7 @@ and they are compared, not automatically committed, in
 
 ```text
 recurring service plans and generated work
-Lead qualification
+Contact/Company Lead-stage qualification
 customer portal, Ticket, aftercare and booking
 outbound notifications and follow-up
 Contract, Invoice and payment-status ledger
