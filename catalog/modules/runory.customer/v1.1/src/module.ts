@@ -123,6 +123,7 @@ const manifest = defineModule({
         route: "/customers",
         icon: "users",
         sortOrder: 20,
+        contextual: false,
       },
     ],
   },

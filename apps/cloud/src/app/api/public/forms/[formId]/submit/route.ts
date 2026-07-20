@@ -271,7 +271,9 @@ export async function POST(
             answers: extractAnswers(body),
             submittedBy: "anonymous",
           },
-          idempotencyKey
+          idempotencyKey,
+          undefined,
+          { type: "system", id: "public-form" },
         );
 
         return NextResponse.json({

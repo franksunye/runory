@@ -1,0 +1,51 @@
+name: Command Contract Governance
+
+on:
+  pull_request:
+    paths:
+      - "catalog/modules/**"
+      - "catalog/platform-services/**"
+      - "packages/contracts/**"
+      - "packages/platform-core/src/**"
+      - "packages/sdk/**"
+      - "packages/sdk-testing/**"
+      - ".github/workflows/command-contract-governance.yml"
+      - "package.json"
+      - "pnpm-lock.yaml"
+  push:
+    branches: [main]
+    paths:
+      - "catalog/modules/**"
+      - "catalog/platform-services/**"
+      - "packages/contracts/**"
+      - "packages/platform-core/src/**"
+      - "packages/sdk/**"
+      - "packages/sdk-testing/**"
+      - ".github/workflows/command-contract-governance.yml"
+      - "package.json"
+      - "pnpm-lock.yaml"
+
+permissions:
+  contents: read
+
+jobs:
+  command-contract-governance:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Validate capability closure and architecture inventory
+        run: pnpm validate:command-contracts

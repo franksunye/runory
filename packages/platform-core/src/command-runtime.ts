@@ -14,16 +14,28 @@
 //   - Atomic persistence: business state + events + audit + outbox in one batch
 //   - Diagnostics: command_executions table for replay/audit
 
-import { genId, now, queryOne, queryAll, execute, batch as runBatch } from "./db";
+import {
+  BatchRowsAffectedError,
+  genId,
+  now,
+  queryOne,
+  queryAll,
+  execute,
+  batch as runBatch,
+  type BatchStatement,
+} from "./db";
 import { TABLES } from "./contracts";
 import { BusinessError } from "./context";
 import { ERROR_CODES } from "./errors";
 import { enqueueOutboxStatement } from "./outbox";
 import {
   assertCommandHandlerMatchesContract,
+  assertCommandResultMatchesContract,
   prepareCommandContractEffects,
   resolveWorkspaceCommandPlan,
+  type ResolvedCommandPlan,
 } from "./command-contracts";
+import { authorizeCommandActor } from "./command-contracts/authorization";
 
 // ── Types ──
 
@@ -56,7 +68,7 @@ export interface DomainEventStatement {
 
 export interface CommandHandlerResult<TAggregate = Record<string, unknown>> {
   /** Batch statements to execute atomically (business state + version + events + audit + outbox) */
-  statements: Array<{ sql: string; args?: unknown[] }>;
+  statements: BatchStatement[];
   /** Domain events to write (will be converted to batch statements) */
   events?: DomainEventStatement[];
   /** Outbox messages to enqueue (will be converted to batch statements) */
@@ -199,14 +211,23 @@ function commandExecutionStatement(
   inputHash: string,
   status: string,
   resultJson: string | null,
-  errorCode: string | null
+  errorCode: string | null,
+  contractPlan: ResolvedCommandPlan,
 ): { sql: string; args: unknown[] } {
   const id = genId("cmd");
+  const providerVersions = contractPlan.effects.map(({ requirement, provider }) => ({
+    capability: requirement.capability,
+    requiredVersion: requirement.version,
+    resolvedVersion: provider.version,
+    consistency: requirement.consistency,
+  }));
   return {
     sql: `INSERT INTO ${TABLES.commandExecutions}
           (id, workspace_id, command_id, command_type, aggregate_type, aggregate_id,
-           actor_type, actor_id, input_hash, status, result_json, error_code, created_at, completed_at)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+           actor_type, actor_id, input_hash, status, result_json, error_code,
+           contract_source_kind, contract_source_id, contract_source_version,
+           contract_version, provider_versions_json, created_at, completed_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     args: [
       id,
       envelope.workspaceId,
@@ -220,6 +241,11 @@ function commandExecutionStatement(
       status,
       resultJson,
       errorCode,
+      contractPlan?.source?.kind ?? null,
+      contractPlan?.source?.id ?? null,
+      contractPlan?.source?.version ?? null,
+      contractPlan?.contract.contractVersion ?? null,
+      providerVersions ? JSON.stringify(providerVersions) : null,
       envelope.occurredAt,
       now(),
     ],
@@ -248,12 +274,15 @@ export async function executeCommand<TAggregate = Record<string, unknown>>(
   handler: (envelope: CommandEnvelope) => Promise<CommandHandlerResult<TAggregate>>
 ): Promise<CommandResult<TAggregate>> {
   const inputHash = hashInput(envelope.input);
-  // Registered contracts fail closed before domain code runs. Commands that
-  // have not yet migrated to a manifest contract continue through the legacy
-  // compatibility path during the incremental rollout.
+  // Workspace-scoped Contracts fail closed before domain code runs.
   const contractPlan = await resolveWorkspaceCommandPlan(
     envelope.workspaceId,
     envelope.commandType,
+  );
+  await authorizeCommandActor(
+    envelope.workspaceId,
+    envelope.actor,
+    contractPlan.contract,
   );
 
   // ── Idempotency check ──
@@ -296,22 +325,23 @@ export async function executeCommand<TAggregate = Record<string, unknown>>(
 
   // ── Execute handler ──
   const handlerResult = await handler(envelope);
-  let contractStatements: Array<{ sql: string; args?: unknown[] }> = [];
-  if (contractPlan) {
-    assertCommandHandlerMatchesContract(
-      contractPlan,
-      envelope,
-      handlerResult as CommandHandlerResult<unknown>,
-    );
-    contractStatements = await prepareCommandContractEffects(
-      contractPlan,
-      envelope,
-      handlerResult as CommandHandlerResult<unknown>,
-    );
-  }
+  assertCommandHandlerMatchesContract(
+    contractPlan,
+    envelope,
+    handlerResult as CommandHandlerResult<unknown>,
+  );
+  const contractStatements = await prepareCommandContractEffects(
+    contractPlan,
+    envelope,
+    handlerResult as CommandHandlerResult<unknown>,
+  );
+  assertCommandResultMatchesContract(
+    contractPlan,
+    handlerResult as CommandHandlerResult<unknown>,
+  );
 
   // ── Build the complete batch ──
-  const allStatements: Array<{ sql: string; args?: unknown[] }> = [
+  const allStatements: BatchStatement[] = [
     ...handlerResult.statements,
     ...contractStatements,
   ];
@@ -376,12 +406,24 @@ export async function executeCommand<TAggregate = Record<string, unknown>>(
       inputHash,
       "succeeded",
       JSON.stringify(result),
-      null
+      null,
+      contractPlan,
     )
   );
 
   // ── Execute atomically ──
-  await runBatch(allStatements);
+  try {
+    await runBatch(allStatements);
+  } catch (error) {
+    if (error instanceof BatchRowsAffectedError) {
+      throw new BusinessError(
+        ERROR_CODES.VERSION_CONFLICT,
+        `VERSION_CONFLICT: '${envelope.commandType}' observed stale aggregate state while committing. Reload and retry.`,
+        409,
+      );
+    }
+    throw error;
+  }
 
   return result;
 }
@@ -403,6 +445,16 @@ export async function getCommandHistory(
   actorId: string;
   status: string;
   createdAt: string;
+  contractSourceKind: string | null;
+  contractSourceId: string | null;
+  contractSourceVersion: string | null;
+  contractVersion: string | null;
+  providerVersions: Array<{
+    capability: string;
+    requiredVersion: string;
+    resolvedVersion: string;
+    consistency: string;
+  }> | null;
 }>> {
   const rows = await queryAll<{
     command_id: string;
@@ -411,8 +463,15 @@ export async function getCommandHistory(
     actor_id: string;
     status: string;
     created_at: string;
+    contract_source_kind: string | null;
+    contract_source_id: string | null;
+    contract_source_version: string | null;
+    contract_version: string | null;
+    provider_versions_json: string | null;
   }>(
-    `SELECT command_id, command_type, actor_type, actor_id, status, created_at
+    `SELECT command_id, command_type, actor_type, actor_id, status, created_at,
+            contract_source_kind, contract_source_id, contract_source_version,
+            contract_version, provider_versions_json
      FROM ${TABLES.commandExecutions}
      WHERE workspace_id = ? AND aggregate_type = ? AND aggregate_id = ?
      ORDER BY created_at DESC LIMIT ?`,
@@ -425,6 +484,18 @@ export async function getCommandHistory(
     actorId: r.actor_id,
     status: r.status,
     createdAt: r.created_at,
+    contractSourceKind: r.contract_source_kind,
+    contractSourceId: r.contract_source_id,
+    contractSourceVersion: r.contract_source_version,
+    contractVersion: r.contract_version,
+    providerVersions: r.provider_versions_json
+      ? JSON.parse(r.provider_versions_json) as Array<{
+          capability: string;
+          requiredVersion: string;
+          resolvedVersion: string;
+          consistency: string;
+        }>
+      : null,
   }));
 }
 

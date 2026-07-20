@@ -1,8 +1,14 @@
 # Runory Product Roadmap
 
-Status: Proposed  
-Date: 2026-07-14  
-Scope: v0.5–v4.0  
+| Metadata | Value |
+| --- | --- |
+| Status | `active` |
+| Topic | `product` |
+| Applies to | `v0.5–v4.0` |
+| Owner | Product / Engineering |
+| Last reviewed | 2026-07-20 |
+| Supersedes | Earlier post-v0.5 milestone roadmaps |
+| Superseded by | — |
 
 Demand source of truth: [Commercial FSM Customer Demand Benchmark](../research/commercial-fsm-customer-demand-benchmark.md)  
 GA release contract: [Runory 1.0 — 90% Product Coverage, 10% Governed Extension](./v1.0-ga-release-goal.md)
@@ -14,8 +20,8 @@ Runory remains focused on Field Service Management through v1.0. The goal is not
 Agent-native customization and deployment remain a core differentiator, but they support the FSM product rather than expand the business scope beyond FSM.
 
 ```text
-v0.5  Complete one end-to-end FSM service transaction, including Voice Intake and Payment
-v0.6  Operate an FSM business continuously
+v0.5  Freeze the implemented end-to-end FSM transaction baseline, including Voice Intake and Payment
+v0.6  Stabilize the shared foundation, then operate an FSM business continuously
 v0.7  Add the high-value advanced FSM capabilities repeatedly needed by SME customers
 v0.8  Configure, customize, and deploy Runory FSM through Agents
 v0.9  Validate repeatability across real FSM customers and converge the product
@@ -31,8 +37,8 @@ Each pre-1.0 milestone has one primary product question. Items not required to a
 
 | Version | Primary question |
 |---|---|
-| v0.5 | Can Runory complete one real FSM transaction safely? |
-| v0.6 | Can a real FSM business use Runory continuously? |
+| v0.5 | Has Runory implemented one governed end-to-end FSM transaction baseline? |
+| v0.6 | Is the expanded foundation stable enough for a real FSM business to use Runory continuously? |
 | v0.7 | Does Runory cover the advanced capabilities that repeatedly block SME FSM adoption? |
 | v0.8 | Can users implement and deploy Runory FSM through approved Agents? |
 | v0.9 | Can the same product be delivered repeatedly without customer-specific Core forks? |
@@ -128,7 +134,13 @@ strict separation from Runory SaaS subscription billing
 
 Release gate: a business can request, receive, verify, reconcile, and where required refund a customer payment through governed Runory Commands and provider events.
 
-### v0.5.6 — Commercial Benchmark and Pilot Gate
+### v0.5 Feature Freeze
+
+v0.5 freezes after the Voice Intake and Payment foundations. It remains the
+behavioral compatibility baseline for v0.6.0; it does not wait for a separate
+v0.5.6 commercial release gate.
+
+The following closure work moves into v0.6:
 
 ```text
 XLink-derived waterproof-repair pilot
@@ -137,13 +149,36 @@ role-separated browser, mobile, voice, and payment acceptance
 concurrency, recovery, isolation, webhook, and performance evidence
 ```
 
-Release outcome: one real service business can receive work, quote it, collect payment, plan it, perform it, review it, and complete it through governed desktop and mobile workflows.
+During v0.6.0 these scenarios protect behavior compatibility. During the v0.6
+validation milestone they contribute to real-customer and commercial evidence.
 
 ## 4. v0.6 Family — Continuous FSM Operations
 
-v0.6 turns the v0.5 single-transaction closure into a system that an FSM business can use every day.
+v0.6 first consolidates the foundation expanded during v0.5, then turns the
+single-transaction baseline into a system that an FSM business can use every
+day.
 
-### v0.6.0 — Lead and Customer Operations
+### v0.6.0 — Foundation Architecture Stabilization
+
+Primary sources:
+
+- [v0.6 Foundation Architecture Stabilization Plan](../architecture/v0.6-foundation-architecture-stabilization-plan.md)
+- [v0.6 Command Architecture Stabilization TODO](../architecture/v0.6-command-architecture-stabilization-todo.md)
+
+```text
+generated inventory and v0.5 compatibility fixtures
+Core, Platform Service, Module, Provider Adapter, and projection boundaries
+Command, Contract, Provider, authorization, and transaction enforcement
+shared webhook, Outbox, replay, reconciliation, and integration primitives
+Principal, tenant, row-visibility, provisioning, upgrade, and repair consistency
+architecture tests, migration evidence, observability, and performance gates
+```
+
+Release gate: the v0.5 business baseline remains behavior-compatible while the
+shared runtime becomes machine-auditable, safely extensible, upgradeable, and
+operable.
+
+### v0.6.1 — Lead and Customer Operations
 
 ```text
 Lead lifecycle, source, qualification, ownership, follow-up, and conversion
@@ -153,7 +188,7 @@ duplicate Lead/customer detection and merge policy
 follow-up tasks, reminders, queues, and SLA handling
 ```
 
-### v0.6.1 — Recurring Service Baseline
+### v0.6.2 — Recurring Service Baseline
 
 ```text
 Service Plan and Maintenance Plan definitions
@@ -163,7 +198,7 @@ asset maintenance history and next-service projection
 recurring pricing and billing references
 ```
 
-### v0.6.2 — Contract, Invoice, and Receivables
+### v0.6.3 — Contract, Invoice, and Receivables
 
 ```text
 typed Contract and Invoice
@@ -175,7 +210,7 @@ tax and currency baseline required by target customers
 
 Payment collection already exists in v0.5. v0.6 turns it into a document-driven receivables workflow.
 
-### v0.6.3 — Operational Inbox and Reporting
+### v0.6.4 — Operational Inbox and Reporting
 
 ```text
 actionable queues for overdue work, unqualified Leads, unaccepted Quotes, unpaid documents, and schedule conflicts
@@ -187,7 +222,7 @@ scheduled internal reports and exports
 
 The priority is an executable management workspace, not a broad BI platform.
 
-### v0.6.4 — Customer Access Baseline
+### v0.6.5 — Customer Access Baseline
 
 ```text
 secure customer access to Quotes, Contracts, Invoices, Payments, Work Orders, Visits, and service reports
@@ -197,9 +232,11 @@ appointment and progress visibility
 notification templates, reminders, and delivery log
 ```
 
-### v0.6.5 — Real-customer Validation Gate
+### v0.6.6 — Real-customer and Commercial Validation Gate
 
 ```text
+XLink-derived and neutral cross-industry end-to-end scenarios carried from v0.5
+role-separated browser, mobile, voice, payment, recovery, and isolation evidence
 at least one reactive-service customer
 at least one recurring-service customer
 at least one project/installation customer
@@ -486,8 +523,8 @@ progress toward the long-term SMB WordPress vision
 
 | Version | Product conclusion |
 |---|---|
-| v0.5 | Runory can complete one end-to-end FSM transaction. |
-| v0.6 | Runory can continuously operate an FSM business. |
+| v0.5 | Runory has an implemented end-to-end FSM transaction baseline. |
+| v0.6 | Runory has a stabilized foundation and can continuously operate an FSM business. |
 | v0.7 | Runory covers the high-value advanced needs of SME FSM customers. |
 | v0.8 | Runory FSM can be configured, adapted, and deployed through approved Agents. |
 | v0.9 | Runory can be delivered repeatedly to real FSM customers without Core forks. |

@@ -1,5 +1,10 @@
 # Runory Managed Workspace Extension Architecture Specification
 
+> The normative mechanism-selection rules are in
+> [Workspace Customization Boundaries](workspace-customization-boundaries.md).
+> This document provides the detailed Extension persistence and composition
+> model.
+
 Status: Draft v0.2  
 Date: 2026-06-18  
 Change: Cloud-first pivot — see [../04-architecture-pivot-cloud-first.md](../04-architecture-pivot-cloud-first.md)

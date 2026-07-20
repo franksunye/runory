@@ -29,6 +29,7 @@ import {
   validateModuleCommandContracts,
 } from "./command-contracts";
 import { syncWorkspacePlatformServiceContracts } from "./platform-service-contracts";
+import { analyzeWorkspaceCommandContractSourceRemoval } from "./command-contract-removal-analysis";
 
 // ── Manifest in-memory cache ──
 // Manifest YAML files are static at runtime (they ship with the deploy and do
@@ -59,7 +60,7 @@ export function loadModuleManifest(moduleId: string): ModuleManifest {
   return manifest;
 }
 
-function loadInstalledModuleManifest(moduleId: string, version: string): ModuleManifest {
+export function loadInstalledModuleManifest(moduleId: string, version: string): ModuleManifest {
   const current = loadModuleManifest(moduleId);
   if (current.version === version) return current;
   const versionedPath = resolve(MODULES_DIR, moduleId, `v${version}`, "manifest.yaml");
@@ -69,6 +70,23 @@ function loadInstalledModuleManifest(moduleId: string, version: string): ModuleM
     );
   }
   return moduleManifestSchema.parse(parseYaml(readFileSync(versionedPath, "utf-8")));
+}
+
+function loadModuleWorkflowIds(moduleId: string): string[] {
+  const workflowsDir = join(MODULES_DIR, moduleId, "workflows");
+  if (!existsSync(workflowsDir)) return [];
+  return readdirSync(workflowsDir)
+    .filter((file) => file.endsWith(".workflow.json"))
+    .flatMap((file) => {
+      try {
+        const decoded = JSON.parse(
+          readFileSync(join(workflowsDir, file), "utf-8"),
+        ) as { workflowKey?: unknown };
+        return typeof decoded.workflowKey === "string" ? [decoded.workflowKey] : [];
+      } catch {
+        return [];
+      }
+    });
 }
 
 export function loadPackManifest(packId: string): PackManifest {
@@ -827,15 +845,30 @@ async function seedPackDemoData(workspaceId: string, packId: string): Promise<nu
           subjectId,
           answers: fs.answers,
           submittedBy: "demo-seed",
-        });
+        }, undefined, undefined, { type: "system", id: "demo-seed" });
 
         // Apply status transition if not the default "submitted"
         if (result.submissionId && fs.status === "accepted") {
           const { acceptFormSubmission } = await import("./forms");
-          await acceptFormSubmission(workspaceId, result.submissionId, "demo-seed");
+          await acceptFormSubmission(
+            workspaceId,
+            result.submissionId,
+            "demo-seed",
+            undefined,
+            undefined,
+            { type: "system", id: "demo-seed" },
+          );
         } else if (result.submissionId && fs.status === "returned") {
           const { returnFormSubmission } = await import("./forms");
-          await returnFormSubmission(workspaceId, result.submissionId, "demo-seed", fs.returnReason ?? "Demo: returned for revision");
+          await returnFormSubmission(
+            workspaceId,
+            result.submissionId,
+            "demo-seed",
+            fs.returnReason ?? "Demo: returned for revision",
+            undefined,
+            undefined,
+            { type: "system", id: "demo-seed" },
+          );
         }
         created++;
       } catch (err) {
@@ -1204,7 +1237,6 @@ export async function installModule(
   moduleId: string,
   packId: string = "standalone"
 ): Promise<InstallModuleResult> {
-  await syncWorkspacePlatformServiceContracts(workspaceId);
   const manifest = loadModuleManifest(moduleId);
 
   const objectsCreated: string[] = [];
@@ -1415,6 +1447,9 @@ export async function installPack(
   packId: string,
   options: InstallPackOptions = {}
 ): Promise<InstallResult> {
+  // Platform Service snapshots belong to Workspace provisioning/repair, not
+  // to every individual Module installation within this Pack.
+  await syncWorkspacePlatformServiceContracts(workspaceId);
   const pack = loadPackManifest(packId);
 
   const modulesInstalled: string[] = [];
@@ -1543,6 +1578,42 @@ export async function uninstallPack(
     [workspaceId, packId]
   );
   const sharedModuleSet = new Set(otherPackModules.map((r) => r.module_id));
+  const exclusiveModuleIds = packModuleIds.filter((moduleId) => !sharedModuleSet.has(moduleId));
+  const workflowIdsByModule = new Map(
+    exclusiveModuleIds.map((moduleId) => [moduleId, loadModuleWorkflowIds(moduleId)]),
+  );
+  const removedWorkflowIds = [...workflowIdsByModule.values()].flat();
+  const ignoredSourceKeys = exclusiveModuleIds.map((moduleId) => `module:${moduleId}`);
+
+  // Run the complete dependency preflight before any destructive write so a
+  // blocked Pack cannot be left half-uninstalled.
+  const removalImpacts = [];
+  for (const moduleId of exclusiveModuleIds) {
+    const installed = await queryOne<{ module_version: string }>(
+      `SELECT module_version FROM ${TABLES.installations}
+       WHERE workspace_id = ? AND module_id = ? AND status = 'installed'`,
+      [workspaceId, moduleId],
+    );
+    const manifest = installed
+      ? loadInstalledModuleManifest(moduleId, installed.module_version)
+      : loadModuleManifest(moduleId);
+    const impact = await analyzeWorkspaceCommandContractSourceRemoval({
+      workspaceId,
+      sourceKind: "module",
+      sourceId: moduleId,
+      providedCapabilities: manifest.domain?.capabilities?.provides ?? [],
+      ownedWorkflowIds: workflowIdsByModule.get(moduleId) ?? [],
+      ignoredSourceKeys,
+      ignoredWorkflowIds: removedWorkflowIds,
+    });
+    if (!impact.canRemove) removalImpacts.push(impact);
+  }
+  if (removalImpacts.length > 0) {
+    throw new Error(
+      `PACK_UNINSTALL_BLOCKED: Contract or Workflow consumers still depend on Pack '${packId}': `
+      + JSON.stringify(removalImpacts),
+    );
+  }
 
   const modulesRemoved: string[] = [];
   const tablesDropped: string[] = [];
@@ -1562,6 +1633,28 @@ export async function uninstallPack(
     }
 
     // Exclusively owned — drop tables and clean up all metadata
+
+    // Remove workflow definitions shipped by this Module. Preflight above
+    // guarantees there are no retained instances or Automation consumers.
+    for (const workflowId of workflowIdsByModule.get(moduleId) ?? []) {
+      const definition = await queryOne<{ id: string }>(
+        `SELECT id FROM ${TABLES.workflowDefinitions}
+         WHERE workspace_id = ? AND workflow_id = ?`,
+        [workspaceId, workflowId],
+      );
+      if (definition) {
+        await execute(
+          `DELETE FROM ${TABLES.workflowDefinitionVersions}
+           WHERE workspace_id = ? AND workflow_definition_id = ?`,
+          [workspaceId, definition.id],
+        );
+        await execute(
+          `DELETE FROM ${TABLES.workflowDefinitions}
+           WHERE workspace_id = ? AND id = ?`,
+          [workspaceId, definition.id],
+        );
+      }
+    }
 
     // 1. Find object keys owned by this module
     const objects = await queryAll<{ object_key: string }>(

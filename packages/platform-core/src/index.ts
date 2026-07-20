@@ -29,6 +29,8 @@ export * from "./dashboard";
 export * from "./permission-groups";
 export * from "./command-runtime";
 export * from "./command-contracts";
+export * from "./command-contract-repair";
+export * from "./command-contract-removal-analysis";
 export * from "./outbox";
 export * from "./messaging";
 export * from "./governed-fields";

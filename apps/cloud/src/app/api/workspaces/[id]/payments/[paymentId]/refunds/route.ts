@@ -1,7 +1,6 @@
 import { NextRequest } from "next/server";
 import {
   requestPaymentRefund,
-  requireBusinessPermission,
   type CommandActor,
 } from "@runory/platform-core";
 import { requireWorkspaceContext } from "@/lib/auth";
@@ -18,7 +17,6 @@ export async function POST(
   try {
     const { id, paymentId } = await params;
     const { ctx, workspaceId } = await requireWorkspaceContext(request, id, "member");
-    await requireBusinessPermission(ctx, "payment.refund");
     const body = await request.json() as { amountMinor: number; reason?: string };
     const actor: CommandActor = {
       id: ctx.principal?.userId ?? "unknown",

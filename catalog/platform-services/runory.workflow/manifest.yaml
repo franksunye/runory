@@ -20,6 +20,7 @@ domain:
       transition:
         from: [ready]
         to: active
+      allowedActorTypes: [user, api_key, system]
       permission: workflow.work_item.act
       emits: [work_item.claimed]
       postconditions:
@@ -32,6 +33,7 @@ domain:
       transition:
         from: [active]
         to: ready
+      allowedActorTypes: [user, api_key, system]
       permission: workflow.work_item.act
       emits: [work_item.released]
       postconditions:
@@ -44,6 +46,7 @@ domain:
       transition:
         from: [pending, ready, active, returned]
         to: cancelled
+      allowedActorTypes: [user, api_key, system]
       permission: workflow.work_item.act
       emits: [work_item.cancelled]
       postconditions:
@@ -56,6 +59,7 @@ domain:
       transition:
         from: [ready, active]
         to: completed
+      allowedActorTypes: [user, api_key, system]
       permission: workflow.approval.decide
       emits: [approval.decided]
       postconditions:
@@ -68,6 +72,7 @@ domain:
       transition:
         from: [ready, active]
         to: returned
+      allowedActorTypes: [user, api_key, system]
       permission: workflow.work_item.act
       emits: [work_item.returned]
       postconditions:
@@ -80,6 +85,7 @@ domain:
       transition:
         from: [ready, active]
         to: completed
+      allowedActorTypes: [user, api_key, system]
       permission: workflow.work_item.act
       emits: [work_item.completed]
       postconditions:

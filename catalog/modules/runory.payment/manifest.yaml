@@ -172,18 +172,22 @@ domain:
     - key: payment.request
       contractVersion: "1.0.0"
       aggregate: payment_request
-      transition: { from: [draft], to: open }
+      operation: create
+      allowedActorTypes: [user, api_key, system]
       permission: payment.request
       idempotent: true
       requiresExpectedVersion: false
       requiredEffects: []
       emits: [payment_request.created, payment_request.opened]
       auditRequired: true
-      postconditions: [payment_request.status == open]
+      resultAssertions:
+        - { field: status, operator: equals, value: open }
+      postconditions: [A new payment request is opened atomically with its pending payment.]
     - key: payment.confirm_provider_result
       contractVersion: "1.0.0"
       aggregate: payment
       transition: { from: [pending, processing, failed], to: succeeded }
+      allowedActorTypes: [user, api_key, system]
       permission: payment.provider_event
       idempotent: true
       requiresExpectedVersion: false
@@ -194,18 +198,22 @@ domain:
     - key: payment.fail_provider_result
       contractVersion: "1.0.0"
       aggregate: payment
-      transition: { from: [pending, processing], to: failed }
+      operation: action
+      allowedActorTypes: [user, api_key, system]
       permission: payment.provider_event
       idempotent: true
       requiresExpectedVersion: false
       requiredEffects: []
       emits: [payment.failed]
       auditRequired: true
-      postconditions: [payment.status == failed]
+      postconditions:
+        - An eligible pending or processing payment becomes failed.
+        - A late failure cannot regress a succeeded or refunded payment.
     - key: payment.expire_request
       contractVersion: "1.0.0"
       aggregate: payment_request
       transition: { from: [draft, open], to: expired }
+      allowedActorTypes: [user, api_key, system]
       permission: payment.cancel
       idempotent: true
       requiresExpectedVersion: true
@@ -216,18 +224,22 @@ domain:
     - key: payment.request_refund
       contractVersion: "1.0.0"
       aggregate: refund
-      transition: { from: [requested], to: processing }
+      operation: create
+      allowedActorTypes: [user, api_key, system]
       permission: payment.refund
       idempotent: true
       requiresExpectedVersion: false
       requiredEffects: []
       emits: [payment.refund_requested]
       auditRequired: true
-      postconditions: [refund.status == processing]
+      resultAssertions:
+        - { field: status, operator: equals, value: processing }
+      postconditions: [A new refund is queued for provider processing.]
     - key: payment.confirm_refund
       contractVersion: "1.0.0"
       aggregate: refund
       transition: { from: [requested, processing], to: succeeded }
+      allowedActorTypes: [user, api_key, system]
       permission: payment.provider_event
       idempotent: true
       requiresExpectedVersion: false
@@ -239,6 +251,7 @@ domain:
       contractVersion: "1.0.0"
       aggregate: refund
       transition: { from: [requested, processing], to: failed }
+      allowedActorTypes: [user, api_key, system]
       permission: payment.provider_event
       idempotent: true
       requiresExpectedVersion: false

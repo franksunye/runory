@@ -7,7 +7,7 @@ Prerequisite: Cloud-first POC completed
 Detailed SaaS plan: [08-saas-core-implementation-plan.md](08-saas-core-implementation-plan.md)
 Next productization plan: [product/v0.2-productization-plan.md](product/v0.2-productization-plan.md)
 Current commercial FSM plan: [product/v0.5-commercial-fsm-execution-plan.md](product/v0.5-commercial-fsm-execution-plan.md)
-Post-v0.5 milestone roadmap: [product/post-v0.5-product-milestone-roadmap.md](product/post-v0.5-product-milestone-roadmap.md)
+Current product roadmap: [product/product-roadmap.md](product/product-roadmap.md)
 Customer-demand benchmark: [research/commercial-fsm-customer-demand-benchmark.md](research/commercial-fsm-customer-demand-benchmark.md)
 Runory 1.0 GA goal: [product/v1.0-ga-release-goal.md](product/v1.0-ga-release-goal.md)
 
@@ -141,7 +141,7 @@ Completion standard: real SMBs can continuously use CRM Lite through Cloud UI an
 - v0.2 productization plan: [product/v0.2-productization-plan.md](product/v0.2-productization-plan.md)
 - v0.5 commercial FSM plan: [product/v0.5-commercial-fsm-execution-plan.md](product/v0.5-commercial-fsm-execution-plan.md)
 - v0.5.1 mobile field-work specification: [product/v0.5.1-mobile-field-work-spec.md](product/v0.5.1-mobile-field-work-spec.md)
-- post-v0.5 milestone roadmap: [product/post-v0.5-product-milestone-roadmap.md](product/post-v0.5-product-milestone-roadmap.md)
+- current product roadmap: [product/product-roadmap.md](product/product-roadmap.md)
 - commercial FSM customer-demand benchmark: [research/commercial-fsm-customer-demand-benchmark.md](research/commercial-fsm-customer-demand-benchmark.md)
 - Runory 1.0 GA 90/10 release contract: [product/v1.0-ga-release-goal.md](product/v1.0-ga-release-goal.md)
 - Historical POC result: [05-cloud-first-poc-progress.md](05-cloud-first-poc-progress.md)

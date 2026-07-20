@@ -44,6 +44,18 @@ async function setupPaymentWorkspace() {
      VALUES (?, 'Payments', ?, ?, ?)`,
     [workspaceId, `payments-${workspaceId}`, timestamp, timestamp],
   );
+  await execute(
+    `INSERT INTO ${TABLES.users}
+     (id, external_id, display_name, status, created_at, updated_at)
+     VALUES (?, ?, 'Finance User', 'active', ?, ?)`,
+    [actor.id, "user-finance", timestamp, timestamp],
+  );
+  await execute(
+    `INSERT INTO ${TABLES.workspaceMemberships}
+     (id, workspace_id, user_id, role, status, created_at, updated_at)
+     VALUES (?, ?, ?, 'admin', 'active', ?, ?)`,
+    [genId("wsmem"), workspaceId, actor.id, timestamp, timestamp],
+  );
   await installModule(workspaceId, "runory.contact");
   await installModule(workspaceId, "runory.payment");
   await execute(

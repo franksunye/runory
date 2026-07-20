@@ -694,7 +694,7 @@ describe("Sales Quote demo journey (end-to-end trial flow)", () => {
     expect(line2.id).toBeDefined();
 
     // 5. Submit for approval (transitions status: draft → in_review)
-    const actor: CommandActor = { type: "user", id: "test-user" };
+    const actor: CommandActor = { type: "system", id: "test-runner" };
     const submitted = await submitForApproval(workspaceId, quote.id, actor, 1);
     expect(submitted.aggregate.status).toBe("in_review");
     expect(submitted.aggregate.grand_total).toBe(28000);

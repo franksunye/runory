@@ -66,7 +66,7 @@ permissionGroups:
       key: dispatcher
       label: "Dispatcher"
       description: "Coordinates field work, assignments, and schedules"
-    permissions: ["work_order.read", "work_order.triage", "work_order.start", "payment.view", "assignment.manage", "schedule.manage", "schedule.conflict.override"]
+    permissions: ["work_order.read", "work_order.triage", "work_order.create", "work_order.start", "payment.view", "assignment.manage", "schedule.manage", "schedule.conflict.override"]
   - key: field_technician
     label: "Field Technician"
     description: "Can execute assigned visits and submit forms"
@@ -74,7 +74,7 @@ permissionGroups:
       key: field_technician
       label: "Field Technician"
       description: "Executes assigned field work and captures service evidence"
-    permissions: ["work_order.read", "visit.execute", "form.submit"]
+    permissions: ["work_order.read", "visit.execute", "forms.submission.edit", "forms.submission.submit"]
   - key: service_supervisor
     label: "Service Supervisor"
     description: "Can complete work orders, review forms, and reopen work"
@@ -82,7 +82,7 @@ permissionGroups:
       key: service_supervisor
       label: "Service Supervisor"
       description: "Supervises service execution, evidence, and completion"
-    permissions: ["work_order.read", "work_order.start", "work_order.complete", "work_order.reopen", "payment.view", "payment.request", "payment.refund", "form.review", "workflow.approval.decide"]
+    permissions: ["work_order.read", "work_order.start", "work_order.complete", "work_order.reopen", "payment.view", "payment.request", "payment.refund", "forms.submission.review", "workflow.approval.decide", "workflow.work_item.act"]
   - key: workspace_administrator
     label: "Workspace Administrator"
     description: "Full access to all FSM operations"

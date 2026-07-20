@@ -8,7 +8,15 @@
 // runtime modules. Service reports are projected from accepted form submissions
 // when a binding's usage_type is 'service_deliverable'.
 
-import { genId, now, queryOne, queryAll, execute, batch } from "./db";
+import {
+  genId,
+  now,
+  queryOne,
+  queryAll,
+  execute,
+  batch,
+  type BatchStatement,
+} from "./db";
 import { TABLES, businessTable } from "./contracts";
 import { BusinessError, NotFoundError, InvalidInputError } from "./context";
 import { ERROR_CODES } from "./errors";
@@ -18,49 +26,6 @@ import {
   type CommandHandlerResult,
   type CommandResult,
 } from "./command-runtime";
-import { registerCommandEffectProvider } from "./command-contracts";
-
-registerCommandEffectProvider({
-  capability: "forms.project_service_report",
-  version: "1.0.0",
-  consistency: "atomic",
-  prepare: async ({ effectInput }) => {
-    const input = effectInput as {
-      enabled?: boolean;
-      submission?: Record<string, unknown>;
-      acceptedBy?: string;
-      targetMapping?: Record<string, unknown> | null;
-      reportId?: string;
-    } | undefined;
-    if (!input?.enabled) return [];
-    if (!input.submission || !input.acceptedBy || !input.reportId) {
-      throw new InvalidInputError("Service report projection input is incomplete");
-    }
-    const report = await buildServiceReportStatement(
-      input.submission,
-      input.acceptedBy,
-      input.targetMapping ?? null,
-      input.reportId,
-    );
-    return [report.statement];
-  },
-});
-
-registerCommandEffectProvider({
-  capability: "workflow.complete_linked_work_item",
-  version: "1.0.0",
-  consistency: "atomic",
-  prepare: async ({ envelope, effectInput }) => {
-    const input = effectInput as { workItemId?: string; occurredAt?: string } | undefined;
-    if (!input?.workItemId) return [];
-    const statement = await buildCompleteWorkItemStatement(
-      envelope.workspaceId,
-      input.workItemId,
-      input.occurredAt ?? envelope.occurredAt,
-    );
-    return statement ? [statement] : [];
-  },
-});
 
 // ── Types ──
 
@@ -630,6 +595,7 @@ export async function submitFormHandler(
                     submitted_at = ?, updated_at = ?
                 WHERE id = ? AND workspace_id = ? AND status = 'draft'`,
           args: [JSON.stringify(params.answers), params.submittedBy, ts, ts, draft.id, workspaceId],
+          expectedRowsAffected: 1,
         },
       ],
       events: [{
@@ -671,17 +637,29 @@ export async function submitFormHandler(
         `Prior submission not found: ${params.supersedesSubmissionId}`
       );
     }
+    await assertSubmissionIsLatest(workspaceId, params.supersedesSubmissionId);
     revisionNumber = prior.revision_number + 1;
   }
 
-  const statements: Array<{ sql: string; args?: unknown[] }> = [
+  const statements: BatchStatement[] = [
     {
-      sql: `INSERT INTO ${TABLES.formSubmissions}
+      sql: params.supersedesSubmissionId
+        ? `INSERT INTO ${TABLES.formSubmissions}
             (id, workspace_id, form_definition_id, form_version_id, binding_id,
              subject_type, subject_id, work_item_id, revision_number, status,
              answers_json, submitted_by, submitted_at, accepted_by, accepted_at,
              return_reason, supersedes_submission_id, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'submitted', ?, ?, ?, NULL, NULL, NULL, ?, ?, ?)`,
+           SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, 'submitted', ?, ?, ?, NULL, NULL, NULL, ?, ?, ?
+           WHERE NOT EXISTS (
+             SELECT 1 FROM ${TABLES.formSubmissions}
+             WHERE workspace_id = ? AND supersedes_submission_id = ? AND status != 'void'
+           )`
+        : `INSERT INTO ${TABLES.formSubmissions}
+            (id, workspace_id, form_definition_id, form_version_id, binding_id,
+             subject_type, subject_id, work_item_id, revision_number, status,
+             answers_json, submitted_by, submitted_at, accepted_by, accepted_at,
+             return_reason, supersedes_submission_id, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'submitted', ?, ?, ?, NULL, NULL, NULL, ?, ?, ?)`,
       args: [
         submissionId,
         workspaceId,
@@ -698,7 +676,11 @@ export async function submitFormHandler(
         params.supersedesSubmissionId ?? null,
         ts,
         ts,
+        ...(params.supersedesSubmissionId
+          ? [workspaceId, params.supersedesSubmissionId]
+          : []),
       ],
+      expectedRowsAffected: params.supersedesSubmissionId ? 1 : undefined,
     },
   ];
 
@@ -740,7 +722,8 @@ export async function submitForm(
   workspaceId: string,
   params: SubmitFormParams,
   commandId?: string,
-  requestId?: string | null
+  requestId?: string | null,
+  actorOverride?: CommandActor,
 ): Promise<SubmitFormAggregate> {
   const result = await executeCommand<SubmitFormAggregate>(
     {
@@ -750,7 +733,7 @@ export async function submitForm(
       aggregateType: "form_submission",
       aggregateId: params.formDefinitionId,
       expectedVersion: null,
-      actor: { type: "user", id: params.submittedBy },
+      actor: actorOverride ?? { type: "user", id: params.submittedBy },
       input: params as unknown as Record<string, unknown>,
       occurredAt: now(),
       requestId: requestId ?? null,
@@ -809,8 +792,8 @@ export async function saveFormDraftHandler(
   // Look for an existing draft for the same form + subject + submitter.
   // Uses NULL-safe `IS` comparison so a NULL subject_type/subject_id matches
   // another NULL (the standard `=` operator would not match NULLs).
-  const existing = await queryOne<Pick<FormSubmissionRow, "id">>(
-    `SELECT id FROM ${TABLES.formSubmissions}
+  const existing = await queryOne<Pick<FormSubmissionRow, "id" | "answers_json">>(
+    `SELECT id, answers_json FROM ${TABLES.formSubmissions}
      WHERE workspace_id = ? AND form_definition_id = ? AND status = 'draft'
        AND submitted_by = ?
        AND subject_type IS ?
@@ -833,8 +816,16 @@ export async function saveFormDraftHandler(
         {
           sql: `UPDATE ${TABLES.formSubmissions}
                 SET answers_json = ?, updated_at = ?
-                WHERE id = ? AND workspace_id = ?`,
-          args: [JSON.stringify(params.answers), ts, existing.id, workspaceId],
+                WHERE id = ? AND workspace_id = ? AND status = 'draft'
+                  AND answers_json = ?`,
+          args: [
+            JSON.stringify(params.answers),
+            ts,
+            existing.id,
+            workspaceId,
+            existing.answers_json,
+          ],
+          expectedRowsAffected: 1,
         },
       ],
       events: [{
@@ -888,7 +879,14 @@ export async function saveFormDraftHandler(
                subject_type, subject_id, work_item_id, revision_number, status,
                answers_json, submitted_by, submitted_at, accepted_by, accepted_at,
                return_reason, supersedes_submission_id, created_at, updated_at)
-              VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, 'draft', ?, ?, NULL, NULL, NULL, NULL, NULL, ?, ?)`,
+              SELECT ?, ?, ?, ?, ?, ?, ?, ?, 1, 'draft', ?, ?, NULL, NULL, NULL, NULL, NULL, ?, ?
+              WHERE NOT EXISTS (
+                SELECT 1 FROM ${TABLES.formSubmissions}
+                WHERE workspace_id = ? AND form_definition_id = ?
+                  AND status = 'draft' AND submitted_by = ?
+                  AND subject_type IS ? AND subject_id IS ?
+                  AND supersedes_submission_id IS NULL
+              )`,
         args: [
           submissionId,
           workspaceId,
@@ -902,7 +900,13 @@ export async function saveFormDraftHandler(
           params.submittedBy,
           ts,
           ts,
+          workspaceId,
+          params.formDefinitionId,
+          params.submittedBy,
+          params.subjectType ?? null,
+          params.subjectId ?? null,
         ],
+        expectedRowsAffected: 1,
       },
     ],
     events: [{
@@ -1081,7 +1085,16 @@ export async function reviseFormSubmissionHandler(
                subject_type, subject_id, work_item_id, revision_number, status,
                answers_json, submitted_by, submitted_at, accepted_by, accepted_at,
                return_reason, supersedes_submission_id, created_at, updated_at)
-              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'draft', ?, ?, NULL, NULL, NULL, ?, ?, ?, ?)`,
+              SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, 'draft', ?, ?, NULL, NULL, NULL, ?, ?, ?, ?
+              WHERE EXISTS (
+                SELECT 1 FROM ${TABLES.formSubmissions}
+                WHERE workspace_id = ? AND id = ? AND status IN ('submitted', 'accepted')
+              )
+                AND NOT EXISTS (
+                  SELECT 1 FROM ${TABLES.formSubmissions}
+                  WHERE workspace_id = ? AND supersedes_submission_id = ?
+                    AND status != 'void'
+                )`,
         args: [
           draftSubmissionId,
           workspaceId,
@@ -1098,7 +1111,12 @@ export async function reviseFormSubmissionHandler(
           submissionId,
           ts,
           ts,
+          workspaceId,
+          submissionId,
+          workspaceId,
+          submissionId,
         ],
+        expectedRowsAffected: 1,
       },
     ],
     events: [{
@@ -1200,13 +1218,14 @@ export async function returnFormSubmissionHandler(
   const newSubmissionId = genId("fsub");
   const newRevisionNumber = submission.revision_number + 1;
 
-  const statements: Array<{ sql: string; args?: unknown[] }> = [
+  const statements: BatchStatement[] = [
     // Mark old submission as returned
     {
       sql: `UPDATE ${TABLES.formSubmissions}
             SET status = 'returned', return_reason = ?, updated_at = ?
-            WHERE id = ? AND workspace_id = ?`,
+            WHERE id = ? AND workspace_id = ? AND status = 'submitted'`,
       args: [returnReason, ts, submissionId, workspaceId],
+      expectedRowsAffected: 1,
     },
     // Create new draft submission carrying the prior answers, linked to the chain
     {
@@ -1271,7 +1290,8 @@ export async function returnFormSubmission(
   returnedBy: string,
   returnReason: string,
   commandId?: string,
-  requestId?: string | null
+  requestId?: string | null,
+  actorOverride?: CommandActor,
 ): Promise<ReturnFormSubmissionAggregate> {
   const result = await executeCommand<ReturnFormSubmissionAggregate>(
     {
@@ -1281,7 +1301,7 @@ export async function returnFormSubmission(
       aggregateType: "form_submission",
       aggregateId: submissionId,
       expectedVersion: null,
-      actor: { type: "user", id: returnedBy },
+      actor: actorOverride ?? { type: "user", id: returnedBy },
       input: { submissionId, returnedBy, returnReason },
       occurredAt: now(),
       requestId: requestId ?? null,
@@ -1363,12 +1383,13 @@ export async function acceptFormSubmissionHandler(
     }
   }
 
-  const statements: Array<{ sql: string; args?: unknown[] }> = [
+  const statements: BatchStatement[] = [
     {
       sql: `UPDATE ${TABLES.formSubmissions}
             SET status = 'accepted', accepted_by = ?, accepted_at = ?, updated_at = ?
-            WHERE id = ? AND workspace_id = ?`,
+            WHERE id = ? AND workspace_id = ? AND status = 'submitted'`,
       args: [acceptedBy, ts, ts, submissionId, workspaceId],
+      expectedRowsAffected: 1,
     },
   ];
 
@@ -1429,7 +1450,8 @@ export async function acceptFormSubmission(
   submissionId: string,
   acceptedBy: string,
   commandId?: string,
-  requestId?: string | null
+  requestId?: string | null,
+  actorOverride?: CommandActor,
 ): Promise<AcceptFormSubmissionAggregate> {
   const result = await executeCommand<AcceptFormSubmissionAggregate>(
     {
@@ -1439,7 +1461,7 @@ export async function acceptFormSubmission(
       aggregateType: "form_submission",
       aggregateId: submissionId,
       expectedVersion: null,
-      actor: { type: "user", id: acceptedBy },
+      actor: actorOverride ?? { type: "user", id: acceptedBy },
       input: { submissionId, acceptedBy },
       occurredAt: now(),
       requestId: requestId ?? null,
@@ -1645,167 +1667,4 @@ export async function listFormBindings(
      ORDER BY created_at DESC`,
     args
   );
-}
-
-// ── Internal: buildCompleteWorkItemStatement ──
-//
-// Build a work item completion statement to advance the workflow. Uses an
-// optimistic version check. Returns null if the work item is not found (it may
-// have been removed). The statement is returned (not executed) so it can be
-// included in the atomic batch written by acceptFormSubmissionHandler.
-
-async function buildCompleteWorkItemStatement(
-  workspaceId: string,
-  workItemId: string,
-  ts: string
-): Promise<{ sql: string; args: unknown[] } | null> {
-  const workItem = await queryOne<{ id: string; version: number; status: string }>(
-    `SELECT id, version, status FROM ${TABLES.workItems}
-     WHERE workspace_id = ? AND id = ?`,
-    [workspaceId, workItemId]
-  );
-  if (!workItem) return null; // work item may have been removed; nothing to advance
-
-  return {
-    sql: `UPDATE ${TABLES.workItems}
-          SET status = 'completed', completed_at = ?, version = version + 1, updated_at = ?
-          WHERE id = ? AND version = ? AND status IN ('ready', 'active')`,
-    args: [ts, ts, workItemId, workItem.version],
-  };
-}
-
-// ── Internal: buildServiceReportStatement ──
-//
-// Build a service_report INSERT statement from an accepted form submission.
-// This is called internally by acceptFormSubmissionHandler when the binding's
-// usage_type is 'service_deliverable'. The statement is returned (not executed)
-// so it can be included in the atomic batch written by executeCommand().
-//
-// Answer-to-field mapping:
-//  - summary:        answers[field_key='summary'] | answers['summary']
-//  - resolution:      answers[field_key='resolution'] | answers['resolution']
-//  - customer_signature: derived from the first signature block's signedBy
-//  - photos:          derived from evidence block attachment ids (joined)
-//  - work_order_id / service_visit_id: from the submission subject
-//
-// Uses businessTable('service_report') directly so the projection does not
-// require the metadata module's field-definition layer to be loaded.
-
-async function buildServiceReportStatement(
-  submission: Record<string, unknown>,
-  acceptedBy: string,
-  targetMapping: Record<string, unknown> | null,
-  reportId: string,
-): Promise<{ statement: { sql: string; args: unknown[] }; reportId: string }> {
-  const ts = now();
-  const workspaceId = submission["workspace_id"] as string;
-
-  // Parse the answers JSON column
-  let answers: Record<string, unknown> = {};
-  const answersJson = submission["answers_json"] as string | undefined;
-  if (answersJson) {
-    try {
-      answers = JSON.parse(answersJson) as Record<string, unknown>;
-    } catch {
-      answers = {};
-    }
-  }
-
-  // Parse the schema to find signature/evidence blocks
-  let schema: FormSchema | null = null;
-  const formVersionId = submission["form_version_id"] as string | undefined;
-  if (formVersionId) {
-    const versionRow = await queryOne<{ schema_json: string }>(
-      `SELECT schema_json FROM ${TABLES.formDefinitionVersions} WHERE id = ?`,
-      [formVersionId]
-    );
-    if (versionRow) {
-      try {
-        schema = JSON.parse(versionRow.schema_json) as FormSchema;
-      } catch {
-        schema = null;
-      }
-    }
-  }
-
-  // Resolve mapped values, honoring target_mapping if provided.
-  const mapField = (key: string): unknown => {
-    if (targetMapping && typeof targetMapping[key] === "string") {
-      return answers[targetMapping[key] as string];
-    }
-    return answers[key];
-  };
-
-  const summary = mapField("summary") ?? mapField("service_summary") ?? "";
-  const resolution = mapField("resolution") ?? "";
-
-  // Derive customer signature from signature blocks
-  let customerSignature: string | null = null;
-  if (schema) {
-    for (const block of schema.blocks) {
-      if (block.block_type === "signature") {
-        const sigAnswers = answers[block.id] as
-          | { signedBy?: string; acknowledged?: boolean }
-          | undefined;
-        if (sigAnswers?.signedBy) {
-          customerSignature = String(sigAnswers.signedBy);
-          break;
-        }
-      }
-    }
-  }
-
-  // Derive photos from evidence block attachments
-  const photoIds: string[] = [];
-  if (schema) {
-    for (const block of schema.blocks) {
-      if (block.block_type === "evidence") {
-        const evidenceAnswers = answers[block.id] as
-          | { attachments?: unknown[] }
-          | undefined;
-        if (evidenceAnswers?.attachments && Array.isArray(evidenceAnswers.attachments)) {
-          photoIds.push(...evidenceAnswers.attachments.map(String));
-        }
-      }
-    }
-  }
-
-  const subjectType = (submission["subject_type"] as string | null) ?? null;
-  const subjectId = (submission["subject_id"] as string | null) ?? null;
-
-  // Determine work_order_id / service_visit_id from the subject
-  let workOrderId: string | null = null;
-  let serviceVisitId: string | null = null;
-  if (subjectType === "work_order") {
-    workOrderId = subjectId;
-  } else if (subjectType === "service_visit") {
-    serviceVisitId = subjectId;
-  } else {
-    // Allow explicit mapping from answers
-    workOrderId = (mapField("work_order_id") as string) ?? null;
-    serviceVisitId = (mapField("service_visit_id") as string) ?? null;
-  }
-
-  const statement = {
-    sql: `INSERT INTO ${businessTable("service_report")}
-          (id, workspace_id, work_order_id, service_visit_id, summary, resolution,
-           customer_signature, photos, created_by, completed_at, created_at, updated_at)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    args: [
-      reportId,
-      workspaceId,
-      workOrderId,
-      serviceVisitId,
-      String(summary),
-      String(resolution),
-      customerSignature,
-      photoIds.length > 0 ? JSON.stringify(photoIds) : null,
-      acceptedBy,
-      ts,
-      ts,
-      ts,
-    ],
-  };
-
-  return { statement, reportId };
 }

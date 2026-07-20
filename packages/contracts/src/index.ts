@@ -262,6 +262,7 @@ export type ModulePresentation = z.infer<typeof modulePresentationSchema>;
 // manifest.
 export const commandConsistencySchema = z.enum(["atomic", "outbox", "projection"]);
 export const commandOperationSchema = z.enum(["create", "transition", "action"]);
+export const commandActorTypeSchema = z.enum(["user", "api_key", "system", "agent"]);
 
 export const aggregateContractSchema = z.object({
   key: z.string().min(1),
@@ -282,6 +283,18 @@ export const commandModuleRequirementSchema = z.object({
   version: z.string().default("*"),
 });
 
+export const commandResultAssertionSchema = z.discriminatedUnion("operator", [
+  z.object({
+    field: z.string().min(1),
+    operator: z.literal("equals"),
+    value: z.union([z.string(), z.number(), z.boolean()]),
+  }),
+  z.object({
+    field: z.string().min(1),
+    operator: z.literal("not_null"),
+  }),
+]);
+
 export const commandContractSchema = z.object({
   key: z.string().min(1),
   contractVersion: z.string().min(1),
@@ -298,12 +311,15 @@ export const commandContractSchema = z.object({
     ]),
   }).optional(),
   permission: z.string().min(1),
+  allowedActorTypes: z.array(commandActorTypeSchema).min(1)
+    .default(["user", "api_key"]),
   idempotent: z.boolean().default(true),
   requiresExpectedVersion: z.boolean().default(true),
   requiresModules: z.array(commandModuleRequirementSchema).default([]),
   requiredEffects: z.array(commandEffectRequirementSchema).default([]),
   emits: z.array(z.string().min(1)).min(1),
   auditRequired: z.boolean().default(true),
+  resultAssertions: z.array(commandResultAssertionSchema).default([]),
   postconditions: z.array(z.string().min(1)).min(1),
 }).superRefine((command, context) => {
   if (command.operation === "transition" && !command.transition) {

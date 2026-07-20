@@ -93,13 +93,65 @@ export async function execute(sql: string, args: unknown[] = []): Promise<void> 
   await query(sql, args);
 }
 
+export interface BatchStatement {
+  sql: string;
+  args?: unknown[];
+  /**
+   * Optimistic write guard. When present, the whole transaction rolls back if
+   * this statement did not affect exactly the expected number of rows.
+   */
+  expectedRowsAffected?: number;
+}
+
+export class BatchRowsAffectedError extends Error {
+  constructor(
+    public readonly statementIndex: number,
+    public readonly expected: number,
+    public readonly actual: number,
+  ) {
+    super(
+      `Atomic batch statement ${statementIndex} affected ${actual} row(s); expected ${expected}`,
+    );
+    this.name = "BatchRowsAffectedError";
+  }
+}
+
 /**
  * Run multiple statements in a transaction.
  * Note: @libsql/client supports batch with "write" mode for atomicity.
  */
-export async function batch(statements: Array<{ sql: string; args?: unknown[] }>): Promise<void> {
+export async function batch(statements: BatchStatement[]): Promise<void> {
   if (statements.length === 0) return;
   await ensureSchema();
+  if (statements.some((statement) => statement.expectedRowsAffected !== undefined)) {
+    const transaction = await db.transaction("write");
+    try {
+      for (let index = 0; index < statements.length; index++) {
+        const statement = statements[index];
+        const result = await transaction.execute({
+          sql: statement.sql,
+          args: (statement.args ?? []) as never,
+        });
+        if (
+          statement.expectedRowsAffected !== undefined
+          && result.rowsAffected !== statement.expectedRowsAffected
+        ) {
+          throw new BatchRowsAffectedError(
+            index,
+            statement.expectedRowsAffected,
+            result.rowsAffected,
+          );
+        }
+      }
+      await transaction.commit();
+    } catch (error) {
+      await transaction.rollback();
+      throw error;
+    } finally {
+      transaction.close();
+    }
+    return;
+  }
   await db.batch(
     statements.map((s) => ({ sql: s.sql, args: (s.args ?? []) as never })),
     "write"

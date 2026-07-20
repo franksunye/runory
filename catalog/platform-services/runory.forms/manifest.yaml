@@ -26,6 +26,7 @@ domain:
       contractVersion: 1.0.0
       aggregate: form_submission
       operation: action
+      allowedActorTypes: [user, api_key, system]
       permission: forms.submission.submit
       requiresExpectedVersion: false
       emits: [form_submission.submitted]
@@ -36,6 +37,7 @@ domain:
       contractVersion: 1.0.0
       aggregate: form_submission
       operation: action
+      allowedActorTypes: [user, api_key, system]
       permission: forms.submission.edit
       requiresExpectedVersion: false
       emits: [form_submission.draft_saved]
@@ -46,6 +48,7 @@ domain:
       contractVersion: 1.0.0
       aggregate: form_submission
       operation: action
+      allowedActorTypes: [user, api_key, system]
       permission: forms.submission.edit
       requiresExpectedVersion: false
       emits: [form_submission.revision_opened]
@@ -59,6 +62,7 @@ domain:
       transition:
         from: [submitted]
         to: returned
+      allowedActorTypes: [user, api_key, system]
       permission: forms.submission.review
       requiresExpectedVersion: false
       emits: [form_submission.returned]
@@ -72,6 +76,7 @@ domain:
       transition:
         from: [submitted]
         to: accepted
+      allowedActorTypes: [user, api_key, system]
       permission: forms.submission.review
       requiresExpectedVersion: false
       requiredEffects:

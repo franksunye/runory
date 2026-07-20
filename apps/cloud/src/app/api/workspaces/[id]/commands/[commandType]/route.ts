@@ -57,39 +57,9 @@ import { successResponse, handleError, getOrCreateRequestId } from "@/lib/http";
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 
-const COMMAND_PERMISSIONS: Record<string, string> = {
-  "quote.submit_for_approval": "quote.submit",
-  "quote.approve": "quote.approve",
-  "quote.reject": "quote.reject",
-  "quote.return_for_changes": "quote.approve",
-  "quote.withdraw": "quote.submit",
-  "quote.mark_sent": "quote.submit",
-  "quote.accept": "quote.accept",
-  "quote.mark_declined": "quote.submit",
-  "quote.expire": "quote.submit",
-  "quote.recalculate": "quote.submit",
-  "quote.create_revision": "quote.submit",
-  "quote.convert_to_work_order": "quote.convert",
-  "quote.create_draft": "quote.create",
-
-  // Work Order FSM commands
-  "work_order.triage": "work_order.triage",
-  "work_order.create_visit": "work_order.triage",
-  "work_order.start": "work_order.start",
-  "work_order.block": "work_order.triage",
-  "work_order.unblock": "work_order.triage",
-  "work_order.complete": "work_order.complete",
-  "work_order.cancel": "work_order.triage",
-  "work_order.reopen": "work_order.reopen",
-
-  // Service Visit FSM commands
-  "visit.start_travel": "visit.execute",
-  "visit.arrive": "visit.execute",
-  "visit.submit_work": "visit.execute",
-  "visit.complete": "visit.execute",
-  "visit.cancel": "visit.execute",
-
-  // Assignment commands (§6.2)
+// These commands have not moved onto the Contract Runtime yet. Governed
+// commands derive authorization from their persisted Workspace Contract.
+const LEGACY_COMMAND_PERMISSIONS: Record<string, string> = {
   "assignment.propose": "assignment.manage",
   "assignment.assign": "assignment.manage",
   "assignment.accept": "assignment.respond",
@@ -102,22 +72,8 @@ const COMMAND_PERMISSIONS: Record<string, string> = {
   "schedule.reschedule": "schedule.manage",
   "schedule.cancel": "schedule.manage",
 
-  // Form submission commands (§6.2)
-  "form_submission.save_draft": "form.submit",
-  "form_submission.submit": "form.submit",
-  "form_submission.revise": "form.submit",
-  "form_submission.return": "form.review",
-  "form_submission.accept": "form.review",
-
-  // Workflow / approval commands (§6.3)
-  "approval.decide": "workflow.approval.decide",
   "workflow.start": "workflow.manage",
   "workflow.cancel": "workflow.manage",
-  "work_item.claim": "workflow.approval.decide",
-  "work_item.release": "workflow.approval.decide",
-  "work_item.complete": "workflow.approval.decide",
-  "work_item.return": "workflow.approval.decide",
-  "work_item.cancel": "workflow.approval.decide",
 };
 
 // Commands that create a brand-new aggregate and therefore do NOT require an
@@ -141,7 +97,7 @@ export async function POST(
     const { ctx, workspaceId } = await requireWorkspaceContext(request, id, "member");
 
     // Check business permission
-    const requiredPermission = COMMAND_PERMISSIONS[commandType];
+    const requiredPermission = LEGACY_COMMAND_PERMISSIONS[commandType];
     if (requiredPermission) {
       const { requireBusinessPermission } = await import("@runory/platform-core");
       await requireBusinessPermission(ctx, requiredPermission);

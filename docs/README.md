@@ -8,7 +8,7 @@
 | Topic | `documentation-governance` |
 | Applies to | `v0.5+` |
 | Owner | Product / Engineering |
-| Last reviewed | 2026-07-16 |
+| Last reviewed | 2026-07-20 |
 | Supersedes | Earlier directory-based navigation |
 | Superseded by | — |
 
@@ -21,7 +21,7 @@ Runory documentation is organized by topic authority and lifecycle rather than b
 | Understand Runory | [Product Definition](product/product-definition.md) | [Concepts](concepts.md), [Architecture Overview](architecture/overview.md) |
 | Start using Runory | [Getting Started](getting-started.md) | [Workspace Guide](workspace-guide.md), [Packs and Modules](packs-and-modules.md) |
 | Understand the platform | [Architecture Overview](architecture/overview.md) | [Module Architecture](architecture/module-architecture.md), [Repository Structure](architecture/repository-structure.md) |
-| Build or extend Runory | [SDK / Module Development](sdk-module-development.md) | [Module SDK](sdk/module-sdk.md), [Workspace Extension Architecture](architecture/workspace-extension-architecture.md) |
+| Build or extend Runory | [Workspace Customization Boundaries](architecture/workspace-customization-boundaries.md) | [SDK / Module Development](sdk-module-development.md), [Add a Governed Command](sdk/governed-command-development.md), [Workspace Extension Architecture](architecture/workspace-extension-architecture.md) |
 | Operate Runory | [Operations Runbooks](operations/runbooks.md) | [Backup / Restore Runbook](operations/backup-restore-runbook.md), [Troubleshooting](troubleshooting.md) |
 | Review releases | [Release Notes](release-notes.md) | [Release evidence](releases/) |
 | Add or change documentation | [Documentation Governance](document-governance.md) | Run `pnpm docs:check` |
@@ -34,6 +34,7 @@ Runory documentation is organized by topic authority and lifecycle rather than b
 
 - [Product Definition](product/product-definition.md) — canonical product boundary and positioning.
 - [Product Roadmap](product/product-roadmap.md) — active FSM-first milestone sequence through v4.0.
+- [v0.6 Foundation Architecture Stabilization Plan](architecture/v0.6-foundation-architecture-stabilization-plan.md) — active foundation consolidation that opens v0.6.
 - [v1.0 GA Release Goal](product/v1.0-ga-release-goal.md) — proposed GA target.
 - [Live Product Experience Plan](product/live-product-experience-plan.md) — proposed website, interactive demo, and public sandbox initiative.
 - [Voice Intake Product Definition](product/voice-intake-product-definition.md) — proposed phone-to-work-order product boundary.
@@ -74,7 +75,9 @@ Versioned iteration plans provide implementation history but do not override the
 **Authority:** [Architecture Overview](architecture/overview.md)
 
 - [Architecture Overview](architecture/overview.md) — canonical platform overview.
+- [v0.6 Foundation Architecture Stabilization Plan](architecture/v0.6-foundation-architecture-stabilization-plan.md) — active cross-cutting architecture review and refactoring plan.
 - [Module Architecture](architecture/module-architecture.md) — module boundaries and composition.
+- [Workspace Customization Boundaries](architecture/workspace-customization-boundaries.md) — canonical Metadata, Workflow, and governed Extension decision guide.
 - [Workspace Extension Architecture](architecture/workspace-extension-architecture.md) — governed workspace customization.
 - [Thin FSM and Agent Runtime Architecture](architecture/thin-fsm-agent-runtime.md) — proposed event-driven Agent Task and Runner operating model.
 - [Agent Operations](agent-operations.md) — plan, preview, apply, audit, and rollback.
@@ -94,6 +97,7 @@ Versioned iteration plans provide implementation history but do not override the
 **Authority:** [Contract-driven Command Architecture](architecture/contract-driven-command-architecture.md)
 
 - [Contract-driven Command Architecture](architecture/contract-driven-command-architecture.md) — canonical command and mutation architecture.
+- [v0.6 Command Architecture Stabilization TODO](architecture/v0.6-command-architecture-stabilization-todo.md) — active Command-kernel workstream within v0.6.0.
 - [Command Runtime Performance Baseline](architecture/command-runtime-performance-baseline.md) — performance risks, measurement scenarios, and optimization order.
 - [Workspace Extension Architecture](architecture/workspace-extension-architecture.md) — governed customization boundary.
 - [Thin FSM and Agent Runtime Architecture](architecture/thin-fsm-agent-runtime.md) — Agent Tasks must execute through the same governed Command boundary.
@@ -119,6 +123,7 @@ New command, workflow, form, or customization documents must state whether they 
 - [Packs and Modules](packs-and-modules.md) — canonical user-facing model.
 - [Concepts](concepts.md) — SaaS Core, Module, Pack, Template, Extension, Agent Operation, and Catalog definitions.
 - [SDK / Module Development](sdk-module-development.md) — active authoring guide.
+- [Add a Governed Command](sdk/governed-command-development.md) — tested Manifest template, generated Contract checks, and Provider boundary guide.
 - [Module SDK](sdk/module-sdk.md) — SDK specification.
 - [FSM Pack Plan](product/fsm-pack-plan.md) — domain Pack example.
 

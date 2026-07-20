@@ -14,6 +14,7 @@
     "test": "vitest run",
     "db:status": "node scripts/db-status.mjs",
     "db:reset": "node scripts/db-reset.mjs",
+    "contracts:repair": "tsx scripts/repair-command-contracts.mjs",
     "avatars:generate": "node scripts/generate-demo-avatars.mjs",
     "bootstrap:demo": "node scripts/bootstrap-demo.mjs"
   },
@@ -40,6 +41,7 @@
     "@types/react": "^19.1.0",
     "@types/react-dom": "^19.1.0",
     "tailwindcss": "^4.1.11",
+    "tsx": "^4.22.4",
     "typescript": "^5.9.3",
     "vitest": "^3.2.4"
   }

@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { requireBusinessPermission, reviseFormSubmission } from "@runory/platform-core";
+import { reviseFormSubmission } from "@runory/platform-core";
 import { requireWorkspaceContext } from "@/lib/auth";
 import { successResponse, handleError, getOrCreateRequestId } from "@/lib/http";
 
@@ -14,7 +14,6 @@ export async function POST(
   try {
     const { id, submissionId } = await params;
     const { ctx, workspaceId } = await requireWorkspaceContext(request, id, "member");
-    await requireBusinessPermission(ctx, "form.submit");
     const body = (await request.json()) as { reason?: string };
     const actorId = ctx.principal?.userId ?? "unknown";
     const result = await reviseFormSubmission(

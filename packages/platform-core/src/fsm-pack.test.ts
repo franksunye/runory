@@ -691,7 +691,7 @@ describe("FSM demo journey (end-to-end trial flow)", () => {
     expect(tech).toBeDefined();
 
     // 4b. Triage the work order (new → triaged) via FSM command
-    const actor = { type: "user" as const, id: "test-user" };
+    const actor = { type: "system" as const, id: "test-runner" };
     const triageResult = await triageWorkOrder(workspaceId, wo.id, actor, 1, {
       priority: "urgent",
     });
@@ -747,7 +747,7 @@ describe("FSM demo journey (end-to-end trial flow)", () => {
         "sig-customer": { acknowledged: true, signedBy: "Building Manager" },
       },
       submittedBy: actor.id,
-    });
+    }, undefined, undefined, actor);
     await completeVisit(workspaceId, visit!.id, actor, 3);
 
     // Verify visit is completed

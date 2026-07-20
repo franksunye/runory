@@ -79,8 +79,8 @@ import {
 } from "./workflow";
 import { getCommandHistory, type CommandActor } from "./command-runtime";
 import {
+  getWorkspaceCommandContractInventory,
   prepareCommandContractEffects,
-  resolveRegisteredCommandPlan,
   resolveWorkspaceCommandPlan,
 } from "./command-contracts";
 import { requireBusinessPermission } from "./authorization";
@@ -90,6 +90,7 @@ import {
   getPackPermissionGroups,
   assignPackPermissionGroup,
 } from "./permission-groups";
+import { createAutomation, runAutomation } from "./automation";
 
 // Ensure the data directory exists for SQLite
 const dataDir = join(process.cwd(), "data");
@@ -124,30 +125,68 @@ async function createTestWorkspace(name = "v0.5 Test WS"): Promise<string> {
 }
 
 async function setupPermissionGroups(wsId: string): Promise<void> {
-  await syncPackPermissionGroups(wsId, "sales-quote-pack", [
+  const identities = [
     {
-      key: "sales_manager",
-      label: "Sales Manager",
-      description: "Sales managers who can approve quotes",
-      permissions: [
-        "quote.read",
-        "quote.approve",
-        "quote.reject",
-        "quote.return_for_changes",
-      ],
+      externalId: "persona:sales-rep",
+      displayName: "Test Sales Representative",
+      packId: "sales-quote-pack",
+      groupKey: "sales_representative",
     },
-  ]);
-
-  const groups = await getPackPermissionGroups(wsId, "sales-quote-pack");
-  const managerGroup = groups.find((g) => g.groupKey === "sales_manager");
-  if (managerGroup) {
-    await assignPackPermissionGroup(
-      wsId,
-      managerGroup.id,
-      "user_sales_manager",
-      "system",
+    {
+      externalId: "persona:sales-manager",
+      displayName: "Test Sales Manager",
+      packId: "sales-quote-pack",
+      groupKey: "sales_manager",
+    },
+    {
+      externalId: "persona:dispatcher",
+      displayName: "Test Dispatcher",
+      packId: "fsm-pack",
+      groupKey: "dispatcher",
+    },
+  ];
+  for (const identity of identities) {
+    const ts = now();
+    const existing = await queryOne<{ id: string }>(
+      `SELECT id FROM ${TABLES.users} WHERE external_id = ?`,
+      [identity.externalId],
     );
+    const userId = existing?.id ?? genId("usr");
+    if (!existing) {
+      await execute(
+        `INSERT INTO ${TABLES.users}
+         (id, external_id, display_name, status, created_at, updated_at)
+         VALUES (?, ?, ?, 'active', ?, ?)`,
+        [userId, identity.externalId, identity.displayName, ts, ts],
+      );
+    }
+    const membership = await queryOne<{ id: string }>(
+      `SELECT id FROM ${TABLES.workspaceMemberships}
+       WHERE workspace_id = ? AND user_id = ?`,
+      [wsId, userId],
+    );
+    if (!membership) {
+      await execute(
+        `INSERT INTO ${TABLES.workspaceMemberships}
+         (id, workspace_id, user_id, role, status, created_at, updated_at)
+         VALUES (?, ?, ?, 'member', 'active', ?, ?)`,
+        [genId("wsmem"), wsId, userId, ts, ts],
+      );
+    }
+    const groups = await getPackPermissionGroups(wsId, identity.packId);
+    const group = groups.find((candidate) => candidate.groupKey === identity.groupKey);
+    expect(group).toBeDefined();
+    await assignPackPermissionGroup(wsId, group!.id, userId, "system");
   }
+}
+
+async function resolveActor(externalId: string): Promise<CommandActor> {
+  const user = await queryOne<{ id: string }>(
+    `SELECT id FROM ${TABLES.users} WHERE external_id = ?`,
+    [externalId],
+  );
+  expect(user).toBeDefined();
+  return { type: "user", id: user!.id };
 }
 
 // ════════════════════════════════════════════════════════════════════
@@ -157,11 +196,11 @@ async function setupPermissionGroups(wsId: string): Promise<void> {
 describe("v0.5 Commercial FSM Journey", () => {
   let workspaceId: string;
 
-  const salesRep: CommandActor = { type: "user", id: "user_sales_rep" };
-  const salesManager: CommandActor = { type: "user", id: "user_sales_manager" };
-  const dispatcher: CommandActor = { type: "user", id: "user_dispatcher" };
-  const technician: CommandActor = { type: "user", id: "user_technician" };
-  const supervisor: CommandActor = { type: "user", id: "user_supervisor" };
+  let salesRep: CommandActor;
+  let salesManager: CommandActor;
+  let dispatcher: CommandActor;
+  let technician: CommandActor;
+  let supervisor: CommandActor;
 
   let companyId: string;
   let contactId: string;
@@ -184,6 +223,11 @@ describe("v0.5 Commercial FSM Journey", () => {
     await installPack(workspaceId, "sales-quote-pack");
     await installPack(workspaceId, "fsm-pack", { includeDemoData: true });
     await setupPermissionGroups(workspaceId);
+    salesRep = await resolveActor("persona:sales-rep");
+    salesManager = await resolveActor("persona:sales-manager");
+    dispatcher = await resolveActor("persona:dispatcher");
+    technician = await resolveActor("persona:technician");
+    supervisor = await resolveActor("persona:supervisor");
     const dispatchableTechnician = await queryOne<{ id: string; resource_id: string }>(
       `SELECT id, resource_id FROM ${businessTable("technician")}
        WHERE workspace_id = ? AND resource_id IS NOT NULL
@@ -249,6 +293,30 @@ describe("v0.5 Commercial FSM Journey", () => {
       .toHaveLength(3);
     expect((await resolveWorkspaceCommandPlan(workspaceId, "quote.approve"))?.effects)
       .toHaveLength(0);
+
+    const inventory = await getWorkspaceCommandContractInventory(workspaceId);
+    expect(inventory).toHaveLength(44);
+    expect(inventory.find((entry) => entry.commandKey === "visit.complete")).toMatchObject({
+      sourceKind: "module",
+      sourceId: "runory.service-visit",
+      sourceVersion: "1.1.0",
+      contractVersion: "1.0.0",
+      aggregate: "service_visit",
+      providers: [{
+        capability: "scheduling.complete_reservation",
+        requiredVersion: "^1.0.0",
+        resolvedVersion: "1.0.0",
+        consistency: "atomic",
+      }],
+    });
+    expect(inventory.find((entry) => entry.commandKey === "form_submission.accept"))
+      .toMatchObject({
+        sourceKind: "platform_service",
+        sourceId: "runory.forms",
+        sourceVersion: "1.0.0",
+        contractVersion: "1.0.0",
+        aggregate: "form_submission",
+      });
   });
 
   // ── Test 1: Create customer, contact, quote, and quote lines ──
@@ -448,7 +516,7 @@ describe("v0.5 Commercial FSM Journey", () => {
     const result = await acceptQuote(
       workspaceId,
       quoteId,
-      salesRep,
+      salesManager,
       quoteVersion,
     );
     quoteVersion = result.newVersion;
@@ -461,7 +529,7 @@ describe("v0.5 Commercial FSM Journey", () => {
     const result = await convertToWorkOrder(
       workspaceId,
       quoteId,
-      salesRep,
+      salesManager,
       quoteVersion,
     );
     quoteVersion = result.newVersion;
@@ -803,6 +871,28 @@ describe("v0.5 Commercial FSM Journey", () => {
     expect(commandTypes).toContain("quote.accept");
     expect(commandTypes).toContain("quote.convert_to_work_order");
 
+    const recalculation = history.find((entry) => entry.commandType === "quote.recalculate");
+    expect(recalculation).toMatchObject({
+      contractSourceKind: "module",
+      contractSourceId: "runory.quote",
+      contractSourceVersion: "1.1.0",
+      contractVersion: "1.0.0",
+      providerVersions: [{
+        capability: "quote.persist_calculation",
+        requiredVersion: "^1.0.0",
+        resolvedVersion: "1.0.0",
+        consistency: "atomic",
+      }],
+    });
+    const approval = history.find((entry) => entry.commandType === "quote.approve");
+    expect(approval).toMatchObject({
+      contractSourceKind: "module",
+      contractSourceId: "runory.quote",
+      contractSourceVersion: "1.1.0",
+      contractVersion: "1.0.0",
+      providerVersions: [],
+    });
+
     // Verify workflow events
     const wfEvents = await getWorkflowHistory(
       workspaceId,
@@ -825,9 +915,9 @@ describe("v0.5 Commercial FSM Journey", () => {
 describe("v0.5 Contract and Concurrency", () => {
   let workspaceId: string;
 
-  const salesRep: CommandActor = { type: "user", id: "user_sales_rep" };
-  const salesManager: CommandActor = { type: "user", id: "user_sales_manager" };
-  const dispatcher: CommandActor = { type: "user", id: "user_dispatcher" };
+  let salesRep: CommandActor;
+  let salesManager: CommandActor;
+  let dispatcher: CommandActor;
 
   beforeAll(async () => {
     await resetDatabase();
@@ -835,6 +925,9 @@ describe("v0.5 Contract and Concurrency", () => {
     await installPack(workspaceId, "sales-quote-pack");
     await installPack(workspaceId, "fsm-pack");
     await setupPermissionGroups(workspaceId);
+    salesRep = await resolveActor("persona:sales-rep");
+    salesManager = await resolveActor("persona:sales-manager");
+    dispatcher = await resolveActor("persona:dispatcher");
   });
 
   // ── Test 1: Rejects self-approval ──
@@ -862,14 +955,14 @@ describe("v0.5 Contract and Concurrency", () => {
           {
             id: "approval",
             kind: "approval",
-            assigneeRule: { userId: salesRep.id },
+            assigneeRule: { userId: salesManager.id },
             policy: { allowSelfApproval: false },
             next: "end",
           },
           { id: "end", kind: "end" },
         ],
       },
-      salesRep.id,
+      salesManager.id,
     );
 
     // Start workflow instance
@@ -878,7 +971,7 @@ describe("v0.5 Contract and Concurrency", () => {
       "self-approval-test-wf",
       "quote",
       qId,
-      salesRep,
+      salesManager,
     );
     expect(instanceId).toBeDefined();
 
@@ -895,7 +988,7 @@ describe("v0.5 Contract and Concurrency", () => {
       approvalDecide(
         workspaceId,
         workItem!.id,
-        salesRep,
+        salesManager,
         "approved",
         null,
         workItem!.version,
@@ -981,13 +1074,13 @@ describe("v0.5 Contract and Concurrency", () => {
     await submitForApproval(workspaceId, qId, salesRep, 1);
     await approveQuote(workspaceId, qId, salesManager, 2);
     await markSent(workspaceId, qId, salesRep, 3);
-    await acceptQuote(workspaceId, qId, salesRep, 4);
+    await acceptQuote(workspaceId, qId, salesManager, 4);
 
     // Convert to work order with explicit commandId
     const result1 = await convertToWorkOrder(
       workspaceId,
       qId,
-      salesRep,
+      salesManager,
       5,
       "cmd-idem-001",
     );
@@ -997,7 +1090,7 @@ describe("v0.5 Contract and Concurrency", () => {
     const result2 = await convertToWorkOrder(
       workspaceId,
       qId,
-      salesRep,
+      salesManager,
       5,
       "cmd-idem-001",
     );
@@ -1109,6 +1202,86 @@ describe("v0.5 Contract and Concurrency", () => {
     await expect(
       updateRecord(workspaceId, "quote", qId, { status: "approved" }),
     ).rejects.toThrow(/GOVERNED_FIELD_REQUIRES_COMMAND/);
+    expect((await queryOne<{ status: string }>(
+      `SELECT status FROM ${businessTable("quote")} WHERE workspace_id = ? AND id = ?`,
+      [workspaceId, qId],
+    ))?.status).toBe("draft");
+  });
+
+  it("prevents Automation set_field from bypassing a governed transition", async () => {
+    const quote = await createRecord(workspaceId, "quote", {
+      quote_number: "Q-AUTO-GOV-001",
+      title: "Automation governed transition test",
+      status: "draft",
+      version: 1,
+      currency: "USD",
+    });
+    await createAutomation(workspaceId, {
+      id: "attempt-governed-quote-update",
+      name: "Attempt governed quote update",
+      trigger: { type: "manual" },
+      conditions: [],
+      actions: [{
+        type: "set_field",
+        targetObject: "quote",
+        fields: { status: "approved" },
+      }],
+      enabled: true,
+    }, "system");
+
+    const run = await runAutomation(
+      workspaceId,
+      "attempt-governed-quote-update",
+      "manual",
+      { record: quote },
+    );
+
+    expect(run.status).toBe("failed");
+    expect(run.errorMessage).toMatch(/GOVERNED_FIELD_REQUIRES_COMMAND/);
+    expect((await queryOne<{ status: string }>(
+      `SELECT status FROM ${businessTable("quote")} WHERE workspace_id = ? AND id = ?`,
+      [workspaceId, quote.id],
+    ))?.status).toBe("draft");
+  });
+
+  it("prevents Workflow definitions from applying a governed transition directly", async () => {
+    const quote = await createRecord(workspaceId, "quote", {
+      quote_number: "Q-WF-GOV-001",
+      title: "Workflow governed transition test",
+      status: "draft",
+      version: 1,
+      currency: "USD",
+    });
+    await publishWorkflowDefinition(workspaceId, {
+      workflowKey: "attempt-direct-quote-approval",
+      name: "Attempt direct quote approval",
+      targetObject: "quote",
+      initialState: "draft",
+      steps: [
+        { id: "start", kind: "start", next: "approve" },
+        {
+          id: "approve",
+          kind: "system_command",
+          command: "quote.approve",
+          next: "end",
+        },
+        { id: "end", kind: "end" },
+      ],
+    }, "system");
+
+    await startWorkflow(
+      workspaceId,
+      "attempt-direct-quote-approval",
+      "quote",
+      quote.id,
+      { type: "system", id: "workflow-test" },
+    );
+
+    expect((await queryOne<{ status: string }>(
+      `SELECT status FROM ${businessTable("quote")} WHERE workspace_id = ? AND id = ?`,
+      [workspaceId, quote.id],
+    ))?.status).toBe("draft");
+    expect(await getCommandHistory(workspaceId, "quote", quote.id)).toEqual([]);
   });
 
   // ── Test 7: Schedule conflict detection ──
@@ -1139,7 +1312,7 @@ describe("v0.5 Contract and Concurrency", () => {
   });
 
   it("fails a contracted Visit completion plan when its required Schedule is missing", async () => {
-    const plan = resolveRegisteredCommandPlan("visit.complete")!;
+    const plan = await resolveWorkspaceCommandPlan(workspaceId, "visit.complete");
 
     await expect(prepareCommandContractEffects(plan, {
       commandId: "cmd-missing-schedule",

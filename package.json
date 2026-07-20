@@ -12,6 +12,8 @@
     "test": "pnpm --recursive test",
     "reset": "node scripts/dev-reset.mjs",
     "validate:v05": "node scripts/validate-v05-closure.mjs",
+    "validate:v06:architecture": "pnpm --filter @runory/platform-core exec vitest run src/architecture-inventory.test.ts src/command-contracts.test.ts src/command-contract-authorization.test.ts src/form-submission-concurrency.test.ts src/command-contract-upgrade.test.ts src/command-contract-repair.test.ts src/command-contract-bulk-repair.test.ts src/command-contract-removal-analysis.test.ts src/command-contract-boundaries.test.ts src/architecture-tests.test.ts src/v05-journey.test.ts --no-file-parallelism",
+    "validate:command-contracts": "pnpm --filter @runory/platform-core exec vitest run src/catalog-control-plane.test.ts src/architecture-inventory.test.ts src/command-contracts.test.ts src/command-contract-boundaries.test.ts --no-file-parallelism",
     "docs:check": "node scripts/check-doc-governance.mjs",
     "test:voice-intake:http": "node --env-file=apps/cloud/.env.local scripts/smoke-retell.mjs",
     "mcp": "pnpm --filter @runory/mcp start"

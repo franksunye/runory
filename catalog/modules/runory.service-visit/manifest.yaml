@@ -131,6 +131,7 @@ domain:
       transition:
         from: [scheduled]
         to: en_route
+      allowedActorTypes: [user, api_key, system]
       permission: visit.execute
       idempotent: true
       requiresExpectedVersion: true
@@ -151,6 +152,7 @@ domain:
       transition:
         from: [en_route]
         to: on_site
+      allowedActorTypes: [user, api_key, system]
       permission: visit.execute
       idempotent: true
       requiresExpectedVersion: true
@@ -165,6 +167,7 @@ domain:
       transition:
         from: [on_site]
         to: on_site
+      allowedActorTypes: [user, api_key, system]
       permission: visit.execute
       idempotent: true
       requiresExpectedVersion: true
@@ -179,6 +182,7 @@ domain:
       transition:
         from: [on_site]
         to: completed
+      allowedActorTypes: [user, api_key, system]
       permission: visit.execute
       idempotent: true
       requiresExpectedVersion: true
@@ -190,9 +194,10 @@ domain:
           cardinality: one
       emits: [visit.completed]
       auditRequired: true
+      resultAssertions:
+        - { field: actual_end, operator: not_null }
       postconditions:
         - service_visit.status == completed
-        - service_visit.actual_end != null
         - visit_execution.status == completed
         - linked_schedule.status == completed
     - key: visit.cancel
@@ -201,6 +206,7 @@ domain:
       transition:
         from: [unplanned, scheduled, en_route, on_site]
         to: cancelled
+      allowedActorTypes: [user, api_key, system]
       permission: visit.execute
       idempotent: true
       requiresExpectedVersion: true

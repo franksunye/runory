@@ -55,7 +55,6 @@ export async function POST(
   try {
     const { id } = await params;
     const { ctx, workspaceId } = await requireWorkspaceContext(request, id, "member");
-    await requireBusinessPermission(ctx, "payment.request");
     const body = await request.json() as {
       sourceObjectType: PaymentSourceType;
       sourceObjectId: string;

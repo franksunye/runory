@@ -4,6 +4,11 @@ The Runory SDK lets you author typed module/pack/template manifests, validate th
 
 For a deeper SDK reference, see [docs/sdk/module-sdk.md](./sdk/module-sdk.md). For the pack/module model, see [Packs and Modules](./packs-and-modules.md). For connecting Agents to operate a workspace, see [MCP / Skill Usage](./mcp-skill-usage.md).
 
+For lifecycle or invariant-changing mutations, follow
+[Add a Governed Command](./sdk/governed-command-development.md), which includes
+the tested Manifest template, generated Contract checks, and the
+aggregate-versus-Provider decision rule.
+
 ## Where the SDK lives
 
 | Package | Path | Purpose |

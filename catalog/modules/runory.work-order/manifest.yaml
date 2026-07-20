@@ -198,6 +198,7 @@ domain:
       contractVersion: "1.0.0"
       aggregate: work_order
       transition: { from: [new], to: triaged }
+      allowedActorTypes: [user, api_key, system]
       permission: work_order.triage
       idempotent: true
       requiresExpectedVersion: true
@@ -211,6 +212,7 @@ domain:
       transition:
         from: [triaged, planned, in_progress]
         to: [planned, in_progress]
+      allowedActorTypes: [user, api_key, system]
       permission: work_order.create
       idempotent: true
       requiresExpectedVersion: true
@@ -231,6 +233,7 @@ domain:
       contractVersion: "1.0.0"
       aggregate: work_order
       transition: { from: [new, triaged, planned, in_progress, reopened], to: blocked }
+      allowedActorTypes: [user, api_key, system]
       permission: work_order.triage
       idempotent: true
       requiresExpectedVersion: true
@@ -244,6 +247,7 @@ domain:
       transition:
         from: [blocked]
         to: [new, triaged, planned, in_progress, reopened]
+      allowedActorTypes: [user, api_key, system]
       permission: work_order.triage
       idempotent: true
       requiresExpectedVersion: true
@@ -255,6 +259,7 @@ domain:
       contractVersion: "1.0.0"
       aggregate: work_order
       transition: { from: [planned, reopened], to: in_progress }
+      allowedActorTypes: [user, api_key, system]
       permission: work_order.start
       idempotent: true
       requiresExpectedVersion: true
@@ -268,6 +273,7 @@ domain:
       transition:
         from: [in_progress]
         to: completed
+      allowedActorTypes: [user, api_key, system]
       permission: work_order.complete
       idempotent: true
       requiresExpectedVersion: true
@@ -279,14 +285,16 @@ domain:
           cardinality: zero_or_more
       emits: [work_order.completed]
       auditRequired: true
+      resultAssertions:
+        - { field: completed_at, operator: not_null }
       postconditions:
         - work_order.status == completed
-        - work_order.completed_at != null
         - subject_schedule.status == completed
     - key: work_order.cancel
       contractVersion: "1.0.0"
       aggregate: work_order
       transition: { from: [new, triaged, planned, in_progress, blocked, reopened], to: cancelled }
+      allowedActorTypes: [user, api_key, system]
       permission: work_order.triage
       idempotent: true
       requiresExpectedVersion: true
@@ -305,6 +313,7 @@ domain:
       contractVersion: "1.0.0"
       aggregate: work_order
       transition: { from: [completed, cancelled], to: reopened }
+      allowedActorTypes: [user, api_key, system]
       permission: work_order.reopen
       idempotent: true
       requiresExpectedVersion: true

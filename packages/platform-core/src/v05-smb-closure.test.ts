@@ -13,6 +13,7 @@ import { db, execute, genId, now, queryOne } from "./db";
 import { runMigrations } from "./migrations";
 import { TABLES, businessTable } from "./contracts";
 import { installPack } from "./installer";
+import { repairWorkspaceCommandContracts } from "./command-contract-repair";
 import { createRecord, _clearSoftDeleteColumnCache } from "./metadata";
 import {
   triageWorkOrder,
@@ -63,7 +64,33 @@ async function createTestWorkspace(): Promise<string> {
     `INSERT INTO ${TABLES.workspaces} (id, name, slug, created_at, updated_at) VALUES (?, ?, ?, ?, ?)`,
     [wsId, "v0.5 SMB Closure WS", `v05-smb-${wsId}`, ts, ts],
   );
+  // This fixture inserts directly instead of using the Workspace provisioning
+  // service, so explicitly provision the Platform Service Contract snapshots.
+  await repairWorkspaceCommandContracts(wsId);
+  for (const userId of ["owner", "technician", "reviewer"]) {
+    await execute(
+      `INSERT INTO ${TABLES.users}
+       (id, external_id, display_name, status, created_at, updated_at)
+       VALUES (?, ?, ?, 'active', ?, ?)`,
+      [userId, `${userId}-${wsId}`, userId, ts, ts],
+    );
+    await execute(
+      `INSERT INTO ${TABLES.workspaceMemberships}
+       (id, workspace_id, user_id, role, status, created_at, updated_at)
+       VALUES (?, ?, ?, 'admin', 'active', ?, ?)`,
+      [genId("wsmem"), wsId, userId, ts, ts],
+    );
+  }
   return wsId;
+}
+
+async function resolveActor(externalId: string): Promise<CommandActor> {
+  const user = await queryOne<{ id: string }>(
+    `SELECT id FROM ${TABLES.users} WHERE external_id = ?`,
+    [externalId],
+  );
+  expect(user).toBeDefined();
+  return { type: "user", id: user!.id };
 }
 
 async function countWorkflowInstances(workspaceId: string): Promise<number> {
@@ -89,9 +116,9 @@ describe("v0.5 SMB dependency closure", () => {
 
     expect(await countWorkflowInstances(workspaceId)).toBe(0);
 
-    const actor: CommandActor = { type: "user", id: "user_dispatcher" };
-    const technicianActor: CommandActor = { type: "user", id: "user_technician" };
-    const supervisorActor: CommandActor = { type: "user", id: "user_supervisor" };
+    const actor = await resolveActor("persona:dispatcher");
+    const technicianActor = await resolveActor("persona:technician");
+    const supervisorActor = await resolveActor("persona:supervisor");
     const ownerActor: CommandActor = { type: "user", id: "owner-e2e" };
     const ownerUserId = genId("usr");
     const ts = now();
