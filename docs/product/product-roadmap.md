@@ -19,6 +19,13 @@ Runory remains focused on Field Service Management through v1.0. The goal is not
 
 Agent-native customization and deployment remain a core differentiator, but they support the FSM product rather than expand the business scope beyond FSM.
 
+Through v1.0, Runory supports one commercial operating model:
+Reactive Repair / Callout. The complete reference journey is request/Voice,
+triage, Quote/authorization, Work Order, dispatch, Visit, field evidence,
+completion, Invoice/payment, and aftercare. Recurring Service and
+Project/Installation are separate product shapes and are excluded from the 1.0
+scope.
+
 ```text
 v0.5  Freeze the implemented end-to-end FSM transaction baseline, including Voice Intake and Payment
 v0.6  Stabilize the shared foundation, then operate an FSM business continuously
@@ -44,7 +51,10 @@ Each pre-1.0 milestone has one primary product question. Items not required to a
 | v0.9 | Can the same product be delivered repeatedly without customer-specific Core forks? |
 | v1.0 | Can Runory be sold, implemented, supported, upgraded, and operated as a complete FSM product? |
 
-Scope enters v1.0 only when it is required by recurring customer evidence, prevents a destructive future rearchitecture, or is necessary for commercial delivery and product reliability.
+Scope enters v1.0 only when it is required by repeated customer evidence
+inside the canonical Reactive Repair / Callout journey, prevents a destructive
+future rearchitecture, or is necessary for commercial delivery and product
+reliability.
 
 ## 3. v0.5 Family — Commercial FSM Closure
 
@@ -140,17 +150,19 @@ v0.5 freezes after the Voice Intake and Payment foundations. It remains the
 behavioral compatibility baseline for v0.6.0; it does not wait for a separate
 v0.5.6 commercial release gate.
 
-The following closure work moves into v0.6:
+The following evidence moved into v0.6.0 compatibility acceptance:
 
 ```text
 XLink-derived waterproof-repair pilot
-neutral HVAC, plumbing, landscaping, pool, and installation-shaped scenarios
+neutral HVAC, plumbing, waterproofing, and equipment-repair scenarios
 role-separated browser, mobile, voice, and payment acceptance
 concurrency, recovery, isolation, webhook, and performance evidence
 ```
 
-During v0.6.0 these scenarios protect behavior compatibility. During the v0.6
-validation milestone they contribute to real-customer and commercial evidence.
+These scenarios protect behavior compatibility; they do not establish multiple
+commercial operating models for 1.0. Landscaping, pool/route service, and
+project/installation evidence remains market research until a post-1.0 product
+decision admits those shapes.
 
 ## 4. v0.6 Family — Continuous FSM Operations
 
@@ -187,7 +199,7 @@ decision history and transferred as follows:
 | Earlier proposal | Disposition |
 | --- | --- |
 | Lead and Customer Operations | `V06-P01`, v0.7 candidate discussion |
-| Recurring Service Baseline | `V06-P02`, v0.7 candidate discussion |
+| Recurring Service Baseline | `V06-P02`, post-1.0 product discovery |
 | Contract, Invoice, and Receivables | `V06-P03`, v0.7 candidate discussion |
 | Operational Inbox and Reporting | `V06-P04`, cross-cutting v0.7 candidate |
 | Customer Access Baseline | `V06-P05`, reconcile with v0.7.3 |
@@ -215,7 +227,10 @@ framework or expands v0.7 product scope by itself.
 Discussion source:
 [v0.7 Planning Brief](./v0.7-planning-brief.md).
 
-### Committed product themes
+### Candidate closure themes
+
+Every theme below is admitted only to close the canonical Reactive Repair /
+Callout journey. It must not grow into a second commercial operating model.
 
 #### v0.7.0 — Advanced Scheduling and Resource Management
 
@@ -228,7 +243,7 @@ manual route/day sequencing
 human override with reason and audit
 ```
 
-#### v0.7.1 — Inventory and Materials Baseline
+#### v0.7.1 — Repair Parts and Materials Baseline
 
 ```text
 product, part, material, unit, and specification catalog
@@ -236,7 +251,7 @@ warehouse and vehicle stock locations
 reservation, issue, consumption, return, loss, adjustment, and count
 job-level material cost
 low-stock and replenishment signals
-basic purchase request and receipt flow where customer demand requires it
+basic replenishment signal where reactive-repair evidence requires it
 ```
 
 #### v0.7.2 — Multi-site, Asset, and Service-history Depth
@@ -286,6 +301,8 @@ industry-specific Pack capabilities
 ### Deferred beyond v1.0
 
 ```text
+recurring Service Plans, generated route work, pause/skip/renewal, and recurring billing
+project/installation stage, milestone, commissioning, and progress-billing management
 full native offline-first runtime
 real-time GPS tracking
 algorithmic route optimization
@@ -370,8 +387,8 @@ v0.9 is a validation and convergence release, not a broad feature-expansion rele
 
 ```text
 3–5 real FSM businesses
-at least two FSM industries
-reactive-service, recurring-service, and project/installation archetypes represented
+all operating the canonical reactive-repair/callout shape
+multiple compatible repair/service industries represented where practical
 prioritize customers acquired through Upwork and other direct market channels
 measure implementation time, support load, reliability, adoption, and business outcomes
 ```
@@ -380,9 +397,7 @@ measure implementation time, support load, reliability, adoption, and business o
 
 ```text
 maintained reactive-service reference solution
-maintained recurring-service reference solution
-maintained project/installation reference solution
-all solutions assembled from Core + Modules/Packs + Workspace Extensions
+customer/industry variations assembled from Core + Modules/Packs + Workspace Extensions
 no customer solution may fork Runory Core
 measure standard product coverage and governed extension coverage
 ```
@@ -406,16 +421,15 @@ v1.0 marks the transition from a development-stage product into a complete, stab
 ### 8.1 FSM Product Completeness
 
 ```text
-Lead and customer operations
-Voice Intake
-Quote, Contract, Invoice, Payment, and receivables
-planning, dispatch, field work, and recurring service
-customer access and communication
-advanced scheduling baseline
-inventory/material baseline
-multi-site and asset management
-operational inbox and reporting
-data migration and configurable roles
+request/Voice intake, customer identification, and triage
+Quote/authorization and governed Work Order creation
+planning, dispatch, Visit, mobile field execution, Forms, evidence, and report
+completion, review/rework, cancellation, reopen, and recovery paths
+minimum Invoice, payment allocation, refund, and receivables visibility
+customer document/status access and communication for the same job
+repair-relevant parts, site, asset, history, and scheduling depth
+actionable exception/follow-up inbox and journey reporting
+data migration, configurable roles, and implementation readiness
 ```
 
 ### 8.2 Agent-native Completeness
@@ -456,7 +470,10 @@ performance and infrastructure cost remain within published baselines
 normal operation does not require direct database repair
 ```
 
-GA outcome: Runory is a focused FSM product that can be sold, implemented, customized through Agents, deployed in supported Cloud or Local modes, operated reliably, and upgraded without customer-specific Core forks.
+GA outcome: Runory is a focused Reactive Repair / Callout FSM product that can
+complete one commercial journey end to end, be sold and implemented,
+customized through Agents, deployed in supported Cloud or Local modes, operated
+reliably, and upgraded without customer-specific Core forks.
 
 ## 9. Post-1.0 Direction
 
@@ -465,6 +482,8 @@ Post-1.0 versions are directional themes, not current delivery commitments.
 ### v2.0 — Advanced FSM
 
 ```text
+recurring Route/Maintenance Service product discovery
+project/installation Service product discovery
 full offline-first field runtime
 advanced route optimization and GPS
 advanced inventory and procurement
@@ -501,10 +520,10 @@ progress toward the long-term SMB WordPress vision
 |---|---|
 | v0.5 | Runory has an implemented end-to-end FSM transaction baseline. |
 | v0.6 | Runory has a stabilized foundation and can continuously operate an FSM business. |
-| v0.7 | Runory covers the high-value advanced needs of SME FSM customers. |
+| v0.7 | Runory closes the highest-value gaps in the canonical Reactive Repair / Callout journey. |
 | v0.8 | Runory FSM can be configured, adapted, and deployed through approved Agents. |
-| v0.9 | Runory can be delivered repeatedly to real FSM customers without Core forks. |
-| v1.0 | Runory is a complete, stable, commercially deliverable Agent-native FSM product. |
+| v0.9 | The same Reactive Repair / Callout product can be delivered repeatedly without Core forks. |
+| v1.0 | Runory is a complete, stable, commercially deliverable Agent-native Reactive Repair / Callout product. |
 | v2.0 | Runory adds advanced FSM depth. |
 | v3.0 | Runory adds broader Agentic Operations. |
 | v4.0 | Runory expands toward a general SMB platform and ecosystem. |
@@ -514,7 +533,6 @@ progress toward the long-term SMB WordPress vision
 ```text
 AI and automation call the governed Command catalog
 portal, mobile, voice, payment, Agent, and desktop share object and permission contracts
-recurring work produces the same Work Order and Visit aggregates
 commercial documents retain typed invariants
 Workspace Extensions and FSM Packs configure shared runtimes rather than fork Core
 Cloud and Local implement compatible supported contracts

@@ -25,10 +25,17 @@ This is not a collection of copied feature requests. It converts customer langua
 
 > Real customer work is the north star. Customer feature lists are evidence; product architecture and sequencing remain deliberate Runory decisions.
 
+Product scope decision (2026-07-20): through v1.0, Runory productizes one
+commercial operating model—Reactive Repair / Callout. Recurring Route /
+Maintenance and Project / Installation remain valid demand evidence but do not
+enter the 1.0 product contract. See
+[v0.7 Planning Brief](../product/v0.7-planning-brief.md) and
+[Runory 1.0 GA Goal](../product/v1.0-ga-release-goal.md).
+
 Runory should optimize for:
 
 ```text
-real recurring business jobs
+real repeated business jobs
 safe changes to business truth
 clear ownership and handoffs
 exceptions and reverse operations
@@ -551,7 +558,10 @@ operational analytics and human-confirmed summaries
 migration tooling for common source systems
 ```
 
-Standard: one-off and recurring service operations with customer and commercial follow-through.
+Historical proposal standard: one-off and recurring service operations with
+customer and commercial follow-through. Superseded on 2026-07-20 by the
+single-shape 1.0 decision; only canonical reactive-repair closure enters active
+pre-1.0 planning.
 
 ### Prepare Now, Build Later — v0.7 Family
 
@@ -803,18 +813,19 @@ Every major product milestone must state:
 | 2026-07-15 | replacement-system intent exposes migration, owned-data portability and integration as buying requirements | add migration and export contracts to platform and v0.6 planning |
 | 2026-07-15 | AI demand is repeatedly layered over scheduling, communication, billing and service records | retain AI after governed operational truth; prioritize bounded, auditable actions |
 | 2026-07-20 | v0.6.0 Foundation shipped while the proposed v0.6.1–v0.6.6 product increments remained unstarted | freeze v0.6 at v0.6.0; transfer product proposals to the v0.7 discussion pool, move repeatability validation to v0.9, and retain only evidence-selected scope |
+| 2026-07-20 | recurring service introduces a distinct plan/generation/renewal operating model while the current reactive-repair loop already has end-to-end evidence | keep one Reactive Repair / Callout commercial shape through 1.0; move Recurring Route/Maintenance and Project/Installation productization beyond 1.0 |
 
 ## 18. Current Product Judgment
 
 The current evidence supports Runory's direction:
 
 ```text
-v0.5 is not too narrow; it is the dependency foundation.
-v0.6 turns execution into an ongoing service business.
-v0.7 makes the platform broadly solution-complete for the current profiles.
-v0.8 makes selected industries closer to out-of-box.
-v0.9 validates the 90/10 model with a broader cohort and independent extensions.
-v1.0 turns measured coverage and governed extension into a GA promise.
+v0.5 proves the canonical reactive-repair transaction.
+v0.6 stabilizes its shared Foundation.
+v0.7 closes the weakest commercial and operational links in that same journey.
+v0.8 makes the same product configurable and deployable through approved Agents.
+v0.9 validates repeatable delivery across independent reactive-repair customers.
+v1.0 turns measured single-shape coverage and governed variation into a GA promise.
 ```
 
 The marketplace evidence also supports a near-term commercial thesis:
