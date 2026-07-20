@@ -178,77 +178,42 @@ Release gate: the v0.5 business baseline remains behavior-compatible while the
 shared runtime becomes machine-auditable, safely extensible, upgradeable, and
 operable.
 
-### v0.6.1 — Lead and Customer Operations
+### v0.6 Family Closure
 
-```text
-Lead lifecycle, source, qualification, ownership, follow-up, and conversion
-customer/contact/site/asset unified view
-voice, quote, payment, Work Order, Visit, and communication history
-duplicate Lead/customer detection and merge policy
-follow-up tasks, reminders, queues, and SLA handling
-```
+v0.6 is frozen and released at `v0.6.0`. The previously proposed
+`v0.6.1–v0.6.6` increments were not started or released. They are preserved as
+decision history and transferred as follows:
 
-### v0.6.2 — Recurring Service Baseline
+| Earlier proposal | Disposition |
+| --- | --- |
+| Lead and Customer Operations | `V06-P01`, v0.7 candidate discussion |
+| Recurring Service Baseline | `V06-P02`, v0.7 candidate discussion |
+| Contract, Invoice, and Receivables | `V06-P03`, v0.7 candidate discussion |
+| Operational Inbox and Reporting | `V06-P04`, cross-cutting v0.7 candidate |
+| Customer Access Baseline | `V06-P05`, reconcile with v0.7.3 |
+| Real-customer and Commercial Validation Gate | `V06-P06`, v0.9 repeatability evidence |
 
-```text
-Service Plan and Maintenance Plan definitions
-recurrence rules, exceptions, pause/resume, skip, and termination
-idempotent future Work Order and Visit generation
-asset maintenance history and next-service projection
-recurring pricing and billing references
-```
+Canonical disposition:
+[v0.6 Deferred Work Handoff](../architecture/v0.6-deferred-work-handoff.md).
+The next planning document is
+[v0.7 Planning Brief](./v0.7-planning-brief.md).
 
-### v0.6.3 — Contract, Invoice, and Receivables
-
-```text
-typed Contract and Invoice
-Deposit, progress, final, and recurring invoice schedules
-accounts-receivable status and payment allocation baseline
-document generation, numbering, delivery, and signature tracking
-tax and currency baseline required by target customers
-```
-
-Payment collection already exists in v0.5. v0.6 turns it into a document-driven receivables workflow.
-
-### v0.6.4 — Operational Inbox and Reporting
-
-```text
-actionable queues for overdue work, unqualified Leads, unaccepted Quotes, unpaid documents, and schedule conflicts
-saved operational views and role-specific control panels
-cycle time, overdue, rework, first-pass completion, utilization, and schedule adherence
-Lead conversion, Quote conversion, payment cycle, retention, and renewal metrics
-scheduled internal reports and exports
-```
-
-The priority is an executable management workspace, not a broad BI platform.
-
-### v0.6.5 — Customer Access Baseline
-
-```text
-secure customer access to Quotes, Contracts, Invoices, Payments, Work Orders, Visits, and service reports
-quote acceptance and payment
-service request, booking, rescheduling, and data upload
-appointment and progress visibility
-notification templates, reminders, and delivery log
-```
-
-### v0.6.6 — Real-customer and Commercial Validation Gate
-
-```text
-XLink-derived and neutral cross-industry end-to-end scenarios carried from v0.5
-role-separated browser, mobile, voice, payment, recovery, and isolation evidence
-at least one reactive-service customer
-at least one recurring-service customer
-at least one project/installation customer
-measure implementation time, support load, adoption, and operational value
-prioritize Upwork and other real customer requirements over hypothetical completeness
-```
-
-Release outcome: Runory can continuously operate a real FSM business, not merely complete an isolated job.
+Release outcome: v0.6 provides the accepted, machine-auditable Foundation on
+which the next customer-selected FSM capability can be built. It does not claim
+that every earlier continuous-operations proposal shipped.
 
 ## 5. v0.7 Family — High-value Advanced FSM
 
 v0.7 is not a general enterprise or advanced-technology release. It adds only advanced capabilities that repeatedly appear in SME FSM customer demand and materially affect sales, implementation, or daily operation.
+
+Architecture handoff from v0.6:
+[v0.6 Deferred Work Handoff](../architecture/v0.6-deferred-work-handoff.md).
+Only safe Module-upgrade integration (`V06-D01`) and conditional inventory
+expansion (`V06-D02`) enter v0.7 planning. Neither authorizes a new generic
+framework or expands v0.7 product scope by itself.
+
+Discussion source:
+[v0.7 Planning Brief](./v0.7-planning-brief.md).
 
 ### Committed product themes
 
@@ -301,7 +266,12 @@ mapping, validation, dry run, error handling, and rollback
 flexible user and role configuration
 implementation templates and acceptance scenarios
 operational diagnostics and support tooling
+productized Module upgrade preflight, impact analysis, rollback, and repair evidence
 ```
+
+The Module-upgrade item is the destination for `V06-D01`. Candidate analysis
+must execute against the same real upgrade mutation path; a standalone
+compatibility analyzer is not a v0.7 deliverable.
 
 ### Candidate scope, admitted only by repeated customer evidence
 
@@ -347,6 +317,12 @@ preview, confirm, apply, verify, audit, and rollback changes
 ```
 
 Workspace customization must remain separate from Runory Core and survive upgrades.
+
+This milestone admits the v0.6 `V06-D03`/`V06-D04` handoff only when the first
+approved external Agent is the real consumer. It includes versioned,
+tenant-scoped capability discovery plus the minimum public SDK template and
+generated Contract fixtures required by that scenario; it does not introduce
+an Agent-only Runtime or business mutation path.
 
 ### v0.8.1 — Agent Installs and Adapts an FSM Pack
 

@@ -21,6 +21,7 @@
 
 - [v0.6 Foundation Architecture Stabilization Plan](v0.6-foundation-architecture-stabilization-plan.md) — cross-cutting foundation review, workstreams, sequencing, and release gates.
 - [v0.6 Command Architecture Stabilization TODO](v0.6-command-architecture-stabilization-todo.md) — completed Command, Contract, Provider, provisioning, and customization workstream evidence.
+- [v0.6 Deferred Work Handoff](v0.6-deferred-work-handoff.md) — canonical owner, trigger, destination, and non-goal register for work excluded from v0.6.
 
 ## Performance
 

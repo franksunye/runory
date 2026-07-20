@@ -398,18 +398,18 @@ Presence means the job is materially requested, not that the customer used ident
 | customer/contact CRM | ✓ | ✓ | ✓ | E2; fundamental | v0.5 |
 | scheduling and dispatch | ✓ | ✓ | ✓ | E4 with XLink/vendors | v0.5 |
 | authentication, roles, security and audit | ✓ | ✓ | ✓ | E4 platform trust | v0.4 foundation + v0.5 enforcement |
-| customer communication and automation | ✓ | ✓ | ✓ | E2 | v0.6 outbound; v0.7 two-way/telephony |
-| invoicing and payment state | ✓ | ✓ | ✓ | E2 | v0.6 documents/ledger; v0.7 processing/integration |
-| AI assistance and automation | ✓ | ✓ | ✓ | E2 demand; dependencies immature | v0.6 summaries; v0.7 operational AI |
-| operational reporting | ✓ | ✓ | — | E2 | v0.5 queues/basic; v0.6 analytics |
+| customer communication and automation | ✓ | ✓ | ✓ | E2 | v0.7 candidate; provider depth remains evidence-gated |
+| invoicing and payment state | ✓ | ✓ | ✓ | E2 | v0.7 commercial-completion candidate |
+| AI assistance and automation | ✓ | ✓ | ✓ | E2 demand; dependencies immature | v0.8 governed Agent scenarios |
+| operational reporting | ✓ | ✓ | — | E2 | v0.5 queues/basic; v0.7 workflow-specific candidate |
 | forms, checklists, evidence and signature | — | ✓ | ✓ | E4 with XLink/vendors | v0.5/v0.5.1 |
 | customer and service history | — | ✓ | ✓ | E4 with XLink/vendors | v0.5.1 |
-| customer portal and support access | — | ✓ | ✓ | E2 | v0.6 |
+| customer portal and support access | — | ✓ | ✓ | E2 | v0.7.3 discussion |
 | proposal, quote and acceptance | — | — | ✓ | E4 through XLink/vendors and journey criticality | v0.5 |
 | multiple properties, sites and equipment | — | ✓ | ✓ | E4 with mature FSM | v0.5 |
 | mobile field execution | implied | ✓ | ✓ | E4 with XLink/vendors | v0.5.1 |
-| recurring service | — | ✓ | — | E1 buyer; strong vertical pattern | v0.6 |
-| route sequencing and optimization | — | ✓ | — | E1 buyer; mature FSM pattern | v0.6 manual; v0.7 optimized |
+| recurring service | — | ✓ | — | E1 buyer; strong vertical pattern | v0.7 candidate |
+| route sequencing and optimization | — | ✓ | — | E1 buyer; mature FSM pattern | v0.7 manual assistance candidate; optimization deferred |
 | offline-first field execution | — | ✓ | — | E1 buyer; mature FSM pattern | v0.7 |
 | inventory, purchasing and truck stock | — | ✓ | — | E1 vertical breadth | v0.7 |
 | accounting and payment integrations | — | ✓ | ✓ | E2 | v0.7 |
@@ -533,7 +533,13 @@ permission, idempotency, audit, recovery and performance
 
 Standard: production-shaped end-to-end execution, not installable object coverage.
 
-### Invest Next — v0.6 Family
+### Earlier v0.6 Product Proposal — Transferred to Discussion
+
+v0.6 closed at `v0.6.0` Foundation. The product candidates below were not
+released as `v0.6.1–v0.6.6`; their canonical disposition is maintained in
+[v0.6 Deferred Work Handoff](../architecture/v0.6-deferred-work-handoff.md)
+and they are compared, not automatically committed, in
+[v0.7 Planning Brief](../product/v0.7-planning-brief.md).
 
 ```text
 recurring service plans and generated work
@@ -796,6 +802,7 @@ Every major product milestone must state:
 | 2026-07-15 | commercial briefs consistently request connected operational products rather than isolated coding tasks | reinforce typed CRM + Quote + FSM + billing composition and productized implementation strategy |
 | 2026-07-15 | replacement-system intent exposes migration, owned-data portability and integration as buying requirements | add migration and export contracts to platform and v0.6 planning |
 | 2026-07-15 | AI demand is repeatedly layered over scheduling, communication, billing and service records | retain AI after governed operational truth; prioritize bounded, auditable actions |
+| 2026-07-20 | v0.6.0 Foundation shipped while the proposed v0.6.1–v0.6.6 product increments remained unstarted | freeze v0.6 at v0.6.0; transfer product proposals to the v0.7 discussion pool, move repeatability validation to v0.9, and retain only evidence-selected scope |
 
 ## 18. Current Product Judgment
 
