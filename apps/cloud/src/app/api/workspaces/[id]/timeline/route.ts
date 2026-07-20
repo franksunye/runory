@@ -39,6 +39,7 @@ const VALID_SUBJECT_TYPES = new Set([
   "visit",
   "service_visit",
   "quote",
+  "invoice",
   "deal",
 ]);
 
@@ -241,6 +242,7 @@ function businessTableForSubject(subjectType: string): string | null {
     visit: businessTable("service_visit"),
     service_visit: businessTable("service_visit"),
     quote: businessTable("quote"),
+    invoice: businessTable("invoice"),
     deal: businessTable("deal"),
   };
   return mapping[subjectType] ?? null;

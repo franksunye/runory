@@ -47,7 +47,7 @@ modules:
   - "runory.product-service:^1.0.0"
   - "runory.price-book:^1.0.0"
   - "runory.quote:^1.0.0"
-  - "runory.payment:^0.1.0"
+  - "runory.payment:^0.2.0"
 
 # v0.4 — Pack-aware permission groups.
 # The standalone quote_approval module is retired (v0.5); quote approval is now

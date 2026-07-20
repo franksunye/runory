@@ -67,11 +67,11 @@ beforeEach(async () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Acceptance 1: FSM Pack installs with all 10 modules, including Payment.
+// Acceptance 1: FSM Pack installs with all 11 modules, including Payment and Invoice.
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe("FSM Pack installation", () => {
-  it("installs all 10 modules with correct object definitions and navigation", async () => {
+  it("installs all 11 modules with correct object definitions and navigation", async () => {
     const result = await installPack(workspaceId, "fsm-pack");
 
     expect(result.packId).toBe("fsm-pack");
@@ -81,6 +81,7 @@ describe("FSM Pack installation", () => {
         "runory.contact",
         "runory.task",
         "runory.payment",
+        "runory.invoice",
         "runory.service-site",
         "runory.asset",
         "runory.technician",
@@ -91,9 +92,9 @@ describe("FSM Pack installation", () => {
     );
     expect(result.ddlExecuted).toBe(true);
 
-    // Verify all 10 modules are registered as installations
+    // Verify all 11 modules are registered as installations
     const installations = await getInstallations(workspaceId);
-    expect(installations).toHaveLength(10);
+    expect(installations).toHaveLength(11);
 
     // Verify FSM-owned objects are created
     const fsmObjects = ["service_site", "asset", "technician", "work_order", "service_visit", "service_report"];
@@ -135,7 +136,7 @@ describe("FSM Pack installation", () => {
     const pack = loadPackManifest("fsm-pack");
     const reparsed = packManifestSchema.parse(pack);
     expect(reparsed.id).toBe("fsm-pack");
-    expect(reparsed.modules).toHaveLength(10);
+    expect(reparsed.modules).toHaveLength(11);
     expect(reparsed.dashboard?.defaultLayout).toBeDefined();
     expect(reparsed.terminology).toBeDefined();
   });
@@ -165,12 +166,13 @@ describe("shared module dedupe with CRM Lite Pack", () => {
         "runory.service-visit",
         "runory.service-report",
         "runory.payment",
+        "runory.invoice",
       ].sort()
     );
 
     // Verify no duplicate installations
     const installations = await getInstallations(workspaceId);
-    expect(installations).toHaveLength(11); // 4 CRM + 6 FSM + Payment
+    expect(installations).toHaveLength(12); // 4 CRM + 6 FSM + Payment + Invoice
 
     const moduleCounts = new Map<string, number>();
     for (const inst of installations) {
@@ -198,14 +200,14 @@ describe("shared module dedupe with CRM Lite Pack", () => {
 
   it("installs in reverse order (FSM first, then CRM Lite) without duplicates", async () => {
     const fsmResult = await installPack(workspaceId, "fsm-pack");
-    expect(fsmResult.modulesInstalled).toHaveLength(10);
+    expect(fsmResult.modulesInstalled).toHaveLength(11);
 
     // CRM Lite Pack should skip company/contact/task, install only deal
     const crmResult = await installPack(workspaceId, "crm-lite-pack");
     expect(crmResult.modulesInstalled).toEqual(["runory.deal"]);
 
     const installations = await getInstallations(workspaceId);
-    expect(installations).toHaveLength(11);
+    expect(installations).toHaveLength(12);
   });
 });
 

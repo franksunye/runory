@@ -34,7 +34,8 @@ Runory documentation is organized by topic authority and lifecycle rather than b
 
 - [Product Definition](product/product-definition.md) — canonical product boundary and positioning.
 - [Product Roadmap](product/product-roadmap.md) — active FSM-first milestone sequence through v4.0.
-- [v0.7 Planning Brief](product/v0.7-planning-brief.md) — current discussion frame, inherited v0.6 candidates, and Pareto selection questions.
+- [v0.7 Commercial Completion Execution Plan](product/v0.7-commercial-completion-execution-plan.md) — accepted minimal Invoice/payment-allocation scope and release gates.
+- [v0.7 Planning Brief](product/v0.7-planning-brief.md) — historical discovery frame and Pareto selection questions.
 - [v0.6 Foundation Architecture Stabilization Plan](architecture/v0.6-foundation-architecture-stabilization-plan.md) — active foundation consolidation that opens v0.6.
 - [v1.0 GA Release Goal](product/v1.0-ga-release-goal.md) — proposed GA target.
 - [Live Product Experience Plan](product/live-product-experience-plan.md) — proposed website, interactive demo, and public sandbox initiative.

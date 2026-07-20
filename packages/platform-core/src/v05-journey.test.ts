@@ -91,6 +91,12 @@ import {
   assignPackPermissionGroup,
 } from "./permission-groups";
 import { createAutomation, runAutomation } from "./automation";
+import { issueInvoiceFromWorkOrder } from "./invoice-commands";
+import {
+  applyProviderPaymentEvent,
+  requestPayment,
+  upsertPaymentProviderAccount,
+} from "./payment-commands";
 
 // Ensure the data directory exists for SQLite
 const dataDir = join(process.cwd(), "data");
@@ -286,7 +292,7 @@ describe("v0.5 Commercial FSM Journey", () => {
        WHERE workspace_id = ?`,
       [workspaceId],
     );
-    expect(registered?.count).toBe(44);
+    expect(registered?.count).toBe(46);
     expect((await resolveWorkspaceCommandPlan(workspaceId, "visit.start_travel"))?.effects)
       .toHaveLength(1);
     expect((await resolveWorkspaceCommandPlan(workspaceId, "work_order.cancel"))?.effects)
@@ -295,7 +301,7 @@ describe("v0.5 Commercial FSM Journey", () => {
       .toHaveLength(0);
 
     const inventory = await getWorkspaceCommandContractInventory(workspaceId);
-    expect(inventory).toHaveLength(44);
+    expect(inventory).toHaveLength(46);
     expect(inventory.find((entry) => entry.commandKey === "visit.complete")).toMatchObject({
       sourceKind: "module",
       sourceId: "runory.service-visit",
@@ -856,7 +862,72 @@ describe("v0.5 Commercial FSM Journey", () => {
     expect(completedWorkOrderSchedule?.status).toBe("completed");
   });
 
-  // ── Test 15: Verify command history and workflow events ──
+  // ── Test 15: Issue and collect the final Invoice ──
+  it("closes the completed Work Order through a paid Invoice", async () => {
+    const invoice = await issueInvoiceFromWorkOrder(
+      workspaceId,
+      workOrderId,
+      supervisor,
+      { dueAt: "2026-08-15T00:00:00.000Z" },
+      "v07-journey-invoice",
+    );
+    expect(invoice.aggregate).toMatchObject({
+      status: "issued",
+      quote_id: quoteId,
+      work_order_id: workOrderId,
+      total_minor: 824_000,
+      balance_due_minor: 824_000,
+      currency: "USD",
+    });
+
+    await upsertPaymentProviderAccount({
+      workspaceId,
+      id: "v07-journey-stripe",
+      provider: "stripe",
+      mode: "test",
+      providerAccountRef: "acct_v07_journey",
+    });
+    const paymentRequest = await requestPayment(workspaceId, {
+      sourceObjectType: "invoice",
+      sourceObjectId: invoice.aggregate.id,
+      purpose: "final",
+      amountMinor: 824_000,
+      currency: "USD",
+      providerAccountId: "v07-journey-stripe",
+      description: "Final HVAC repair Invoice",
+      successUrl: "https://runory.example/success",
+      cancelUrl: "https://runory.example/cancel",
+    }, supervisor, "v07-journey-payment-request");
+    await applyProviderPaymentEvent(workspaceId, "v07-journey-stripe", {
+      type: "payment.succeeded",
+      provider: "stripe",
+      providerEventId: "evt_v07_journey_paid",
+      providerAccountId: "acct_v07_journey",
+      providerPaymentId: "pi_v07_journey_paid",
+      paymentRequestRef: paymentRequest.aggregate.id,
+      amountMinor: 824_000,
+      currency: "USD",
+      occurredAt: now(),
+    });
+
+    const paid = await queryOne<{
+      status: string;
+      amount_paid_minor: number;
+      balance_due_minor: number;
+    }>(
+      `SELECT status, amount_paid_minor, balance_due_minor
+       FROM ${businessTable("invoice")}
+       WHERE workspace_id = ? AND id = ?`,
+      [workspaceId, invoice.aggregate.id],
+    );
+    expect(paid).toEqual({
+      status: "paid",
+      amount_paid_minor: 824_000,
+      balance_due_minor: 0,
+    });
+  });
+
+  // ── Test 16: Verify command history and workflow events ──
   it("verifies command history and workflow events", async () => {
     // Verify command history for the quote aggregate
     const history = await getCommandHistory(workspaceId, "quote", quoteId);

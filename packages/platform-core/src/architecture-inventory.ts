@@ -99,6 +99,8 @@ export const COMMAND_IMPLEMENTATIONS: readonly CommandImplementationDeclaration[
   { key: "payment.request_refund", aggregate: "refund", sourceFile: "payment-commands.ts" },
   { key: "payment.confirm_refund", aggregate: "refund", sourceFile: "payment-commands.ts" },
   { key: "payment.fail_refund", aggregate: "refund", sourceFile: "payment-commands.ts" },
+  { key: "invoice.issue_from_work_order", aggregate: "invoice", sourceFile: "invoice-commands.ts" },
+  { key: "invoice.void", aggregate: "invoice", sourceFile: "invoice-commands.ts" },
   { key: "quote.submit_for_approval", aggregate: "quote", sourceFile: "quote-commands.ts" },
   { key: "quote.approve", aggregate: "quote", sourceFile: "quote-commands.ts" },
   { key: "quote.reject", aggregate: "quote", sourceFile: "quote-commands.ts" },

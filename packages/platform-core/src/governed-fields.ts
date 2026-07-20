@@ -181,3 +181,28 @@ registerAggregateCommands("service_visit", [
   "visit.complete",
   "visit.cancel",
 ]);
+
+registerGovernedFields("invoice", [
+  "invoice_number",
+  "status",
+  "work_order_id",
+  "quote_id",
+  "company_id",
+  "contact_id",
+  "currency",
+  "total_minor",
+  "amount_paid_minor",
+  "balance_due_minor",
+  "issued_at",
+  "due_at",
+  "paid_at",
+  "voided_at",
+  "source_snapshot_hash",
+  "created_by",
+  "aggregate_version",
+]);
+
+registerAggregateCommands("invoice", [
+  "invoice.issue_from_work_order",
+  "invoice.void",
+]);

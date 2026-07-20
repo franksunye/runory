@@ -55,7 +55,8 @@ modules:
   - "runory.work-order:^1.1.0"
   - "runory.service-visit:^1.1.0"
   - "runory.service-report:^1.0.0"
-  - "runory.payment:^0.1.0"
+  - "runory.payment:^0.2.0"
+  - "runory.invoice:^1.0.0"
 
 # v0.4 — Pack-aware permission groups.
 permissionGroups:
@@ -66,7 +67,7 @@ permissionGroups:
       key: dispatcher
       label: "Dispatcher"
       description: "Coordinates field work, assignments, and schedules"
-    permissions: ["work_order.read", "work_order.triage", "work_order.create", "work_order.start", "payment.view", "assignment.manage", "schedule.manage", "schedule.conflict.override"]
+    permissions: ["work_order.read", "work_order.triage", "work_order.create", "work_order.start", "payment.view", "invoice.read", "assignment.manage", "schedule.manage", "schedule.conflict.override"]
   - key: field_technician
     label: "Field Technician"
     description: "Can execute assigned visits and submit forms"
@@ -82,7 +83,7 @@ permissionGroups:
       key: service_supervisor
       label: "Service Supervisor"
       description: "Supervises service execution, evidence, and completion"
-    permissions: ["work_order.read", "work_order.start", "work_order.complete", "work_order.reopen", "payment.view", "payment.request", "payment.refund", "forms.submission.review", "workflow.approval.decide", "workflow.work_item.act"]
+    permissions: ["work_order.read", "work_order.start", "work_order.complete", "work_order.reopen", "payment.view", "payment.request", "payment.refund", "invoice.read", "invoice.issue", "invoice.void", "forms.submission.review", "workflow.approval.decide", "workflow.work_item.act"]
   - key: workspace_administrator
     label: "Workspace Administrator"
     description: "Full access to all FSM operations"
@@ -113,6 +114,7 @@ dashboard:
         - { module: runory.work-order,    widget: schedule_today_count,           instance: default }
         - { module: runory.service-visit, widget: scheduled_visits_today_metric,  instance: default }
         - { module: runory.asset,         widget: active_assets_metric,           instance: default }
+        - { module: runory.invoice,       widget: outstanding_invoices_metric,    instance: default }
 
     - zone: trends
       widgets:
@@ -124,6 +126,7 @@ dashboard:
         - { module: runory.work-order,    widget: schedule_upcoming_list,            instance: default }
         - { module: runory.service-visit, widget: today_schedule_list,               instance: default }
         - { module: runory.service-report, widget: recent_service_reports_list,      instance: default }
+        - { module: runory.invoice,        widget: overdue_invoices_list,             instance: default }
 
     - zone: activity
       widgets:

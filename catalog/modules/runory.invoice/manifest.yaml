@@ -1,0 +1,199 @@
+id: runory.invoice
+name: Invoice Management
+version: 1.0.0
+coreCompatibility: ">=0.6.0"
+
+dependencies:
+  - runory.work-order
+  - runory.payment
+
+objects:
+  - key: invoice
+    label: Invoice
+    fields:
+      - { key: invoice_number, label: Invoice Number, type: text, ownership: module_owned, required: true }
+      - key: status
+        label: Status
+        type: select
+        ownership: module_owned
+        required: true
+        default_value: "issued"
+        validation:
+          options: [issued, partially_paid, paid, void]
+      - { key: work_order_id, label: Work Order, type: text, ownership: module_owned, required: true }
+      - { key: quote_id, label: Quote, type: text, ownership: module_owned }
+      - { key: company_id, label: Company, type: text, ownership: module_owned }
+      - { key: contact_id, label: Contact, type: text, ownership: module_owned }
+      - { key: currency, label: Currency, type: text, ownership: module_owned, required: true }
+      - { key: total_minor, label: Total (Minor Units), type: number, ownership: module_owned, required: true }
+      - { key: amount_paid_minor, label: Paid (Minor Units), type: number, ownership: module_owned, required: true, default_value: "0" }
+      - { key: balance_due_minor, label: Balance Due (Minor Units), type: number, ownership: module_owned, required: true }
+      - { key: issued_at, label: Issued At, type: date, ownership: module_owned, required: true }
+      - { key: due_at, label: Due At, type: date, ownership: module_owned }
+      - { key: paid_at, label: Paid At, type: date, ownership: module_owned }
+      - { key: voided_at, label: Voided At, type: date, ownership: module_owned }
+      - { key: memo, label: Memo, type: text, ownership: module_owned }
+      - { key: source_snapshot_hash, label: Source Snapshot Hash, type: text, ownership: module_owned }
+      - { key: created_by, label: Created By, type: user, ownership: module_owned }
+      - { key: aggregate_version, label: Aggregate Version, type: number, ownership: module_owned, required: true, default_value: "1" }
+
+  - key: invoice_line
+    label: Invoice Line
+    fields:
+      - { key: invoice_id, label: Invoice, type: text, ownership: module_owned, required: true }
+      - { key: description, label: Description, type: text, ownership: module_owned, required: true }
+      - { key: quantity, label: Quantity, type: number, ownership: module_owned, required: true }
+      - { key: unit, label: Unit, type: text, ownership: module_owned }
+      - { key: unit_price_minor, label: Unit Price (Minor Units), type: number, ownership: module_owned, required: true }
+      - { key: line_total_minor, label: Line Total (Minor Units), type: number, ownership: module_owned, required: true }
+      - { key: sort_order, label: Sort Order, type: number, ownership: module_owned }
+
+  - key: invoice_payment_allocation
+    label: Invoice Payment Allocation
+    fields:
+      - { key: invoice_id, label: Invoice, type: text, ownership: module_owned, required: true }
+      - { key: payment_id, label: Payment, type: text, ownership: module_owned, required: true }
+      - { key: amount_minor, label: Allocated (Minor Units), type: number, ownership: module_owned, required: true }
+      - { key: refunded_amount_minor, label: Refunded (Minor Units), type: number, ownership: module_owned, required: true, default_value: "0" }
+      - { key: currency, label: Currency, type: text, ownership: module_owned, required: true }
+      - { key: allocated_at, label: Allocated At, type: date, ownership: module_owned, required: true }
+      - { key: updated_at, label: Updated At, type: date, ownership: module_owned, required: true }
+
+views:
+  - object: invoice
+    key: invoice_list
+    type: list
+    label: Invoices
+    config:
+      columns:
+        - { field: invoice_number, label: Invoice Number }
+        - { field: status, label: Status }
+        - { field: total_minor, label: Total }
+        - { field: amount_paid_minor, label: Paid }
+        - { field: balance_due_minor, label: Balance Due }
+        - { field: currency, label: Currency }
+        - { field: due_at, label: Due At }
+      actions: [view]
+      pageSize: 20
+
+  - object: invoice
+    key: invoice_form
+    type: form
+    label: Invoice
+    config:
+      sections:
+        - title: Invoice
+          fields:
+            - { field: invoice_number }
+            - { field: status }
+            - { field: issued_at }
+            - { field: due_at }
+        - title: Amount
+          fields:
+            - { field: currency }
+            - { field: total_minor }
+            - { field: amount_paid_minor }
+            - { field: balance_due_minor }
+        - title: Source
+          fields:
+            - { field: work_order_id }
+            - { field: quote_id }
+            - { field: company_id }
+            - { field: contact_id }
+        - title: Notes
+          fields:
+            - { field: memo }
+
+domain:
+  aggregates:
+    - { key: invoice, stateField: status, versionField: aggregate_version }
+  capabilities:
+    provides:
+      - { capability: invoice.apply_payment, version: "1.0.0", consistency: atomic }
+      - { capability: invoice.apply_refund, version: "1.0.0", consistency: atomic }
+  commands:
+    - key: invoice.issue_from_work_order
+      contractVersion: "1.0.0"
+      aggregate: invoice
+      operation: create
+      allowedActorTypes: [user, api_key, system, agent]
+      permission: invoice.issue
+      idempotent: true
+      requiresExpectedVersion: false
+      requiredEffects: []
+      emits: [invoice.issued]
+      auditRequired: true
+      resultAssertions:
+        - { field: status, operator: equals, value: issued }
+      postconditions:
+        - A completed Work Order has one immutable issued Invoice snapshot.
+    - key: invoice.void
+      contractVersion: "1.0.0"
+      aggregate: invoice
+      transition: { from: [issued], to: void }
+      allowedActorTypes: [user, api_key, system, agent]
+      permission: invoice.void
+      idempotent: true
+      requiresExpectedVersion: true
+      requiredEffects: []
+      emits: [invoice.voided]
+      auditRequired: true
+      postconditions:
+        - invoice.status == void
+
+permissions:
+  - invoice.read
+  - invoice.issue
+  - invoice.void
+
+relations:
+  - { object: invoice, targetObject: work_order, targetModule: runory.work-order, type: many_to_one, foreignKey: work_order_id, label: Work Order }
+  - { object: invoice, targetObject: quote, targetModule: runory.quote, type: many_to_one, foreignKey: quote_id, label: Quote }
+  - { object: invoice, targetObject: company, targetModule: runory.company, type: many_to_one, foreignKey: company_id, label: Company }
+  - { object: invoice, targetObject: contact, targetModule: runory.contact, type: many_to_one, foreignKey: contact_id, label: Contact }
+  - { object: invoice_line, targetObject: invoice, targetModule: runory.invoice, type: many_to_one, foreignKey: invoice_id, label: Invoice }
+  - { object: invoice_payment_allocation, targetObject: invoice, targetModule: runory.invoice, type: many_to_one, foreignKey: invoice_id, label: Invoice }
+  - { object: invoice_payment_allocation, targetObject: payment, targetModule: runory.payment, type: many_to_one, foreignKey: payment_id, label: Payment }
+
+migrations:
+  install: migrations/install.sql
+  uninstallPolicy: retain_data
+
+presentation:
+  visibility: top_level
+  surface: payments
+  audience: [owner, finance, operations]
+
+ui:
+  navigation:
+    - { label: Invoices, route: /invoices, icon: receipt-text, sortOrder: 64 }
+
+dashboard:
+  widgets:
+    - key: outstanding_invoices_metric
+      type: metric_card
+      label: Outstanding Invoices
+      icon: receipt-text
+      tone: amber
+      data:
+        kind: count
+        object: invoice
+        where: "status IN ('issued', 'partially_paid')"
+      link: /invoices
+    - key: overdue_invoices_list
+      type: list
+      label: Overdue Invoices
+      icon: clock-alert
+      tone: rose
+      data:
+        kind: recent
+        object: invoice
+        where: "status IN ('issued', 'partially_paid') AND due_at < CURRENT_TIMESTAMP"
+        orderBy: "due_at asc"
+        limit: 8
+        columns: [invoice_number, balance_due_minor, currency, due_at]
+      link: /invoices
+
+upgradePolicy:
+  supportsWorkspaceExtensions: false
+  breakingChangePolicy: manual_review

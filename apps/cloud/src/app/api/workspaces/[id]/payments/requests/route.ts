@@ -31,7 +31,7 @@ export async function GET(
     const sourceObjectType = url.searchParams.get("sourceObjectType");
     const sourceObjectId = url.searchParams.get("sourceObjectId");
     if (
-      (sourceObjectType !== "quote" && sourceObjectType !== "work_order")
+      (sourceObjectType !== "quote" && sourceObjectType !== "work_order" && sourceObjectType !== "invoice")
       || !sourceObjectId
     ) {
       throw new Error("PAYMENT_SOURCE_REQUIRED");

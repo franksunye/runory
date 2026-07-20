@@ -102,14 +102,24 @@ export default function ObjectListPage({
 
   const hasPack = installations.length > 0;
   const permissions = new Set(workspaceAccess?.accessSummary?.permissions ?? []);
-  const canCreate = workspaceAccess?.workspaceRole === "admin"
+  const commandOnlyObject = new Set([
+    "invoice",
+    "invoice_line",
+    "invoice_payment_allocation",
+    "payment_request",
+    "payment",
+    "refund",
+    "payment_provider_account",
+    "payment_provider_reference",
+  ]).has(objectKey);
+  const canCreate = !commandOnlyObject && (workspaceAccess?.workspaceRole === "admin"
     || permissions.has("*")
     || (objectKey === "quote" ? permissions.has("quote.create")
       : objectKey === "work_order" ? permissions.has("work_order.triage")
       // Visits are contextual execution records; Plan & dispatch is the sole
       // creation path, so a standalone list never presents a misleading Add.
       : objectKey === "service_visit" ? false
-      : permissions.has(`${objectKey}.create`));
+      : permissions.has(`${objectKey}.create`)));
   const loading = loadingInst || (hasPack && (loadingObj || loadingViews || loadingRecords));
 
   const fields: FieldDefinition[] = objDetail?.fields ?? [];

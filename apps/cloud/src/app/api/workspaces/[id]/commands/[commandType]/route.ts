@@ -50,6 +50,8 @@ import {
   startWorkflow,
   type CommandActor,
   type CommandHandlerResult,
+  issueInvoiceFromWorkOrder,
+  voidInvoice,
 } from "@runory/platform-core";
 import { requireWorkspaceContext } from "@/lib/auth";
 import { successResponse, handleError, getOrCreateRequestId } from "@/lib/http";
@@ -84,6 +86,7 @@ const CREATE_COMMANDS = new Set([
   "form_submission.save_draft",
   "form_submission.submit",
   "quote.create_draft",
+  "invoice.issue_from_work_order",
   "workflow.start",
 ]);
 
@@ -125,6 +128,30 @@ export async function POST(
     let result;
 
     switch (commandType) {
+      case "invoice.issue_from_work_order":
+        result = await issueInvoiceFromWorkOrder(
+          workspaceId,
+          body.workOrderId as string,
+          actor,
+          {
+            totalMinor: body.totalMinor as number | undefined,
+            currency: body.currency as string | undefined,
+            dueAt: body.dueAt as string | undefined,
+            memo: body.memo as string | undefined,
+          },
+          idempotencyKey,
+        );
+        break;
+      case "invoice.void":
+        result = await voidInvoice(
+          workspaceId,
+          body.aggregateId,
+          actor,
+          expectedVersion,
+          body.reason as string | undefined,
+          idempotencyKey,
+        );
+        break;
       case "quote.submit_for_approval":
         result = await submitForApproval(workspaceId, body.aggregateId, actor, expectedVersion, idempotencyKey);
         break;

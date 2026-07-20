@@ -98,6 +98,7 @@ const OBJECT_KEY_LABEL: Record<string, MessageKey> = {
   "customer-success": "workspace.nav.objectCustomerSuccess",
   "support-sla": "workspace.nav.objectSupportSla",
   consent: "workspace.nav.objectConsent",
+  invoice: "workspace.nav.objectInvoice",
 };
 
 function getObjectLabel(objectKey: string, t: (key: MessageKey) => string): string {
@@ -178,9 +179,13 @@ const GOVERNED_FIELD_KEYS: Record<string, string[]> = {
   quote: ["status", "aggregate_version", "subtotal", "discount_total", "tax_total", "grand_total", "approved_at", "accepted_at", "rejected_reason", "withdrawn_at", "snapshot_hash", "locked_at", "root_quote_id", "previous_version_id", "revision_number", "price_book_id", "currency"],
   work_order: ["status", "aggregate_version", "source_type", "source_id", "source_snapshot_hash", "owner_resource_id", "completed_at", "cancelled_at", "reopened_at", "completion_reason", "cancellation_reason", "reopen_reason"],
   service_visit: ["status", "aggregate_version", "assignment_id", "schedule_entry_id", "outcome", "actual_start", "actual_end"],
+  invoice: ["invoice_number", "status", "work_order_id", "quote_id", "company_id", "contact_id", "currency", "total_minor", "amount_paid_minor", "balance_due_minor", "issued_at", "due_at", "paid_at", "voided_at", "source_snapshot_hash", "created_by", "aggregate_version"],
 };
 
 const FINANCIAL_OBJECTS = new Set([
+  "invoice",
+  "invoice_line",
+  "invoice_payment_allocation",
   "payment_request",
   "payment",
   "refund",
@@ -974,6 +979,14 @@ function getBusinessCommandActions(objectKey: string, record: WorkspaceRecord): 
     if (status === "completed" || status === "cancelled") {
       actions.push({ command: "work_order.reopen", label: "Reopen", tone: "secondary", reasonPrompt: "Reason for reopening this work order?" });
     }
+    if (status === "completed" && record.source_type === "quote") {
+      actions.unshift({
+        command: "invoice.issue_from_work_order",
+        label: "Issue invoice",
+        tone: "primary",
+        body: { workOrderId: String(record.id) },
+      });
+    }
     return actions;
   }
 
@@ -995,6 +1008,15 @@ function getBusinessCommandActions(objectKey: string, record: WorkspaceRecord): 
     return actions;
   }
 
+  if (objectKey === "invoice" && status === "issued" && Number(record.amount_paid_minor ?? 0) === 0) {
+    return [{
+      command: "invoice.void",
+      label: "Void invoice",
+      tone: "danger",
+      reasonPrompt: "Reason for voiding this invoice?",
+    }];
+  }
+
   return [];
 }
 
@@ -1009,6 +1031,10 @@ function iconForBusinessCommand(command: string): typeof Play {
     case "work_order.complete":
     case "visit.complete":
       return CheckCircle2;
+    case "invoice.issue_from_work_order":
+      return FileText;
+    case "invoice.void":
+      return Ban;
     case "work_order.block":
       return Ban;
     case "work_order.cancel":
@@ -1051,17 +1077,20 @@ function SourcePaymentPanel({
   record,
 }: {
   workspaceId: string;
-  objectKey: "quote" | "work_order";
+  objectKey: "quote" | "work_order" | "invoice";
   recordId: string;
   record: WorkspaceRecord;
 }) {
   const endpoint = `/api/workspaces/${workspaceId}/payments/requests?sourceObjectType=${objectKey}&sourceObjectId=${encodeURIComponent(recordId)}`;
   const { data: requests = [], mutate } = useSWR<SourcePaymentRequest[]>(endpoint);
   const eligible = (objectKey === "quote" && record.status === "accepted")
-    || (objectKey === "work_order" && record.status === "completed");
+    || (objectKey === "work_order" && record.status === "completed")
+    || (objectKey === "invoice" && ["issued", "partially_paid"].includes(String(record.status)));
   const defaultAmount = objectKey === "quote" && Number(record.grand_total) > 0
     ? Math.round(Number(record.grand_total) * 100)
-    : 0;
+    : objectKey === "invoice"
+      ? Number(record.balance_due_minor ?? 0)
+      : 0;
   const [amountMinor, setAmountMinor] = useState(defaultAmount);
   const [currency, setCurrency] = useState(String(record.currency ?? "USD").toUpperCase());
   const [purpose, setPurpose] = useState<"deposit" | "final" | "general">(
@@ -1084,7 +1113,7 @@ function SourcePaymentPanel({
         purpose,
         amountMinor,
         currency,
-        description: `${objectKey === "quote" ? "Quote" : "Work order"} ${String(record.number ?? record.quote_number ?? record.work_order_number ?? recordId)}`,
+        description: `${objectKey === "quote" ? "Quote" : objectKey === "invoice" ? "Invoice" : "Work order"} ${String(record.number ?? record.quote_number ?? record.work_order_number ?? record.invoice_number ?? recordId)}`,
       }, {
         headers: {
           "Idempotency-Key": `payment.request:${objectKey}:${recordId}:${purpose}:${amountMinor}:${currency}:${crypto.randomUUID()}`,
@@ -1116,7 +1145,7 @@ function SourcePaymentPanel({
         </div>
         {!eligible && (
           <span className="app-badge self-start bg-amber-50 text-amber-700">
-            {objectKey === "quote" ? "Accept quote first" : "Complete work order first"}
+            {objectKey === "quote" ? "Accept quote first" : objectKey === "invoice" ? "Invoice is settled or void" : "Complete work order first"}
           </span>
         )}
       </div>
@@ -1412,7 +1441,11 @@ export default function ObjectDetailPage({
     setRunningCommand(action.command);
     setError(null);
     try {
-      const json = await apiFetch<{ success: boolean; error?: { message: string } }>(
+      const json = await apiFetch<{
+        success: boolean;
+        error?: { message: string };
+        data?: { aggregate?: { id?: string } };
+      }>(
         `/api/workspaces/${workspaceId}/commands/${action.command}`,
         {
           method: "POST",
@@ -1442,6 +1475,10 @@ export default function ObjectDetailPage({
       }
       await mutateRecord();
       notifyWorkspaceDataChanged();
+      if (action.command === "invoice.issue_from_work_order" && json.data?.aggregate?.id) {
+        router.push(`/w/${workspaceId}/invoices/${json.data.aggregate.id}`);
+        return;
+      }
       if (action.command === "work_order.create_visit") {
         setDispatchOpen(false);
         setDispatchNotes("");
@@ -1605,7 +1642,7 @@ export default function ObjectDetailPage({
         />
       ) : (
         <div className="space-y-6">
-          {(objectKey === "quote" || objectKey === "work_order") && (
+          {(objectKey === "quote" || objectKey === "work_order" || objectKey === "invoice") && (
             <SourcePaymentPanel
               workspaceId={workspaceId}
               objectKey={objectKey}

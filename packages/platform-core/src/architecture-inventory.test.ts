@@ -7,8 +7,12 @@ import {
   COMMAND_IMPLEMENTATIONS,
 } from "./architecture-inventory";
 
-const V05_COMMAND_SOURCE_FIXTURE = {
-  "module:runory.payment@0.1.0": [
+const COMMAND_SOURCE_FIXTURE = {
+  "module:runory.invoice@1.0.0": [
+    "invoice.issue_from_work_order",
+    "invoice.void",
+  ],
+  "module:runory.payment@0.2.0": [
     "payment.confirm_provider_result",
     "payment.confirm_refund",
     "payment.expire_request",
@@ -66,28 +70,28 @@ const V05_COMMAND_SOURCE_FIXTURE = {
   ],
 } as const;
 
-describe("v0.6 architecture inventory", () => {
+describe("Command architecture inventory", () => {
   it("proves every callable Command has exactly one provisionable Contract and Provider closure", () => {
     const inventory = assertArchitectureInventory();
 
     expect(inventory.issues).toEqual([]);
     expect(inventory.summary).toMatchObject({
-      commandCount: 44,
-      sourceCount: 6,
-      moduleSourceCount: 4,
+      commandCount: 46,
+      sourceCount: 7,
+      moduleSourceCount: 5,
       platformServiceSourceCount: 2,
-      providerCount: 13,
+      providerCount: 15,
     });
   });
 
-  it("preserves the frozen v0.5 Contract source and version fixture", () => {
+  it("preserves the accepted Contract source and version fixture", () => {
     const inventory = buildArchitectureInventory();
     const actual = Object.fromEntries(inventory.sources.map((source) => [
       `${source.kind}:${source.id}@${source.version}`,
       source.commandKeys,
     ]));
 
-    expect(actual).toEqual(V05_COMMAND_SOURCE_FIXTURE);
+    expect(actual).toEqual(COMMAND_SOURCE_FIXTURE);
   });
 
   it("keeps implementation declarations aligned with literal executeCommand call sites", () => {

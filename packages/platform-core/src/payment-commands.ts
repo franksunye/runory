@@ -14,7 +14,7 @@ import {
 import { ERROR_CODES } from "./errors";
 
 export type PaymentPurpose = "deposit" | "final" | "general";
-export type PaymentSourceType = "quote" | "work_order";
+export type PaymentSourceType = "quote" | "work_order" | "invoice";
 export type PaymentProviderMode = "test" | "live";
 
 export interface PaymentRequestRecord extends Record<string, unknown> {
@@ -233,12 +233,27 @@ async function assertSourceEligible(
   if (!source) throw new NotFoundError(`${sourceType} source record not found.`);
   const allowed = sourceType === "quote"
     ? new Set(["accepted"])
-    : new Set(["completed"]);
+    : sourceType === "work_order"
+      ? new Set(["completed"])
+      : new Set(["issued", "partially_paid"]);
   if (!allowed.has(source.status)) {
     throw paymentError(
       "PAYMENT_SOURCE_INELIGIBLE",
       `${sourceType} must be ${[...allowed].join(" or ")} before payment can be requested.`,
     );
+  }
+  if (sourceType === "invoice") {
+    const invoice = await queryOne<{
+      currency: string;
+      balance_due_minor: number;
+    }>(
+      `SELECT currency, balance_due_minor FROM ${table}
+       WHERE workspace_id = ? AND id = ?`,
+      [workspaceId, sourceId],
+    );
+    if (!invoice || invoice.balance_due_minor <= 0) {
+      throw paymentError("PAYMENT_SOURCE_INELIGIBLE", "Invoice has no outstanding balance.");
+    }
   }
 }
 
@@ -321,6 +336,33 @@ export async function requestPayment(
   const currency = normalizePaymentCurrency(input.currency);
   const expiresAt = assertIsoDate(input.expiresAt);
   await assertSourceEligible(workspaceId, input.sourceObjectType, input.sourceObjectId);
+  if (input.sourceObjectType === "invoice") {
+    const invoice = await queryOne<{ currency: string; balance_due_minor: number }>(
+      `SELECT currency, balance_due_minor FROM ${businessTable("invoice")}
+       WHERE workspace_id = ? AND id = ?`,
+      [workspaceId, input.sourceObjectId],
+    );
+    if (!invoice) throw new NotFoundError("Invoice source record not found.");
+    if (invoice.currency !== currency) {
+      throw paymentError("PAYMENT_CURRENCY_MISMATCH", "Payment currency does not match Invoice currency.");
+    }
+    if (input.amountMinor > invoice.balance_due_minor) {
+      throw paymentError("PAYMENT_AMOUNT_EXCEEDS_BALANCE", "Payment exceeds the Invoice balance.");
+    }
+    const openRequest = await queryOne<{ id: string }>(
+      `SELECT id FROM ${businessTable("payment_request")}
+       WHERE workspace_id = ? AND source_object_type = 'invoice' AND source_object_id = ?
+         AND status = 'open'
+       LIMIT 1`,
+      [workspaceId, input.sourceObjectId],
+    );
+    if (openRequest) {
+      throw paymentError(
+        "PAYMENT_REQUEST_ALREADY_OPEN",
+        "Invoice already has an open payment request. Reuse or expire it before requesting another payment.",
+      );
+    }
+  }
   const providerAccount = await getPaymentProviderAccount(workspaceId, input.providerAccountId);
   if (providerAccount.provider !== "stripe") {
     throw paymentError("PAYMENT_PROVIDER_UNSUPPORTED", "Only Stripe is enabled for the v0.5 payment closure.");
@@ -647,6 +689,15 @@ async function confirmPayment(
       },
       aggregate: succeeded,
       newVersion: succeeded.aggregate_version,
+      effectInputs: {
+        "invoice.apply_payment": {
+          sourceObjectType: request.source_object_type,
+          sourceObjectId: request.source_object_id,
+          paymentId: payment.id,
+          amountMinor: event.amountMinor,
+          currency: request.currency,
+        },
+      },
     };
   });
 }
@@ -971,6 +1022,12 @@ async function confirmRefund(
     throw paymentError("PAYMENT_REFUND_EXCEEDS_BALANCE", "Provider refund exceeds payment balance.");
   }
   const paymentStatus = total === payment.amount_minor ? "refunded" : "partially_refunded";
+  const paymentRequest = await queryOne<PaymentRequestRecord>(
+    `SELECT * FROM ${businessTable("payment_request")}
+     WHERE workspace_id = ? AND id = ?`,
+    [workspaceId, payment.payment_request_id],
+  );
+  if (!paymentRequest) throw new NotFoundError("Payment Request for refund was not found.");
   const completed = {
     ...refund,
     status: "succeeded" as const,
@@ -1031,6 +1088,15 @@ async function confirmRefund(
     },
     aggregate: completed,
     newVersion: completed.aggregate_version,
+    effectInputs: {
+      "invoice.apply_refund": {
+        sourceObjectType: paymentRequest.source_object_type,
+        sourceObjectId: paymentRequest.source_object_id,
+        paymentId: payment.id,
+        amountMinor: refund.amount_minor,
+        currency: payment.currency,
+      },
+    },
   }));
 }
 

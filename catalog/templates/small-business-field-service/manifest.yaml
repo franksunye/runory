@@ -22,6 +22,7 @@ navigation:
   - companies
   - contacts
   - service-reports
+  - invoices
 
 homepage:
   layout: fsm_overview
@@ -48,3 +49,5 @@ compatibleModules:
   - "runory.work-order:^1.0.0"
   - "runory.service-visit:^1.0.0"
   - "runory.service-report:^1.0.0"
+  - "runory.payment:^0.2.0"
+  - "runory.invoice:^1.0.0"

@@ -1,4 +1,4 @@
--- runory.payment v0.1.0 install migration
+-- runory.payment v0.2.0 install migration
 CREATE TABLE IF NOT EXISTS {{BUSINESS_TABLE_PREFIX}}payment_request (
   id TEXT PRIMARY KEY,
   workspace_id TEXT NOT NULL,

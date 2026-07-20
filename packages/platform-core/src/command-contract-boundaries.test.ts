@@ -91,7 +91,7 @@ describe("Command Contract module boundaries", () => {
   it("loads all built-in Providers through one explicit composition root", () => {
     const providerDirectory = resolve(import.meta.dirname, "command-contracts", "providers");
     const compositionRoot = readFileSync(resolve(providerDirectory, "index.ts"), "utf8");
-    const contexts = ["assignment", "forms", "fsm", "quote", "scheduling", "workflow"];
+    const contexts = ["assignment", "forms", "fsm", "invoice", "quote", "scheduling", "workflow"];
 
     for (const context of contexts) {
       expect(compositionRoot).toContain(`import "./${context}"`);
@@ -101,8 +101,8 @@ describe("Command Contract module boundaries", () => {
       const source = readFileSync(resolve(providerDirectory, `${context}.ts`), "utf8");
       return [...source.matchAll(/capability:\s*"([^"]+)"/g)].map((match) => match[1]);
     });
-    expect(registrations).toHaveLength(13);
-    expect(new Set(registrations).size).toBe(13);
+    expect(registrations).toHaveLength(15);
+    expect(new Set(registrations).size).toBe(15);
 
     const formsRuntime = readFileSync(resolve(import.meta.dirname, "forms.ts"), "utf8");
     expect(formsRuntime).not.toContain("registerCommandEffectProvider");
@@ -118,6 +118,7 @@ describe("Command Contract module boundaries", () => {
         "payment_provider_reference",
         "refund",
       ],
+      "invoice-commands.ts": ["invoice", "invoice_line"],
       "forms.ts": [],
       "workflow.ts": [],
     };

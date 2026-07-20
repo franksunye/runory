@@ -28,6 +28,7 @@ export const VALID_TIMELINE_OBJECTS = new Set([
   "service_visit",
   "visit",
   "quote",
+  "invoice",
   "deal",
 ]);
 

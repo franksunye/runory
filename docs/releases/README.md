@@ -6,7 +6,7 @@
 | Topic | `releases` |
 | Applies to | `v0.5+` |
 | Owner | Engineering / Operations |
-| Last reviewed | 2026-07-14 |
+| Last reviewed | 2026-07-20 |
 | Supersedes | — |
 | Superseded by | — |
 
@@ -23,6 +23,10 @@ This directory contains point-in-time acceptance, test, drill, migration, and pe
 - [v0.6.0 Foundation Acceptance Review — 2026-07-20](v0.6.0-foundation-acceptance-review-2026-07-20.md)
 - [v0.6.0 Architecture Inventory Baseline — 2026-07-20](v0.6.0-architecture-inventory-baseline-2026-07-20.md)
 - [v0.6 Deferred Work Handoff](../architecture/v0.6-deferred-work-handoff.md)
+
+## v0.7
+
+- [v0.7.0 Commercial Completion Acceptance — 2026-07-20](v0.7.0-commercial-completion-acceptance-2026-07-20.md)
 
 ## FSM
 

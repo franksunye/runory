@@ -1,6 +1,6 @@
 id: runory.payment
 name: Payment Management
-version: 0.1.0
+version: 0.2.0
 coreCompatibility: ">=0.1.0"
 
 dependencies:
@@ -191,7 +191,12 @@ domain:
       permission: payment.provider_event
       idempotent: true
       requiresExpectedVersion: false
-      requiredEffects: []
+      requiredEffects:
+        - capability: invoice.apply_payment
+          version: "^1.0.0"
+          scope: source_invoice
+          consistency: atomic
+          cardinality: zero_or_one
       emits: [payment.succeeded]
       auditRequired: true
       postconditions: [payment.status == succeeded]
@@ -243,7 +248,12 @@ domain:
       permission: payment.provider_event
       idempotent: true
       requiresExpectedVersion: false
-      requiredEffects: []
+      requiredEffects:
+        - capability: invoice.apply_refund
+          version: "^1.0.0"
+          scope: allocated_invoice
+          consistency: atomic
+          cardinality: zero_or_one
       emits: [payment.refunded]
       auditRequired: true
       postconditions: [refund.status == succeeded]

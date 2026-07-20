@@ -4,6 +4,7 @@
 import "./assignment";
 import "./forms";
 import "./fsm";
+import "./invoice";
 import "./quote";
 import "./scheduling";
 import "./workflow";

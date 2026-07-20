@@ -29,7 +29,7 @@ scope.
 ```text
 v0.5  Freeze the implemented end-to-end FSM transaction baseline, including Voice Intake and Payment
 v0.6  Stabilize the shared foundation, then operate an FSM business continuously
-v0.7  Add the high-value advanced FSM capabilities repeatedly needed by SME customers
+v0.7  Commercially close one completed Reactive Repair job through Invoice and payment
 v0.8  Configure, customize, and deploy Runory FSM through Agents
 v0.9  Validate repeatability across real FSM customers and converge the product
 v1.0  Release a complete, stable, commercially supported Agent-native FSM product
@@ -46,7 +46,7 @@ Each pre-1.0 milestone has one primary product question. Items not required to a
 |---|---|
 | v0.5 | Has Runory implemented one governed end-to-end FSM transaction baseline? |
 | v0.6 | Is the expanded foundation stable enough for a real FSM business to use Runory continuously? |
-| v0.7 | Does Runory cover the advanced capabilities that repeatedly block SME FSM adoption? |
+| v0.7 | Can one completed Reactive Repair job become an issued, paid, and refundable Invoice without leaving Runory? |
 | v0.8 | Can users implement and deploy Runory FSM through approved Agents? |
 | v0.9 | Can the same product be delivered repeatedly without customer-specific Core forks? |
 | v1.0 | Can Runory be sold, implemented, supported, upgraded, and operated as a complete FSM product? |
@@ -200,9 +200,9 @@ decision history and transferred as follows:
 | --- | --- |
 | Lead and Customer Operations | `V06-P01`, v0.7 candidate discussion |
 | Recurring Service Baseline | `V06-P02`, post-1.0 product discovery |
-| Contract, Invoice, and Receivables | `V06-P03`, v0.7 candidate discussion |
-| Operational Inbox and Reporting | `V06-P04`, cross-cutting v0.7 candidate |
-| Customer Access Baseline | `V06-P05`, reconcile with v0.7.3 |
+| Contract, Invoice, and Receivables | Invoice/payment-allocation subset selected for v0.7; Contract and advanced receivables deferred |
+| Operational Inbox and Reporting | Invoice outstanding/overdue visibility selected for v0.7; general inbox/reporting deferred |
+| Customer Access Baseline | Deferred; remains a later v1.0 journey requirement |
 | Real-customer and Commercial Validation Gate | `V06-P06`, v0.9 repeatability evidence |
 
 Canonical disposition:
@@ -214,107 +214,46 @@ Release outcome: v0.6 provides the accepted, machine-auditable Foundation on
 which the next customer-selected FSM capability can be built. It does not claim
 that every earlier continuous-operations proposal shipped.
 
-## 5. v0.7 Family — High-value Advanced FSM
+## 5. v0.7.0 — Commercial Completion
 
-v0.7 is not a general enterprise or advanced-technology release. It adds only advanced capabilities that repeatedly appear in SME FSM customer demand and materially affect sales, implementation, or daily operation.
+Accepted execution plan:
+[v0.7 Commercial Completion](./v0.7-commercial-completion-execution-plan.md).
 
-Architecture handoff from v0.6:
-[v0.6 Deferred Work Handoff](../architecture/v0.6-deferred-work-handoff.md).
-Only safe Module-upgrade integration (`V06-D01`) and conditional inventory
-expansion (`V06-D02`) enter v0.7 planning. Neither authorizes a new generic
-framework or expands v0.7 product scope by itself.
-
-Discussion source:
-[v0.7 Planning Brief](./v0.7-planning-brief.md).
-
-### Candidate closure themes
-
-Every theme below is admitted only to close the canonical Reactive Repair /
-Callout journey. It must not grow into a second commercial operating model.
-
-#### v0.7.0 — Advanced Scheduling and Resource Management
+v0.7 has one bounded outcome:
 
 ```text
-technician skills, territory, availability, capacity, and working-time constraints
-service duration, SLA, priority, and travel-time inputs
-assignment and time-slot recommendations
-batch rescheduling and conflict detection
-manual route/day sequencing
-human override with reason and audit
+accepted Quote
+→ governed Work Order and field execution
+→ completed Work Order
+→ issued Invoice snapshot
+→ hosted payment and provider-confirmed allocation
+→ paid / outstanding / refunded visibility
 ```
 
-#### v0.7.1 — Repair Parts and Materials Baseline
+The release adds the official Invoice Module, Invoice line snapshot, payment
+allocation, refund reversal, governed issue/void actions, Invoice navigation,
+and outstanding/overdue workbench visibility. It extends the existing
+end-to-end acceptance journey through a paid Invoice.
+
+The following earlier v0.7 themes are not release work and return to the
+evidence-selected later pool:
 
 ```text
-product, part, material, unit, and specification catalog
-warehouse and vehicle stock locations
-reservation, issue, consumption, return, loss, adjustment, and count
-job-level material cost
-low-stock and replenishment signals
-basic replenishment signal where reactive-repair evidence requires it
-```
-
-#### v0.7.2 — Multi-site, Asset, and Service-history Depth
-
-```text
-multiple customer locations and asset hierarchies
-asset-specific forms, service history, warranty, and maintenance context
-site access, contact, instruction, and compliance records
-asset and site visibility across Quote, Work Order, Visit, Contract, and Invoice
-```
-
-#### v0.7.3 — Customer Portal and Communication Depth
-
-```text
-customer request and booking management
-status, appointment, document, payment, and service-history visibility
-customer uploads, approvals, surveys, and review requests
-provider-neutral SMS and email notifications
-communication preference and delivery history
-```
-
-#### v0.7.4 — Data Migration, Roles, and Implementation Readiness
-
-```text
-repeatable customer/contact/site/asset/work-history import
-mapping, validation, dry run, error handling, and rollback
-flexible user and role configuration
-implementation templates and acceptance scenarios
-operational diagnostics and support tooling
-productized Module upgrade preflight, impact analysis, rollback, and repair evidence
-```
-
-The Module-upgrade item is the destination for `V06-D01`. Candidate analysis
-must execute against the same real upgrade mutation path; a standalone
-compatibility analyzer is not a v0.7 deliverable.
-
-### Candidate scope, admitted only by repeated customer evidence
-
-```text
-basic accounting connectors
+advanced scheduling and route assistance
+repair inventory and materials
+multi-site and asset-history expansion
+customer portal and general communications
+data migration and role productization
 additional payment or telephony providers
-limited offline capture for specific field scenarios
-basic route assistance
-industry-specific Pack capabilities
 ```
 
-### Deferred beyond v1.0
+Contract, accounting, tax, credit-note, recurring/project billing, public
+customer portal, and Agent-generated official Module/Pack/Template
+productization are explicit non-goals. Agent MPT productization remains the
+recommended v0.8 multiplier.
 
-```text
-recurring Service Plans, generated route work, pause/skip/renewal, and recurring billing
-project/installation stage, milestone, commissioning, and progress-billing management
-full native offline-first runtime
-real-time GPS tracking
-algorithmic route optimization
-predictive maintenance
-complex AI dispatch
-bank feeds and full accounting
-enterprise SAML/SCIM
-large-enterprise segregation and global compliance
-complete procurement and supply-chain management
-```
-
-Release outcome: Runory covers the high-value advanced capabilities repeatedly required by SME FSM customers without expanding into premature enterprise complexity.
+Release outcome: one Reactive Repair / Callout job can reach a governed paid
+Invoice without adding another commercial shape or a general accounting system.
 
 ## 6. v0.8 Family — Agent-native FSM Implementation
 

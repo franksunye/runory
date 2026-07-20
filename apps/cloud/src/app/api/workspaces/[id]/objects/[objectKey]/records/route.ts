@@ -7,6 +7,9 @@ import { enrichUserReferences, listUserReferenceFieldKeys } from "@/lib/identity
 export const dynamic = "force-dynamic";
 
 const COMMAND_ONLY_OBJECTS = new Set([
+  "invoice",
+  "invoice_line",
+  "invoice_payment_allocation",
   "payment_request",
   "payment",
   "refund",
@@ -28,7 +31,9 @@ export async function GET(
   try {
     const { id, objectKey } = await params;
     const { ctx, workspaceId } = await requireWorkspaceContext(request, id);
-    if (COMMAND_ONLY_OBJECTS.has(objectKey)) {
+    if (objectKey.startsWith("invoice")) {
+      await requireBusinessPermission(ctx, "invoice.read");
+    } else if (COMMAND_ONLY_OBJECTS.has(objectKey)) {
       await requireBusinessPermission(ctx, "payment.view");
     }
 
@@ -56,7 +61,7 @@ export async function GET(
       visibilityScope,
     };
 
-    if (COMMAND_ONLY_OBJECTS.has(objectKey)) {
+    if (COMMAND_ONLY_OBJECTS.has(objectKey) && !objectKey.startsWith("invoice")) {
       const records = await listGovernedPaymentRecords(
         workspaceId,
         objectKey as GovernedPaymentObjectKey,
@@ -85,7 +90,7 @@ export async function POST(
     if (COMMAND_ONLY_OBJECTS.has(objectKey)) {
       return errorResponse(
         ERROR_CODES.GOVERNED_FIELD_REQUIRES_COMMAND,
-        `'${objectKey}' is a governed financial object and can only be created through Payment commands.`,
+        `'${objectKey}' is a governed financial object and can only be created through named financial commands.`,
         409,
         ctx.requestId,
       );
