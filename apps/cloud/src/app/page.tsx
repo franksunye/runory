@@ -1,27 +1,10 @@
-"use client";
+import { redirect } from "next/navigation";
 
-import { useEffect, useState } from "react";
-import { MarketingFooter } from "@/components/marketing-footer";
-import { MarketingHeader } from "@/components/marketing-header";
-import { AgentRuntimePositioning } from "@/components/marketing/agent-runtime-positioning";
-import { RunoryHomeV2 } from "@/components/marketing/runory-home-v2";
-import { apiFetch } from "@/lib/api-fetch";
-
-export default function LandingPage() {
-  const [authenticated, setAuthenticated] = useState(false);
-
-  useEffect(() => {
-    apiFetch<{ success: boolean; data?: { authenticated: boolean } }>("/api/auth/me", { cache: "no-store" })
-      .then((result) => setAuthenticated(result.success && result.data?.authenticated === true))
-      .catch(() => setAuthenticated(false));
-  }, []);
-
-  return (
-    <main className="min-h-screen bg-[#fbf8f1] text-neutral-950">
-      <MarketingHeader authenticated={authenticated} />
-      <RunoryHomeV2 />
-      <AgentRuntimePositioning />
-      <MarketingFooter />
-    </main>
-  );
+/**
+ * Root path redirect. Middleware handles locale detection and redirects to
+ * /en or /zh based on the locale cookie / Accept-Language header. This page
+ * is a fallback for cases where middleware doesn't intercept (e.g. dev mode).
+ */
+export default function RootPage() {
+  redirect("/en");
 }

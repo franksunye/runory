@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { Suspense, useEffect, useState, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
@@ -59,6 +59,14 @@ const STAT_CARDS: { key: NumericStatKey; label: MessageKey; icon: LucideIcon }[]
 // ── Main Component ──
 
 export default function AdminPage() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center py-20"><Loader2 size={24} className="animate-spin text-slate-400" /></div>}>
+      <AdminContent />
+    </Suspense>
+  );
+}
+
+function AdminContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { t } = useI18n();

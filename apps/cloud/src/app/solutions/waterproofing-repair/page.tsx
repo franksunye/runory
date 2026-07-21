@@ -1,7 +1,0 @@
-import Link from "next/link";
-import { MarketingFooter } from "@/components/marketing-footer";
-import { MarketingHeader } from "@/components/marketing-header";
-
-export default function WaterproofingRepairPage() {
-  return <main className="min-h-screen bg-[#fbf8f1] text-neutral-950"><MarketingHeader /><section className="mx-auto max-w-7xl px-5 py-20 lg:px-10"><p className="text-sm font-semibold uppercase tracking-[.18em] text-orange-600">WATERPROOFING & REPAIR</p><h1 className="mt-5 max-w-4xl font-serif text-5xl tracking-[-.045em] sm:text-7xl">From repair requests to completed projects.</h1><p className="mt-7 max-w-2xl text-lg leading-8 text-neutral-600">Runory manages the complete customer journey: lead capture, inspection, quotation, scheduling, execution and after-sales.</p></section><section className="bg-neutral-950 py-16 text-white"><div className="mx-auto max-w-7xl px-5 lg:px-10"><div className="grid gap-4 md:grid-cols-3">{["Voice & web intake","Inspection and quotation","Field execution"].map(x=><div className="rounded-2xl border border-white/10 p-6" key={x}>{x}</div>)}</div></div></section><section className="mx-auto flex max-w-7xl items-center justify-between gap-6 px-5 py-16 lg:px-10"><h2 className="font-serif text-4xl">Launch a focused repair workflow.</h2><Link className="rounded-full bg-neutral-950 px-6 py-3 text-white" href="/pilot">Start a Pilot</Link></section><MarketingFooter /></main>;
-}

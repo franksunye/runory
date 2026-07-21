@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
-import { cookies } from "next/headers";
 import "./globals.css";
-import { DEFAULT_LOCALE, LOCALE_COOKIE, normalizeLocale } from "@/i18n/config";
+import { DEFAULT_LOCALE } from "@/i18n/config";
 import { LocaleProvider } from "@/i18n/locale-provider";
 import { SWRProvider } from "@/lib/swr-provider";
 import PersonaSwitcher from "@/components/PersonaSwitcher";
@@ -67,15 +66,16 @@ const structuredData = {
   ],
 };
 
-export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  const cookieStore = await cookies();
-  const locale = normalizeLocale(cookieStore.get(LOCALE_COOKIE)?.value ?? DEFAULT_LOCALE);
-
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  // No cookies() call — this enables static generation for all routes.
+  // The [locale] layout overrides LocaleProvider with the URL-based locale
+  // for marketing pages. App pages (/dashboard, /m, etc.) use this provider
+  // and read the actual locale from the cookie on the client side.
   return (
-    <html lang={locale === "zh" ? "zh-CN" : "en"}>
+    <html lang="en">
       <body>
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }} />
-        <LocaleProvider initialLocale={locale}>
+        <LocaleProvider initialLocale={DEFAULT_LOCALE}>
           <SWRProvider>
             {children}
             <PersonaSwitcher />
