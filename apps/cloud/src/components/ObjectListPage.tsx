@@ -15,6 +15,7 @@ import {
   useWorkspaceChangeEvent,
 } from "@/lib/api-hooks";
 import { useI18n } from "@/i18n/locale-provider";
+import { extractViewActions, filterActionsByPermission } from "@/lib/view-actions";
 
 export interface SortOption {
   value: string;
@@ -124,6 +125,11 @@ export default function ObjectListPage({
 
   const fields: FieldDefinition[] = objDetail?.fields ?? [];
   const viewConfig = views.find((v) => v.viewKey === viewKey)?.config ?? null;
+  const viewActions = filterActionsByPermission(
+    extractViewActions(viewConfig as Record<string, unknown> | null),
+    permissions,
+  );
+  const hasCreateAction = viewActions.some((a) => a.key === "create" && a.kind === "navigate");
 
   // Extension field notice
   const extensionFields = fields.filter((f) => f.ownership === "workspace_extension");
@@ -181,7 +187,7 @@ export default function ObjectListPage({
           <h1 className="mt-2 text-3xl font-bold tracking-[-.025em] text-slate-950">{title}</h1>
           {effectiveSubtitle && <p className="mt-2 text-sm text-slate-500">{effectiveSubtitle}</p>}
         </div>
-        {hasPack && canCreate && (
+        {hasPack && canCreate && hasCreateAction && (
           <div className="flex items-center gap-2 self-start">
             <button
               type="button"
@@ -276,7 +282,7 @@ export default function ObjectListPage({
               <div className="app-card flex flex-col items-center px-6 py-12 text-center">
                 <Inbox size={32} className="text-slate-300" />
                 <p className="mt-3 text-sm text-slate-500">{t("workspace.noRecords", { title })}</p>
-                {canCreate && (
+                {canCreate && hasCreateAction && (
                   <button
                     type="button"
                     onClick={() => router.push(`${basePath}/new`)}

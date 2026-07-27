@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Inbox } from "lucide-react";
 import type { FieldDefinition } from "@runory/platform-core";
+import type { ViewAction } from "@runory/contracts";
 import { useI18n } from "@/i18n/locale-provider";
 import type { MessageKey } from "@/i18n/messages";
 import { objectKeyToRouteSegment } from "@/lib/dynamic-object";
@@ -11,7 +12,8 @@ import UserAvatar from "./UserAvatar";
 
 type RecordData = Record<string, string | number | boolean | null>;
 type ViewConfig = {
-  columns?: Array<{ field: string; label?: string }>;
+  columns?: Array<{ field: string; label?: string; width?: "sm" | "md" | "lg" }>;
+  actions?: ViewAction[];
   sections?: Array<{ title: string; fields: Array<{ field: string; required?: boolean }> }>;
 };
 

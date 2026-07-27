@@ -2,12 +2,15 @@
 
 import { useState } from "react";
 import type { FieldDefinition } from "@runory/platform-core";
+import type { ViewAction } from "@runory/contracts";
 import SchemaField from "./SchemaField";
 import { useI18n } from "@/i18n/locale-provider";
+import { resolveActionLabel, actionToneClass } from "@/lib/view-actions";
 
 type RecordData = Record<string, string | number | boolean | null>;
 type ViewConfig = {
   columns?: Array<{ field: string; label?: string }>;
+  actions?: ViewAction[];
   sections?: Array<{ title: string; fields: Array<{ field: string; required?: boolean }> }>;
 };
 
@@ -26,6 +29,13 @@ interface SchemaFormProps {
   /** Fields supplied by the surrounding record context. They remain part of
    *  submitted data but are not rendered as redundant selectors. */
   hiddenFields?: string[];
+  /** Additional command actions to render alongside submit/cancel.
+   *  These are typically business commands (e.g., submit_for_approval) that
+   *  are not part of the view config but are available for this record. */
+  commandActions?: Array<{
+    action: ViewAction;
+    onExecute: () => void;
+  }>;
 }
 
 interface FormSection {
@@ -44,6 +54,7 @@ export default function SchemaForm({
   workspaceId,
   readOnlyFields = {},
   hiddenFields = [],
+  commandActions = [],
 }: SchemaFormProps) {
   const { t } = useI18n();
   const fieldMap = new Map(fields.map((f) => [f.fieldKey, f]));
@@ -182,7 +193,17 @@ export default function SchemaForm({
           </div>
         </div>
       ))}
-      <div className="flex justify-end gap-3">
+      <div className="flex flex-wrap justify-end gap-3">
+        {commandActions.map(({ action, onExecute }) => (
+          <button
+            key={action.key}
+            type="button"
+            onClick={onExecute}
+            className={actionToneClass(action.tone)}
+          >
+            {resolveActionLabel(action)}
+          </button>
+        ))}
         {onCancel && (
           <button
             type="button"
