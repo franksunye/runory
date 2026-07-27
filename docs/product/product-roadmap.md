@@ -6,12 +6,13 @@
 | Topic | `product` |
 | Applies to | `v0.5–v4.0` |
 | Owner | Product / Engineering |
-| Last reviewed | 2026-07-20 |
+| Last reviewed | 2026-07-27 |
 | Supersedes | Earlier post-v0.5 milestone roadmaps |
 | Superseded by | — |
 
 Demand source of truth: [Commercial FSM Customer Demand Benchmark](../research/commercial-fsm-customer-demand-benchmark.md)  
-GA release contract: [Runory 1.0 — 90% Product Coverage, 10% Governed Extension](./v1.0-ga-release-goal.md)
+GA release contract: [Runory 1.0 — 90% Product Coverage, 10% Governed Extension](./v1.0-ga-release-goal.md)  
+Companion engineering roadmap: [Engineering Benchmark Adoption Roadmap](./engineering-benchmark-adoption-roadmap.md)
 
 ## 1. Roadmap Thesis
 
@@ -55,6 +56,30 @@ Scope enters v1.0 only when it is required by repeated customer evidence
 inside the canonical Reactive Repair / Callout journey, prevents a destructive
 future rearchitecture, or is necessary for commercial delivery and product
 reliability.
+
+### 2.1 Dual-track Release Contract
+
+From v0.6 through v1.0, each version has two binding completion tracks:
+
+```text
+Product Track
+What FSM business capability becomes commercially usable?
+
+Engineering Maturity Track
+What runtime, UX, workflow, platform, and delivery guarantee becomes production-grade?
+```
+
+The Product Track is defined in this roadmap. The Engineering Maturity Track is defined in the [Engineering Benchmark Adoption Roadmap](./engineering-benchmark-adoption-roadmap.md). A version is complete only when both tracks pass their release evidence and acceptance gates.
+
+| Version | Binding engineering gate |
+| --- | --- |
+| v0.6 | Architecture boundaries, Command enforcement, compatibility, observability, and runtime baselines are machine-auditable. |
+| v0.7 | Financial and provider-event execution remains correct under retry, concurrency, replay, partial failure, refund, and reconciliation. |
+| v0.8 | Agent Capability Contracts, Manifests, Object View foundations, Workflow Builder foundations, and controlled change lifecycle are usable platform capabilities. |
+| v0.9 | Packs, migrations, provisioning, upgrades, diagnostics, configuration Diff, and support tooling form repeatable delivery infrastructure. |
+| v1.0 | Reliability, security, upgradeability, operability, UX consistency, and supportability meet the documented GA engineering contract. |
+
+External platform research is an input to these gates, not optional background reading. Patterns from Twenty, NocoBase, Frappe, Windmill, Directus, Odoo, and other approved references must be classified as Adopt, Adapt, Defer, or Reject for the relevant milestone, with explicit acceptance evidence.
 
 ## 3. v0.5 Family — Commercial FSM Closure
 
@@ -176,6 +201,7 @@ Primary sources:
 
 - [v0.6 Foundation Architecture Stabilization Plan](../architecture/v0.6-foundation-architecture-stabilization-plan.md)
 - [v0.6 Command Architecture Stabilization TODO](../architecture/v0.6-command-architecture-stabilization-todo.md)
+- [Engineering Benchmark Adoption Roadmap — v0.6](./engineering-benchmark-adoption-roadmap.md#4-v06--foundation-correctness-and-engineering-baseline)
 
 ```text
 generated inventory and v0.5 compatibility fixtures
@@ -188,7 +214,7 @@ architecture tests, migration evidence, observability, and performance gates
 
 Release gate: the v0.5 business baseline remains behavior-compatible while the
 shared runtime becomes machine-auditable, safely extensible, upgradeable, and
-operable.
+operable. The corresponding v0.6 Engineering Maturity Gate must also pass.
 
 ### v0.6 Family Closure
 
@@ -222,6 +248,9 @@ that every earlier continuous-operations proposal shipped.
 
 Accepted execution plan:
 [v0.7 Commercial Completion](./v0.7-commercial-completion-execution-plan.md).
+
+Engineering gate:
+[Engineering Benchmark Adoption Roadmap — v0.7](./engineering-benchmark-adoption-roadmap.md#5-v07--transactional-integrity-and-financial-reliability).
 
 v0.7 has one bounded outcome:
 
@@ -257,11 +286,16 @@ productization are explicit non-goals. Agent MPT productization remains the
 recommended v0.8 multiplier.
 
 Release outcome: one Reactive Repair / Callout job can reach a governed paid
-Invoice without adding another commercial shape or a general accounting system.
+Invoice without adding another commercial shape or a general accounting system. The v0.7 Engineering Maturity Gate must prove correctness under retry, concurrency, replay, partial failure, refund, and reconciliation.
 
 ## 6. v0.8 Family — Agent-native FSM Implementation
 
 v0.8 proves Runory's central differentiation through three bounded scenarios. It does not require a full marketplace, universal SDK ecosystem, or fully autonomous implementation platform.
+
+Engineering gate:
+[Engineering Benchmark Adoption Roadmap — v0.8](./engineering-benchmark-adoption-roadmap.md#6-v08--agent-platform-product-surface-and-workflow-control).
+
+The v0.8 engineering scope includes the Agent Capability Contract, Manifest and Pack foundations, Object View Framework foundation, and the first credible Workflow Control Surface. These are binding release capabilities, not optional follow-up polish.
 
 ### v0.8.0 — Agent Configures a Cloud Workspace
 
@@ -320,11 +354,14 @@ high-risk confirmation and execution limits
 Agent Run logs, diagnostics, and task-level evaluation
 ```
 
-Release outcome: an authorized user can use an approved Agent to configure Runory Cloud, install and adapt an FSM Pack, and deploy a supported Local edition through governed and observable contracts.
+Release outcome: an authorized user can use an approved Agent to configure Runory Cloud, install and adapt an FSM Pack, and deploy a supported Local edition through governed and observable contracts. Shared Object Views and Workflow Builder acceptance evidence defined in the companion engineering roadmap must also pass.
 
 ## 7. v0.9 Family — Repeatability and Product Convergence
 
 v0.9 is a validation and convergence release, not a broad feature-expansion release.
+
+Engineering gate:
+[Engineering Benchmark Adoption Roadmap — v0.9](./engineering-benchmark-adoption-roadmap.md#7-v09--repeatable-delivery-and-product-convergence).
 
 ### v0.9.0 — Real FSM Customer Cohort
 
@@ -355,11 +392,14 @@ publish compatibility, upgrade, deprecation, and known-boundary policies
 upgrade earlier customer solutions without data or behavior loss
 ```
 
-Release outcome: Runory can be delivered repeatedly to FSM customers without customer-specific Core forks.
+Release outcome: Runory can be delivered repeatedly to FSM customers without customer-specific Core forks. Repeatable provisioning, migration, configuration Diff, compatibility, upgrade, diagnostics, and support-tooling evidence must pass the v0.9 Engineering Maturity Gate.
 
 ## 8. v1.0 — Complete Commercial FSM Milestone
 
 v1.0 marks the transition from a development-stage product into a complete, stable, commercially deliverable Agent-native FSM system.
+
+Engineering gate:
+[Engineering Benchmark Adoption Roadmap — v1.0](./engineering-benchmark-adoption-roadmap.md#8-v10--ga-engineering-and-experience-gate).
 
 ### 8.1 FSM Product Completeness
 
@@ -413,6 +453,8 @@ performance and infrastructure cost remain within published baselines
 normal operation does not require direct database repair
 ```
 
+The GA gate also requires the v1.0 engineering and experience contract to pass across reliability, security, upgradeability, operability, UX consistency, supportability, and benchmark review.
+
 GA outcome: Runory is a focused Reactive Repair / Callout FSM product that can
 complete one commercial journey end to end, be sold and implemented,
 customized through Agents, deployed in supported Cloud or Local modes, operated
@@ -459,17 +501,17 @@ progress toward the long-term SMB WordPress vision
 
 ## 10. Version Milestone Summary
 
-| Version | Product conclusion |
-|---|---|
-| v0.5 | Runory has an implemented end-to-end FSM transaction baseline. |
-| v0.6 | Runory has a stabilized foundation and can continuously operate an FSM business. |
-| v0.7 | Runory closes the highest-value gaps in the canonical Reactive Repair / Callout journey. |
-| v0.8 | Runory FSM can be configured, adapted, and deployed through approved Agents. |
-| v0.9 | The same Reactive Repair / Callout product can be delivered repeatedly without Core forks. |
-| v1.0 | Runory is a complete, stable, commercially deliverable Agent-native Reactive Repair / Callout product. |
-| v2.0 | Runory adds advanced FSM depth. |
-| v3.0 | Runory adds broader Agentic Operations. |
-| v4.0 | Runory expands toward a general SMB platform and ecosystem. |
+| Version | Product conclusion | Binding engineering conclusion |
+|---|---|---|
+| v0.5 | Runory has an implemented end-to-end FSM transaction baseline. | The v0.5 behavior baseline is frozen as compatibility evidence for later engineering gates. |
+| v0.6 | Runory has a stabilized foundation and can continuously operate an FSM business. | Architecture boundaries, Command enforcement, compatibility, observability, and runtime baselines are auditable. |
+| v0.7 | Runory closes the highest-value gaps in the canonical Reactive Repair / Callout journey. | Financial and external-event execution is correct under retry, concurrency, replay, partial failure, and reconciliation. |
+| v0.8 | Runory FSM can be configured, adapted, and deployed through approved Agents. | Agent contracts, Manifests, Object Views, Workflow Builder, and governed change lifecycle are usable platform capabilities. |
+| v0.9 | The same Reactive Repair / Callout product can be delivered repeatedly without Core forks. | Provisioning, Packs, migrations, upgrades, diagnostics, configuration Diff, and support tooling are repeatable. |
+| v1.0 | Runory is a complete, stable, commercially deliverable Agent-native Reactive Repair / Callout product. | Reliability, security, upgradeability, operability, UX consistency, and supportability meet GA standards. |
+| v2.0 | Runory adds advanced FSM depth. | Engineering scope is defined when the corresponding product theme becomes active. |
+| v3.0 | Runory adds broader Agentic Operations. | Engineering scope is defined when the corresponding product theme becomes active. |
+| v4.0 | Runory expands toward a general SMB platform and ecosystem. | Engineering scope is defined when the corresponding product theme becomes active. |
 
 ## 11. Cross-Version Architecture Commitments
 
@@ -483,12 +525,15 @@ external delivery uses outbox, idempotency, replay, and visible failure
 Agent operations use plan, preview, permission, validation, audit, verification, and rollback
 ```
 
+The benchmark-adoption process must reinforce these commitments. No external reference pattern may introduce a second mutation path, incompatible object model, parallel workflow runtime, or page-specific infrastructure that bypasses shared platform contracts.
+
 ## 12. Scope Admission Rule
 
 A requirement enters an earlier milestone only when at least one is true:
 
 1. it is required to complete that milestone's promised FSM user journey;
 2. deferring it would force a destructive rearchitecture;
-3. it appears repeatedly across credible FSM customer demand and materially affects sales, implementation, or daily operation.
+3. it appears repeatedly across credible FSM customer demand and materially affects sales, implementation, or daily operation;
+4. it is required by the binding Engineering Maturity Gate for that milestone and prevents fragmented, unsafe, or non-upgradeable implementation.
 
 A customer calling an entire suite an MVP is evidence of demand, not automatic evidence of release sequencing.
