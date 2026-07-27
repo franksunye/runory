@@ -1,5 +1,10 @@
 # Runory
 
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
+[![Public Preview](https://img.shields.io/badge/status-public%20preview-orange.svg)](docs/product/v0.4-public-free-launch-plan.md)
+[![MCP](https://img.shields.io/badge/MCP-enabled-5C5CFF.svg)](docs/mcp-skill-usage.md)
+[![Contributions Welcome](https://img.shields.io/badge/contributions-welcome-brightgreen.svg)](CONTRIBUTING.md)
+
 > **Tell it. Run it.**
 
 Runory is a **Cloud-first, Agent-native SMB business platform** — a composable business runtime where teams install governed business Packs, adapt the model through a previewed-and-audited Agent, and operate a stable Cloud workspace without a long implementation project.
