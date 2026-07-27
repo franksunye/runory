@@ -2,7 +2,8 @@
 
 Status: Living research note  
 Date: 2026-07-27  
-Review cadence: Revisit at major Twenty releases and before major Runory Product Surface or Workflow Builder decisions.
+Review cadence: Revisit at major Twenty releases and before major Runory Product Surface or Workflow Builder decisions.  
+Decision guardrails: [External Benchmark Adoption Guardrails](../product/external-benchmark-adoption-guardrails.md)
 
 ## 1. Purpose
 
@@ -21,6 +22,8 @@ This overlaps with several Runory concerns:
 - developer tooling and versioned application delivery.
 
 The overlap validates important parts of the Runory direction, while also providing a concrete implementation against which Runory can benchmark product quality and architecture decisions.
+
+This document is a research and comparison input, not a Twenty-derived feature backlog. Any proposal to absorb a Twenty capability must follow the [External Benchmark Adoption Guardrails](../product/external-benchmark-adoption-guardrails.md), map to one Runory-owned model, and enter through an explicit Product or Engineering milestone.
 
 ## 2. Strategic Interpretation
 
@@ -194,6 +197,8 @@ Twenty may become increasingly Agent-capable. Runory's differentiation cannot de
 - external-Agent-first capability contract;
 - authoritative business state.
 
+This boundary is governed by the [External Benchmark Adoption Guardrails](../product/external-benchmark-adoption-guardrails.md). Borrowed patterns must converge into existing Runory contracts rather than introduce parallel View, Workflow, Manifest, authorization, or Agent models.
+
 ## 5. Code Reuse Boundary
 
 Twenty is valuable as an architectural and product reference, but direct code reuse must be treated cautiously.
@@ -245,6 +250,8 @@ Each significant review should answer:
 - Which UX patterns should enter the Runory design system?
 - Does any development reduce or threaten Runory's current differentiation?
 
+Any resulting recommendation must explicitly record its classification—Adopt, Adapt, Defer, or Reject—under the [External Benchmark Adoption Guardrails](../product/external-benchmark-adoption-guardrails.md).
+
 ## 8. Near-Term Actions
 
 1. Complete a page-by-page Product Surface comparison, beginning with Customers, Work Orders, and Record Detail.
@@ -252,6 +259,7 @@ Each significant review should answer:
 3. Define the Runory Workflow Builder product specification around Overview, Review, Configure, and Run modes.
 4. Map Twenty workflow concepts to Runory Workflow Definitions, Versions, Instances, Events, and Work Items.
 5. Maintain a lightweight release watch and update this document when Twenty makes strategically relevant changes.
+6. Apply the benchmark-adoption guardrails before admitting any Twenty-inspired structural change into a release.
 
 ## 9. Conclusion
 
