@@ -19,6 +19,7 @@ Runory documentation is organized by topic authority and lifecycle rather than b
 | Need | Start with | Then read |
 | --- | --- | --- |
 | Understand Runory | [Product Definition](product/product-definition.md) | [Concepts](concepts.md), [Architecture Overview](architecture/overview.md) |
+| Understand the roadmap | [Product Roadmap](product/product-roadmap.md) | [Engineering Benchmark Adoption Roadmap](product/engineering-benchmark-adoption-roadmap.md), [Adjacent Platform Landscape](research/adjacent-platform-landscape.md) |
 | Start using Runory | [Getting Started](getting-started.md) | [Workspace Guide](workspace-guide.md), [Packs and Modules](packs-and-modules.md) |
 | Understand the platform | [Architecture Overview](architecture/overview.md) | [Module Architecture](architecture/module-architecture.md), [Repository Structure](architecture/repository-structure.md) |
 | Build or extend Runory | [Workspace Customization Boundaries](architecture/workspace-customization-boundaries.md) | [SDK / Module Development](sdk-module-development.md), [Add a Governed Command](sdk/governed-command-development.md), [Workspace Extension Architecture](architecture/workspace-extension-architecture.md) |
@@ -33,7 +34,8 @@ Runory documentation is organized by topic authority and lifecycle rather than b
 **Authority:** [Product Definition](product/product-definition.md)
 
 - [Product Definition](product/product-definition.md) — canonical product boundary and positioning.
-- [Product Roadmap](product/product-roadmap.md) — active FSM-first milestone sequence through v4.0.
+- [Product Roadmap](product/product-roadmap.md) — active FSM-first milestone sequence through v4.0; v0.6–v1.0 releases are jointly gated by the companion engineering roadmap.
+- [Engineering Benchmark Adoption Roadmap](product/engineering-benchmark-adoption-roadmap.md) — binding v0.6–v1.0 engineering, UX, workflow, platform, delivery, and external-benchmark maturity gates.
 - [v0.7 Commercial Completion Execution Plan](product/v0.7-commercial-completion-execution-plan.md) — accepted minimal Invoice/payment-allocation scope and release gates.
 - [v0.7 Planning Brief](product/v0.7-planning-brief.md) — historical discovery frame and Pareto selection questions.
 - [v0.6 Foundation Architecture Stabilization Plan](architecture/v0.6-foundation-architecture-stabilization-plan.md) — active foundation consolidation that opens v0.6.
@@ -108,7 +110,8 @@ Versioned iteration plans provide implementation history but do not override the
 - [v0.5 Commercial FSM Technical Spec](product/v0.5-commercial-fsm-technical-spec.md) — lifecycle implementation example.
 - [v0.5.1 Mobile Field Work Spec](product/v0.5.1-mobile-field-work-spec.md) — forms and workflow behavior in field use.
 - [Payment Technical Specification](product/payment-technical-spec.md) — financial Command, idempotency, webhook, and refund rules.
-- [Product Roadmap](product/product-roadmap.md) — stabilization and next-step context.
+- [Product Roadmap](product/product-roadmap.md) — product milestones and binding engineering-gate linkage.
+- [Engineering Benchmark Adoption Roadmap](product/engineering-benchmark-adoption-roadmap.md) — workflow, Product Surface, Agent-contract, and engineering maturity sequencing.
 
 New command, workflow, form, or customization documents must state whether they support or supersede this authority.
 
