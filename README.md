@@ -55,6 +55,8 @@ Start with the governed [Documentation Index](docs/README.md). It identifies eac
 | [docs/architecture/overview.md](docs/architecture/overview.md) | Architecture overview |
 | [docs/product/product-definition.md](docs/product/product-definition.md) | Product definition |
 | [docs/product/v0.4-public-free-launch-plan.md](docs/product/v0.4-public-free-launch-plan.md) | v0.4 public free launch plan |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | Development workflow and contribution standards |
+| [SECURITY.md](SECURITY.md) | Vulnerability reporting and supported-version policy |
 
 ## Local development
 
@@ -95,9 +97,9 @@ pnpm -r test         # Run all test suites
 pnpm --filter @runory/cloud build   # Production build
 ```
 
-## License status
+## Open source
 
-The source repository is public. A formal open-source license file has not yet been committed. Until the license is finalized, the code should be treated as public source, not as a licensed open-source release. See [docs/product/v0.4-public-free-launch-plan.md](docs/product/v0.4-public-free-launch-plan.md) for the current launch posture.
+Runory is licensed under the [Apache License 2.0](LICENSE). Contributions are welcome; see [CONTRIBUTING.md](CONTRIBUTING.md) before submitting changes. Please report suspected vulnerabilities privately according to [SECURITY.md](SECURITY.md).
 
 ## Project direction
 
