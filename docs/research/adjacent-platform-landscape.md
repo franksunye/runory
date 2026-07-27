@@ -7,6 +7,7 @@
 | Applies to | `v0.6+` |
 | Owner | Product / Architecture |
 | Last reviewed | 2026-07-27 |
+| Decision guardrails | [External Benchmark Adoption Guardrails](../product/external-benchmark-adoption-guardrails.md) |
 | Supersedes | — |
 | Superseded by | — |
 
@@ -22,6 +23,8 @@ This document records the long-term benchmark landscape and prevents two opposit
 The relevant conclusion is:
 
 > Similar platforms validate the direction. They do not remove the need for Runory to differentiate through governed business execution, authoritative state, and external-Agent-first operation.
+
+This document provides research input only. It does not create Product Roadmap scope by itself. Any capability proposed for adoption must pass the [External Benchmark Adoption Guardrails](../product/external-benchmark-adoption-guardrails.md) and be assigned to a binding Product or Engineering milestone.
 
 ## 2. Landscape Map
 
@@ -231,6 +234,8 @@ Runory should not:
 - copy AGPL or commercially licensed code without legal review;
 - copy resource-level workflow semantics that bypass Runory Commands;
 - expand beyond FSM before the current roadmap and customer evidence justify it.
+
+All downstream adoption decisions must follow the [External Benchmark Adoption Guardrails](../product/external-benchmark-adoption-guardrails.md), including the four mandatory questions, one-problem/one-model rule, structural-change budget, complexity assessment, and Adopt / Adapt / Defer / Reject classification.
 
 ## 9. Review Cadence
 
