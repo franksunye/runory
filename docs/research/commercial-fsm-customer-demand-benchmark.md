@@ -409,13 +409,13 @@ Presence means the job is materially requested, not that the customer used ident
 | customer/contact CRM | ✓ | ✓ | ✓ | E2; fundamental | v0.5 |
 | scheduling and dispatch | ✓ | ✓ | ✓ | E4 with XLink/vendors | v0.5 |
 | authentication, roles, security and audit | ✓ | ✓ | ✓ | E4 platform trust | v0.4 foundation + v0.5 enforcement |
-| customer communication and automation | ✓ | ✓ | ✓ | E2 | v0.7 candidate; provider depth remains evidence-gated |
-| invoicing and payment state | ✓ | ✓ | ✓ | E2 | v0.7 commercial-completion candidate |
-| AI assistance and automation | ✓ | ✓ | ✓ | E2 demand; dependencies immature | v0.8 governed Agent scenarios |
-| operational reporting | ✓ | ✓ | — | E2 | v0.5 queues/basic; v0.7 workflow-specific candidate |
+| customer communication and automation | ✓ | ✓ | ✓ | E2 | v0.8 minimum customer access; provider depth remains evidence-gated |
+| invoicing and payment state | ✓ | ✓ | ✓ | E2 | released in v0.7 commercial completion |
+| AI assistance and automation | ✓ | ✓ | ✓ | E2 demand; dependencies immature | existing governed Agent operation retained; productization remains evidence-gated |
+| operational reporting | ✓ | ✓ | — | E2 | current queues/basic metrics; broader reporting remains evidence-gated |
 | forms, checklists, evidence and signature | — | ✓ | ✓ | E4 with XLink/vendors | v0.5/v0.5.1 |
 | customer and service history | — | ✓ | ✓ | E4 with XLink/vendors | v0.5.1 |
-| customer portal and support access | — | ✓ | ✓ | E2 | v0.7.3 discussion |
+| customer portal and support access | — | ✓ | ✓ | E2 | v0.8 minimum scoped access; full portal deferred |
 | proposal, quote and acceptance | — | — | ✓ | E4 through XLink/vendors and journey criticality | v0.5 |
 | multiple properties, sites and equipment | — | ✓ | ✓ | E4 with mature FSM | v0.5 |
 | mobile field execution | implied | ✓ | ✓ | E4 with XLink/vendors | v0.5.1 |
@@ -827,7 +827,7 @@ The current evidence supports Runory's direction:
 v0.5 proves the canonical reactive-repair transaction.
 v0.6 stabilizes its shared Foundation.
 v0.7 closes the weakest commercial and operational links in that same journey.
-v0.8 makes the same product configurable and deployable through approved Agents.
+v0.8 matures shared operator surfaces and adds minimum customer access.
 v0.9 validates repeatable delivery across independent reactive-repair customers.
 v1.0 turns measured single-shape coverage and governed variation into a GA promise.
 ```

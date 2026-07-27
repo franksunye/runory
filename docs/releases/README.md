@@ -27,6 +27,7 @@ This directory contains point-in-time acceptance, test, drill, migration, and pe
 ## v0.7
 
 - [v0.7.0 Commercial Completion Acceptance — 2026-07-20](v0.7.0-commercial-completion-acceptance-2026-07-20.md)
+- [v0.6–v0.7 External Benchmark Retrospective — 2026-07-27](v0.6-v0.7-external-benchmark-retrospective-2026-07-27.md) — non-retroactive mapping and the bounded `V09-FIN-01` forward gap.
 
 ## FSM
 

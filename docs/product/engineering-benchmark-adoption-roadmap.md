@@ -3,7 +3,7 @@
 | Metadata | Value |
 | --- | --- |
 | Status | `active` |
-| Topic | `product-engineering` |
+| Topic | `product` |
 | Applies to | `v0.6–v1.0` |
 | Owner | Product / Architecture / Engineering |
 | Last reviewed | 2026-07-27 |
@@ -41,13 +41,18 @@ Engineering Maturity Track
 What product, platform, runtime, UX, and delivery guarantee becomes production-grade?
 ```
 
-A version is complete only when both conclusions are satisfied.
+A version is complete only when both conclusions are satisfied. This rule is
+prospective. Because this roadmap postdates v0.6.0 and v0.7.0, those releases
+are mapped through the
+[v0.6–v0.7 External Benchmark Retrospective](../releases/v0.6-v0.7-external-benchmark-retrospective-2026-07-27.md).
+Later research may schedule forward hardening, but it does not silently change
+an existing release Tag or accepted scope.
 
 | Version | Product conclusion | Engineering maturity conclusion |
 | --- | --- | --- |
 | v0.6 | The shared FSM foundation is stable. | Architecture boundaries, Command enforcement, observability, compatibility, and runtime baselines are machine-auditable. |
-| v0.7 | One Reactive Repair job reaches a governed paid or refunded Invoice. | Financial and external-event execution remains correct under retry, concurrency, replay, partial failure, and reconciliation. |
-| v0.8 | Operators and customers complete the canonical journey through coherent, secure surfaces. | Existing View and Workflow foundations converge, and minimum customer access is secure, scoped, auditable, and Command-driven. |
+| v0.7 | One Reactive Repair job reaches a governed paid or refunded Invoice. | Financial and external-event execution is correct under retry, concurrency, replay, partial failure and refund, with reconciliation explicitly bounded for forward hardening. |
+| v0.8 | Operators and customers complete the canonical journey through coherent, secure surfaces. | Existing View and Workflow foundations converge; customer access and merchant-owned Stripe Connect payment are secure, scoped, auditable, and Command-driven. |
 | v0.9 | The same product can be delivered repeatedly without Core forks. | Packs, migrations, provisioning, upgrades, diagnostics, configuration diff, and support tooling become repeatable delivery infrastructure. |
 | v1.0 | Runory is a complete commercially supported FSM product. | Reliability, security, upgradeability, operability, UX consistency, supportability, and documented engineering gates reach GA level. |
 
@@ -112,7 +117,9 @@ Required maturity:
 
 ### 5.1 Engineering objective
 
-> Financial state must remain correct under duplicate requests, concurrency, delayed or reordered provider events, partial failure, refund, replay, and reconciliation.
+> Financial state must remain correct under duplicate requests, concurrency,
+> delayed or reordered provider events, partial failure, refund, and replay.
+> Provider reconciliation must have an explicit boundary and forward owner.
 
 Required maturity:
 
@@ -121,7 +128,8 @@ Required maturity:
 - explicit transaction boundaries and optimistic-concurrency policy;
 - refund reversal and compensation semantics;
 - payment-provider event deduplication and replay;
-- reconciliation jobs and operator-visible discrepancies;
+- a declared provider-retrieval/reconciliation boundary and an owned forward
+  plan for operator-visible discrepancies;
 - durable financial audit and repair-safe diagnostics;
 - tests for duplicate issue, duplicate allocation, over-allocation, concurrent payment, late webhook, and partial failure.
 
@@ -137,9 +145,11 @@ Required maturity:
 ### 5.3 Release evidence
 
 - no duplicate Invoice, allocation, or refund under repeated requests;
-- reconciliation identifies provider/Runory divergence;
+- the provider/Runory reconciliation boundary and residual implementation gap
+  are explicitly recorded;
 - every financial transition has an actor, cause, prior state, resulting state, and audit record;
-- operator tooling resolves supported failure cases without direct database mutation.
+- payment/refund and Outbox failures are visible and recoverable within the
+  released scope without routine direct database mutation.
 
 ## 6. v0.8 — Product Surface and Customer Access Maturity
 
@@ -169,12 +179,17 @@ Primary references: Twenty, Directus, and NocoBase.
 - customer and record binding with visible-field allowlists;
 - bounded Quote, service report, Invoice, and payment-status access;
 - governed Quote acceptance and hosted-payment handoff;
+- Stripe-managed Connected Account onboarding and readiness synchronization;
+- Direct Checkout/refund execution in the Workspace merchant's account;
+- dedicated Connect webhook isolation by connected account and mode;
 - access, failure, acceptance, expiry, and revocation audit;
 - enumeration, replay, stale-link, cross-record, and cross-tenant defenses;
 - responsive, accessible, failure-complete customer states.
 
 This is not a general portal or a second identity, authorization, document, or
-payment model.
+payment model. Stripe Connect completes the existing provider-account boundary;
+it does not introduce platform-held merchant funds, wallets, application fees,
+or general payment orchestration.
 
 ### 6.3 Workflow visibility through Workflow V2
 
@@ -198,6 +213,8 @@ path.
 
 - three reference operator surfaces use the same typed View contract;
 - a customer completes Quote acceptance/payment through existing Commands;
+- two sandbox merchants receive Direct Charges in their own isolated Connected
+  Accounts, including refund and webhook evidence;
 - tenant, customer, record, and field isolation pass;
 - canonical Workflow state is understandable through Workflow V2;
 - Agent and extension regressions pass without adding product scope;
@@ -222,6 +239,20 @@ Required maturity:
 - support diagnostics package and implementation evidence report;
 - customer extension isolation and zero Core forks;
 - measurable implementation time, manual intervention, support load, and upgrade effort.
+
+### 7.1.1 Minimum financial reconciliation hardening
+
+Before v0.9 freezes public contracts, complete `V09-FIN-01` from the
+[v0.6–v0.7 External Benchmark Retrospective](../releases/v0.6-v0.7-external-benchmark-retrospective-2026-07-27.md):
+
+- compare one Runory Payment/Invoice settlement with a provider snapshot;
+- expose `consistent`, `divergent`, and `unknown` results to authorized
+  operators;
+- converge supported missed/reordered event cases through named, idempotent,
+  audited Commands;
+- preserve tenant, provider-account, currency, allocation, and refund
+  invariants;
+- exclude accounting, bank-statement, payout, fee, tax, and dispute systems.
 
 ### 7.2 Reference inputs
 

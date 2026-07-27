@@ -43,7 +43,7 @@ Recurring Service and Project / Installation are separate product shapes and are
 v0.5  Freeze the implemented end-to-end FSM transaction baseline, including Voice Intake and Payment
 v0.6  Stabilize the shared foundation, then operate an FSM business continuously
 v0.7  Commercially close one completed Reactive Repair job through Invoice and payment
-v0.8  Mature the operator Product Surface and add minimum customer access
+v0.8  Mature Product Surfaces, customer access, and merchant-owned payment
 v0.9  Validate repeatability across real FSM customers and converge the product
 v1.0  Release a complete, stable, commercially supported Agent-native FSM product
 v2.0  Add advanced FSM depth
@@ -83,7 +83,7 @@ The Product Track is defined in this roadmap. The Engineering Maturity Track is 
 | Version | Binding engineering gate |
 | --- | --- |
 | v0.6 | Architecture boundaries, Command enforcement, compatibility, observability, and runtime baselines are machine-auditable. |
-| v0.7 | Financial and provider-event execution remains correct under retry, concurrency, replay, partial failure, refund, and reconciliation. |
+| v0.7 | Financial and provider-event execution remains correct under retry, concurrency, replay, partial failure and refund; reconciliation is an explicit forward boundary. |
 | v0.8 | Existing View and Workflow foundations converge into coherent operator/customer surfaces without a parallel framework. |
 | v0.9 | Packs, migrations, provisioning, upgrades, diagnostics, configuration Diff, and support tooling form repeatable delivery infrastructure. |
 | v1.0 | Reliability, security, upgradeability, operability, UX consistency, and supportability meet the documented GA engineering contract. |
@@ -232,7 +232,7 @@ v0.6 is frozen and released at `v0.6.0`. Earlier proposed v0.6 increments remain
 | Recurring Service Baseline | Post-1.0 product discovery |
 | Contract, Invoice, and Receivables | Invoice/payment-allocation subset selected for v0.7; Contract and advanced receivables deferred |
 | Operational Inbox and Reporting | Invoice outstanding/overdue visibility selected for v0.7; general inbox/reporting deferred |
-| Customer Access Baseline | Deferred; remains a later v1.0 journey requirement |
+| Customer Access Baseline | Selected for v0.8 together with merchant-owned Stripe Connect payment |
 | Real-customer and Commercial Validation Gate | Moved to v0.9 repeatability evidence |
 
 Canonical disposition: [v0.6 Deferred Work Handoff](../architecture/v0.6-deferred-work-handoff.md).
@@ -257,11 +257,17 @@ The release adds the official Invoice Module, Invoice line snapshot, payment all
 
 Explicit non-goals include advanced scheduling, repair inventory, general accounting, tax, credit notes, recurring/project billing, public customer portal, general communications, additional payment providers, and Agent-generated official Module/Pack/Template productization.
 
-Release outcome: one Reactive Repair / Callout job can reach a governed paid Invoice without adding another commercial shape or a general accounting system. The Engineering Maturity Gate must prove correctness under retry, concurrency, replay, partial failure, refund, and reconciliation.
+Release outcome: one Reactive Repair / Callout job can reach a governed paid
+Invoice without adding another commercial shape or a general accounting
+system. The retrospective engineering evidence covers retry, concurrency,
+replay, partial failure and refund, while minimum provider reconciliation is
+scheduled forward as `V09-FIN-01`.
 
 ## 6. v0.8 Family — Product Maturity and Customer Access
 
 Accepted execution plan: [v0.8 Product Maturity and Customer Access](./v0.8-product-maturity-execution-plan.md).
+
+Binding implementation contract: [v0.8 Product Maturity and Customer Access Technical Specification](./v0.8-product-maturity-technical-spec.md).
 
 Engineering gate: [Engineering Benchmark Adoption Roadmap — v0.8](./engineering-benchmark-adoption-roadmap.md#6-v08--product-surface-and-customer-access-maturity).
 
@@ -278,18 +284,24 @@ reuse action contracts across desktop and mobile where appropriate
 retire duplicated page-specific configuration
 ```
 
-### v0.8.1 — Minimum customer access
+### v0.8.1 — Minimum customer access and merchant-owned payment
 
 ```text
 issue expiring, revocable, tenant-scoped access
 show only the relevant Quote, service report, Invoice, and payment status
 reuse governed Quote acceptance and hosted payment paths
+onboard each Workspace merchant through Stripe Connect
+create Checkout and refunds as Direct Charges on the Connected Account
+process account and payment events through an isolated Connect webhook
 audit access, acceptance, payment handoff, expiry, and revocation
 prove tenant, customer, record, and field isolation
 ```
 
 This is not a general Customer Portal. Account administration, messaging,
 self-service case management, and arbitrary sharing remain deferred.
+Stripe application fees, Destination Charges, wallets, platform-held merchant
+funds, and broad payout administration are also excluded. Production
+legal/finance approval and limited live-money evidence remain v1.0 GA gates.
 
 ### v0.8.2 — Workflow clarity and acceptance
 
@@ -333,7 +345,20 @@ no customer solution may fork Runory Core
 measure standard product and governed extension coverage
 ```
 
-### v0.9.2 — Product and Contract Freeze
+### v0.9.2 — Minimum Payment Reconciliation
+
+```text
+compare Runory Payment/Invoice settlement with one provider snapshot
+show consistent, divergent, or unknown status to authorized operators
+recover supported missed/reordered provider events through named Commands
+preserve tenant, provider-account, currency, allocation, refund, and audit invariants
+exclude bank/accounting/payout/fee/tax/dispute systems
+```
+
+The bounded acceptance contract is recorded as `V09-FIN-01` in the
+[v0.6–v0.7 External Benchmark Retrospective](../releases/v0.6-v0.7-external-benchmark-retrospective-2026-07-27.md).
+
+### v0.9.3 — Product and Contract Freeze
 
 ```text
 remove duplicate capabilities and inconsistent object models
@@ -453,8 +478,8 @@ progress toward the long-term SMB WordPress vision
 |---|---|---|
 | v0.5 | Runory has an implemented end-to-end FSM transaction baseline. | The v0.5 behavior baseline is frozen as compatibility evidence. |
 | v0.6 | Runory has a stabilized foundation and can continuously operate an FSM business. | Architecture boundaries, Command enforcement, compatibility, observability, and runtime baselines are auditable. |
-| v0.7 | Runory closes the highest-value gaps in the canonical Reactive Repair / Callout journey. | Financial and external-event execution is correct under retry, concurrency, replay, partial failure, and reconciliation. |
-| v0.8 | Operators and customers complete the canonical journey through coherent, secure Product Surfaces. | Existing View and Workflow foundations converge without a parallel framework; scoped customer access is secure and auditable. |
+| v0.7 | Runory closes the highest-value gaps in the canonical Reactive Repair / Callout journey. | Financial and external-event execution is correct under retry, concurrency, replay, partial failure and refund; reconciliation is scheduled forward. |
+| v0.8 | Operators and customers complete the canonical journey through coherent, secure Product Surfaces. | Existing View and Workflow foundations converge without a parallel framework; scoped customer access and merchant-owned Stripe Connect payment are secure and auditable. |
 | v0.9 | The same product can be delivered repeatedly without Core forks. | Provisioning, Packs, migrations, upgrades, diagnostics, configuration Diff, and support tooling are repeatable. |
 | v1.0 | Runory is a complete, stable, commercially deliverable Agent-native FSM product. | Reliability, security, upgradeability, operability, UX consistency, and supportability meet GA standards. |
 | v2.0 | Runory adds advanced FSM depth. | Engineering scope is defined when the product theme becomes active. |

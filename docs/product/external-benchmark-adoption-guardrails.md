@@ -3,7 +3,7 @@
 | Metadata | Value |
 | --- | --- |
 | Status | `active` |
-| Topic | `product-engineering` |
+| Topic | `architecture` |
 | Applies to | `v0.6+` |
 | Owner | Product / Architecture / Engineering |
 | Last reviewed | 2026-07-27 |

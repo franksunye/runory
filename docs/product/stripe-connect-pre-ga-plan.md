@@ -4,7 +4,7 @@
 | --- | --- |
 | Status | `active` |
 | Topic | `product` |
-| Applies to | `v0.6–v1.0` |
+| Applies to | `v0.8–v1.0` |
 | Owner | Product / Engineering / Operations |
 | Last reviewed | 2026-07-17 |
 | Supersedes | — |
@@ -12,6 +12,18 @@
 
 This plan records the remaining merchant-payment work after the v0.5 Payment
 Module and Runory SaaS subscription billing were validated.
+
+Delivery assignment:
+
+```text
+v0.8.1  Sandbox-complete product capability: onboarding, Direct Charge,
+        refund, Connect webhook, readiness, diagnostics and isolation
+v1.0    Production release gates: legal/finance/operations approval,
+        production endpoints and limited approved live-money evidence
+```
+
+The binding v0.8 implementation contracts are defined in
+[v0.8 Product Maturity and Customer Access Technical Specification](v0.8-product-maturity-technical-spec.md#9-stripe-connect-direct-charge-contract).
 
 ## 1. Release decision
 

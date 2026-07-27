@@ -38,7 +38,10 @@ Runory documentation is organized by topic authority and lifecycle rather than b
 - [Engineering Benchmark Adoption Roadmap](product/engineering-benchmark-adoption-roadmap.md) — binding v0.6–v1.0 engineering, UX, workflow, platform, delivery, and external-benchmark maturity gates.
 - [External Benchmark Adoption Guardrails](product/external-benchmark-adoption-guardrails.md) — mandatory scope, complexity, convergence, and Adopt/Adapt/Defer/Reject rules for external-reference adoption.
 - [v0.7 Commercial Completion Execution Plan](product/v0.7-commercial-completion-execution-plan.md) — accepted minimal Invoice/payment-allocation scope and release gates.
-- [v0.8 Product Maturity and Customer Access Execution Plan](product/v0.8-product-maturity-execution-plan.md) — accepted Product Surface convergence, minimum customer access, and proportional Workflow visibility scope.
+- [v0.6–v0.7 External Benchmark Retrospective](releases/v0.6-v0.7-external-benchmark-retrospective-2026-07-27.md) — maps later benchmark language to released evidence and schedules the minimum Payment reconciliation gap forward.
+- [v0.8 Product Maturity and Customer Access Execution Plan](product/v0.8-product-maturity-execution-plan.md) — accepted Product Surface convergence, minimum customer access, merchant-owned Stripe Connect payment, and proportional Workflow visibility scope.
+- [v0.8 Product Maturity and Customer Access Technical Specification](product/v0.8-product-maturity-technical-spec.md) — binding schemas, APIs, authorization, Stripe Connect Direct-Charge, migration, compatibility, and test contract for v0.8 implementation.
+- [v0.8 Reference Source Study](research/v0.8-reference-source-study-2026-07-27.md) — pinned Twenty, Directus, NocoBase, Frappe, and Windmill source evidence and bounded adoption decisions behind the v0.8 specification.
 - [v0.7 Planning Brief](product/v0.7-planning-brief.md) — historical discovery frame and Pareto selection questions.
 - [v0.6 Foundation Architecture Stabilization Plan](architecture/v0.6-foundation-architecture-stabilization-plan.md) — active foundation consolidation that opens v0.6.
 - [v1.0 GA Release Goal](product/v1.0-ga-release-goal.md) — proposed GA target.
@@ -50,6 +53,7 @@ Runory documentation is organized by topic authority and lifecycle rather than b
 - [Commercial FSM Customer Demand Benchmark](research/commercial-fsm-customer-demand-benchmark.md) — supporting research.
 - [Adjacent Platform Landscape](research/adjacent-platform-landscape.md) — active long-term benchmark across Twenty, NocoBase, Frappe, Windmill, Directus, Odoo, and related platforms.
 - [Twenty Platform Benchmark](research/twenty-platform-benchmark.md) — detailed Product Surface, Workflow Builder, Apps, and external-Agent reference.
+- [v0.8 Reference Source Study](research/v0.8-reference-source-study-2026-07-27.md) — implementation-level evidence and Adopt/Adapt/Defer/Reject decisions for the v0.8 View and Workflow projection contracts.
 
 Versioned iteration plans provide implementation history but do not override the Product Definition or a newer active specification.
 
