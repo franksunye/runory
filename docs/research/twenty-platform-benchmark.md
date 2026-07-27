@@ -66,7 +66,10 @@ Twenty should be used as a benchmark for:
 - empty, loading, error, and permission states;
 - density, hierarchy, keyboard interaction, and interaction consistency.
 
-Runory already has core business objects such as Customer, Lead, Contact, Quote, Work Order, Visit, Invoice, and Payment. The primary opportunity is not to rebuild these objects, but to improve the Product View and Record Experience layers around them.
+Runory already has core business objects such as Contact and Company (including
+Lead lifecycle stages), Quote, Work Order, Visit, Invoice, and Payment. The
+primary opportunity is not to rebuild these objects, but to improve the Product
+View and Record Experience layers around them.
 
 A useful target architecture is:
 
@@ -254,11 +257,17 @@ Any resulting recommendation must explicitly record its classification—Adopt, 
 
 ## 8. Near-Term Actions
 
-1. Complete a page-by-page Product Surface comparison, beginning with Customers, Work Orders, and Record Detail.
-2. Produce a Runory Object View Framework specification rather than continuing page-specific list implementations.
-3. Define the Runory Workflow Builder product specification around Overview, Review, Configure, and Run modes.
-4. Map Twenty workflow concepts to Runory Workflow Definitions, Versions, Instances, Events, and Work Items.
-5. Maintain a lightweight release watch and update this document when Twenty makes strategically relevant changes.
+1. Complete a page-by-page Product Surface comparison for Contact/Company,
+   Work Order, and Invoice.
+2. Type and converge Runory's existing View Definition instead of creating a
+   second Object View framework.
+3. Map Twenty workflow concepts to existing Runory Workflow Definitions,
+   Versions, Instances, Events, and Work Items.
+4. Improve business-readable Overview and Run visibility first; keep Review,
+   Configure, and a canvas Builder deferred until customer evidence justifies
+   them.
+5. Maintain a lightweight release watch and update this document when Twenty
+   makes strategically relevant changes.
 6. Apply the benchmark-adoption guardrails before admitting any Twenty-inspired structural change into a release.
 
 ## 9. Conclusion

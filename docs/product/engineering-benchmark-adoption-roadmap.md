@@ -47,7 +47,7 @@ A version is complete only when both conclusions are satisfied.
 | --- | --- | --- |
 | v0.6 | The shared FSM foundation is stable. | Architecture boundaries, Command enforcement, observability, compatibility, and runtime baselines are machine-auditable. |
 | v0.7 | One Reactive Repair job reaches a governed paid or refunded Invoice. | Financial and external-event execution remains correct under retry, concurrency, replay, partial failure, and reconciliation. |
-| v0.8 | Approved Agents can configure, adapt, and deploy Runory FSM. | Agent contracts, manifests, Object View foundations, Workflow Builder foundations, and controlled change lifecycle become usable platform capabilities. |
+| v0.8 | Operators and customers complete the canonical journey through coherent, secure surfaces. | Existing View and Workflow foundations converge, and minimum customer access is secure, scoped, auditable, and Command-driven. |
 | v0.9 | The same product can be delivered repeatedly without Core forks. | Packs, migrations, provisioning, upgrades, diagnostics, configuration diff, and support tooling become repeatable delivery infrastructure. |
 | v1.0 | Runory is a complete commercially supported FSM product. | Reliability, security, upgradeability, operability, UX consistency, supportability, and documented engineering gates reach GA level. |
 
@@ -141,111 +141,68 @@ Required maturity:
 - every financial transition has an actor, cause, prior state, resulting state, and audit record;
 - operator tooling resolves supported failure cases without direct database mutation.
 
-## 6. v0.8 — Agent Platform, Product Surface, and Workflow Control
+## 6. v0.8 — Product Surface and Customer Access Maturity
 
-v0.8 is where external research becomes most visibly productized. It must not be reduced to exposing more MCP tools.
+Accepted execution plan: [v0.8 Product Maturity and Customer Access](v0.8-product-maturity-execution-plan.md).
 
-The structural-change budget is limited to one coherent set:
+The repository already contains View Definitions, Workflow V2, manifests,
+installation/upgrade validation, Workspace Extensions, and governed Agent
+change paths. v0.8 converges and productizes those foundations rather than
+recreating them as simultaneous public platforms.
 
-1. Agent Capability Contract;
-2. Manifest / Pack / Extension foundation;
-3. Object View Framework and Workflow Control Surface.
+### 6.1 Existing View contract convergence
 
-Additional large platform initiatives require an explicit exception under the guardrails.
-
-### 6.1 Agent Capability Contract
-
-Required capabilities:
-
-- versioned capability discovery;
-- named Command schemas and machine-readable preconditions;
-- structured preview, apply, verify, and rollback results;
-- stable error and remediation contracts;
-- delegated Agent identity and authorization;
-- execution limits, risk classification, and high-risk confirmation;
-- Agent Run logs and task-level evaluation;
-- one authorization and execution boundary shared by Agent, desktop, mobile, voice, and background jobs.
-
-Primary references: Twenty, NocoBase, and Directus.
-
-Runory adaptation:
-
-> Agents discover business capabilities and named Commands, not unrestricted table or record mutation.
-
-### 6.2 Manifest, Pack, and Extension Foundation
-
-Required capabilities:
-
-- Manifest v1 for Modules, Packs, and Workspace Extensions;
-- stable Module, Object, Field, View, Command, Workflow, Role, and Permission identifiers;
-- dependency and compatibility validation;
-- install, seed, migration, verification, upgrade, and rollback hooks;
-- typed SDK and minimal CLI workflow;
-- ownership boundaries for Official Modules, Industry Packs, and Workspace Extensions;
-- generated implementation and compatibility reports.
-
-Primary references: Twenty, NocoBase, Frappe, and Odoo.
-
-### 6.3 Object View Framework Foundation
-
-```text
-Business Object
-→ View Definition
-→ Query / Filter / Sort / Group
-→ Field Presentation
-→ Record Actions
-→ Desktop Table / Mobile Card / Board / Agent View
-```
-
-Minimum scope:
-
-- shared View Definition and stable View IDs;
-- visible fields, ordering, sorting, filtering, grouping, and saved views;
-- role-default views;
-- record actions and primary action;
-- desktop-table and mobile-card projection;
-- consistent loading, empty, error, permission, and partial-data states;
-- Customer, Work Order, and one commercial object as reference implementations.
+- type and validate the existing View Definition configuration;
+- converge query, field-presentation, action, and UI-state vocabulary;
+- support role defaults and bounded user preferences;
+- prove Contact/Company, Work Order, and Invoice reference surfaces;
+- share desktop/mobile actions where appropriate;
+- remove superseded page-specific configuration.
 
 Primary references: Twenty, Directus, and NocoBase.
 
-Runory adaptation must emphasize execution state, owner, SLA, risk, exception, and next action.
+> Improve `view_definitions`; do not add a second Object View framework.
 
-### 6.4 Workflow Builder Foundation
+### 6.2 Minimum customer access boundary
 
-The v0.8 target is the first credible Workflow Control Surface for Agent-managed, human-governed workflows.
+- expiring, revocable, tenant-scoped access grants;
+- customer and record binding with visible-field allowlists;
+- bounded Quote, service report, Invoice, and payment-status access;
+- governed Quote acceptance and hosted-payment handoff;
+- access, failure, acceptance, expiry, and revocation audit;
+- enumeration, replay, stale-link, cross-record, and cross-tenant defenses;
+- responsive, accessible, failure-complete customer states.
 
-Required modes:
+This is not a general portal or a second identity, authorization, document, or
+payment model.
 
-1. **Overview** — business-readable process explanation;
-2. **Review** — Agent-generated change Diff, impact, and risk;
-3. **Configure** — advanced editing for implementers;
-4. **Run** — actual execution path, timing, work items, approvals, errors, retries, and audit.
+### 6.3 Workflow visibility through Workflow V2
 
-Minimum engineering scope:
+- business-readable Overview and Run projections of existing definitions,
+  versions, instances, and Work Items;
+- current step, completed path, pending work, failure, retry, and audit context;
+- a later Adopt/Adapt/Defer decision for canvas, Review, and Configure modes.
 
-- workflow schema-to-canvas mapping;
-- trigger, Business Command, condition, branch, approval, human task, wait, retry, escalation, completion, and compensation nodes;
-- schema-driven Inspector;
-- validation and compatibility checks;
-- Draft, version, publish, and rollback lifecycle;
-- visual version Diff;
-- run-path highlighting and node-level diagnostics;
-- visible permissions and governance metadata;
-- read-only mode for ordinary business users.
+The full Workflow Builder is deferred until repeated implementation evidence
+shows the existing editor and read-only Run visibility are insufficient.
 
-Primary references: Twenty, Windmill, NocoBase, and Frappe.
+### 6.4 Existing Agent and MPT boundary
 
-Runory adaptation:
-
-> The Builder visualizes and governs workflows whose state transitions and actions remain Runtime-owned and Command-driven.
+Current MCP, Command discovery, Workspace Extension, manifest, installer,
+upgrade, and compatibility paths remain regression-tested. v0.8 does not
+require Agent-generated official MPT, a marketplace, universal SDK, general
+plugin lifecycle, Agent-assisted Local deployment, or an Agent-only execution
+path.
 
 ### 6.5 v0.8 acceptance evidence
 
-- an approved Agent modifies a Workspace using preview, Diff, approval, apply, verify, audit, and rollback;
-- a Pack installs and upgrades through a stable Manifest without Core edits;
-- Customer and Work Order views are produced from shared View Definitions on desktop and mobile;
-- an Agent proposes a workflow change, a user reviews it visually, the Runtime validates it, and a published Run can be inspected end to end.
+- three reference operator surfaces use the same typed View contract;
+- a customer completes Quote acceptance/payment through existing Commands;
+- tenant, customer, record, and field isolation pass;
+- canonical Workflow state is understandable through Workflow V2;
+- Agent and extension regressions pass without adding product scope;
+- no duplicate View, Workflow, identity, authorization, document, payment, or
+  Agent model remains.
 
 ## 7. v0.9 — Repeatable Delivery and Product Convergence
 
@@ -340,7 +297,7 @@ Track at minimum:
 - consistent navigation, list, record, action, saved-view, permission, and error patterns;
 - desktop and mobile share View and action contracts where appropriate;
 - accessibility and keyboard-operation baseline;
-- Workflow Builder and Run visualization are understandable in read-only mode;
+- Workflow Overview and Run visualization are understandable to business users;
 - product polish is benchmarked against current references before GA.
 
 ### 8.6 GA benchmark review
@@ -378,7 +335,7 @@ The transition beyond FSM remains evidence-driven and requires a separate produc
 
 - lightweight review of priority platforms at least monthly;
 - material document update at least quarterly;
-- mandatory review before v0.8 Product Surface or Workflow Builder architecture freeze;
+- mandatory review before v0.8 Product Surface contract freeze;
 - mandatory review before v0.9 public-contract freeze;
 - mandatory review before v1.0 GA sign-off.
 
@@ -427,11 +384,12 @@ Every adopted pattern has a target version, owner, acceptance evidence, and life
 
 ## 12. Current Priorities
 
-1. preserve v0.6 architecture correctness and compatibility;
-2. complete v0.7 financial integrity before broad platform work;
-3. specify Object View Framework and Workflow Builder during v0.7, ready for v0.8 implementation;
-4. define Manifest v1 and Agent Capability Contract before v0.8 implementation begins;
-5. use v0.9 to converge and operationalize these capabilities across real customers;
-6. run a formal current-market benchmark before v1.0 GA.
+1. preserve the released v0.6 architecture and v0.7 financial baselines;
+2. inventory existing View, Workflow, Manifest, Extension, and Agent models before adding abstractions;
+3. converge the existing View contract on Contact/Company, Work Order, and Invoice;
+4. implement bounded customer access through existing Commands and providers;
+5. improve Workflow Overview and Run visibility without a new canvas or Runtime;
+6. use v0.9 customer evidence to decide Contract and implementation-automation gaps;
+7. run a formal current-market benchmark before v1.0 GA.
 
 > **Runory should not chase every adjacent platform feature. It should adopt the best proven ideas at the version where they reinforce the product, while continuously deepening governed business execution as its strategic center.**

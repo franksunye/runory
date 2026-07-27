@@ -104,11 +104,14 @@ A version should normally contain no more than **two or three externally inspire
 
 A structural change means a new shared platform abstraction, runtime contract, cross-module lifecycle, or foundational Product Surface model—not a small component improvement.
 
-For example, the v0.8 structural set is already substantial:
+For example, the bounded v0.8 structural set is:
 
-1. Agent Capability Contract;
-2. Manifest / Pack / Extension foundation;
-3. Object View Framework and Workflow Control Surface.
+1. convergence of the existing View Definition and shared action surface;
+2. minimum customer-access authorization and presentation boundary;
+3. business-readable Workflow Overview/Run projection over existing Workflow V2.
+
+Agent-generated official MPT, a full Workflow Builder, and broad Local
+deployment automation are deliberately outside this set.
 
 Additional large platform initiatives should be deferred unless one replaces or simplifies an item above.
 

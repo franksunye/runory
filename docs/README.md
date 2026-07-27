@@ -38,6 +38,7 @@ Runory documentation is organized by topic authority and lifecycle rather than b
 - [Engineering Benchmark Adoption Roadmap](product/engineering-benchmark-adoption-roadmap.md) — binding v0.6–v1.0 engineering, UX, workflow, platform, delivery, and external-benchmark maturity gates.
 - [External Benchmark Adoption Guardrails](product/external-benchmark-adoption-guardrails.md) — mandatory scope, complexity, convergence, and Adopt/Adapt/Defer/Reject rules for external-reference adoption.
 - [v0.7 Commercial Completion Execution Plan](product/v0.7-commercial-completion-execution-plan.md) — accepted minimal Invoice/payment-allocation scope and release gates.
+- [v0.8 Product Maturity and Customer Access Execution Plan](product/v0.8-product-maturity-execution-plan.md) — accepted Product Surface convergence, minimum customer access, and proportional Workflow visibility scope.
 - [v0.7 Planning Brief](product/v0.7-planning-brief.md) — historical discovery frame and Pareto selection questions.
 - [v0.6 Foundation Architecture Stabilization Plan](architecture/v0.6-foundation-architecture-stabilization-plan.md) — active foundation consolidation that opens v0.6.
 - [v1.0 GA Release Goal](product/v1.0-ga-release-goal.md) — proposed GA target.

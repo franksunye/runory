@@ -43,7 +43,7 @@ Recurring Service and Project / Installation are separate product shapes and are
 v0.5  Freeze the implemented end-to-end FSM transaction baseline, including Voice Intake and Payment
 v0.6  Stabilize the shared foundation, then operate an FSM business continuously
 v0.7  Commercially close one completed Reactive Repair job through Invoice and payment
-v0.8  Configure, customize, and deploy Runory FSM through Agents
+v0.8  Mature the operator Product Surface and add minimum customer access
 v0.9  Validate repeatability across real FSM customers and converge the product
 v1.0  Release a complete, stable, commercially supported Agent-native FSM product
 v2.0  Add advanced FSM depth
@@ -60,7 +60,7 @@ Each pre-1.0 milestone has one primary product question. Items not required to a
 | v0.5 | Has Runory implemented one governed end-to-end FSM transaction baseline? |
 | v0.6 | Is the expanded foundation stable enough for a real FSM business to use Runory continuously? |
 | v0.7 | Can one completed Reactive Repair job become an issued, paid, and refundable Invoice without leaving Runory? |
-| v0.8 | Can users implement and deploy Runory FSM through approved Agents? |
+| v0.8 | Can operators and customers complete the same canonical journey through coherent, secure Product Surfaces? |
 | v0.9 | Can the same product be delivered repeatedly without customer-specific Core forks? |
 | v1.0 | Can Runory be sold, implemented, supported, upgraded, and operated as a complete FSM product? |
 
@@ -84,7 +84,7 @@ The Product Track is defined in this roadmap. The Engineering Maturity Track is 
 | --- | --- |
 | v0.6 | Architecture boundaries, Command enforcement, compatibility, observability, and runtime baselines are machine-auditable. |
 | v0.7 | Financial and provider-event execution remains correct under retry, concurrency, replay, partial failure, refund, and reconciliation. |
-| v0.8 | Agent Capability Contracts, Manifests, Object View foundations, Workflow Builder foundations, and controlled change lifecycle are usable platform capabilities. |
+| v0.8 | Existing View and Workflow foundations converge into coherent operator/customer surfaces without a parallel framework. |
 | v0.9 | Packs, migrations, provisioning, upgrades, diagnostics, configuration Diff, and support tooling form repeatable delivery infrastructure. |
 | v1.0 | Reliability, security, upgradeability, operability, UX consistency, and supportability meet the documented GA engineering contract. |
 
@@ -259,70 +259,55 @@ Explicit non-goals include advanced scheduling, repair inventory, general accoun
 
 Release outcome: one Reactive Repair / Callout job can reach a governed paid Invoice without adding another commercial shape or a general accounting system. The Engineering Maturity Gate must prove correctness under retry, concurrency, replay, partial failure, refund, and reconciliation.
 
-## 6. v0.8 Family — Agent-native FSM Implementation
+## 6. v0.8 Family — Product Maturity and Customer Access
 
-v0.8 proves Runory's central differentiation through bounded scenarios rather than a full marketplace, universal SDK ecosystem, or autonomous implementation platform.
+Accepted execution plan: [v0.8 Product Maturity and Customer Access](./v0.8-product-maturity-execution-plan.md).
 
-Engineering gate: [Engineering Benchmark Adoption Roadmap — v0.8](./engineering-benchmark-adoption-roadmap.md#6-v08--agent-platform-product-surface-and-workflow-control).
+Engineering gate: [Engineering Benchmark Adoption Roadmap — v0.8](./engineering-benchmark-adoption-roadmap.md#6-v08--product-surface-and-customer-access-maturity).
 
-Benchmark-driven structural changes are limited by the [External Benchmark Adoption Guardrails](./external-benchmark-adoption-guardrails.md). The approved v0.8 set is:
+v0.8 has one coherent outcome: operators and customers use the same
+authoritative Reactive Repair state through appropriately scoped surfaces.
 
-1. Agent Capability Contract;
-2. Manifest / Pack / Extension foundation;
-3. Object View Framework and Workflow Control Surface.
-
-### v0.8.0 — Agent Configures a Cloud Workspace
-
-An approved Agent can safely:
+### v0.8.0 — Product Surface convergence
 
 ```text
-inspect the current Workspace schema and configuration
-add or change governed fields
-modify forms, workflows, statuses, notifications, roles, and permissions
-create views, reports, and document templates
-produce a change plan and Diff
-preview, confirm, apply, verify, audit, and rollback changes
+type and validate the existing View Definition configuration
+standardize list, record, action, loading, empty, error, and permission states
+prove the shared surface on Contact/Company, Work Order, and Invoice
+reuse action contracts across desktop and mobile where appropriate
+retire duplicated page-specific configuration
 ```
 
-Workspace customization must remain separate from Runory Core and survive upgrades.
-
-### v0.8.1 — Agent Installs and Adapts an FSM Pack
+### v0.8.1 — Minimum customer access
 
 ```text
-discover supported FSM Packs
-install a Pack into a Workspace
-apply Pack configuration and seed data
-adapt forms, workflow, fields, reports, and templates through governed Workspace Extensions
-run compatibility and acceptance checks
-produce an implementation report
+issue expiring, revocable, tenant-scoped access
+show only the relevant Quote, service report, Invoice, and payment status
+reuse governed Quote acceptance and hosted payment paths
+audit access, acceptance, payment handoff, expiry, and revocation
+prove tenant, customer, record, and field isolation
 ```
 
-Initial Pack validation remains within FSM.
+This is not a general Customer Portal. Account administration, messaging,
+self-service case management, and arbitrary sharing remain deferred.
 
-### v0.8.2 — Agent Deploys a Supported Local Edition
+### v0.8.2 — Workflow clarity and acceptance
 
 ```text
-preflight the target environment
-export supported Cloud Workspace configuration and extensions
-initialize Local database, storage, identity, and MCP configuration
-collect required secrets and provider settings
-install through a supported packaged path
-run health, acceptance, backup, restore, and upgrade checks
-produce deployment and configuration-difference reports
+make existing Workflow V2 definitions and Runs business-readable
+show current step, completed path, pending work, failure, retry, and audit context
+complete the operator-to-customer end-to-end acceptance journey
+run security, architecture, regression, UX, and proportionality gates
 ```
 
-### v0.8.3 — Minimal Agent Control Plane and Governance
+A full Workflow Builder, Agent-generated official MPT, broad implementation
+automation, universal SDK, public marketplace, and Agent-assisted Local
+deployment are not v0.8 commitments. Current Agent and extension paths remain
+supported and regression-tested without becoming the release's product center.
 
-```text
-stable versioned MCP tools for supported FSM operations
-Agent identity and delegated authorization
-Tool-level and object-level permissions
-plan, preview, confirm, apply, verify, audit, and rollback lifecycle
-high-risk confirmation and execution limits
-Agent Run logs, diagnostics, and task-level evaluation
-```
-
-Release outcome: an authorized user can configure Runory Cloud, install and adapt an FSM Pack, and deploy a supported Local edition through governed and observable contracts. Shared Object Views and Workflow Builder acceptance evidence must also pass.
+Release outcome: the canonical commercial journey is coherent and secure on
+operator and customer surfaces, using existing View, Workflow, Manifest,
+Extension, and Command foundations rather than another platform layer.
 
 ## 7. v0.9 Family — Repeatability and Product Convergence
 
@@ -420,7 +405,7 @@ normal operation does not require direct database repair
 
 The GA gate also requires a current-market benchmark review. The review identifies table stakes and accepted gaps; it does not require feature parity. All recommendations remain subject to the benchmark guardrails.
 
-GA outcome: Runory is a focused Reactive Repair / Callout FSM product that can complete one commercial journey end to end, be sold and implemented, customized through Agents, deployed in supported Cloud or Local modes, operated reliably, and upgraded without customer-specific Core forks.
+GA outcome: Runory is a focused Reactive Repair / Callout FSM product that can complete one commercial journey end to end, be sold and implemented, configured through governed supported paths, operated reliably, and upgraded without customer-specific Core forks. Agent operation and Local deployment are supported only to the level proven before GA; broad implementation automation is not an unconditional 1.0 promise.
 
 ## 9. Post-1.0 Direction
 
@@ -448,6 +433,7 @@ intelligent scheduling and dispatch recommendations
 anomaly, delay, rework, churn, and renewal detection
 assisted quoting and service-report generation
 Agent evaluation, governance, and operational automation at scale
+Agent-assisted official Module/Pack/Template authoring when evidence supports it
 ```
 
 ### v4.0 — SMB Platform and Ecosystem
@@ -468,7 +454,7 @@ progress toward the long-term SMB WordPress vision
 | v0.5 | Runory has an implemented end-to-end FSM transaction baseline. | The v0.5 behavior baseline is frozen as compatibility evidence. |
 | v0.6 | Runory has a stabilized foundation and can continuously operate an FSM business. | Architecture boundaries, Command enforcement, compatibility, observability, and runtime baselines are auditable. |
 | v0.7 | Runory closes the highest-value gaps in the canonical Reactive Repair / Callout journey. | Financial and external-event execution is correct under retry, concurrency, replay, partial failure, and reconciliation. |
-| v0.8 | Runory FSM can be configured, adapted, and deployed through approved Agents. | Agent contracts, Manifests, Object Views, Workflow Builder, and governed change lifecycle are usable platform capabilities. |
+| v0.8 | Operators and customers complete the canonical journey through coherent, secure Product Surfaces. | Existing View and Workflow foundations converge without a parallel framework; scoped customer access is secure and auditable. |
 | v0.9 | The same product can be delivered repeatedly without Core forks. | Provisioning, Packs, migrations, upgrades, diagnostics, configuration Diff, and support tooling are repeatable. |
 | v1.0 | Runory is a complete, stable, commercially deliverable Agent-native FSM product. | Reliability, security, upgradeability, operability, UX consistency, and supportability meet GA standards. |
 | v2.0 | Runory adds advanced FSM depth. | Engineering scope is defined when the product theme becomes active. |

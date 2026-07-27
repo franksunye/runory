@@ -191,20 +191,24 @@ Twenty and Directus are key benchmarks, but the framework must expose Runory-spe
 
 ### 7.2 Workflow Builder
 
-Runory should build an enterprise-grade Workflow Builder even though ordinary users are not expected to manage workflows manually.
+Runory should first make its existing Workflow V2 definitions and Runs
+business-readable. An enterprise-grade Workflow Builder remains a possible
+later product, not a current milestone requirement.
 
 Its product thesis is:
 
 > **Agent-managed, human-governed workflow.**
 
-The Builder should operate in four modes:
+If repeated implementation evidence later justifies a Builder, the research
+model has four modes:
 
 1. **Overview** — business-readable process explanation;
 2. **Review** — Agent-generated change diff, impact, and risk;
 3. **Configure** — advanced editing for implementers;
 4. **Run** — actual execution path, state, timing, errors, approvals, and audit.
 
-The Builder is not merely a low-code editor. It is a trust surface showing that Agent automation is structured, versioned, inspectable, and governed.
+The immediate trust surface is the existing Workflow Overview and Run view,
+showing that execution is structured, versioned, inspectable, and governed.
 
 ### 7.3 Apps, Packs, and Extensions
 
