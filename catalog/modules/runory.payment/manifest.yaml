@@ -142,7 +142,7 @@ views:
         - { field: amount_paid_minor, label: Amount Paid }
         - { field: currency, label: Currency }
         - { field: status, label: Status }
-      actions: [create, view]
+      actions: [view]
       pageSize: 20
 
   - object: payment_request
