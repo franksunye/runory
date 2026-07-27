@@ -79,6 +79,7 @@ export const TABLES = {
   objectDefinitions: `${PREFIXES.runoryRuntime}object_definitions`,
   fieldDefinitions: `${PREFIXES.runoryRuntime}field_definitions`,
   viewDefinitions: `${PREFIXES.runoryRuntime}view_definitions`,
+  viewPreferences: `${PREFIXES.runoryRuntime}view_preferences`,
   navigationItems: `${PREFIXES.runoryRuntime}navigation_items`,
   extensionDefinitions: `${PREFIXES.runoryRuntime}extension_definitions`,
   extensionVersions: `${PREFIXES.runoryRuntime}extension_versions`,

@@ -3,10 +3,12 @@ import { TABLES, businessTable } from "./contracts";
 import { provisionWorkspaceTenant, type ActorIdentity } from "./tenancy";
 import { assertNotGovernedUpdate } from "./governed-fields";
 import { resolveRecordVisibility, type VisibilityScope } from "./visibility";
+import { ConflictError, NotFoundError, InvalidInputError } from "./context";
 import { AsyncLocalStorage } from "node:async_hooks";
 import {
   normalizeLegacyViewConfig,
   parseViewConfig,
+  listViewPreferenceOverlaySchema,
   type ViewConfigParseResult,
 } from "@runory/contracts";
 
@@ -440,6 +442,191 @@ export async function getView(workspaceId: string, objectKey: string, viewKey: s
     viewType: row.view_type, label: row.label,
     config: normalizeViewConfigRow(row.config_json, row.view_key, row.view_type),
     moduleId: row.module_id, extensionId: row.extension_id,
+  };
+}
+
+// ── View Preferences (v0.8 Batch 1, Tech Spec §4.6) ──
+
+export interface ViewPreference {
+  id: string;
+  workspaceId: string;
+  userId: string;
+  viewDefinitionId: string;
+  visibleFields: string[];
+  filters: Array<{ field: string; operator: "eq"; value: string | number | boolean }>;
+  sort: { field: string; direction: "asc" | "desc" } | null;
+  pageSize: number | null;
+  version: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ViewPreferenceInput {
+  visibleFields?: string[];
+  filters?: Array<{ field: string; operator: "eq"; value: string | number | boolean }>;
+  sort?: { field: string; direction: "asc" | "desc" };
+  pageSize?: number;
+  /** Required when updating an existing preference (optimistic concurrency). */
+  expectedVersion?: number;
+}
+
+/**
+ * Validate a preference input against the effective view config and fields.
+ * Ensures visibleFields, filter fields, and sort field reference actual
+ * object fields, and pageSize is within the allowed enum.
+ */
+async function validateViewPreference(
+  workspaceId: string,
+  viewDefinitionId: string,
+  input: ViewPreferenceInput,
+): Promise<void> {
+  // Load the view definition
+  const viewRow = await queryOne<{ object_key: string; view_type: string }>(
+    `SELECT object_key, view_type FROM ${TABLES.viewDefinitions}
+     WHERE id = ? AND workspace_id = ?`,
+    [viewDefinitionId, workspaceId],
+  );
+  if (!viewRow) {
+    throw new NotFoundError(`View definition ${viewDefinitionId} not found`);
+  }
+  if (viewRow.view_type !== "list") {
+    throw new InvalidInputError("View preferences are only supported for list views");
+  }
+
+  // Validate input shape through the typed schema
+  const schemaResult = listViewPreferenceOverlaySchema.safeParse({
+    visibleFields: input.visibleFields,
+    filters: input.filters,
+    sort: input.sort,
+    pageSize: input.pageSize,
+  });
+  if (!schemaResult.success) {
+    throw new InvalidInputError(
+      `Invalid preference shape: ${schemaResult.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join(", ")}`,
+    );
+  }
+
+  // Cross-reference fields against the object's field definitions
+  const fields = await getFields(workspaceId, viewRow.object_key);
+  const fieldKeys = new Set(fields.map((f) => f.fieldKey));
+
+  if (input.visibleFields) {
+    const invalid = input.visibleFields.filter((f) => !fieldKeys.has(f));
+    if (invalid.length > 0) {
+      throw new InvalidInputError(`Unknown visible fields: ${invalid.join(", ")}`);
+    }
+  }
+  if (input.filters) {
+    const invalid = input.filters.filter((f) => !fieldKeys.has(f.field));
+    if (invalid.length > 0) {
+      throw new InvalidInputError(`Unknown filter fields: ${invalid.map((f) => f.field).join(", ")}`);
+    }
+  }
+  if (input.sort && !fieldKeys.has(input.sort.field)) {
+    throw new InvalidInputError(`Unknown sort field: ${input.sort.field}`);
+  }
+}
+
+export async function getViewPreference(
+  workspaceId: string,
+  userId: string,
+  viewDefinitionId: string,
+): Promise<ViewPreference | null> {
+  const row = await queryOne<{
+    id: string; workspace_id: string; user_id: string; view_definition_id: string;
+    visible_fields_json: string; filters_json: string; sort_json: string | null;
+    page_size: number | null; version: number; created_at: string; updated_at: string;
+  }>(
+    `SELECT * FROM ${TABLES.viewPreferences}
+     WHERE workspace_id = ? AND user_id = ? AND view_definition_id = ?`,
+    [workspaceId, userId, viewDefinitionId],
+  );
+  if (!row) return null;
+  return {
+    id: row.id,
+    workspaceId: row.workspace_id,
+    userId: row.user_id,
+    viewDefinitionId: row.view_definition_id,
+    visibleFields: JSON.parse(row.visible_fields_json) as string[],
+    filters: JSON.parse(row.filters_json) as ViewPreference["filters"],
+    sort: row.sort_json ? JSON.parse(row.sort_json) as ViewPreference["sort"] : null,
+    pageSize: row.page_size,
+    version: row.version,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+export async function setViewPreference(
+  workspaceId: string,
+  userId: string,
+  viewDefinitionId: string,
+  input: ViewPreferenceInput,
+): Promise<ViewPreference> {
+  await validateViewPreference(workspaceId, viewDefinitionId, input);
+
+  const existing = await getViewPreference(workspaceId, userId, viewDefinitionId);
+  const ts = now();
+
+  const visibleFieldsJson = JSON.stringify(input.visibleFields ?? []);
+  const filtersJson = JSON.stringify(input.filters ?? []);
+  const sortJson = input.sort ? JSON.stringify(input.sort) : null;
+  const pageSize = input.pageSize ?? null;
+
+  if (existing) {
+    // Optimistic concurrency: require expectedVersion to match
+    if (input.expectedVersion === undefined) {
+      throw new InvalidInputError("expectedVersion is required when updating an existing preference");
+    }
+    if (input.expectedVersion !== existing.version) {
+      throw new ConflictError(
+        `Preference version mismatch: expected ${input.expectedVersion}, got ${existing.version}`,
+      );
+    }
+    const newVersion = existing.version + 1;
+    await execute(
+      `UPDATE ${TABLES.viewPreferences}
+       SET visible_fields_json = ?, filters_json = ?, sort_json = ?, page_size = ?,
+           version = ?, updated_at = ?
+       WHERE id = ? AND workspace_id = ? AND user_id = ?`,
+      [visibleFieldsJson, filtersJson, sortJson, pageSize, newVersion, ts,
+       existing.id, workspaceId, userId],
+    );
+    return {
+      ...existing,
+      visibleFields: input.visibleFields ?? [],
+      filters: input.filters ?? [],
+      sort: input.sort ?? null,
+      pageSize,
+      version: newVersion,
+      updatedAt: ts,
+    };
+  }
+
+  // Create new preference
+  const id = genId("vpref");
+  await execute(
+    `INSERT INTO ${TABLES.viewPreferences}
+     (id, workspace_id, user_id, view_definition_id,
+      visible_fields_json, filters_json, sort_json, page_size,
+      version, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`,
+    [id, workspaceId, userId, viewDefinitionId,
+     visibleFieldsJson, filtersJson, sortJson, pageSize,
+     ts, ts],
+  );
+  return {
+    id,
+    workspaceId,
+    userId,
+    viewDefinitionId,
+    visibleFields: input.visibleFields ?? [],
+    filters: input.filters ?? [],
+    sort: input.sort ?? null,
+    pageSize,
+    version: 1,
+    createdAt: ts,
+    updatedAt: ts,
   };
 }
 
