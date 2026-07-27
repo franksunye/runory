@@ -18,6 +18,7 @@ import {
   type TemplateManifest,
   type RelationDeclaration,
   type CommandCapabilityProviderDeclaration,
+  parseViewConfig,
 } from "@runory/contracts";
 import { valid as semverValid, validRange as semverValidRange } from "semver";
 import { validateModuleDashboard, validatePackDashboard } from "./dashboard";
@@ -55,7 +56,7 @@ export interface ValidationRunRecord {
 
 // ── Constants ──
 
-const VALIDATOR_VERSION = "1.1.0";
+const VALIDATOR_VERSION = "1.2.0";
 const SHA256_HEX_PATTERN = /^[a-f0-9]{64}$/;
 
 // ── SemVer Helpers ──
@@ -775,6 +776,58 @@ async function checkCrossPackRelations(
   };
 }
 
+// ── View Config Validation (v0.8 Batch 1) ──
+//
+// Validates each view's config through the typed v1.0 schema pipeline
+// (normalize → validate). Catches structural issues before a module version
+// is released: missing columns on list views, invalid page sizes, malformed
+// actions, form views without sections, etc.
+
+function checkViewConfigs(
+  manifest: ModuleManifest | null
+): ValidationCheck {
+  if (!manifest) {
+    return {
+      name: "view_configs",
+      status: "failed",
+      message: "Manifest not available for view config check",
+    };
+  }
+  if (manifest.views.length === 0) {
+    return {
+      name: "view_configs",
+      status: "passed",
+      message: "No views declared",
+    };
+  }
+
+  const issues: string[] = [];
+  for (const view of manifest.views) {
+    const result = parseViewConfig(
+      view.config as Record<string, unknown>,
+      view.key,
+      view.type as "list" | "form",
+    );
+    if (!result.ok) {
+      issues.push(`view '${view.key}': ${result.errors.join(", ")}`);
+    }
+  }
+
+  if (issues.length > 0) {
+    return {
+      name: "view_configs",
+      status: "failed",
+      message: `View config issues: ${issues.join("; ")}`,
+      details: { issues },
+    };
+  }
+  return {
+    name: "view_configs",
+    status: "passed",
+    message: `${manifest.views.length} view config(s) validated against typed v1.0 schema`,
+  };
+}
+
 // ── Run Catalog Validation (docs/09 §9) ──
 
 export async function runCatalogValidation(
@@ -949,6 +1002,15 @@ export async function runCatalogValidation(
     checks.push(
       await runCheck("command_contracts", () =>
         checkCommandContracts(parsedManifest as ModuleManifest | null)
+      )
+    );
+  }
+
+  // 16. View config validation (modules, v0.8 Batch 1)
+  if (item.itemType === "module") {
+    checks.push(
+      await runCheck("view_configs", () =>
+        checkViewConfigs(parsedManifest as ModuleManifest | null)
       )
     );
   }

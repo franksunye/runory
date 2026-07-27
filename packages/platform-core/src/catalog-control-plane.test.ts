@@ -297,6 +297,60 @@ describe("Validation Pipeline", () => {
     expect(checkNames).toContain("pack_dependency_resolution");
     expect(result.checks.every((c) => c.status !== "failed")).toBe(true);
   });
+
+  it("includes view_configs check for module validation", async () => {
+    const { catalogVersionId } = await importFromDevCatalog(
+      adminPrincipal,
+      "runory.customer",
+      "module"
+    );
+
+    const { result } = await runCatalogValidation(
+      adminPrincipal,
+      catalogVersionId
+    );
+
+    const checkNames = result.checks.map((c) => c.name);
+    expect(checkNames).toContain("view_configs");
+    const viewCheck = result.checks.find((c) => c.name === "view_configs");
+    expect(viewCheck?.status).toBe("passed");
+  });
+
+  it("rejects a module with an invalid view config (list view without columns)", async () => {
+    // Import and freeze a valid version first
+    await importAndFreezeCustomer();
+
+    // Build a v1.1.0 manifest with an invalid list view (no columns)
+    const baseManifest = loadModuleManifest("runory.customer");
+    const v11Manifest = JSON.parse(JSON.stringify(baseManifest)) as Record<
+      string,
+      unknown
+    > & { version: string };
+    v11Manifest.version = "1.1.0";
+
+    // Corrupt the first list view: empty config (no columns, no pageSize)
+    const views = v11Manifest.views as Array<Record<string, unknown>>;
+    const listView = views.find((v) => v.type === "list");
+    expect(listView).toBeDefined();
+    listView!.config = {};
+
+    const v11 = await importCatalogCandidate(adminPrincipal, {
+      itemType: "module",
+      itemId: "runory.customer",
+      version: "1.1.0",
+      manifest: v11Manifest,
+    });
+
+    const { result } = await runCatalogValidation(
+      adminPrincipal,
+      v11.catalogVersionId
+    );
+
+    expect(result.status).toBe("failed");
+    const viewCheck = result.checks.find((c) => c.name === "view_configs");
+    expect(viewCheck?.status).toBe("failed");
+    expect(viewCheck?.message).toContain("view");
+  });
 });
 
 // ═══════════════════════════════════════════════════════════════════

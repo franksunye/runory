@@ -423,7 +423,10 @@ export async function applyExtension(workspaceId: string, plan: ExtensionPlan, c
 
     if (mods.addAction) {
       if (!config.actions) config.actions = [];
-      (config.actions as string[]).push(mods.addAction);
+      const actions = config.actions as Array<{ key: string; kind?: string }>;
+      if (!actions.some(a => a.key === mods.addAction)) {
+        actions.push({ key: mods.addAction, kind: "command" });
+      }
     }
 
     if (mods.pageSize !== undefined) {
@@ -588,9 +591,9 @@ export async function rollbackExtension(workspaceId: string, extensionId: string
     }
 
     if (mods.addAction) {
-      // Remove the action that was added
-      const actions = (config.actions as string[]) ?? [];
-      config.actions = actions.filter(a => a !== mods.addAction);
+      // Remove the action that was added (match by key)
+      const actions = (config.actions as Array<{ key: string }>) ?? [];
+      config.actions = actions.filter(a => a.key !== mods.addAction);
     }
 
     if (mods.pageSize !== undefined && before) {

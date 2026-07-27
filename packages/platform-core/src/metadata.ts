@@ -4,6 +4,11 @@ import { provisionWorkspaceTenant, type ActorIdentity } from "./tenancy";
 import { assertNotGovernedUpdate } from "./governed-fields";
 import { resolveRecordVisibility, type VisibilityScope } from "./visibility";
 import { AsyncLocalStorage } from "node:async_hooks";
+import {
+  normalizeLegacyViewConfig,
+  parseViewConfig,
+  type ViewConfigParseResult,
+} from "@runory/contracts";
 
 // ── Automation trigger recursion guard (v0.3.5) ──
 // Prevents infinite recursion when automation actions call createRecord/updateRecord.
@@ -373,6 +378,36 @@ export async function getFields(workspaceId: string, objectKey: string): Promise
 }
 
 // ── Views ──
+
+/**
+ * Normalize a raw view config (from DB or manifest) through the legacy
+ * adapter so that all consumers receive a consistent shape: string actions
+ * become ViewAction objects, missing schemaVersion defaults to "1.0", and
+ * form sections without keys receive deterministic keys.
+ */
+function normalizeViewConfigRow(
+  configJson: string,
+  viewKey: string,
+  viewType: string,
+): Record<string, unknown> {
+  let raw: Record<string, unknown>;
+  try {
+    raw = JSON.parse(configJson) as Record<string, unknown>;
+  } catch {
+    raw = {};
+  }
+  return normalizeLegacyViewConfig(raw, viewKey, viewType as "list" | "form");
+}
+
+/**
+ * Parse and validate a ViewDefinition's config through the typed v1.0 schema
+ * pipeline (normalize → validate). Returns a discriminated union — callers
+ * should check `result.ok` before accessing `result.config`.
+ */
+export function resolveViewConfig(view: ViewDefinition): ViewConfigParseResult {
+  return parseViewConfig(view.config, view.viewKey, view.viewType as "list" | "form");
+}
+
 export async function getViews(workspaceId: string, objectKey: string): Promise<ViewDefinition[]> {
   const rows = await queryAll<{
     id: string; workspace_id: string; object_key: string; view_key: string;
@@ -384,7 +419,8 @@ export async function getViews(workspaceId: string, objectKey: string): Promise<
   );
   return rows.map(r => ({
     id: r.id, workspaceId: r.workspace_id, objectKey: r.object_key, viewKey: r.view_key,
-    viewType: r.view_type, label: r.label, config: JSON.parse(r.config_json),
+    viewType: r.view_type, label: r.label,
+    config: normalizeViewConfigRow(r.config_json, r.view_key, r.view_type),
     moduleId: r.module_id, extensionId: r.extension_id,
   }));
 }
@@ -401,7 +437,8 @@ export async function getView(workspaceId: string, objectKey: string, viewKey: s
   if (!row) return undefined;
   return {
     id: row.id, workspaceId: row.workspace_id, objectKey: row.object_key, viewKey: row.view_key,
-    viewType: row.view_type, label: row.label, config: JSON.parse(row.config_json),
+    viewType: row.view_type, label: row.label,
+    config: normalizeViewConfigRow(row.config_json, row.view_key, row.view_type),
     moduleId: row.module_id, extensionId: row.extension_id,
   };
 }

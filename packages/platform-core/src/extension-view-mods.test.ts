@@ -524,9 +524,9 @@ describe("applyExtension — viewModifications", () => {
 
     const view = await getView(workspaceId, "company", "company_form");
     expect(view).toBeDefined();
-    const actions = (view!.config as { actions?: string[] }).actions;
+    const actions = (view!.config as { actions?: Array<{ key: string }> }).actions;
     expect(actions).toBeDefined();
-    expect(actions).toContain("export");
+    expect(actions!.some(a => a.key === "export")).toBe(true);
   });
 
   it("changes page size of a list view", async () => {
@@ -589,7 +589,7 @@ describe("applyExtension — viewModifications", () => {
     const listView = await getView(workspaceId, "company", "company_list");
     const formView = await getView(workspaceId, "company", "company_form");
     expect((listView!.config as { pageSize?: number }).pageSize).toBe(50);
-    expect((formView!.config as { actions?: string[] }).actions).toContain("export");
+    expect((formView!.config as { actions?: Array<{ key: string }> }).actions?.some(a => a.key === "export")).toBe(true);
   });
 
   it("works with a plan that has only viewModifications (no customFields)", async () => {
@@ -602,7 +602,7 @@ describe("applyExtension — viewModifications", () => {
         {
           targetObject: "company",
           viewKey: "company_list",
-          modifications: { pageSize: 30 },
+          modifications: { pageSize: 50 },
         },
       ],
     };
@@ -610,7 +610,7 @@ describe("applyExtension — viewModifications", () => {
     expect(version.id).toBeDefined();
 
     const view = await getView(workspaceId, "company", "company_list");
-    expect((view!.config as { pageSize?: number }).pageSize).toBe(30);
+    expect((view!.config as { pageSize?: number }).pageSize).toBe(50);
   });
 });
 
@@ -707,13 +707,13 @@ describe("rollbackExtension — viewModifications", () => {
     const version = await applyExtension(workspaceId, plan, "test-agent");
 
     let view = await getView(workspaceId, "company", "company_form");
-    expect((view!.config as { actions?: string[] }).actions).toContain("export");
+    expect((view!.config as { actions?: Array<{ key: string }> }).actions?.some(a => a.key === "export")).toBe(true);
 
     await rollbackExtension(workspaceId, version.extensionId, "test-agent");
 
     view = await getView(workspaceId, "company", "company_form");
-    const actions = (view!.config as { actions?: string[] }).actions ?? [];
-    expect(actions).not.toContain("export");
+    const actions = (view!.config as { actions?: Array<{ key: string }> }).actions ?? [];
+    expect(actions.some(a => a.key === "export")).toBe(false);
   });
 
   it("reverses pageSize", async () => {
@@ -791,8 +791,8 @@ describe("rollbackExtension — viewModifications", () => {
     expect(sections).toHaveLength(3);
     expect(sections[0].title).toBe("Basic Info");
 
-    const actions = (formView!.config as { actions?: string[] }).actions ?? [];
-    expect(actions).not.toContain("export");
+    const actions = (formView!.config as { actions?: Array<{ key: string }> }).actions ?? [];
+    expect(actions.some(a => a.key === "export")).toBe(false);
   });
 });
 

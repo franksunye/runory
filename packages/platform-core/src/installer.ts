@@ -12,6 +12,7 @@ import {
   packManifestSchema,
   templateManifestSchema,
   automationDefinitionSchema,
+  normalizeLegacyViewConfig,
   type ModuleManifest,
   type PackManifest,
   type TemplateManifest,
@@ -1374,12 +1375,17 @@ export async function installModule(
 
   // Insert view definitions
   for (const view of manifest.views) {
+    const normalizedConfig = normalizeLegacyViewConfig(
+      view.config as Record<string, unknown>,
+      view.key,
+      view.type as "list" | "form",
+    );
     await execute(
       `INSERT INTO ${TABLES.viewDefinitions} (id, workspace_id, object_key, view_key, view_type, label, config_json, module_id, created_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         genId("view"), workspaceId, view.object, view.key, view.type, view.label,
-        JSON.stringify(view.config), moduleId, now(),
+        JSON.stringify(normalizedConfig), moduleId, now(),
       ]
     );
     viewsCreated.push(view.key);

@@ -15,20 +15,49 @@ export const fieldDefinitionSchema = z.object({
   validation: z.record(z.unknown()).optional(),
 });
 
+// ── Raw View Config (legacy input — accepts untrusted manifest/DB data) ──
 export const viewConfigSchema = z.object({
   columns: z.array(z.object({
     field: z.string(),
     label: z.string().optional(),
+    width: z.enum(["sm", "md", "lg"]).optional(),
   })).optional(),
   sections: z.array(z.object({
+    key: z.string().optional(),
     title: z.string(),
     fields: z.array(z.object({
       field: z.string(),
       required: z.boolean().optional(),
     })),
   })).optional(),
-  actions: z.array(z.string()).optional(),
-  pageSize: z.number().optional(),
+  actions: z.array(z.union([
+    z.string(),
+    z.object({
+      key: z.string(),
+      label: z.string().optional(),
+      kind: z.enum(["navigate", "command"]).optional(),
+      permission: z.string().optional(),
+      command: z.string().optional(),
+      tone: z.enum(["primary", "secondary", "danger"]).optional(),
+    }),
+  ])).optional(),
+  defaultSort: z.object({
+    field: z.string(),
+    direction: z.enum(["asc", "desc"]),
+  }).optional(),
+  defaultFilters: z.array(z.object({
+    field: z.string(),
+    operator: z.literal("eq"),
+    value: z.union([z.string(), z.number(), z.boolean()]),
+  })).optional(),
+  pageSize: z.union([z.literal(10), z.literal(20), z.literal(50), z.literal(100), z.number()]).optional(),
+  workspaceRoleDefaults: z.record(z.unknown()).optional(),
+  emptyState: z.object({
+    title: z.string().optional(),
+    description: z.string().optional(),
+    actionKey: z.string().optional(),
+  }).optional(),
+  schemaVersion: z.string().optional(),
 }).passthrough();
 
 export const viewDefinitionSchema = z.object({
@@ -38,6 +67,184 @@ export const viewDefinitionSchema = z.object({
   label: z.string(),
   config: viewConfigSchema,
 });
+
+// ── Typed View Config v1.0 (validated output — Tech Spec §4.2–4.4) ──
+
+export const viewActionSchema = z.object({
+  key: z.string().min(1),
+  label: z.string().optional(),
+  kind: z.enum(["navigate", "command"]),
+  permission: z.string().optional(),
+  command: z.string().optional(),
+  tone: z.enum(["primary", "secondary", "danger"]).optional(),
+});
+export type ViewAction = z.infer<typeof viewActionSchema>;
+
+export const exactFilterSchema = z.object({
+  field: z.string().min(1),
+  operator: z.literal("eq"),
+  value: z.union([z.string(), z.number(), z.boolean()]),
+});
+export type ExactFilter = z.infer<typeof exactFilterSchema>;
+
+export const sortDefinitionSchema = z.object({
+  field: z.string().min(1),
+  direction: z.enum(["asc", "desc"]),
+});
+export type SortDefinition = z.infer<typeof sortDefinitionSchema>;
+
+export const listViewPreferenceOverlaySchema = z.object({
+  visibleFields: z.array(z.string()).optional(),
+  filters: z.array(exactFilterSchema).optional(),
+  sort: sortDefinitionSchema.optional(),
+  pageSize: z.union([z.literal(10), z.literal(20), z.literal(50), z.literal(100)]).optional(),
+});
+export type ListViewPreferenceOverlay = z.infer<typeof listViewPreferenceOverlaySchema>;
+
+export const PAGE_SIZE_VALUES = [10, 20, 50, 100] as const;
+export const pageSizeSchema = z.union([
+  z.literal(10), z.literal(20), z.literal(50), z.literal(100),
+]);
+
+export const listViewConfigV1Schema = z.object({
+  schemaVersion: z.literal("1.0"),
+  columns: z.array(z.object({
+    field: z.string().min(1),
+    label: z.string().optional(),
+    width: z.enum(["sm", "md", "lg"]).optional(),
+  })).min(1),
+  actions: z.array(viewActionSchema).default([]),
+  defaultSort: sortDefinitionSchema.optional(),
+  defaultFilters: z.array(exactFilterSchema).default([]),
+  pageSize: pageSizeSchema,
+  workspaceRoleDefaults: z.object({
+    admin: listViewPreferenceOverlaySchema.optional(),
+    member: listViewPreferenceOverlaySchema.optional(),
+    viewer: listViewPreferenceOverlaySchema.optional(),
+  }).optional(),
+  emptyState: z.object({
+    title: z.string().optional(),
+    description: z.string().optional(),
+    actionKey: z.string().optional(),
+  }).optional(),
+});
+export type ListViewConfigV1 = z.infer<typeof listViewConfigV1Schema>;
+
+export const formViewConfigV1Schema = z.object({
+  schemaVersion: z.literal("1.0"),
+  sections: z.array(z.object({
+    key: z.string().min(1),
+    title: z.string(),
+    fields: z.array(z.object({
+      field: z.string().min(1),
+      required: z.boolean().optional(),
+    })),
+  })).min(1),
+  actions: z.array(viewActionSchema).default([]),
+});
+export type FormViewConfigV1 = z.infer<typeof formViewConfigV1Schema>;
+
+export type TypedViewConfig = ListViewConfigV1 | FormViewConfigV1;
+
+export type ViewConfigParseResult =
+  | { ok: true; config: TypedViewConfig }
+  | { ok: false; errors: string[] };
+
+/**
+ * Normalize legacy view config (string actions, missing schemaVersion,
+ * missing section keys) into a shape that the typed v1.0 schemas can validate.
+ *
+ * Per Tech Spec §4.4:
+ * - string actions such as `create` and `view` normalize to action descriptors
+ * - missing `schemaVersion` normalizes to `1.0`
+ * - form sections without keys receive a deterministic key derived from the
+ *   view key and section position
+ */
+export function normalizeLegacyViewConfig(
+  raw: Record<string, unknown>,
+  viewKey: string,
+  viewType: "list" | "form",
+): Record<string, unknown> {
+  const normalized: Record<string, unknown> = { ...raw };
+
+  // Normalize string actions to ViewAction objects
+  if (Array.isArray(normalized.actions)) {
+    normalized.actions = (normalized.actions as unknown[]).map((action) => {
+      if (typeof action === "string") {
+        return {
+          key: action,
+          kind: action === "view" || action === "create" || action === "edit" ? "navigate" : "command",
+        };
+      }
+      return action;
+    });
+  }
+
+  // Normalize missing schemaVersion
+  if (!normalized.schemaVersion) {
+    normalized.schemaVersion = "1.0";
+  }
+
+  // Normalize form sections without keys
+  if (viewType === "form" && Array.isArray(normalized.sections)) {
+    normalized.sections = (normalized.sections as unknown[]).map((section, index) => {
+      if (section && typeof section === "object" && !(section as Record<string, unknown>).key) {
+        return {
+          ...section as Record<string, unknown>,
+          key: `${viewKey}_section_${index}`,
+        };
+      }
+      return section;
+    });
+  }
+
+  // Coerce arbitrary pageSize to nearest allowed value.
+  // Per Tech Spec §4.3, page size outside the enum is rejected, not silently
+  // coerced — but legacy manifests may use 25, 30, etc. We coerce to the
+  // nearest valid value during normalization so legacy data remains readable;
+  // invalid values that cannot be coerced (e.g. 0, negative) are left for
+  // schema validation to reject.
+  if (typeof normalized.pageSize === "number" && !PAGE_SIZE_VALUES.includes(normalized.pageSize as 10 | 20 | 50 | 100)) {
+    const ps: number = normalized.pageSize;
+    if (ps > 0) {
+      // Prefer the larger value when equidistant (round up)
+      const closest = PAGE_SIZE_VALUES.reduce((prev, curr) =>
+        Math.abs(curr - ps) <= Math.abs(prev - ps) ? curr : prev,
+      );
+      normalized.pageSize = closest;
+    }
+  }
+
+  // Default pageSize for list views when missing entirely.
+  // The typed v1.0 schema requires pageSize, so legacy configs without it
+  // receive the conventional default (20) during normalization.
+  if (viewType === "list" && normalized.pageSize === undefined) {
+    normalized.pageSize = 20;
+  }
+
+  return normalized;
+}
+
+/**
+ * Parse and validate a raw view config through normalization + typed schema.
+ * Returns a discriminated union: `{ ok: true, config }` or `{ ok: false, errors }`.
+ */
+export function parseViewConfig(
+  raw: Record<string, unknown>,
+  viewKey: string,
+  viewType: "list" | "form",
+): ViewConfigParseResult {
+  const normalized = normalizeLegacyViewConfig(raw, viewKey, viewType);
+  const schema = viewType === "list" ? listViewConfigV1Schema : formViewConfigV1Schema;
+  const result = schema.safeParse(normalized);
+  if (result.success) {
+    return { ok: true, config: result.data };
+  }
+  return {
+    ok: false,
+    errors: result.error.issues.map((issue) => `${issue.path.join(".")}: ${issue.message}`),
+  };
+}
 
 export const objectDefinitionSchema = z.object({
   key: z.string(),
