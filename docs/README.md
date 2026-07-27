@@ -8,7 +8,7 @@
 | Topic | `documentation-governance` |
 | Applies to | `v0.5+` |
 | Owner | Product / Engineering |
-| Last reviewed | 2026-07-20 |
+| Last reviewed | 2026-07-27 |
 | Supersedes | Earlier directory-based navigation |
 | Superseded by | — |
 
@@ -44,6 +44,8 @@ Runory documentation is organized by topic authority and lifecycle rather than b
 - [Payment POC Execution Plan](product/payment-poc-execution-plan.md) — active bounded delivery and acceptance plan.
 - [Stripe Connect Pre-GA Completion Plan](product/stripe-connect-pre-ga-plan.md) — required merchant-owned Stripe settlement path before 1.0 GA.
 - [Commercial FSM Customer Demand Benchmark](research/commercial-fsm-customer-demand-benchmark.md) — supporting research.
+- [Adjacent Platform Landscape](research/adjacent-platform-landscape.md) — active long-term benchmark across Twenty, NocoBase, Frappe, Windmill, Directus, Odoo, and related platforms.
+- [Twenty Platform Benchmark](research/twenty-platform-benchmark.md) — detailed Product Surface, Workflow Builder, Apps, and external-Agent reference.
 
 Versioned iteration plans provide implementation history but do not override the Product Definition or a newer active specification.
 
