@@ -179,3 +179,18 @@ Business Requirement
 The product promise is therefore not merely faster application creation.
 
 > **Runory converts open-ended Agent intelligence into stable, secure, auditable, and upgradeable business execution.**
+
+## 9. Strategic Reference Platforms
+
+Runory should continuously study adjacent platforms that validate or challenge this architecture, especially platforms combining metadata-driven objects, configurable product surfaces, workflows, extension packaging, self-hosting, and Agent integration.
+
+Twenty is currently the highest-priority long-term reference in this category. It should be treated as:
+
+* validation of the configurable enterprise application platform direction;
+* a benchmark for Product Surface, enterprise UX, Workflow Builder, Apps, and developer tooling;
+* an architecture reference for metadata, manifests, extension lifecycle, and permissions;
+* an adjacent competitor whose scope may continue expanding beyond CRM.
+
+Runory should not adopt Twenty wholesale or allow its differentiation to depend on Twenty remaining CRM-only. The durable boundary remains governed business execution: named Commands, domain invariants, Agent delegation, approval, transactionality, idempotency, audit, rollback, and authoritative business state.
+
+See [Twenty Platform Benchmark for Runory](../research/twenty-platform-benchmark.md) for the living comparison, research questions, and near-term product actions.
