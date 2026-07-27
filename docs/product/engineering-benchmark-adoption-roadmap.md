@@ -8,13 +8,14 @@
 | Owner | Product / Architecture / Engineering |
 | Last reviewed | 2026-07-27 |
 | Supports | [Product Roadmap](product-roadmap.md) |
+| Governing guardrails | [External Benchmark Adoption Guardrails](external-benchmark-adoption-guardrails.md) |
 | Research inputs | [Adjacent Platform Landscape](../research/adjacent-platform-landscape.md), [Twenty Platform Benchmark](../research/twenty-platform-benchmark.md) |
 | Supersedes | — |
 | Superseded by | — |
 
 ## 1. Purpose
 
-The Product Roadmap answers which FSM business capability becomes commercially usable in each version. This companion roadmap answers a second question:
+The Product Roadmap answers which FSM business capability becomes commercially usable in each version. This companion roadmap answers:
 
 > **Which engineering, UX, workflow, platform, and delivery capabilities must mature at each version, and which external reference platforms should inform those decisions?**
 
@@ -25,6 +26,8 @@ The operating principle is:
 > **Look outward continuously; adopt selectively; keep the Runtime contract internally coherent.**
 
 External products are references, not upstream product owners. Runory should borrow proven interaction patterns, platform mechanics, and engineering practices while preserving its own Business Commands, domain invariants, transaction guarantees, Agent authorization model, and authoritative business state.
+
+All benchmark-driven scope in this roadmap is governed by the [External Benchmark Adoption Guardrails](external-benchmark-adoption-guardrails.md). The guardrails are binding, not advisory.
 
 ## 2. Dual-track Milestone Model
 
@@ -50,21 +53,27 @@ A version is complete only when both conclusions are satisfied.
 
 ## 3. Adoption Rules
 
+The authoritative selection and complexity rules are defined in [External Benchmark Adoption Guardrails](external-benchmark-adoption-guardrails.md).
+
 A reference-platform capability enters a milestone only when all of the following are true:
 
 1. It directly supports that milestone's product or engineering conclusion.
-2. It can be expressed through Runory's existing architectural boundaries.
-3. It does not introduce an alternative mutation path around governed Commands.
-4. It has an explicit owner, acceptance test, and compatibility implication.
-5. It is adopted as a Runory capability rather than copied as an isolated UI or framework experiment.
-6. Code reuse, if any, is license-compatible and technically separable.
+2. It answers the four mandatory guardrail questions.
+3. It can be expressed through one existing or explicitly approved Runory model.
+4. It does not introduce an alternative mutation path around governed Commands.
+5. It has an explicit owner, acceptance test, complexity assessment, and compatibility implication.
+6. It is adopted as a Runory capability rather than copied as an isolated UI or framework experiment.
+7. It fits the milestone's structural-change budget.
+8. Code reuse, if any, is license-compatible and technically separable.
 
-Each adopted pattern must be classified as one of:
+Each observed pattern must be classified as:
 
 - **Adopt** — use substantially as an established pattern;
 - **Adapt** — retain the core idea but redesign for Runory contracts;
 - **Defer** — valuable, but not required in the current milestone;
 - **Reject** — conflicts with Runory's product or architecture principles.
+
+The default is **Defer** when the current problem, cost of delay, reused Runory model, or long-term complexity cannot be stated clearly.
 
 ## 4. v0.6 — Foundation Correctness and Engineering Baseline
 
@@ -103,8 +112,6 @@ Required maturity:
 
 ### 5.1 Engineering objective
 
-The product goal is commercial completion through Invoice and payment. The engineering goal is stronger:
-
 > Financial state must remain correct under duplicate requests, concurrency, delayed or reordered provider events, partial failure, refund, replay, and reconciliation.
 
 Required maturity:
@@ -132,11 +139,19 @@ Required maturity:
 - no duplicate Invoice, allocation, or refund under repeated requests;
 - reconciliation identifies provider/Runory divergence;
 - every financial transition has an actor, cause, prior state, resulting state, and audit record;
-- operator tooling can diagnose and safely resolve supported failure cases without direct database mutation.
+- operator tooling resolves supported failure cases without direct database mutation.
 
 ## 6. v0.8 — Agent Platform, Product Surface, and Workflow Control
 
 v0.8 is where external research becomes most visibly productized. It must not be reduced to exposing more MCP tools.
+
+The structural-change budget is limited to one coherent set:
+
+1. Agent Capability Contract;
+2. Manifest / Pack / Extension foundation;
+3. Object View Framework and Workflow Control Surface.
+
+Additional large platform initiatives require an explicit exception under the guardrails.
 
 ### 6.1 Agent Capability Contract
 
@@ -151,11 +166,7 @@ Required capabilities:
 - Agent Run logs and task-level evaluation;
 - one authorization and execution boundary shared by Agent, desktop, mobile, voice, and background jobs.
 
-Primary references:
-
-- Twenty MCP and application-capability exposure;
-- NocoBase external-Agent, metadata, API, MCP, and plugin boundaries;
-- Directus generated API and permission ergonomics.
+Primary references: Twenty, NocoBase, and Directus.
 
 Runory adaptation:
 
@@ -173,18 +184,9 @@ Required capabilities:
 - ownership boundaries for Official Modules, Industry Packs, and Workspace Extensions;
 - generated implementation and compatibility reports.
 
-Primary references:
-
-- Twenty Apps, manifests, stable IDs, CLI, typed SDK, and publish/install lifecycle;
-- NocoBase microkernel and plugin lifecycle;
-- Frappe Apps and long-lived module installation practices;
-- Odoo module packaging and commercial Pack composition.
+Primary references: Twenty, NocoBase, Frappe, and Odoo.
 
 ### 6.3 Object View Framework Foundation
-
-Runory already owns its FSM objects. v0.8 should add the shared Product View layer between business data and individual pages.
-
-Target model:
 
 ```text
 Business Object
@@ -205,22 +207,13 @@ Minimum scope:
 - consistent loading, empty, error, permission, and partial-data states;
 - Customer, Work Order, and one commercial object as reference implementations.
 
-Primary references:
+Primary references: Twenty, Directus, and NocoBase.
 
-- Twenty for object lists, saved views, record pages, navigation, density, command menu, and interaction consistency;
-- Directus for data/view separation and configurable layouts;
-- NocoBase for metadata-to-UI composition.
-
-Runory adaptation:
-
-- emphasize current execution state;
-- surface owner, SLA, risk, exception, and next action;
-- preserve role-specific operational density;
-- avoid generic record-management UX where an FSM-specific action model is clearer.
+Runory adaptation must emphasize execution state, owner, SLA, risk, exception, and next action.
 
 ### 6.4 Workflow Builder Foundation
 
-The v0.8 target is not a full low-code automation product. It is the first credible Workflow Control Surface for Agent-managed, human-governed workflows.
+The v0.8 target is the first credible Workflow Control Surface for Agent-managed, human-governed workflows.
 
 Required modes:
 
@@ -233,20 +226,15 @@ Minimum engineering scope:
 
 - workflow schema-to-canvas mapping;
 - trigger, Business Command, condition, branch, approval, human task, wait, retry, escalation, completion, and compensation nodes;
-- Inspector panel driven by schema;
+- schema-driven Inspector;
 - validation and compatibility checks;
 - Draft, version, publish, and rollback lifecycle;
 - visual version Diff;
 - run-path highlighting and node-level diagnostics;
-- permissions and governance metadata visible in the Builder;
-- read-only mode suitable for ordinary business users.
+- visible permissions and governance metadata;
+- read-only mode for ordinary business users.
 
-Primary references:
-
-- Twenty for canvas UX, side-panel configuration, branching, version status, and Run visualization;
-- Windmill for execution diagnostics, retries, errors, and workflow-as-code discipline;
-- NocoBase for workflow/plugin integration;
-- Frappe for business-readable workflow states and approvals.
+Primary references: Twenty, Windmill, NocoBase, and Frappe.
 
 Runory adaptation:
 
@@ -282,17 +270,15 @@ Required maturity:
 
 | Reference | Adopt or adapt in v0.9 |
 | --- | --- |
-| Frappe | Bench migration discipline, App lifecycle, operational upgrade practices |
-| Odoo | Module dependency handling, implementation partner workflow, customer expansion mechanics |
+| Frappe | Migration discipline, App lifecycle, operational upgrade practices |
+| Odoo | Module dependency handling, implementation-partner workflow, customer expansion mechanics |
 | Twenty | App installation, publishing, versioning, and workspace-level product polish |
 | NocoBase | Plugin composition, environment configuration, self-host operational practices |
 | Directus | Extension packaging and environment/configuration portability |
 
 ### 7.3 Product convergence
 
-By v0.9, benchmark adoption must reduce fragmentation rather than add more alternatives.
-
-Required convergence work:
+Benchmark adoption must reduce fragmentation rather than add alternatives:
 
 - one design system and interaction vocabulary;
 - one Object View model;
@@ -307,16 +293,14 @@ Required convergence work:
 Track at minimum:
 
 - elapsed time from new Workspace to accepted reference solution;
-- number of customer requirements satisfied through configuration, Pack, and Extension;
+- number of requirements satisfied through configuration, Pack, and Extension;
 - number of Core changes required per customer, with target zero;
 - manual migration and upgrade interventions;
 - failed or rolled-back installations/upgrades;
 - support hours during onboarding and first 30 days;
-- percentage of shared Product Surface and workflow components reused across customer solutions.
+- percentage of shared Product Surface and workflow components reused.
 
 ## 8. v1.0 — GA Engineering and Experience Gate
-
-v1.0 requires an explicit engineering contract, not only feature completeness.
 
 ### 8.1 Reliability
 
@@ -354,58 +338,37 @@ v1.0 requires an explicit engineering contract, not only feature completeness.
 ### 8.5 Product Surface and UX Quality
 
 - consistent navigation, list, record, action, saved-view, permission, and error patterns;
-- desktop and mobile experiences share View and action contracts where appropriate;
+- desktop and mobile share View and action contracts where appropriate;
 - accessibility and keyboard-operation baseline;
-- Workflow Builder and Run visualization are understandable in read-only mode by business users;
-- product polish is benchmarked against Twenty and other current references before GA sign-off.
+- Workflow Builder and Run visualization are understandable in read-only mode;
+- product polish is benchmarked against current references before GA.
 
 ### 8.6 GA benchmark review
 
-Before GA, run a formal benchmark review against the then-current versions of:
-
-- Twenty — Product Surface, Workflow Builder, Apps, Agent/MCP;
-- NocoBase — metadata, plugin, AI, MCP, self-hosting;
-- Frappe / ERPNext — module lifecycle, migration, business workflows;
-- Windmill — workflow runtime and diagnostics;
-- Directus — data/view platform and extensions;
-- Odoo — module ecosystem, implementation, and commercial expansion.
+Before GA, review the then-current versions of Twenty, NocoBase, Frappe / ERPNext, Windmill, Directus, and Odoo.
 
 The review does not require feature parity. It must identify:
 
 - missing table-stakes capabilities;
 - deliberate Runory differences;
 - accepted gaps and post-1.0 disposition;
-- any architecture or UX debt that would materially weaken commercial credibility.
+- architecture or UX debt that materially weakens commercial credibility.
+
+All resulting decisions must pass the guardrails.
 
 ## 9. Post-1.0 Benchmark Use
 
 ### v2.0 — Advanced FSM
 
-Study and selectively adopt:
-
-- Odoo and ERPNext inventory, procurement, recurring service, and financial-integration patterns;
-- mature FSM vendors for dispatch, route, asset, offline, and technician workflows;
-- Directus and NocoBase for richer customer-specific data and experience composition.
+Study and selectively adopt mature inventory, procurement, recurring service, financial integration, dispatch, route, asset, offline, and technician-workflow patterns.
 
 ### v3.0 — Agentic Operations
 
-Study and selectively adopt:
-
-- workflow and durable-execution platforms for long-running operational Agents;
-- Agent evaluation, identity, governance, and control-plane platforms;
-- operational inbox, exception management, and human-in-the-loop patterns.
-
-Runory must keep operational Agents inside the same Command, permission, workflow, audit, and authoritative-state boundaries.
+Study durable execution, Agent evaluation, identity, governance, control-plane, operational inbox, exception management, and human-in-the-loop patterns while keeping Agents inside Runory's Command, permission, workflow, audit, and authoritative-state boundaries.
 
 ### v4.0 — SMB Platform and Ecosystem
 
-Study and selectively adopt:
-
-- Odoo's module-market and partner ecosystem;
-- Frappe's framework-to-ERP evolution;
-- Twenty's Apps and developer experience;
-- NocoBase's plugin and metadata platform;
-- WordPress-like discovery, installation, ownership, and upgrade expectations.
+Study Odoo's module market, Frappe's framework evolution, Twenty's Apps and developer experience, NocoBase's plugin/metadata platform, and WordPress-like discovery, installation, ownership, and upgrade expectations.
 
 The transition beyond FSM remains evidence-driven and requires a separate product decision.
 
@@ -430,15 +393,20 @@ Each review records:
 - architecture and migration implications;
 - UX and design-system implications;
 - license or dependency implications;
-- owner and decision status.
+- owner and decision status;
+- completed guardrail questions and complexity assessment.
 
 ### Decision log template
 
 ```text
 Reference platform:
 Observed capability:
-Why it matters:
-Runory classification: Adopt / Adapt / Defer / Reject
+Current Runory problem solved:
+Cost of not doing it now:
+Existing Runory model reused:
+Long-term complexity introduced:
+Simplification or duplication removed:
+Classification: Adopt / Adapt / Defer / Reject
 Target version:
 Runory-owned contract affected:
 Acceptance evidence:
@@ -458,8 +426,6 @@ Every adopted pattern has a target version, owner, acceptance evidence, and life
 ```
 
 ## 12. Current Priorities
-
-The immediate research-to-engineering sequence is:
 
 1. preserve v0.6 architecture correctness and compatibility;
 2. complete v0.7 financial integrity before broad platform work;
