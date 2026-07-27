@@ -69,6 +69,8 @@ export interface ArchitectureInventory {
  * source call sites and the provisionable Module/Platform Service Contracts.
  */
 export const COMMAND_IMPLEMENTATIONS: readonly CommandImplementationDeclaration[] = [
+  { key: "customer_access.issue", aggregate: "customer_access_grant", sourceFile: "customer-access-commands.ts" },
+  { key: "customer_access.revoke", aggregate: "customer_access_grant", sourceFile: "customer-access-commands.ts" },
   { key: "approval.decide", aggregate: "work_item", sourceFile: "workflow.ts" },
   { key: "work_item.return", aggregate: "work_item", sourceFile: "workflow.ts" },
   { key: "work_item.claim", aggregate: "work_item", sourceFile: "workflow.ts" },

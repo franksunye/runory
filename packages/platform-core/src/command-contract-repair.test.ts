@@ -93,7 +93,7 @@ describe("Workspace Command Contract repair", () => {
 
   it("repairs missing snapshots and is idempotent on repetition", async () => {
     const first = await repairWorkspaceCommandContracts(workspaceId);
-    expect(first.repairedSources).toHaveLength(2);
+    expect(first.repairedSources).toHaveLength(3);
     expect(first.after.requiresRepair).toBe(false);
 
     const second = await repairWorkspaceCommandContracts(workspaceId);

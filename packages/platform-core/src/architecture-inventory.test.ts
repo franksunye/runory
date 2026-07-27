@@ -60,6 +60,10 @@ const COMMAND_SOURCE_FIXTURE = {
     "form_submission.save_draft",
     "form_submission.submit",
   ],
+  "platform_service:runory.customer-access@1.0.0": [
+    "customer_access.issue",
+    "customer_access.revoke",
+  ],
   "platform_service:runory.workflow@1.0.0": [
     "approval.decide",
     "work_item.cancel",
@@ -76,10 +80,10 @@ describe("Command architecture inventory", () => {
 
     expect(inventory.issues).toEqual([]);
     expect(inventory.summary).toMatchObject({
-      commandCount: 46,
-      sourceCount: 7,
+      commandCount: 48,
+      sourceCount: 8,
       moduleSourceCount: 5,
-      platformServiceSourceCount: 2,
+      platformServiceSourceCount: 3,
       providerCount: 15,
     });
   });

@@ -602,6 +602,181 @@ export const platformServiceContractManifestSchema = z.object({
 export type PlatformServiceAggregateContract = z.infer<typeof platformServiceAggregateContractSchema>;
 export type PlatformServiceContractManifest = z.infer<typeof platformServiceContractManifestSchema>;
 
+// ── Customer Access (v0.8 Batch 3, Tech Spec §5) ──
+//
+// The customer-access Platform Service owns access grants and public
+// authorization only. Capabilities are a closed enum — unknown values are
+// rejected at issuance. Customer-visible DTOs are explicit projections, never
+// raw business rows.
+
+export const customerAccessCapabilitySchema = z.enum([
+  "quote.view",
+  "quote.accept",
+  "work_order.view_status",
+  "service_report.view",
+  "invoice.view",
+  "invoice.pay",
+  "payment.view_status",
+]);
+export type CustomerAccessCapability = z.infer<typeof customerAccessCapabilitySchema>;
+
+export const customerAccessSubjectTypeSchema = z.enum(["contact", "company"]);
+export type CustomerAccessSubjectType = z.infer<typeof customerAccessSubjectTypeSchema>;
+
+export const customerAccessRootObjectTypeSchema = z.enum(["quote", "work_order"]);
+export type CustomerAccessRootObjectType = z.infer<typeof customerAccessRootObjectTypeSchema>;
+
+export const customerAccessGrantStatusSchema = z.enum(["active", "revoked", "expired"]);
+export type CustomerAccessGrantStatus = z.infer<typeof customerAccessGrantStatusSchema>;
+
+/** Persisted grant row (never contains the raw token). */
+export const customerAccessGrantSchema = z.object({
+  id: z.string(),
+  workspaceId: z.string(),
+  subjectType: customerAccessSubjectTypeSchema,
+  subjectId: z.string(),
+  rootObjectType: customerAccessRootObjectTypeSchema,
+  rootRecordId: z.string(),
+  capabilities: z.array(customerAccessCapabilitySchema),
+  tokenHash: z.string(),
+  expiresAt: z.string(),
+  firstAccessedAt: z.string().nullable(),
+  lastAccessedAt: z.string().nullable(),
+  revokedAt: z.string().nullable(),
+  revokedBy: z.string().nullable(),
+  createdBy: z.string(),
+  status: customerAccessGrantStatusSchema,
+  aggregateVersion: z.number(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+export type CustomerAccessGrant = z.infer<typeof customerAccessGrantSchema>;
+
+/** Issue request body (Spec §8.1). */
+export const customerAccessIssueInputSchema = z.object({
+  subjectType: customerAccessSubjectTypeSchema,
+  subjectId: z.string().min(1),
+  rootObjectType: customerAccessRootObjectTypeSchema,
+  rootRecordId: z.string().min(1),
+  capabilities: z.array(customerAccessCapabilitySchema).min(1),
+  expiresAt: z.string().min(1),
+});
+export type CustomerAccessIssueInput = z.infer<typeof customerAccessIssueInputSchema>;
+
+/** Issue response includes the access URL exactly once (Spec §8.1). */
+export const customerAccessIssueResultSchema = z.object({
+  grant: customerAccessGrantSchema,
+  accessUrl: z.string().url(),
+});
+export type CustomerAccessIssueResult = z.infer<typeof customerAccessIssueResultSchema>;
+
+// ── Customer-visible DTOs (Spec §5.4) ──
+// Explicit projections — never raw business rows. Internal notes, ownership,
+// assignment, provider references, failure payloads, audit internals, and
+// attachment storage identifiers are excluded.
+
+export const customerQuoteLineDtoSchema = z.object({
+  id: z.string(),
+  description: z.string(),
+  quantity: z.number(),
+  unitPrice: z.number(),
+  lineTotal: z.number(),
+});
+export type CustomerQuoteLineDto = z.infer<typeof customerQuoteLineDtoSchema>;
+
+export const customerQuoteDtoSchema = z.object({
+  id: z.string(),
+  quoteNumber: z.string(),
+  title: z.string(),
+  status: z.string(),
+  currency: z.string(),
+  subtotal: z.number(),
+  discountTotal: z.number(),
+  taxTotal: z.number(),
+  grandTotal: z.number(),
+  validUntil: z.string().nullable(),
+  terms: z.string().nullable(),
+  revisionNumber: z.number(),
+  acceptedAt: z.string().nullable(),
+  lines: z.array(customerQuoteLineDtoSchema),
+});
+export type CustomerQuoteDto = z.infer<typeof customerQuoteDtoSchema>;
+
+export const customerWorkOrderStatusDtoSchema = z.object({
+  id: z.string(),
+  number: z.string(),
+  title: z.string(),
+  status: z.string(),
+  scheduledStart: z.string().nullable(),
+  scheduledEnd: z.string().nullable(),
+  completedAt: z.string().nullable(),
+});
+export type CustomerWorkOrderStatusDto = z.infer<typeof customerWorkOrderStatusDtoSchema>;
+
+export const customerServiceReportDtoSchema = z.object({
+  id: z.string(),
+  summary: z.string().nullable(),
+  resolution: z.string().nullable(),
+  completedAt: z.string().nullable(),
+});
+export type CustomerServiceReportDto = z.infer<typeof customerServiceReportDtoSchema>;
+
+export const customerInvoiceLineDtoSchema = z.object({
+  id: z.string(),
+  description: z.string().nullable(),
+  quantity: z.number().nullable(),
+  unitPrice: z.number().nullable(),
+  lineTotal: z.number(),
+});
+export type CustomerInvoiceLineDto = z.infer<typeof customerInvoiceLineDtoSchema>;
+
+export const customerInvoiceDtoSchema = z.object({
+  id: z.string(),
+  invoiceNumber: z.string(),
+  status: z.string(),
+  currency: z.string(),
+  totalMinor: z.number(),
+  amountPaidMinor: z.number(),
+  balanceDueMinor: z.number(),
+  issuedAt: z.string().nullable(),
+  dueAt: z.string().nullable(),
+  paidAt: z.string().nullable(),
+  memo: z.string().nullable(),
+  lines: z.array(customerInvoiceLineDtoSchema),
+});
+export type CustomerInvoiceDto = z.infer<typeof customerInvoiceDtoSchema>;
+
+export const customerPaymentStatusDtoSchema = z.object({
+  requestStatus: z.string(),
+  paymentStatus: z.string().nullable(),
+  amountMinor: z.number(),
+  refundedAmountMinor: z.number(),
+  currency: z.string(),
+});
+export type CustomerPaymentStatusDto = z.infer<typeof customerPaymentStatusDtoSchema>;
+
+/** Customer-safe journey context returned by GET /api/customer-access/context (Spec §8.2). */
+export const customerAccessContextDtoSchema = z.object({
+  grant: z.object({
+    id: z.string(),
+    expiresAt: z.string(),
+    capabilities: z.array(z.string()),
+  }),
+  workspace: z.object({
+    name: z.string(),
+  }),
+  customer: z.object({
+    displayName: z.string(),
+  }),
+  quote: customerQuoteDtoSchema.optional(),
+  workOrder: customerWorkOrderStatusDtoSchema.optional(),
+  serviceReports: z.array(customerServiceReportDtoSchema),
+  invoice: customerInvoiceDtoSchema.optional(),
+  payment: customerPaymentStatusDtoSchema.optional(),
+  availableActions: z.array(z.enum(["quote.accept", "invoice.pay"])),
+});
+export type CustomerAccessContextDto = z.infer<typeof customerAccessContextDtoSchema>;
+
 export const moduleManifestSchema = z.object({
   id: z.string(),
   name: z.string(),

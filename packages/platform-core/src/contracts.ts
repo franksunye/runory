@@ -99,6 +99,9 @@ export const TABLES = {
   domainEvents: `${PREFIXES.runoryRuntime}domain_events`,
   outboxMessages: `${PREFIXES.runoryRuntime}outbox_messages`,
 
+  // v0.8 Customer Access.
+  customerAccessGrants: `${PREFIXES.runoryRuntime}customer_access_grants`,
+
   // Customer communication domain.
   conversations: `${PREFIXES.runoryRuntime}conversations`,
   conversationParticipants: `${PREFIXES.runoryRuntime}conversation_participants`,

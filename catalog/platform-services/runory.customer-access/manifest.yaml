@@ -1,0 +1,46 @@
+id: runory.customer-access
+name: Customer Access
+version: 1.0.0
+manifestSchemaVersion: 1.0.0
+coreCompatibility: ">=0.5.0 <0.6.0"
+permissions:
+  - customer_access.read
+  - customer_access.manage
+domain:
+  aggregates:
+    - key: customer_access_grant
+      stateField: status
+      versionField: aggregate_version
+      states: [active, revoked, expired]
+  commands:
+    - key: customer_access.issue
+      contractVersion: 1.0.0
+      aggregate: customer_access_grant
+      operation: create
+      allowedActorTypes: [user, api_key, system, agent]
+      permission: customer_access.manage
+      idempotent: true
+      requiresExpectedVersion: false
+      requiredEffects: []
+      emits: [customer_access.issued]
+      auditRequired: true
+      postconditions:
+        - A new access grant is created with a hashed token and bounded expiry.
+        - The raw token is returned exactly once and never persisted.
+    - key: customer_access.revoke
+      contractVersion: 1.0.0
+      aggregate: customer_access_grant
+      operation: transition
+      transition:
+        from: [active]
+        to: revoked
+      allowedActorTypes: [user, api_key, system, agent]
+      permission: customer_access.manage
+      idempotent: true
+      requiresExpectedVersion: true
+      requiredEffects: []
+      emits: [customer_access.revoked]
+      auditRequired: true
+      postconditions:
+        - An active grant is revoked with optimistic concurrency.
+        - Revocation takes effect on the next customer request.
