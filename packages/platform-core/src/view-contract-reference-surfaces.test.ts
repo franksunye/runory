@@ -1,35 +1,45 @@
 import { describe, it, expect } from "vitest";
+import { readdirSync } from "node:fs";
 import { loadModuleManifest } from "./installer";
+import { MODULES_DIR } from "./contracts";
 import {
   parseViewConfig,
   type ViewAction,
+  type ModuleManifest,
 } from "@runory/contracts";
 
 // ── Tech Spec §14.1: View contract test matrix ──
 //
-// Covers:
-// - Company/Contact, Work Order, and Invoice render from effective definitions
-// - governed financial objects never receive generic mutation actions
+// All modules in the catalog must have view configs that pass the typed
+// v1.0 schema after normalization. The four reference surfaces (Company,
+// Contact, Work Order, Invoice) from Truth Inventory §8.1 are a subset —
+// every other module is held to the same contract.
 
-// ── Reference surface fixtures (Truth Inventory §8.1) ──
+// ── Discover all non-retired modules dynamically ──
 
-interface ReferenceSurface {
-  moduleId: string;
-  objectKey: string;
-  viewKey: string;
-  viewType: "list" | "form";
-}
+const ALL_MODULES: ModuleManifest[] = readdirSync(MODULES_DIR, { withFileTypes: true })
+  .filter((entry) => entry.isDirectory())
+  .map((entry) => loadModuleManifest(entry.name))
+  .filter((manifest) => manifest.status !== "retired");
 
-const REFERENCE_SURFACES: ReferenceSurface[] = [
-  { moduleId: "runory.company", objectKey: "company", viewKey: "company_list", viewType: "list" },
-  { moduleId: "runory.company", objectKey: "company", viewKey: "company_form", viewType: "form" },
-  { moduleId: "runory.contact", objectKey: "contact", viewKey: "contact_list", viewType: "list" },
-  { moduleId: "runory.contact", objectKey: "contact", viewKey: "contact_form", viewType: "form" },
-  { moduleId: "runory.work-order", objectKey: "work_order", viewKey: "work_order_list", viewType: "list" },
-  { moduleId: "runory.work-order", objectKey: "work_order", viewKey: "work_order_form", viewType: "form" },
-  { moduleId: "runory.invoice", objectKey: "invoice", viewKey: "invoice_list", viewType: "list" },
-  { moduleId: "runory.invoice", objectKey: "invoice", viewKey: "invoice_form", viewType: "form" },
-];
+const ALL_VIEWS = ALL_MODULES.flatMap((manifest) =>
+  manifest.views.map((view) => ({
+    moduleId: manifest.id,
+    viewKey: view.key,
+    viewType: view.type as "list" | "form",
+    objectKey: view.object,
+    config: view.config as Record<string, unknown>,
+  })),
+);
+
+// ── Reference surfaces (Truth Inventory §8.1) ──
+
+const REFERENCE_SURFACE_KEYS = new Set([
+  "company_list", "company_form",
+  "contact_list", "contact_form",
+  "work_order_list", "work_order_form",
+  "invoice_list", "invoice_form",
+]);
 
 // ── Governed financial objects ──
 //
@@ -38,53 +48,45 @@ const REFERENCE_SURFACES: ReferenceSurface[] = [
 // never expose generic CRUD actions (create, update, delete) that would
 // bypass the governed command pipeline.
 
-const GOVERNED_FINANCIAL_MODULES = [
+const GOVERNED_FINANCIAL_MODULES = new Set([
   "runory.invoice",
   "runory.payment",
-];
+]);
 
 /** Actions that trigger generic CRUD mutations and must never appear on
  *  governed financial object views. */
 const GENERIC_MUTATION_ACTIONS = new Set(["create", "update", "delete", "edit"]);
 
-// ── Helpers ──
+// ── Tests: every module view passes typed v1.0 schema ──
 
-function getViewsFromManifest(moduleId: string) {
-  const manifest = loadModuleManifest(moduleId);
-  return manifest.views;
-}
+describe("all catalog views — typed View contract v1.0 (Tech Spec §14.1)", () => {
+  // Sanity: we actually found modules
+  it("discovers a non-trivial number of modules", () => {
+    expect(ALL_MODULES.length).toBeGreaterThanOrEqual(30);
+  });
 
-function getViewConfig(moduleId: string, viewKey: string) {
-  const views = getViewsFromManifest(moduleId);
-  const view = views.find((v) => v.key === viewKey);
-  if (!view) throw new Error(`View ${viewKey} not found in ${moduleId}`);
-  return { view, config: view.config as Record<string, unknown> };
-}
+  it("discovers a non-trivial number of views", () => {
+    expect(ALL_VIEWS.length).toBeGreaterThanOrEqual(70);
+  });
 
-// ── Tests ──
-
-describe("reference surfaces — typed View contract (Tech Spec §14.1)", () => {
-  for (const surface of REFERENCE_SURFACES) {
-    describe(`${surface.moduleId} / ${surface.viewKey} (${surface.viewType})`, () => {
+  for (const view of ALL_VIEWS) {
+    describe(`${view.moduleId} / ${view.viewKey} (${view.viewType})`, () => {
       it("parses successfully through the typed v1.0 schema", () => {
-        const { config } = getViewConfig(surface.moduleId, surface.viewKey);
-        const result = parseViewConfig(config, surface.viewKey, surface.viewType);
+        const result = parseViewConfig(view.config, view.viewKey, view.viewType);
         expect(result.ok, result.ok ? "" : result.errors.join("; ")).toBe(true);
       });
 
       it("has schemaVersion 1.0 after normalization", () => {
-        const { config } = getViewConfig(surface.moduleId, surface.viewKey);
-        const result = parseViewConfig(config, surface.viewKey, surface.viewType);
+        const result = parseViewConfig(view.config, view.viewKey, view.viewType);
         expect(result.ok).toBe(true);
         if (result.ok) {
           expect(result.config.schemaVersion).toBe("1.0");
         }
       });
 
-      if (surface.viewType === "list") {
+      if (view.viewType === "list") {
         it("has at least one column", () => {
-          const { config } = getViewConfig(surface.moduleId, surface.viewKey);
-          const result = parseViewConfig(config, surface.viewKey, "list");
+          const result = parseViewConfig(view.config, view.viewKey, "list");
           expect(result.ok).toBe(true);
           if (result.ok) {
             const listConfig = result.config as { columns: unknown[] };
@@ -93,8 +95,7 @@ describe("reference surfaces — typed View contract (Tech Spec §14.1)", () => 
         });
 
         it("has a valid pageSize in the allowed set", () => {
-          const { config } = getViewConfig(surface.moduleId, surface.viewKey);
-          const result = parseViewConfig(config, surface.viewKey, "list");
+          const result = parseViewConfig(view.config, view.viewKey, "list");
           expect(result.ok).toBe(true);
           if (result.ok) {
             const listConfig = result.config as { pageSize: number };
@@ -103,8 +104,7 @@ describe("reference surfaces — typed View contract (Tech Spec §14.1)", () => 
         });
 
         it("has typed ViewAction[] (not string actions) after normalization", () => {
-          const { config } = getViewConfig(surface.moduleId, surface.viewKey);
-          const result = parseViewConfig(config, surface.viewKey, "list");
+          const result = parseViewConfig(view.config, view.viewKey, "list");
           expect(result.ok).toBe(true);
           if (result.ok) {
             const listConfig = result.config as { actions: ViewAction[] };
@@ -117,10 +117,9 @@ describe("reference surfaces — typed View contract (Tech Spec §14.1)", () => 
         });
       }
 
-      if (surface.viewType === "form") {
+      if (view.viewType === "form") {
         it("has at least one section with a key", () => {
-          const { config } = getViewConfig(surface.moduleId, surface.viewKey);
-          const result = parseViewConfig(config, surface.viewKey, "form");
+          const result = parseViewConfig(view.config, view.viewKey, "form");
           expect(result.ok).toBe(true);
           if (result.ok) {
             const formConfig = result.config as {
@@ -135,8 +134,7 @@ describe("reference surfaces — typed View contract (Tech Spec §14.1)", () => 
         });
 
         it("has at least one field per section", () => {
-          const { config } = getViewConfig(surface.moduleId, surface.viewKey);
-          const result = parseViewConfig(config, surface.viewKey, "form");
+          const result = parseViewConfig(view.config, view.viewKey, "form");
           expect(result.ok).toBe(true);
           if (result.ok) {
             const formConfig = result.config as {
@@ -152,65 +150,78 @@ describe("reference surfaces — typed View contract (Tech Spec §14.1)", () => 
   }
 });
 
-describe("governed financial objects — no generic mutation actions (Tech Spec §14.1)", () => {
-  for (const moduleId of GOVERNED_FINANCIAL_MODULES) {
-    describe(moduleId, () => {
-      const manifest = loadModuleManifest(moduleId);
+// ── Tests: governed financial objects ──
 
-      for (const view of manifest.views) {
-        it(`${view.key} has no generic CRUD actions (create/update/delete/edit)`, () => {
-          const config = view.config as Record<string, unknown>;
-          const result = parseViewConfig(config, view.key, view.type);
-          expect(result.ok, result.ok ? "" : result.errors.join("; ")).toBe(true);
-          if (result.ok) {
-            const actions = (result.config as { actions: ViewAction[] }).actions;
-            const mutationActions = actions.filter((a) =>
-              GENERIC_MUTATION_ACTIONS.has(a.key),
-            );
-            expect(
-              mutationActions,
-              `${moduleId}/${view.key} must not expose generic mutation actions: ` +
-                mutationActions.map((a) => a.key).join(", "),
-            ).toEqual([]);
-          }
-        });
+describe("governed financial objects — no generic mutation actions (Tech Spec §14.1)", () => {
+  for (const view of ALL_VIEWS) {
+    if (!GOVERNED_FINANCIAL_MODULES.has(view.moduleId)) continue;
+
+    it(`${view.moduleId} / ${view.viewKey} has no generic CRUD actions`, () => {
+      const result = parseViewConfig(view.config, view.viewKey, view.viewType);
+      expect(result.ok, result.ok ? "" : result.errors.join("; ")).toBe(true);
+      if (result.ok) {
+        const actions = (result.config as { actions: ViewAction[] }).actions;
+        const mutationActions = actions.filter((a) =>
+          GENERIC_MUTATION_ACTIONS.has(a.key),
+        );
+        expect(
+          mutationActions,
+          `${view.moduleId}/${view.viewKey} must not expose generic mutation actions: ` +
+            mutationActions.map((a) => a.key).join(", "),
+        ).toEqual([]);
       }
     });
   }
 
   it("invoice list view only exposes view action", () => {
-    const manifest = loadModuleManifest("runory.invoice");
-    const listView = manifest.views.find((v) => v.type === "list");
+    const manifest = ALL_MODULES.find((m) => m.id === "runory.invoice");
+    expect(manifest).toBeDefined();
+    const listView = manifest!.views.find((v) => v.type === "list");
     expect(listView).toBeDefined();
-    const config = listView!.config as Record<string, unknown>;
-    const result = parseViewConfig(config, listView!.key, "list");
+    const result = parseViewConfig(
+      listView!.config as Record<string, unknown>,
+      listView!.key,
+      "list",
+    );
     expect(result.ok).toBe(true);
     if (result.ok) {
       const actions = (result.config as { actions: ViewAction[] }).actions;
-      const actionKeys = actions.map((a) => a.key);
-      expect(actionKeys).toEqual(["view"]);
+      expect(actions.map((a) => a.key)).toEqual(["view"]);
     }
   });
 
   it("payment_request list view only exposes view action", () => {
-    const manifest = loadModuleManifest("runory.payment");
-    const listView = manifest.views.find((v) => v.type === "list");
+    const manifest = ALL_MODULES.find((m) => m.id === "runory.payment");
+    expect(manifest).toBeDefined();
+    const listView = manifest!.views.find((v) => v.type === "list");
     expect(listView).toBeDefined();
-    const config = listView!.config as Record<string, unknown>;
-    const result = parseViewConfig(config, listView!.key, "list");
+    const result = parseViewConfig(
+      listView!.config as Record<string, unknown>,
+      listView!.key,
+      "list",
+    );
     expect(result.ok).toBe(true);
     if (result.ok) {
       const actions = (result.config as { actions: ViewAction[] }).actions;
-      const actionKeys = actions.map((a) => a.key);
-      expect(actionKeys).toEqual(["view"]);
+      expect(actions.map((a) => a.key)).toEqual(["view"]);
     }
   });
 });
 
-describe("non-governed reference surfaces — CRUD actions allowed", () => {
+// ── Tests: reference surfaces are a subset of all views ──
+
+describe("reference surfaces (Truth Inventory §8.1)", () => {
+  it("all 8 reference surface views exist in the catalog", () => {
+    const allViewKeys = new Set(ALL_VIEWS.map((v) => v.viewKey));
+    for (const key of REFERENCE_SURFACE_KEYS) {
+      expect(allViewKeys.has(key), `Missing reference surface: ${key}`).toBe(true);
+    }
+  });
+
   it("company list exposes create and view actions", () => {
-    const { config } = getViewConfig("runory.company", "company_list");
-    const result = parseViewConfig(config, "company_list", "list");
+    const view = ALL_VIEWS.find((v) => v.viewKey === "company_list");
+    expect(view).toBeDefined();
+    const result = parseViewConfig(view!.config, view!.viewKey, "list");
     expect(result.ok).toBe(true);
     if (result.ok) {
       const actions = (result.config as { actions: ViewAction[] }).actions;
@@ -221,8 +232,9 @@ describe("non-governed reference surfaces — CRUD actions allowed", () => {
   });
 
   it("work_order list exposes create and view actions", () => {
-    const { config } = getViewConfig("runory.work-order", "work_order_list");
-    const result = parseViewConfig(config, "work_order_list", "list");
+    const view = ALL_VIEWS.find((v) => v.viewKey === "work_order_list");
+    expect(view).toBeDefined();
+    const result = parseViewConfig(view!.config, view!.viewKey, "list");
     expect(result.ok).toBe(true);
     if (result.ok) {
       const actions = (result.config as { actions: ViewAction[] }).actions;

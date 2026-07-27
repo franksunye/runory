@@ -13,6 +13,7 @@ import {
   templateManifestSchema,
   automationDefinitionSchema,
   normalizeLegacyViewConfig,
+  parseViewConfig,
   type ModuleManifest,
   type PackManifest,
   type TemplateManifest,
@@ -1380,6 +1381,19 @@ export async function installModule(
       view.key,
       view.type as "list" | "form",
     );
+    // Validate the normalized config against the typed v1.0 schema before
+    // storing. This prevents invalid view configs from being persisted and
+    // surfacing as rendering failures at runtime.
+    const validationResult = parseViewConfig(
+      normalizedConfig,
+      view.key,
+      view.type as "list" | "form",
+    );
+    if (!validationResult.ok) {
+      throw new Error(
+        `Invalid view config for ${moduleId}/${view.key}: ${validationResult.errors.join("; ")}`,
+      );
+    }
     await execute(
       `INSERT INTO ${TABLES.viewDefinitions} (id, workspace_id, object_key, view_key, view_type, label, config_json, module_id, created_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
