@@ -202,7 +202,6 @@ export default function TrashPage() {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-slate-200 bg-slate-50 text-left text-xs font-semibold text-slate-500">
-                      <th className="px-4 py-3">{t("trash.colRecordId")}</th>
                       <th className="px-4 py-3">{t("trash.colName")}</th>
                       <th className="px-4 py-3">{t("trash.colDeletedAt")}</th>
                       <th className="px-4 py-3">{t("trash.colDeletedBy")}</th>
@@ -212,9 +211,6 @@ export default function TrashPage() {
                   <tbody className="divide-y divide-slate-100">
                     {records.map((record) => (
                       <tr key={record.id} className="hover:bg-slate-50">
-                        <td className="px-4 py-3 font-mono text-xs text-slate-500">
-                          {String(record.id).slice(0, 16)}…
-                        </td>
                         <td className="px-4 py-3 text-slate-700">
                           {String(record.name ?? record.title ?? record.email ?? "—")}
                         </td>

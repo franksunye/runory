@@ -155,7 +155,7 @@ async function getOperationalWork(
     version: 1,
     created_at: row.created_at,
     updated_at: row.updated_at,
-    title: row.visit_title ?? `Service visit ${row.visit_id.slice(0, 8)}`,
+    title: row.visit_title ?? "Service visit",
     description: `${row.resource_name} · ${row.scheduled_start}`,
     resource_name: row.resource_name,
     operational_source: "visit_execution",

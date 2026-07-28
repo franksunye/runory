@@ -147,7 +147,7 @@ function MobileCustomersPage() {
           <div className="space-y-3">
             {records.map((record) => {
               const id = String(record.id ?? record._id ?? "");
-              const name = String(record.name ?? record.company_name ?? id.slice(0, 12) ?? "—");
+              const name = String(record.name ?? record.company_name ?? "—");
               const email = String(record.email ?? record.primary_email ?? "");
               const phone = String(record.phone ?? record.primary_phone ?? "");
               const website = String(record.website ?? "");

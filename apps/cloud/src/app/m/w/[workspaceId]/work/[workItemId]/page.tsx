@@ -404,11 +404,6 @@ function MobileWorkItemPage() {
                     {item.subject_type
                       ? SUBJECT_LABEL[item.subject_type] ?? item.subject_type
                       : "—"}
-                    {item.subject_id && (
-                      <span className="ml-1.5 font-mono text-[11px] text-slate-400">
-                        {item.subject_id.slice(0, 12)}
-                      </span>
-                    )}
                   </dd>
                 </div>
 
@@ -465,8 +460,8 @@ function MobileWorkItemPage() {
                 {item.form_binding_id && (
                   <div className="flex items-center gap-3">
                     <dt className="w-20 shrink-0 text-xs text-slate-400">{t("mobile.workItemFormBinding")}</dt>
-                    <dd className="min-w-0 flex-1 text-sm font-mono text-purple-600">
-                      {item.form_binding_id.slice(0, 12)}
+                    <dd className="min-w-0 flex-1 text-sm text-purple-600">
+                      {t("mobile.workItemFormBinding")}
                     </dd>
                   </div>
                 )}
@@ -497,9 +492,6 @@ function MobileWorkItemPage() {
                     {t("mobile.workItemFormBinding")}
                   </p>
                 </div>
-                <p className="mt-1 text-xs text-purple-600">
-                  {item.form_binding_id.slice(0, 12)}
-                </p>
               </div>
             )}
 

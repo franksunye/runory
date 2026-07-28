@@ -446,7 +446,7 @@ function MyWorkPage() {
               {decisionOutcome === "approved" ? t("myWork.actionApprove") : t("myWork.actionReject")}
             </h3>
             <p className="mt-1 text-sm text-slate-500">
-              {decisionFor.subject_type ?? "Work item"} · {decisionFor.id.slice(0, 12)}
+              {decisionFor.subject_type ?? "Work item"}
             </p>
             <textarea
               value={decisionComment}

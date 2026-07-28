@@ -161,7 +161,7 @@ export function PlanningMap({ entries, onSelect, loadErrorLabel }: PlanningMapPr
                 onClick={() => onSelect(entry)}
                 className="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-700 hover:border-indigo-300"
               >
-                {entry.subject_name ?? entry.subject_id?.slice(0, 8) ?? entry.id.slice(0, 8)}
+                {entry.subject_name ?? "—"}
               </button>
             ))}
           </div>

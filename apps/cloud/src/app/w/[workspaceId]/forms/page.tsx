@@ -541,7 +541,7 @@ export default function FormsPage() {
                 const usageKey = USAGE_TYPE_KEY[b.usage_type];
                 const defName =
                   definitions.find((d) => d.id === b.form_definition_id)
-                    ?.name ?? b.form_definition_id.slice(0, 8);
+                    ?.name ?? "—";
                 // Parse workflow_step usage_key: "{workflowKey}.{stepId}"
                 const dotIdx = b.usage_key ? b.usage_key.lastIndexOf(".") : -1;
                 const wfKey =

@@ -184,7 +184,7 @@ function MobileWorkOrdersPage() {
           <div className="space-y-3">
             {records.map((record) => {
               const id = String(record.id ?? record._id ?? "");
-              const title = String(record.title ?? record.name ?? (id.slice(0, 12) || "—"));
+              const title = String(record.title ?? record.name ?? record.work_order_number ?? "—");
               const status = String(record.status ?? "draft");
               const statusBadge = STATUS_BADGE[status] ?? "bg-slate-100 text-slate-600";
               const statusLabel = STATUS_LABEL[status] ?? status;

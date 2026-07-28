@@ -537,7 +537,7 @@ export default function PlanningPage() {
         name:
           rid === "unassigned"
             ? t("planning.unassigned")
-            : resourceNameMap.get(rid) || rid.slice(0, 8),
+            : resourceNameMap.get(rid) || "—",
         avatarUrl: resource?.avatarUrl ?? entryWithAvatar?.resource_avatar_url ?? null,
         presence: resource?.availability === "available"
           ? "online" as const
@@ -561,7 +561,7 @@ export default function PlanningPage() {
     const options = new Map<string, string>();
     for (const entry of entries) {
       const id = entry.resource_id || "unassigned";
-      options.set(id, id === "unassigned" ? t("planning.unassigned") : entry.resource_name || id.slice(0, 8));
+      options.set(id, id === "unassigned" ? t("planning.unassigned") : entry.resource_name || "—");
     }
     return Array.from(options, ([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name));
   }, [entries, t]);
@@ -603,7 +603,7 @@ export default function PlanningPage() {
   }, [rangeMode, rangeStart, locale]);
 
   const entryLabel = (e: PlanningEntry): string =>
-    e.subject_name ?? (e.subject_id ? e.subject_id.slice(0, 8) : "—");
+    e.subject_name ?? "—";
 
   const currentRangeKey: MessageKey =
     rangeMode === "day"
@@ -1277,12 +1277,8 @@ export default function PlanningPage() {
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <h3 className="truncate text-lg font-bold text-slate-900">
-                  {selected.subject_name ??
-                    (selected.subject_id ? selected.subject_id.slice(0, 12) : selected.id.slice(0, 8))}
+                  {selected.subject_name ?? "—"}
                 </h3>
-                <p className="mt-0.5 font-mono text-[11px] text-slate-400">
-                  {selected.id.slice(0, 12)}
-                </p>
               </div>
               <span
                 className={`app-badge ${STATUS_STYLE[statusBucket(selected.status)].badge}`}
@@ -1298,8 +1294,7 @@ export default function PlanningPage() {
                   {t("planning.resource")}
                 </span>
                 <span className="font-medium text-slate-800">
-                  {selected.resource_name ??
-                    (selected.resource_id ? selected.resource_id.slice(0, 8) : "—")}
+                  {selected.resource_name ?? "—"}
                 </span>
               </div>
               <div className="flex items-center gap-2">

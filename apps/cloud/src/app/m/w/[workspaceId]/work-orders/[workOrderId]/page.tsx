@@ -227,7 +227,7 @@ function MobileWorkOrderDetailPage() {
   const statusBadge = STATUS_BADGE[status] ?? "bg-slate-100 text-slate-600";
   const priorityBadge = PRIORITY_BADGE[priority] ?? "bg-slate-100 text-slate-600";
 
-  const title = pickFirst(workOrder?.title, workOrder?.name, workOrderId);
+  const title = pickFirst(workOrder?.title, workOrder?.name, workOrder?.work_order_number, "—");
   const customerName = pickFirst(context?.customer?.name, workOrder?.company_name, workOrder?.customer_name);
   const contactName = pickFirst(context?.contact?.name, context?.contact?.full_name, workOrder?.contact_name);
   const phone = pickFirst(context?.contact?.phone, context?.contact?.mobile, context?.contact?.phone_number);

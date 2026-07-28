@@ -318,7 +318,7 @@ function WorkItemsSection({ workspaceId, workItems, onRefresh }: WorkItemsSectio
                       </span>
                       {item.formBindingId && (
                         <span className="app-badge bg-purple-50 text-purple-700">
-                          {t("workflow.formBinding")}: {item.formBindingId.slice(0, 8)}
+                          {t("workflow.formBinding")}
                         </span>
                       )}
                     </div>

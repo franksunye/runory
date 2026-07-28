@@ -86,7 +86,7 @@ function summarizeEntity(
     const version = (after as Record<string, unknown>).version;
     if (version !== undefined) return t("activity.entityWithVersion", { label: entityLabel, version: String(version) });
   }
-  return t("activity.entityWithId", { label: entityLabel, id: log.entityId.slice(0, 8) });
+  return entityLabel;
 }
 
 export default function ActivityPage() {

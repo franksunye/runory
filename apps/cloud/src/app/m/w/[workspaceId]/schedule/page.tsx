@@ -272,9 +272,7 @@ function MobileSchedulePage() {
             <ol className="space-y-4">
               {entries.map((entry) => {
                 const style = STATUS_STYLE[statusBucket(entry.status)];
-                const subjectLabel =
-                  entry.subject_name ??
-                  (entry.subject_id ? entry.subject_id.slice(0, 8) : "—");
+                const subjectLabel = entry.subject_name ?? "—";
 
                 return (
                   <li key={entry.id} className="relative pl-8">

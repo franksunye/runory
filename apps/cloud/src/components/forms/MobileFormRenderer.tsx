@@ -981,7 +981,7 @@ export function MobileFormRenderer({
                       )}
                       <span className="line-clamp-2 text-[9px] font-medium text-slate-600">
                         {isRecovered
-                          ? (entry.attachmentId ?? entry.id).slice(0, 12)
+                          ? "Recovered file"
                           : entry.file?.name}
                       </span>
                     </div>

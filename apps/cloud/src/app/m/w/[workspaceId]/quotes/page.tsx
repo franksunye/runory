@@ -172,7 +172,7 @@ function MobileQuotesPage() {
           <div className="space-y-3">
             {records.map((record) => {
               const id = String(record.id ?? record._id ?? "");
-              const title = String(record.title ?? record.name ?? record.quote_number ?? id.slice(0, 12) ?? "—");
+              const title = String(record.title ?? record.name ?? record.quote_number ?? "—");
               const status = String(record.status ?? "draft");
               const statusBadge = STATUS_BADGE[status] ?? "bg-slate-100 text-slate-600";
               const total = formatMoney(record.total_amount ?? record.amount ?? record.grand_total);
