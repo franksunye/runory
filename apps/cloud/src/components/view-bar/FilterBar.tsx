@@ -179,8 +179,8 @@ export default function FilterBar({
 
                 {selectedFieldDef.type === "select" ? (
                   <ul role="listbox" className="max-h-48 overflow-y-auto">
-                    {getSelectOptions(selectedFieldDef).map((option) => (
-                      <li key={option.value}>
+                    {getSelectOptions(selectedFieldDef).map((option, idx) => (
+                      <li key={`${option.value}-${idx}`}>
                         <button
                           type="button"
                           role="option"
