@@ -446,6 +446,102 @@ export async function getView(workspaceId: string, objectKey: string, viewKey: s
   };
 }
 
+// ── Custom View CRUD (user-created views) ──
+
+/** Generate a unique view_key for custom (user-created) views. */
+function generateCustomViewKey(): string {
+  return `custom_${genId("cv").substring(3, 15)}`;
+}
+
+/** Create a custom list view definition. Custom views have no module_id or extension_id. */
+export async function createCustomView(
+  workspaceId: string,
+  objectKey: string,
+  label: string,
+  config: Record<string, unknown>,
+): Promise<ViewDefinition> {
+  const id = genId("vd");
+  const viewKey = generateCustomViewKey();
+  const configJson = JSON.stringify(config);
+  await execute(
+    `INSERT INTO ${TABLES.viewDefinitions}
+       (id, workspace_id, object_key, view_key, view_type, label, config_json, module_id, extension_id, created_at)
+     VALUES (?, ?, ?, ?, 'list', ?, ?, NULL, NULL, ?)`,
+    [id, workspaceId, objectKey, viewKey, label, configJson, now()],
+  );
+  return {
+    id, workspaceId, objectKey, viewKey, viewType: "list",
+    label, config: normalizeViewConfigRow(configJson, viewKey, "list"),
+    moduleId: null, extensionId: null,
+  };
+}
+
+/** Rename a custom view. System views (with module_id/extension_id) cannot be renamed. */
+export async function renameCustomView(
+  workspaceId: string,
+  viewId: string,
+  newLabel: string,
+): Promise<ViewDefinition | null> {
+  const existing = await queryOne<{ id: string; module_id: string | null; extension_id: string | null }>(
+    `SELECT id, module_id, extension_id FROM ${TABLES.viewDefinitions}
+     WHERE id = ? AND workspace_id = ?`,
+    [viewId, workspaceId],
+  );
+  if (!existing) throw new NotFoundError(`View definition ${viewId} not found`);
+  if (existing.module_id || existing.extension_id) {
+    throw new InvalidInputError("Cannot rename system views");
+  }
+
+  await execute(
+    `UPDATE ${TABLES.viewDefinitions} SET label = ? WHERE id = ? AND workspace_id = ?`,
+    [newLabel, viewId, workspaceId],
+  );
+
+  const row = await queryOne<{
+    id: string; workspace_id: string; object_key: string; view_key: string;
+    view_type: string; label: string; config_json: string;
+    module_id: string | null; extension_id: string | null;
+  }>(
+    `SELECT * FROM ${TABLES.viewDefinitions} WHERE id = ? AND workspace_id = ?`,
+    [viewId, workspaceId],
+  );
+  if (!row) return null;
+  return {
+    id: row.id, workspaceId: row.workspace_id, objectKey: row.object_key, viewKey: row.view_key,
+    viewType: row.view_type, label: row.label,
+    config: normalizeViewConfigRow(row.config_json, row.view_key, row.view_type),
+    moduleId: row.module_id, extensionId: row.extension_id,
+  };
+}
+
+/** Delete a custom view definition and its associated preferences.
+ *  System views (with module_id/extension_id) cannot be deleted. */
+export async function deleteCustomView(
+  workspaceId: string,
+  viewId: string,
+): Promise<boolean> {
+  const existing = await queryOne<{ id: string; module_id: string | null; extension_id: string | null }>(
+    `SELECT id, module_id, extension_id FROM ${TABLES.viewDefinitions}
+     WHERE id = ? AND workspace_id = ?`,
+    [viewId, workspaceId],
+  );
+  if (!existing) return false;
+  if (existing.module_id || existing.extension_id) {
+    throw new InvalidInputError("Cannot delete system views");
+  }
+
+  // Delete preferences for this view first (cascade)
+  await execute(
+    `DELETE FROM ${TABLES.viewPreferences} WHERE view_definition_id = ?`,
+    [viewId],
+  );
+  await execute(
+    `DELETE FROM ${TABLES.viewDefinitions} WHERE id = ? AND workspace_id = ?`,
+    [viewId, workspaceId],
+  );
+  return true;
+}
+
 // ── View Preferences (v0.8 Batch 1, Tech Spec §4.6) ──
 
 export interface ViewPreference {

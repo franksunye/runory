@@ -18,7 +18,7 @@ import { useI18n } from "@/i18n/locale-provider";
 import { extractViewActions, filterActionsByPermission } from "@/lib/view-actions";
 import { EmptyState, LoadingState, ErrorState } from "@/components/states";
 import { PageHeader } from "@/components/layout";
-import { ViewSelector, FilterBar, ColumnSettings, PageSizeSelector } from "@/components/view-bar";
+import { ViewSelector, FilterBar, ColumnSettings, PageSizeSelector, SaveViewDialog } from "@/components/view-bar";
 import {
   buildPreferenceInput,
 } from "@/lib/view-preference-resolver";
@@ -269,34 +269,61 @@ export default function ObjectListPage({
     }
   }, [viewDefId, workspaceId, mutatePreference, router, basePath, allColumnFields, pageSize, t]);
 
-  // Save current state as a view preference (explicit action)
-  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
-  const handleSavePreferences = useCallback(async () => {
-    if (!viewDefId) return;
-    setSaveStatus("saving");
+  // Save current state as a new custom view definition (with name)
+  const [saveDialogOpen, setSaveDialogOpen] = useState(false);
+  const [savingView, setSavingView] = useState(false);
+
+  // Default name for the new custom view
+  const defaultViewName = useMemo(() => {
+    const dateStr = new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    return `${title} — ${dateStr}`;
+  }, [title]);
+
+  const handleCreateCustomView = useCallback(async (name: string) => {
+    setSavingView(true);
     try {
+      // Build the view config from the current effective columns + actions
+      const config = {
+        columns: effectiveColumns,
+        actions: viewActions,
+      };
+
+      // 1. Create the custom view definition
+      const created = await apiFetch<{ id: string; viewKey: string }>(
+        `/api/workspaces/${workspaceId}/views`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ objectKey, label: name, config }),
+        },
+      );
+
+      // 2. Save current filter/sort/pageSize/visibleFields as a preference for the new view
       const stateForSave = {
-        search: debouncedSearch,
+        search: "",
         sortBy,
         sortOrder,
         filters: relationFilters,
         pageSize: currentPageSize,
         visibleFields,
       };
-      const input = buildPreferenceInput(stateForSave, preference?.version);
-      await apiFetch(`/api/workspaces/${workspaceId}/views/${viewDefId}/preference`, {
+      const prefInput = buildPreferenceInput(stateForSave, undefined);
+      await apiFetch(`/api/workspaces/${workspaceId}/views/${created.id}/preference`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(input),
+        body: JSON.stringify(prefInput),
       });
-      void mutatePreference();
-      setSaveStatus("saved");
-      setTimeout(() => setSaveStatus("idle"), 2000);
+
+      // 3. Refresh views list and navigate to the new view
+      void mutateViews();
+      setSaveDialogOpen(false);
+      router.push(`${basePath}?view=${created.viewKey}`);
     } catch {
-      setSaveStatus("error");
-      setTimeout(() => setSaveStatus("idle"), 3000);
+      // Error silently swallowed; user can retry
+    } finally {
+      setSavingView(false);
     }
-  }, [viewDefId, debouncedSearch, sortBy, sortOrder, relationFilters, currentPageSize, visibleFields, preference, workspaceId, mutatePreference]);
+  }, [effectiveColumns, viewActions, workspaceId, objectKey, sortBy, sortOrder, relationFilters, currentPageSize, visibleFields, mutateViews, router, basePath]);
 
   // Extension field notice
   const extensionFields = fields.filter((f) => f.ownership === "workspace_extension");
@@ -345,16 +372,12 @@ export default function ObjectListPage({
       {hasPack && viewDefId && (
         <button
           type="button"
-          onClick={handleSavePreferences}
-          disabled={saveStatus === "saving"}
-          className={`app-button-secondary ${saveStatus === "saved" ? "!text-green-600 !border-green-300" : ""} ${saveStatus === "error" ? "!text-red-600 !border-red-300" : ""}`}
-          title={t("workspace.savePreferences")}
+          onClick={() => setSaveDialogOpen(true)}
+          className="app-button-secondary"
+          title={t("workspace.viewBar.saveAsView")}
         >
           <Save size={16} />
-          {saveStatus === "saving" ? t("surface.loading")
-            : saveStatus === "saved" ? t("workspace.viewBar.saved")
-            : saveStatus === "error" ? t("workspace.viewBar.saveFailed")
-            : t("workspace.savePreferences")}
+          {t("workspace.viewBar.saveAsView")}
         </button>
       )}
       {hasPack && canCreate && hasCreateAction ? (
@@ -432,6 +455,11 @@ export default function ObjectListPage({
                 objectKey={objectKey}
                 currentViewKey={viewKey}
                 basePath={basePath}
+                labels={{
+                  rename: t("workspace.viewBar.rename"),
+                  delete: t("workspace.viewBar.delete"),
+                  deleteConfirm: t("workspace.viewBar.deleteConfirm"),
+                }}
               />
               <div className="relative w-full max-w-sm">
                 <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -528,6 +556,20 @@ export default function ObjectListPage({
       ) : (
         <EmptyState icon={Settings} title={t("workspace.viewNotFound")} />
       )}
+
+      <SaveViewDialog
+        open={saveDialogOpen}
+        defaultName={defaultViewName}
+        onSave={handleCreateCustomView}
+        onClose={() => setSaveDialogOpen(false)}
+        saving={savingView}
+        labels={{
+          title: t("workspace.viewBar.saveAsView"),
+          placeholder: t("workspace.viewBar.viewNamePlaceholder"),
+          save: t("workspace.viewBar.save"),
+          cancel: t("workspace.viewBar.cancel"),
+        }}
+      />
     </div>
   );
 }
