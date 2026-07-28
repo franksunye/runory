@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { TABLES, queryAll } from "@runory/platform-core";
+import { TABLES, queryAll, resolveWorkflowOverview } from "@runory/platform-core";
 import type { WorkflowDefinition } from "@runory/contracts";
 import { requireWorkspaceContext } from "@/lib/auth";
 import { successResponse, handleError, getOrCreateRequestId } from "@/lib/http";
@@ -85,6 +85,7 @@ export async function GET(
         const version = latestVersionByDefinitionId.get(r.id);
         const definition = parseDefinition(version?.definition_json ?? r.definition_json);
         if (!definition) return null;
+        const versionNumber = version?.version_number ?? 1;
         return {
           id: r.id,
           workspaceId: r.workspace_id,
@@ -92,8 +93,9 @@ export async function GET(
           name: definition.name ?? r.name,
           targetObject: definition.targetObject ?? r.target_object,
           status: "active",
-          versionNumber: version?.version_number ?? 1,
+          versionNumber,
           definition,
+          overview: resolveWorkflowOverview(definition, versionNumber),
           createdAt: r.created_at,
           updatedAt: r.updated_at,
         };

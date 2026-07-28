@@ -1196,6 +1196,56 @@ export interface OutboxMessage {
   deliveredAt: string | null;
 }
 
+// ── Workflow Projection Types (v0.8 Batch 4, Tech Spec §11) ──
+
+export const workflowOverviewStepSchema = z.object({
+  id: z.string(),
+  kind: workflowStepKindSchema,
+  label: z.string(),
+  next: z.array(z.string()),
+});
+export type WorkflowOverviewStep = z.infer<typeof workflowOverviewStepSchema>;
+
+export const workflowOverviewSchema = z.object({
+  workflowKey: z.string(),
+  name: z.string(),
+  targetObject: z.string(),
+  versionNumber: z.number(),
+  steps: z.array(workflowOverviewStepSchema),
+});
+export type WorkflowOverview = z.infer<typeof workflowOverviewSchema>;
+
+export const workflowRunStepStateSchema = z.enum([
+  "pending", "current", "completed", "cancelled",
+]);
+export type WorkflowRunStepState = z.infer<typeof workflowRunStepStateSchema>;
+
+export const workflowRunStepSchema = z.object({
+  id: z.string(),
+  state: workflowRunStepStateSchema,
+  workItemStatus: z.string().optional(),
+  occurredAt: z.string().optional(),
+  outcome: z.enum(["approved", "rejected", "returned", "cancelled"]).optional(),
+});
+export type WorkflowRunStep = z.infer<typeof workflowRunStepSchema>;
+
+export const workflowRunNextActionSchema = z.object({
+  kind: z.string(),
+  workItemId: z.string().optional(),
+});
+export type WorkflowRunNextAction = z.infer<typeof workflowRunNextActionSchema>;
+
+export const workflowRunProjectionSchema = z.object({
+  instanceId: z.string(),
+  status: z.enum(["running", "completed", "returned", "cancelled"]),
+  currentStepId: z.string().nullable(),
+  startedAt: z.string(),
+  completedAt: z.string().nullable(),
+  steps: z.array(workflowRunStepSchema),
+  nextAction: workflowRunNextActionSchema.optional(),
+});
+export type WorkflowRunProjection = z.infer<typeof workflowRunProjectionSchema>;
+
 // ── V2 Form Block Types (v0.5) ──
 
 export const formBlockTypeSchema = z.enum([

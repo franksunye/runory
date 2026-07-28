@@ -16,6 +16,8 @@ import type {
   WorkflowInstance,
   WorkItem,
   WorkflowEvent,
+  WorkflowRunProjection,
+  WorkflowDefinition,
 } from "@runory/contracts";
 import type { WorkspaceSurfaceKey } from "@runory/contracts";
 import {
@@ -228,12 +230,16 @@ export function useWorkspaceChangeEvent(workspaceId: string): void {
 interface RecordWorkflowRaw extends WorkflowInstanceRow {
   work_items: MyWorkItem[];
   events: WorkflowEventRow[];
+  definition: WorkflowDefinition | null;
+  runProjection: WorkflowRunProjection | null;
 }
 
 export interface RecordWorkflowData {
   instance: WorkflowInstance;
   workItems: WorkItem[];
   events: WorkflowEvent[];
+  definition: WorkflowDefinition | null;
+  runProjection: WorkflowRunProjection | null;
 }
 
 function mapInstanceRow(row: WorkflowInstanceRow): WorkflowInstance {
@@ -316,6 +322,8 @@ export function useRecordWorkflow(
       instance: mapInstanceRow(raw),
       workItems: raw.work_items.map(mapWorkItemRow),
       events: raw.events.map(mapEventRow),
+      definition: raw.definition,
+      runProjection: raw.runProjection,
     };
   }, [raw]);
   return { data, error, isLoading, mutate };
@@ -591,7 +599,8 @@ export interface WorkflowInstanceDetail extends WorkflowInstanceRow {
       onApprove?: string;
       onReject?: string;
     }>;
-  };
+  } | null;
+  runProjection: WorkflowRunProjection | null;
 }
 
 export interface WorkflowEventRow {

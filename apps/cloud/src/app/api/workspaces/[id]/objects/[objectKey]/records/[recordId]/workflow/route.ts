@@ -3,9 +3,11 @@ import {
   TABLES,
   queryOne,
   queryAll,
+  resolveWorkflowRunProjection,
   type WorkflowInstanceRow,
   type WorkItemRow,
   type WorkflowEventRow,
+  type WorkflowDefinition,
 } from "@runory/platform-core";
 import { requireWorkspaceContext } from "@/lib/auth";
 import {
@@ -20,8 +22,9 @@ export const dynamic = "force-dynamic";
  * GET /api/workspaces/[id]/objects/[objectKey]/records/[recordId]/workflow
  *
  * V2-only: returns the V2 workflow instance bound to this record (matched by
- * object_type + record_id), together with its work items and event history.
- * Returns null when no V2 instance is bound to the record.
+ * object_type + record_id), together with its work items, event history, and
+ * run projection (Tech Spec §11.2). Returns null when no V2 instance is bound
+ * to the record.
  */
 export async function GET(
   request: NextRequest,
@@ -63,11 +66,34 @@ export async function GET(
       [workspaceId, instance.id]
     );
 
+    // Fetch the pinned definition version to resolve the run projection.
+    const versionRow = await queryOne<{ definition_json: string }>(
+      `SELECT definition_json FROM ${TABLES.workflowDefinitionVersions}
+       WHERE id = ?`,
+      [instance.definition_version_id]
+    );
+
+    let definition: WorkflowDefinition | null = null;
+    if (versionRow) {
+      try {
+        definition = JSON.parse(versionRow.definition_json) as WorkflowDefinition;
+      } catch {
+        definition = null;
+      }
+    }
+
+    // Resolve the run projection (Tech Spec §11.2)
+    const runProjection = definition
+      ? resolveWorkflowRunProjection(definition, instance, workItems, events)
+      : null;
+
     return successResponse(
       {
         ...instance,
         work_items: workItems,
         events,
+        definition,
+        runProjection,
       },
       200,
       ctx.requestId

@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import type {
   WorkflowDefinition, WorkflowStep, WorkflowStepKind,
+  WorkflowOverview, WorkflowRunProjection,
 } from "@runory/contracts";
 import { useI18n } from "@/i18n/locale-provider";
 import type { MessageKey } from "@/i18n/messages";
@@ -26,6 +27,7 @@ interface DefinitionDetail {
   status: string;
   versionNumber: number;
   definition: WorkflowDefinition | null;
+  overview: WorkflowOverview | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -43,6 +45,7 @@ interface InstanceDetail {
   completed_at: string | null;
   work_items: WorkItemRow[];
   definition: WorkflowDefinition | null;
+  runProjection: WorkflowRunProjection | null;
 }
 
 interface WorkItemRow {
@@ -208,7 +211,7 @@ function DefinitionsSection({ workspaceId, refreshKey }: { workspaceId: string; 
                   </button>
                 </div>
 
-                {/* Step pipeline with form binding & assignee rule badges */}
+                {/* Step pipeline with overview labels and branch indicators */}
                 {steps.length > 0 && (
                   <div className="mt-3 pl-12">
                     <p className="mb-1.5 text-xs font-semibold text-slate-500">{t("workflow.stepPipeline")}</p>
@@ -216,6 +219,9 @@ function DefinitionsSection({ workspaceId, refreshKey }: { workspaceId: string; 
                       {steps.map((step, i) => {
                         const hasForm = Boolean(step.formBindingId);
                         const permissionGroup = step.assigneeRule?.permissionGroup;
+                        const overviewStep = def.overview?.steps.find((s) => s.id === step.id);
+                        const branchCount = overviewStep?.next.length ?? 0;
+                        const hasBranches = branchCount > 1;
                         return (
                           <span key={`${step.id}-${i}`} className="flex items-center gap-1.5">
                             <span
@@ -226,7 +232,15 @@ function DefinitionsSection({ workspaceId, refreshKey }: { workspaceId: string; 
                                 <FileText size={11} className="mr-0.5 shrink-0" />
                               )}
                               {t(STEP_KIND_LABEL_KEY[step.kind])}
+                              {overviewStep?.label && (
+                                <span className="ml-0.5 text-[10px] opacity-80">{overviewStep.label}</span>
+                              )}
                               <span className="font-mono text-[10px] opacity-70">{step.id}</span>
+                              {hasBranches && (
+                                <span className="ml-0.5 rounded bg-slate-200 px-1 text-[9px] font-bold text-slate-600">
+                                  {branchCount}→
+                                </span>
+                              )}
                             </span>
                             {hasForm && (
                               <span
@@ -416,7 +430,7 @@ function InstanceRow({ instance, onOpenRecord }: InstanceRowProps) {
         )}
       </div>
 
-      {/* Step pipeline (horizontal badges) */}
+      {/* Step pipeline with run projection states */}
       {steps.length > 0 && (
         <div className="mt-3 pl-12">
           <p className="mb-1.5 text-xs font-semibold text-slate-500">{t("workflow.stepPipeline")}</p>
@@ -424,10 +438,17 @@ function InstanceRow({ instance, onOpenRecord }: InstanceRowProps) {
             {steps.map((step, i) => {
               const isCurrent = step.id === currentStepId;
               const hasForm = Boolean(step.formBindingId);
+              const projStep = instance.runProjection?.steps.find((s) => s.id === step.id);
+              const stepState = projStep?.state;
+              const stepOutcome = projStep?.outcome;
               return (
                 <span key={`${step.id}-${i}`} className="flex items-center gap-1.5">
                   <span
-                    className={`app-badge ${v2StepKindBadgeClass(step.kind)} ${isCurrent ? "ring-2 ring-indigo-400" : ""}`}
+                    className={`app-badge ${v2StepKindBadgeClass(step.kind)} ${
+                      stepState === "completed" ? "opacity-50" : ""
+                    } ${stepState === "cancelled" ? "line-through opacity-40" : ""} ${
+                      isCurrent || stepState === "current" ? "ring-2 ring-indigo-400" : ""
+                    } ${stepState === "pending" ? "opacity-60" : ""}`}
                     title={hasForm ? t("workflow.formBound") : undefined}
                   >
                     {hasForm && (
@@ -435,12 +456,29 @@ function InstanceRow({ instance, onOpenRecord }: InstanceRowProps) {
                     )}
                     {t(STEP_KIND_LABEL_KEY[step.kind])}
                     <span className="font-mono text-[10px] opacity-70">{step.id}</span>
+                    {stepOutcome && (
+                      <span className={`ml-0.5 rounded px-1 text-[9px] font-bold ${
+                        stepOutcome === "approved" ? "bg-green-100 text-green-700" :
+                        stepOutcome === "rejected" ? "bg-red-100 text-red-700" :
+                        "bg-slate-200 text-slate-600"
+                      }`}>
+                        {stepOutcome}
+                      </span>
+                    )}
                   </span>
                   {i < steps.length - 1 && <ArrowRight size={12} className="text-slate-300" />}
                 </span>
               );
             })}
           </div>
+          {instance.runProjection && (
+            <p className="mt-1 text-[11px] text-slate-400">
+              {t("workflow.stepPipeline")}: {instance.runProjection.steps.filter(s => s.state === "completed").length}/{instance.runProjection.steps.length} completed
+              {instance.runProjection.nextAction && (
+                <> · next: <span className="font-mono">{instance.runProjection.nextAction.kind}</span></>
+              )}
+            </p>
+          )}
         </div>
       )}
 

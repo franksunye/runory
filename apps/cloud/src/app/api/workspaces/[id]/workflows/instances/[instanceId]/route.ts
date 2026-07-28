@@ -4,8 +4,11 @@ import {
   queryOne,
   queryAll,
   getWorkflowHistory,
+  resolveWorkflowRunProjection,
   type WorkflowInstanceRow,
   type WorkItemRow,
+  type WorkflowEventRow,
+  type WorkflowDefinition,
 } from "@runory/platform-core";
 import { requireWorkspaceContext } from "@/lib/auth";
 import { successResponse, handleError, getOrCreateRequestId } from "@/lib/http";
@@ -65,12 +68,23 @@ export async function GET(
     // Fetch events for this instance
     const events = await getWorkflowHistory(workspaceId, instanceId);
 
+    // Resolve the run projection (Tech Spec §11.2)
+    const runProjection = definition
+      ? resolveWorkflowRunProjection(
+          definition as unknown as WorkflowDefinition,
+          instance,
+          workItems,
+          events as WorkflowEventRow[],
+        )
+      : null;
+
     return successResponse(
       {
         ...instance,
         work_items: workItems,
         events,
         definition,
+        runProjection,
       },
       200,
       ctx.requestId
