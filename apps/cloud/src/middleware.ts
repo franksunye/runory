@@ -23,6 +23,7 @@ const MARKETING_PATHS = [
   "/packs",
   "/docs",
   "/login",
+  "/access",
 ];
 
 function isMarketingPath(pathname: string): boolean {

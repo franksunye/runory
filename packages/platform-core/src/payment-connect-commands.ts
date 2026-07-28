@@ -296,10 +296,8 @@ export async function startConnectOnboarding(
           {
             aggregateType: "payment_provider_account",
             aggregateId: providerAccountId,
-            eventType: isResume
-              ? "payment.connect.onboarding_resumed"
-              : "payment.connect.onboarding_started",
-            payload: { mode },
+            eventType: "payment_connect.onboarding_started",
+            payload: { mode, resumed: isResume },
           },
         ],
         outboxMessages: [
@@ -431,7 +429,7 @@ export async function syncConnectAccount(
           {
             aggregateType: "payment_provider_account",
             aggregateId: providerAccountId,
-            eventType: "payment.connect.synced",
+            eventType: "payment_connect.synced",
             payload: {
               onboardingStatus: newStatus,
               chargesEnabled: syncData.charges_enabled,
@@ -539,7 +537,7 @@ export async function disconnectConnectAccount(
           {
             aggregateType: "payment_provider_account",
             aggregateId: providerAccountId,
-            eventType: "payment.connect.disconnected",
+            eventType: "payment_connect.disconnected",
             payload: { disconnectedAt: timestamp },
           },
         ],
@@ -557,8 +555,12 @@ export async function disconnectConnectAccount(
           action: "payment.connect.disconnect",
           entityType: "payment_provider_account",
           entityId: providerAccountId,
-          before: current,
-          after: updated,
+          // The contract validation checks audit.before.status / after.status
+          // against the transition from/to list. The payment_provider_account
+          // aggregate uses onboarding_status as its stateField, so we surface
+          // it as the status value for transition validation.
+          before: { ...current, status: current.onboarding_status },
+          after: { ...updated, status: "disconnected" },
         },
         aggregate: updated,
         newVersion: updated.aggregate_version,

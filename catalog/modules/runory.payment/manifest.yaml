@@ -113,7 +113,7 @@ objects:
         required: true
         default_value: "not_started"
         validation:
-          options: [not_started, configured, active, complete, restricted, disconnected]
+          options: [not_started, in_progress, complete, restricted, disconnected]
       - { key: aggregate_version, label: Aggregate Version, type: number, ownership: module_owned, required: true, default_value: "1" }
 
   - key: payment_provider_reference
@@ -306,7 +306,7 @@ domain:
     - key: payment.connect.disconnect
       contractVersion: "1.0.0"
       aggregate: payment_provider_account
-      transition: { from: [configured, active, complete, restricted], to: disconnected }
+      transition: { from: [not_started, in_progress, complete, restricted], to: disconnected }
       allowedActorTypes: [user, api_key, system]
       permission: payment.configure
       idempotent: true

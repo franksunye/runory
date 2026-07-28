@@ -201,12 +201,13 @@ describe("Customer Access token utilities", () => {
 describe("Customer Access capability validation", () => {
   it("accepts quote capabilities for quote root", () => {
     const result = validateCapabilities(
-      ["quote.view", "quote.accept", "invoice.view", "invoice.pay", "payment.view_status"],
+      ["quote.view", "quote.accept", "work_order.view_status", "invoice.view", "invoice.pay", "payment.view_status"],
       "quote",
     );
     expect(result).toEqual([
       "quote.view",
       "quote.accept",
+      "work_order.view_status",
       "invoice.view",
       "invoice.pay",
       "payment.view_status",
@@ -221,8 +222,11 @@ describe("Customer Access capability validation", () => {
     expect(result).toHaveLength(5);
   });
 
-  it("rejects work_order.view_status for quote root", () => {
-    expect(() => validateCapabilities(["work_order.view_status"], "quote")).toThrow();
+  it("allows work_order.view_status for quote root (quote→work_order journey)", () => {
+    // Per v0.8 Batch 3: a quote-rooted grant needs work_order.view_status
+    // because the context resolver follows quote.work_order_id after conversion.
+    const result = validateCapabilities(["work_order.view_status"], "quote");
+    expect(result).toEqual(["work_order.view_status"]);
   });
 
   it("rejects quote capabilities for work_order root", () => {
