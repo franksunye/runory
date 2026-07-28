@@ -18,12 +18,17 @@ interface SelectOption {
   label: string;
 }
 
-/** Extract select options from a field's validation config. */
+/** Extract select options from a field's validation config.
+ *  Supports both string arrays (["lead", "customer"]) and object arrays
+ *  ([{value: "lead", label: "Lead"}]). */
 function getSelectOptions(field: FieldDefinition): SelectOption[] {
   if (!field.validation) return [];
   const options = field.validation.options;
   if (!Array.isArray(options)) return [];
-  return options as SelectOption[];
+  return options.map((opt) => {
+    if (typeof opt === "string") return { value: opt, label: opt };
+    return { value: String(opt.value), label: String(opt.label ?? opt.value) };
+  });
 }
 
 function fieldLabelFor(fields: FieldDefinition[], fieldKey: string): string {
