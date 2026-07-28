@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, useCallback } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { Plus, Search, PackageOpen, Settings, Save } from "lucide-react";
+import { Plus, Search, PackageOpen, Settings, Save, RotateCcw } from "lucide-react";
 import SchemaTable from "./SchemaTable";
 import type { FieldDefinition } from "@runory/platform-core";
 import {
@@ -18,6 +18,7 @@ import { useI18n } from "@/i18n/locale-provider";
 import { extractViewActions, filterActionsByPermission } from "@/lib/view-actions";
 import { EmptyState, LoadingState, ErrorState } from "@/components/states";
 import { PageHeader } from "@/components/layout";
+import { ViewSelector, FilterBar, ColumnSettings, PageSizeSelector } from "@/components/view-bar";
 import {
   buildPreferenceInput,
 } from "@/lib/view-preference-resolver";
@@ -118,11 +119,33 @@ export default function ObjectListPage({
 
   // Page size from preference or prop default
   const effectivePageSize = preference?.pageSize ?? pageSize;
+
+  // ── Local state for view configuration (modified by ViewBar, persisted on Save) ──
+  const allColumnFields = useMemo(() => viewColumns.map((c) => c.field), [viewColumns]);
+  const [visibleFields, setVisibleFields] = useState<string[]>(allColumnFields);
+  const [currentPageSize, setCurrentPageSize] = useState(effectivePageSize);
+  const [resetting, setResetting] = useState(false);
+
+  // Sync local state when preference loads or changes (e.g. after Save/Reset)
+  useEffect(() => {
+    if (preference?.visibleFields?.length) {
+      const prefSet = new Set(preference.visibleFields);
+      const filtered = allColumnFields.filter((f) => prefSet.has(f));
+      setVisibleFields(filtered.length > 0 ? filtered : allColumnFields);
+    } else {
+      setVisibleFields(allColumnFields);
+    }
+  }, [preference, allColumnFields]);
+
+  useEffect(() => {
+    setCurrentPageSize(effectivePageSize);
+  }, [effectivePageSize]);
+
   const [visibleCount, setVisibleCount] = useState(effectivePageSize);
 
   useEffect(() => {
-    setVisibleCount(effectivePageSize);
-  }, [debouncedSearch, effectiveSortValue, effectivePageSize, relationFilters]);
+    setVisibleCount(currentPageSize);
+  }, [debouncedSearch, effectiveSortValue, currentPageSize, relationFilters]);
 
   const { data: records = [], isLoading: loadingRecords, error: recordError, mutate: mutateRecords } = useRecords(workspaceId, objectKey, {
     search: debouncedSearch || undefined,
@@ -162,18 +185,65 @@ export default function ObjectListPage({
   );
   const hasCreateAction = viewActions.some((a) => a.key === "create" && a.kind === "navigate");
 
-  // Filter view columns by preference visibleFields when available
   const effectiveColumns = useMemo(() => {
-    if (!preference?.visibleFields?.length) return viewColumns;
-    const prefSet = new Set(preference.visibleFields);
-    const filtered = viewColumns.filter((c) => prefSet.has(c.field));
-    return filtered.length > 0 ? filtered : viewColumns;
-  }, [viewColumns, preference]);
+    const visSet = new Set(visibleFields);
+    return viewColumns.filter((c) => visSet.has(c.field));
+  }, [viewColumns, visibleFields]);
 
   const effectiveViewConfig = useMemo(() => {
     if (!viewConfig) return null;
     return { ...viewConfig, columns: effectiveColumns };
   }, [viewConfig, effectiveColumns]);
+
+  // ── ViewBar action handlers ──
+
+  // Add a filter by updating URL params
+  const handleAddFilter = useCallback((field: string, value: string) => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set(`filter.${field}`, value);
+    router.replace(`${basePath}?${params.toString()}`, { scroll: false });
+  }, [searchParams, router, basePath]);
+
+  // Remove a filter by updating URL params
+  const handleRemoveFilter = useCallback((field: string) => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete(`filter.${field}`);
+    router.replace(`${basePath}?${params.toString()}`, { scroll: false });
+  }, [searchParams, router, basePath]);
+
+  // Toggle column visibility
+  const handleColumnChange = useCallback((newVisible: string[]) => {
+    setVisibleFields(newVisible);
+  }, []);
+
+  // Change page size
+  const handlePageSizeChange = useCallback((size: number) => {
+    setCurrentPageSize(size);
+    setVisibleCount(size);
+  }, []);
+
+  // Reset to defaults: delete preference, clear URL params, reset local state
+  const handleReset = useCallback(async () => {
+    if (!viewDefId) return;
+    if (!window.confirm(t("workspace.viewBar.resetConfirm"))) return;
+    setResetting(true);
+    try {
+      await apiFetch(`/api/workspaces/${workspaceId}/views/${viewDefId}/preference`, {
+        method: "DELETE",
+      });
+      void mutatePreference();
+      // Clear all URL params (search, sort, filters)
+      router.replace(basePath, { scroll: false });
+      // Reset local state to defaults
+      setVisibleFields(allColumnFields);
+      setCurrentPageSize(pageSize);
+      setVisibleCount(pageSize);
+    } catch {
+      // Error silently swallowed; user can retry
+    } finally {
+      setResetting(false);
+    }
+  }, [viewDefId, workspaceId, mutatePreference, router, basePath, allColumnFields, pageSize, t]);
 
   // Save current state as a view preference (explicit action)
   const [saving, setSaving] = useState(false);
@@ -186,8 +256,8 @@ export default function ObjectListPage({
         sortBy,
         sortOrder,
         filters: relationFilters,
-        pageSize: effectivePageSize,
-        visibleFields: effectiveColumns.map((c) => c.field),
+        pageSize: currentPageSize,
+        visibleFields,
       };
       const input = buildPreferenceInput(stateForSave, preference?.version);
       await apiFetch(`/api/workspaces/${workspaceId}/views/${viewDefId}/preference`, {
@@ -201,7 +271,7 @@ export default function ObjectListPage({
     } finally {
       setSaving(false);
     }
-  }, [viewDefId, debouncedSearch, sortBy, sortOrder, relationFilters, effectivePageSize, effectiveColumns, preference, workspaceId, mutatePreference]);
+  }, [viewDefId, debouncedSearch, sortBy, sortOrder, relationFilters, currentPageSize, visibleFields, preference, workspaceId, mutatePreference]);
 
   // Extension field notice
   const extensionFields = fields.filter((f) => f.ownership === "workspace_extension");
@@ -235,6 +305,18 @@ export default function ObjectListPage({
   };
   const headerActions = (
     <>
+      {hasPack && viewDefId && (
+        <button
+          type="button"
+          onClick={handleReset}
+          disabled={resetting || !preference}
+          className="app-button-secondary"
+          title={t("workspace.viewBar.reset")}
+        >
+          <RotateCcw size={15} />
+          {resetting ? t("surface.loading") : t("workspace.viewBar.reset")}
+        </button>
+      )}
       {hasPack && viewDefId && (
         <button
           type="button"
@@ -314,34 +396,63 @@ export default function ObjectListPage({
             </div>
           )}
 
+          {/* ViewBar: view selector, search, sort, column settings, page size */}
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="relative w-full max-w-sm">
-              <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input
-                type="search"
-                value={searchInput}
-                onChange={(e) => setSearchInput(e.target.value)}
-                placeholder={effectiveSearchPlaceholder}
-                className="app-input pl-9"
+            <div className="flex flex-1 items-center gap-2">
+              <ViewSelector
+                workspaceId={workspaceId}
+                objectKey={objectKey}
+                currentViewKey={viewKey}
+                basePath={basePath}
+              />
+              <div className="relative w-full max-w-sm">
+                <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="search"
+                  value={searchInput}
+                  onChange={(e) => setSearchInput(e.target.value)}
+                  placeholder={effectiveSearchPlaceholder}
+                  className="app-input pl-9"
+                />
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <select
+                value={effectiveSortValue}
+                onChange={(e) => {
+                  const params = new URLSearchParams(searchParams.toString());
+                  params.set("sort", e.target.value);
+                  router.replace(`${basePath}?${params.toString()}`, { scroll: false });
+                }}
+                className="app-input max-w-[200px]"
+              >
+                {effectiveSortOptions.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+              <ColumnSettings
+                columns={viewColumns}
+                visibleFields={visibleFields}
+                onChange={handleColumnChange}
+              />
+              <PageSizeSelector
+                value={currentPageSize}
+                onChange={handlePageSizeChange}
               />
             </div>
-            <select
-              value={effectiveSortValue}
-              onChange={(e) => {
-                // Update URL sort param
-                const params = new URLSearchParams(searchParams.toString());
-                params.set("sort", e.target.value);
-                router.replace(`${basePath}?${params.toString()}`, { scroll: false });
-              }}
-              className="app-input max-w-[200px]"
-            >
-              {effectiveSortOptions.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
           </div>
+
+          {/* FilterBar: active filter chips + add filter */}
+          <FilterBar
+            fields={fields}
+            activeFilters={relationFilters}
+            onRemoveFilter={handleRemoveFilter}
+            onAddFilter={handleAddFilter}
+            workspaceId={workspaceId}
+            objectKey={objectKey}
+          />
 
           <p className="text-xs text-slate-500">{t("workspace.recordCount", { count: totalCount })}</p>
 

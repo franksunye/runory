@@ -225,6 +225,23 @@ export const en = {
   "surface.error.description": "An error occurred while loading the data.",
   "surface.error.retry": "Retry",
 
+  // View Bar components
+  "workspace.viewBar.views": "Views",
+  "workspace.viewBar.allViews": "All Views",
+  "workspace.viewBar.addFilter": "Add Filter",
+  "workspace.viewBar.filterBy": "Filter by",
+  "workspace.viewBar.selectValue": "Select value",
+  "workspace.viewBar.enterValue": "Enter value",
+  "workspace.viewBar.add": "Add",
+  "workspace.viewBar.columns": "Columns",
+  "workspace.viewBar.pageSize": "{size} / page",
+  "workspace.viewBar.reset": "Reset",
+  "workspace.viewBar.resetConfirm": "Reset to default view? Your saved preferences will be removed.",
+  "workspace.viewBar.saved": "Saved",
+  "workspace.viewBar.noFilters": "No filters applied",
+  "workspace.viewBar.filterableFields": "Filterable fields",
+  "workspace.viewBar.noFilterableFields": "No filterable fields available",
+
   // Workspace navigation
   "workspace.nav.dashboard": "Dashboard",
   "workspace.nav.settings": "Settings",
@@ -2052,6 +2069,8 @@ export const zh: Messages = {
   "workspace.loading": "加载中...", "workspace.loadFailed": "加载失败", "workspace.retry": "重试", "workspace.refresh": "刷新", "workspace.save": "保存", "workspace.saving": "保存中...", "workspace.cancel": "取消", "workspace.delete": "删除", "workspace.deleting": "删除中...", "workspace.edit": "编辑", "workspace.create": "创建", "workspace.search": "搜索...", "workspace.clearSearch": "清除搜索", "workspace.loadMore": "加载更多", "workspace.savePreferences": "保存视图", "workspace.recordCount": "共 {count} 条记录", "workspace.noResults": "没有找到匹配的记录", "workspace.noRecords": "还没有{title}记录", "workspace.addFirst": "添加第一个{title}", "workspace.add": "添加{title}", "workspace.backToList": "返回{title}列表", "workspace.backToParent": "返回主记录", "workspace.detailTitle": "{title}详情", "workspace.createTitle": "新建{title}", "workspace.createSubtitle": "填写信息后保存", "workspace.deleteConfirm": "确定要删除此{label}吗？此操作不可撤销。", "workspace.createFailed": "创建失败", "workspace.updateFailed": "更新失败", "workspace.deleteFailed": "删除失败", "workspace.viewNotFound": "未找到列表视图配置。", "workspace.recordNotFound": "记录不存在", "workspace.noPack": "尚未安装业务模块", "workspace.noPackHint": "安装 {packName} 后即可开始使用。", "workspace.goDashboard": "前往工作台", "workspace.extensionNotice": "新的工作区字段已可用", "workspace.extensionNoticeBody": "{fields} 已加入 {title} 列表和表单。此提示仅在字段变更后出现一次。", "workspace.dismiss": "知道了", "workspace.extension": "扩展", "workspace.recordId": "记录 ID：{id}", "workspace.workflow.title": "工作流", "workspace.workflow.currentState": "当前状态", "workspace.workflow.availableActions": "可用操作", "workspace.workflow.commentPlaceholder": "备注（可选）", "workspace.workflow.confirm": "确认", "workspace.workflow.approval": "审批", "workspace.workflow.terminalState": "工作流已完成", "workspace.workflow.history": "历史", "workspace.workflow.drivenByWorkflow": "由工作流驱动 — 请在工作流面板中操作状态", "workspace.workflow.autoStartLocked": "创建时将由工作流设置为「{state}」", "workspace.createdAt": "创建时间：{time}", "workspace.updatedAt": "更新时间：{time}", "workspace.yes": "是", "workspace.no": "否",
   // Surface shared state components (zh)
   "surface.loading": "加载中…", "surface.empty.title": "未找到记录", "surface.empty.description": "暂无记录可显示。", "surface.empty.noResults": "未找到匹配结果", "surface.empty.clearSearch": "清除搜索", "surface.empty.addFirst": "添加{title}", "surface.error.title": "出错了", "surface.error.description": "加载数据时发生错误。", "surface.error.retry": "重试",
+  // View Bar components (zh)
+  "workspace.viewBar.views": "视图", "workspace.viewBar.allViews": "全部视图", "workspace.viewBar.addFilter": "添加筛选", "workspace.viewBar.filterBy": "筛选字段", "workspace.viewBar.selectValue": "选择值", "workspace.viewBar.enterValue": "输入值", "workspace.viewBar.add": "添加", "workspace.viewBar.columns": "列设置", "workspace.viewBar.pageSize": "{size} / 页", "workspace.viewBar.reset": "重置", "workspace.viewBar.resetConfirm": "恢复默认视图？已保存的个人偏好将被清除。", "workspace.viewBar.saved": "已保存", "workspace.viewBar.noFilters": "当前无筛选", "workspace.viewBar.filterableFields": "可筛选字段", "workspace.viewBar.noFilterableFields": "无可筛选字段",
   "workspace.nav.dashboard": "工作台", "workspace.nav.settings": "设置", "workspace.nav.members": "成员与权限", "workspace.nav.audit": "审计日志", "workspace.nav.trash": "回收站", "workspace.nav.activity": "活动", "workspace.nav.modules": "模块", "workspace.nav.automations": "自动化", "workspace.nav.workflows": "工作流", "workspace.nav.myWork": "我的工作", "workspace.nav.planning": "计划排程", "workspace.nav.forms": "表单", "workspace.nav.outbox": "发件箱", "workspace.nav.migration": "迁移", "workspace.nav.apiKeys": "API 密钥", "workspace.nav.billing": "账单", "workspace.nav.customize": "自定义", "workspace.nav.export": "导入 / 导出", "workspace.nav.manage": "管理中心", "workspace.nav.accountMenu": "账户与工作空间菜单", "workspace.nav.workspaceSettings": "工作空间设置", "workspace.nav.objectPriceBookItem": "价格目录明细", "workspace.nav.objectQuoteLine": "报价明细", "workspace.nav.objectInvoice": "发票",
   // Form strings (v0.3.6)
   "workspace.form.required": "{field}为必填项", "workspace.form.noFields": "表单未配置任何字段。",

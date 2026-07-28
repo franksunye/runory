@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { getViewPreference, setViewPreference } from "@runory/platform-core";
+import { getViewPreference, setViewPreference, deleteViewPreference } from "@runory/platform-core";
 import { requireWorkspaceContext } from "@/lib/auth";
 import { successResponse, handleError, getOrCreateRequestId } from "@/lib/http";
 
@@ -52,6 +52,25 @@ export async function PUT(
       expectedVersion: body.expectedVersion,
     });
     return successResponse(preference, 200, ctx.requestId, "no-store");
+  } catch (e) {
+    return handleError(e, requestId);
+  }
+}
+
+// DELETE /api/workspaces/:workspaceId/views/:viewId/preference
+// Deletes the current user's preference for a list view.
+// Returns { deleted: true } if a preference existed and was removed, otherwise { deleted: false }.
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string; viewId: string }> }
+) {
+  const requestId = getOrCreateRequestId(request.headers.get("x-request-id"));
+  try {
+    const { id, viewId } = await params;
+    const { ctx, workspaceId } = await requireWorkspaceContext(request, id, "viewer");
+    const userId = ctx.principal!.userId;
+    const result = await deleteViewPreference(workspaceId, userId, viewId);
+    return successResponse({ deleted: result }, 200, ctx.requestId, "no-store");
   } catch (e) {
     return handleError(e, requestId);
   }

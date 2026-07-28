@@ -631,6 +631,23 @@ export async function setViewPreference(
   };
 }
 
+export async function deleteViewPreference(
+  workspaceId: string,
+  userId: string,
+  viewDefinitionId: string,
+): Promise<boolean> {
+  const existing = await getViewPreference(workspaceId, userId, viewDefinitionId);
+  if (!existing) {
+    return false;
+  }
+  await execute(
+    `DELETE FROM ${TABLES.viewPreferences}
+     WHERE workspace_id = ? AND user_id = ? AND view_definition_id = ?`,
+    [workspaceId, userId, viewDefinitionId],
+  );
+  return true;
+}
+
 // ── Installations ──
 export async function getInstallations(workspaceId: string) {
   const rows = await queryAll<{
