@@ -1501,6 +1501,23 @@ export const en = {
   "workflow.stepKindWait": "Wait",
   "workflow.stepKindEnd": "End",
 
+  // Workflow run timeline (Run mode)
+  "workflow.runProgress": "Progress",
+  "workflow.runNextAction": "Next action",
+  "workflow.runCompleted": "Completed",
+  "workflow.runInProgress": "In Progress",
+  "workflow.runCancelled": "Cancelled",
+  "workflow.runReturned": "Returned",
+  "workflow.outcomeApproved": "Approved",
+  "workflow.outcomeRejected": "Rejected",
+  "workflow.outcomeReturned": "Returned",
+  "workflow.outcomeCancelled": "Cancelled",
+  "workflow.stepCompleted": "Completed",
+  "workflow.stepCurrent": "In progress",
+  "workflow.stepPending": "Pending",
+  "workflow.stepCancelled": "Cancelled",
+  "workflow.noRunData": "No run data available",
+
   // v0.5 Workflow V2 — Instances list & Step editor UI
   "workflow.instancesTitle": "Workflow Instances",
   "workflow.instancesHint": "Step-based workflow instances",
@@ -2458,6 +2475,23 @@ export const zh: Messages = {
   "workflow.stepKindSystemCommand": "系统命令",
   "workflow.stepKindWait": "等待",
   "workflow.stepKindEnd": "结束",
+
+  // 工作流运行时间线（运行模式）
+  "workflow.runProgress": "进度",
+  "workflow.runNextAction": "下一步",
+  "workflow.runCompleted": "已完成",
+  "workflow.runInProgress": "进行中",
+  "workflow.runCancelled": "已取消",
+  "workflow.runReturned": "已退回",
+  "workflow.outcomeApproved": "已批准",
+  "workflow.outcomeRejected": "已拒绝",
+  "workflow.outcomeReturned": "已退回",
+  "workflow.outcomeCancelled": "已取消",
+  "workflow.stepCompleted": "已完成",
+  "workflow.stepCurrent": "进行中",
+  "workflow.stepPending": "待处理",
+  "workflow.stepCancelled": "已取消",
+  "workflow.noRunData": "暂无运行数据",
 
   // v0.5 Workflow V2 — Instances list & Step editor UI
   "workflow.instancesTitle": "工作流实例",

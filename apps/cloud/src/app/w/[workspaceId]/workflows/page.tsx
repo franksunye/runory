@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
   Plus, RefreshCw, AlertCircle, Loader2,
-  Layers, ListChecks, ExternalLink, FileText, Workflow, ArrowRight,
+  Layers, ExternalLink, Workflow,
   Pencil,
 } from "lucide-react";
 import type {
@@ -14,6 +14,8 @@ import type {
 import { useI18n } from "@/i18n/locale-provider";
 import type { MessageKey } from "@/i18n/messages";
 import { apiFetch } from "@/lib/api-fetch";
+import { WorkflowFlowDiagram } from "@/components/workflow/WorkflowFlowDiagram";
+import WorkflowRunTimeline from "@/components/workflow/WorkflowRunTimeline";
 
 // ── Types ──
 
@@ -211,59 +213,11 @@ function DefinitionsSection({ workspaceId, refreshKey }: { workspaceId: string; 
                   </button>
                 </div>
 
-                {/* Step pipeline with overview labels and branch indicators */}
-                {steps.length > 0 && (
+                {/* Visual step flow with overview labels and branch indicators */}
+                {def.definition && steps.length > 0 && (
                   <div className="mt-3 pl-12">
                     <p className="mb-1.5 text-xs font-semibold text-slate-500">{t("workflow.stepPipeline")}</p>
-                    <div className="flex flex-wrap items-center gap-1.5">
-                      {steps.map((step, i) => {
-                        const hasForm = Boolean(step.formBindingId);
-                        const permissionGroup = step.assigneeRule?.permissionGroup;
-                        const overviewStep = def.overview?.steps.find((s) => s.id === step.id);
-                        const branchCount = overviewStep?.next.length ?? 0;
-                        const hasBranches = branchCount > 1;
-                        return (
-                          <span key={`${step.id}-${i}`} className="flex items-center gap-1.5">
-                            <span
-                              className={`app-badge ${v2StepKindBadgeClass(step.kind)}`}
-                              title={hasForm ? t("workflow.formBound") : undefined}
-                            >
-                              {hasForm && (
-                                <FileText size={11} className="mr-0.5 shrink-0" />
-                              )}
-                              {t(STEP_KIND_LABEL_KEY[step.kind])}
-                              {overviewStep?.label && (
-                                <span className="ml-0.5 text-[10px] opacity-80">{overviewStep.label}</span>
-                              )}
-                              <span className="font-mono text-[10px] opacity-70">{step.id}</span>
-                              {hasBranches && (
-                                <span className="ml-0.5 rounded bg-slate-200 px-1 text-[9px] font-bold text-slate-600">
-                                  {branchCount}→
-                                </span>
-                              )}
-                            </span>
-                            {hasForm && (
-                              <span
-                                className="app-badge bg-purple-50 text-purple-700"
-                                title={t("workflow.stepForm")}
-                              >
-                                <FileText size={11} />
-                                {t("workflow.stepForm")}: {step.formBindingId}
-                              </span>
-                            )}
-                            {permissionGroup && (
-                              <span
-                                className="app-badge bg-slate-100 text-slate-600"
-                                title={t("workflow.assigneeRule")}
-                              >
-                                {t("workflow.assigneeRule")}: {permissionGroup}
-                              </span>
-                            )}
-                            {i < steps.length - 1 && <ArrowRight size={12} className="text-slate-300" />}
-                          </span>
-                        );
-                      })}
-                    </div>
+                    <WorkflowFlowDiagram definition={def.definition} overview={def.overview} />
                   </div>
                 )}
               </li>
@@ -359,20 +313,11 @@ interface InstanceRowProps {
 function InstanceRow({ instance, onOpenRecord }: InstanceRowProps) {
   const { t } = useI18n();
   const def = instance.definition;
-  const steps: WorkflowStep[] = def?.steps ?? [];
-  const currentStepId = instance.current_step_id;
-
-  // Work items kind breakdown
-  const breakdown = instance.work_items.reduce((acc, wi) => {
-    acc[wi.kind] = (acc[wi.kind] ?? 0) + 1;
-    return acc;
-  }, {} as Record<string, number>);
-
   const hasRecord = Boolean(instance.object_type && instance.record_id);
 
   return (
     <li className="rounded-lg border border-slate-100 p-4">
-      {/* Header row: instance ID, definition key, status, current step, record link */}
+      {/* Header row: definition name, status, record link */}
       <div className="flex flex-wrap items-center gap-3">
         <span className="grid size-9 place-items-center rounded-lg bg-indigo-50 text-indigo-600">
           <Layers size={17} />
@@ -382,18 +327,11 @@ function InstanceRow({ instance, onOpenRecord }: InstanceRowProps) {
             {def?.name ?? def?.workflowKey ?? instance.workflow_definition_id}
           </p>
           <p className="truncate text-xs text-slate-500">
-            {t("workflow.instanceId")}: <span className="font-mono">{instance.id}</span>
             {def && (
-              <> · {t("workflow.definitionKey")}: <span className="font-mono">{def.workflowKey}</span></>
+              <>{t("workflow.definitionKey")}: <span className="font-mono">{def.workflowKey}</span></>
             )}
           </p>
         </div>
-        <span className={`app-badge ${v2StatusBadgeClass(instance.status)}`}>{instance.status}</span>
-        {currentStepId && (
-          <span className="app-badge bg-slate-100 text-slate-700">
-            {t("workflow.currentStep")}: <span className="font-mono">{currentStepId}</span>
-          </span>
-        )}
         {hasRecord && (
           <button
             onClick={() => onOpenRecord(instance.object_type, instance.record_id)}
@@ -405,76 +343,12 @@ function InstanceRow({ instance, onOpenRecord }: InstanceRowProps) {
         )}
       </div>
 
-      {/* Step pipeline with run projection states */}
-      {steps.length > 0 && (
+      {/* Run timeline with step states, outcomes, and next action */}
+      {def && (
         <div className="mt-3 pl-12">
-          <p className="mb-1.5 text-xs font-semibold text-slate-500">{t("workflow.stepPipeline")}</p>
-          <div className="flex flex-wrap items-center gap-1.5">
-            {steps.map((step, i) => {
-              const isCurrent = step.id === currentStepId;
-              const hasForm = Boolean(step.formBindingId);
-              const projStep = instance.runProjection?.steps.find((s) => s.id === step.id);
-              const stepState = projStep?.state;
-              const stepOutcome = projStep?.outcome;
-              return (
-                <span key={`${step.id}-${i}`} className="flex items-center gap-1.5">
-                  <span
-                    className={`app-badge ${v2StepKindBadgeClass(step.kind)} ${
-                      stepState === "completed" ? "opacity-50" : ""
-                    } ${stepState === "cancelled" ? "line-through opacity-40" : ""} ${
-                      isCurrent || stepState === "current" ? "ring-2 ring-indigo-400" : ""
-                    } ${stepState === "pending" ? "opacity-60" : ""}`}
-                    title={hasForm ? t("workflow.formBound") : undefined}
-                  >
-                    {hasForm && (
-                      <FileText size={11} className="mr-0.5 shrink-0" />
-                    )}
-                    {t(STEP_KIND_LABEL_KEY[step.kind])}
-                    <span className="font-mono text-[10px] opacity-70">{step.id}</span>
-                    {stepOutcome && (
-                      <span className={`ml-0.5 rounded px-1 text-[9px] font-bold ${
-                        stepOutcome === "approved" ? "bg-green-100 text-green-700" :
-                        stepOutcome === "rejected" ? "bg-red-100 text-red-700" :
-                        "bg-slate-200 text-slate-600"
-                      }`}>
-                        {stepOutcome}
-                      </span>
-                    )}
-                  </span>
-                  {i < steps.length - 1 && <ArrowRight size={12} className="text-slate-300" />}
-                </span>
-              );
-            })}
-          </div>
-          {instance.runProjection && (
-            <p className="mt-1 text-[11px] text-slate-400">
-              {t("workflow.stepPipeline")}: {instance.runProjection.steps.filter(s => s.state === "completed").length}/{instance.runProjection.steps.length} completed
-              {instance.runProjection.nextAction && (
-                <> · next: <span className="font-mono">{instance.runProjection.nextAction.kind}</span></>
-              )}
-            </p>
-          )}
+          <WorkflowRunTimeline definition={def} runProjection={instance.runProjection} />
         </div>
       )}
-
-      {/* Work items count with kind breakdown */}
-      <div className="mt-3 pl-12">
-        <p className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold text-slate-500">
-          <ListChecks size={13} />
-          {t("workflow.workItemsBreakdown")}
-          <span className="app-badge bg-slate-100 text-slate-600">{instance.work_items.length}</span>
-        </p>
-        <div className="flex flex-wrap gap-1.5">
-          {Object.entries(breakdown).map(([kind, count]) => (
-            <span key={kind} className="app-badge bg-slate-50 text-slate-600">
-              {kind}: {count}
-            </span>
-          ))}
-          {Object.keys(breakdown).length === 0 && (
-            <span className="text-xs text-slate-400">{t("workflow.noInstances")}</span>
-          )}
-        </div>
-      </div>
     </li>
   );
 }
