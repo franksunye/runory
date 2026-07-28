@@ -288,43 +288,18 @@ function InstancesSection({ workspaceId, refreshKey }: { workspaceId: string; re
     try {
       setLoading(true);
       setError(null);
-      // 1. Fetch my-work items to discover instance IDs
-      const workJson = await apiFetch<{
+      const json = await apiFetch<{
         success: boolean;
         error?: { message: string };
-        data?: { items: WorkItemRow[] };
+        data?: InstanceDetail[];
       }>(
-        `/api/workspaces/${workspaceId}/my-work?limit=100`,
+        `/api/workspaces/${workspaceId}/workflows/instances?limit=20`,
         { cache: "no-store" }
       );
-      if (!workJson.success) {
-        throw new Error(workJson.error?.message ?? t("workflow.loadFailed"));
+      if (!json.success) {
+        throw new Error(json.error?.message ?? t("workflow.loadFailed"));
       }
-      const items: WorkItemRow[] = workJson.data?.items ?? [];
-      // 2. Group by instance_id to get unique instance IDs
-      const instanceIds = [...new Set(items.map((i) => i.instance_id))];
-      if (instanceIds.length === 0) {
-        setInstances([]);
-        return;
-      }
-      // 3. Fetch each instance detail (cap at 10 to avoid excessive calls)
-      const details = await Promise.all(
-        instanceIds.slice(0, 10).map(async (instId) => {
-          try {
-            const json = await apiFetch<{
-              success: boolean;
-              data?: InstanceDetail;
-            }>(
-              `/api/workspaces/${workspaceId}/workflows/instances/${instId}`,
-              { cache: "no-store" }
-            );
-            return json.success ? (json.data as InstanceDetail) : null;
-          } catch {
-            return null;
-          }
-        })
-      );
-      setInstances(details.filter((d): d is InstanceDetail => d !== null));
+      setInstances(json.data ?? []);
     } catch (e) {
       setError(e instanceof Error ? e.message : t("workflow.loadFailed"));
     } finally {
