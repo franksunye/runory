@@ -603,9 +603,13 @@ async function validateViewPreference(
     );
   }
 
-  // Cross-reference fields against the object's field definitions
+  // Cross-reference fields against the object's field definitions.
+  // System columns (created_at, updated_at, id) are always valid for sorting
+  // because every record table has them, even though they are not declared
+  // as business field definitions.
   const fields = await getFields(workspaceId, viewRow.object_key);
   const fieldKeys = new Set(fields.map((f) => f.fieldKey));
+  const SYSTEM_SORT_FIELDS = new Set(["created_at", "updated_at", "id"]);
 
   if (input.visibleFields) {
     const invalid = input.visibleFields.filter((f) => !fieldKeys.has(f));
@@ -619,7 +623,7 @@ async function validateViewPreference(
       throw new InvalidInputError(`Unknown filter fields: ${invalid.map((f) => f.field).join(", ")}`);
     }
   }
-  if (input.sort && !fieldKeys.has(input.sort.field)) {
+  if (input.sort && !fieldKeys.has(input.sort.field) && !SYSTEM_SORT_FIELDS.has(input.sort.field)) {
     throw new InvalidInputError(`Unknown sort field: ${input.sort.field}`);
   }
 }

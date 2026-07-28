@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { Plus, Search, PackageOpen, Settings, Save, RotateCcw } from "lucide-react";
+import { Plus, Search, PackageOpen, Settings, Save, RotateCcw, Check } from "lucide-react";
 import SchemaTable from "./SchemaTable";
 import type { FieldDefinition } from "@runory/platform-core";
 import {
@@ -18,11 +18,11 @@ import { useI18n } from "@/i18n/locale-provider";
 import { extractViewActions, filterActionsByPermission } from "@/lib/view-actions";
 import { EmptyState, LoadingState, ErrorState } from "@/components/states";
 import { PageHeader } from "@/components/layout";
-import { ViewSelector, FilterBar, ColumnSettings, PageSizeSelector, SaveViewDialog } from "@/components/view-bar";
+import { ViewSelector, FilterBar, ColumnSettings, PageSizeSelector, SaveViewDialog, ConfirmDialog } from "@/components/view-bar";
 import {
   buildPreferenceInput,
 } from "@/lib/view-preference-resolver";
-import { apiFetch } from "@/lib/api-fetch";
+import { apiFetch, type ApiResult } from "@/lib/api-fetch";
 
 export interface SortOption {
   value: string;
@@ -92,7 +92,12 @@ export default function ObjectListPage({
   // One-time sync: restore preference filters to URL on initial load.
   // After this, all filter operations go through URL params, so add/remove
   // works naturally and Save captures the full URL state.
+  // The ref resets when the view definition changes so switching to a
+  // different view re-applies that view's saved filters.
   const prefFiltersSyncedRef = useRef(false);
+  useEffect(() => {
+    prefFiltersSyncedRef.current = false;
+  }, [viewDefId]);
   useEffect(() => {
     if (prefFiltersSyncedRef.current) return;
     if (preference === undefined) return; // SWR still loading
@@ -111,7 +116,7 @@ export default function ObjectListPage({
     }
     router.replace(`${basePath}?${params.toString()}`, { scroll: false });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [preference]);
+  }, [preference, viewDefId]);
 
   // Local search input (debounced). Initialized from URL, then user-controlled.
   const [searchInput, setSearchInput] = useState(urlSearch);
@@ -247,9 +252,10 @@ export default function ObjectListPage({
   }, []);
 
   // Reset to defaults: delete preference, clear URL params, reset local state
+  const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
   const handleReset = useCallback(async () => {
     if (!viewDefId) return;
-    if (!window.confirm(t("workspace.viewBar.resetConfirm"))) return;
+    setResetConfirmOpen(false);
     setResetting(true);
     try {
       await apiFetch(`/api/workspaces/${workspaceId}/views/${viewDefId}/preference`, {
@@ -267,7 +273,7 @@ export default function ObjectListPage({
     } finally {
       setResetting(false);
     }
-  }, [viewDefId, workspaceId, mutatePreference, router, basePath, allColumnFields, pageSize, t]);
+  }, [viewDefId, workspaceId, mutatePreference, router, basePath, allColumnFields, pageSize]);
 
   // Save current state as a new custom view definition (with name)
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
@@ -289,7 +295,7 @@ export default function ObjectListPage({
       };
 
       // 1. Create the custom view definition
-      const created = await apiFetch<{ id: string; viewKey: string }>(
+      const res = await apiFetch<ApiResult<{ id: string; viewKey: string }>>(
         `/api/workspaces/${workspaceId}/views`,
         {
           method: "POST",
@@ -297,6 +303,7 @@ export default function ObjectListPage({
           body: JSON.stringify({ objectKey, label: name, config }),
         },
       );
+      const created = res.data;
 
       // 2. Save current filter/sort/pageSize/visibleFields as a preference for the new view
       const stateForSave = {
@@ -314,8 +321,23 @@ export default function ObjectListPage({
         body: JSON.stringify(prefInput),
       });
 
-      // 3. Refresh views list and navigate to the new view
-      void mutateViews();
+      // 3. Optimistically update the views cache with the new view definition,
+      //    then navigate. This avoids a flash of "View not found" while SWR
+      //    revalidates in the background.
+      mutateViews((current) => [
+        ...(current ?? []),
+        {
+          id: created.id,
+          workspaceId,
+          objectKey,
+          viewKey: created.viewKey,
+          viewType: "list" as const,
+          label: name,
+          config,
+          moduleId: null,
+          extensionId: null,
+        },
+      ], false);
       setSaveDialogOpen(false);
       router.push(`${basePath}?view=${created.viewKey}`);
     } catch {
@@ -324,6 +346,39 @@ export default function ObjectListPage({
       setSavingView(false);
     }
   }, [effectiveColumns, viewActions, workspaceId, objectKey, sortBy, sortOrder, relationFilters, currentPageSize, visibleFields, mutateViews, router, basePath]);
+
+  // Save current state as preference for the EXISTING view (not a new view)
+  const [savingPreference, setSavingPreference] = useState(false);
+  const [savedFeedback, setSavedFeedback] = useState(false);
+
+  const handleSavePreference = useCallback(async () => {
+    if (!viewDefId) return;
+    setSavingPreference(true);
+    try {
+      const stateForSave = {
+        search: "",
+        sortBy,
+        sortOrder,
+        filters: relationFilters,
+        pageSize: currentPageSize,
+        visibleFields,
+      };
+      const prefInput = buildPreferenceInput(stateForSave, undefined);
+      await apiFetch(`/api/workspaces/${workspaceId}/views/${viewDefId}/preference`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(prefInput),
+      });
+      void mutatePreference();
+      // Show "Saved!" feedback for 2 seconds
+      setSavedFeedback(true);
+      setTimeout(() => setSavedFeedback(false), 2000);
+    } catch {
+      // Error silently swallowed; user can retry
+    } finally {
+      setSavingPreference(false);
+    }
+  }, [viewDefId, workspaceId, sortBy, sortOrder, relationFilters, currentPageSize, visibleFields, mutatePreference]);
 
   // Extension field notice
   const extensionFields = fields.filter((f) => f.ownership === "workspace_extension");
@@ -360,13 +415,25 @@ export default function ObjectListPage({
       {hasPack && viewDefId && (
         <button
           type="button"
-          onClick={handleReset}
+          onClick={() => setResetConfirmOpen(true)}
           disabled={resetting || !preference}
           className="app-button-secondary"
           title={t("workspace.viewBar.reset")}
         >
           <RotateCcw size={15} />
           {resetting ? t("surface.loading") : t("workspace.viewBar.reset")}
+        </button>
+      )}
+      {hasPack && viewDefId && (
+        <button
+          type="button"
+          onClick={() => void handleSavePreference()}
+          disabled={savingPreference}
+          className="app-button-secondary"
+          title={t("workspace.viewBar.save")}
+        >
+          <Check size={15} />
+          {savedFeedback ? t("workspace.viewBar.saved") : savingPreference ? t("surface.loading") : t("workspace.viewBar.save")}
         </button>
       )}
       {hasPack && viewDefId && (
@@ -458,7 +525,9 @@ export default function ObjectListPage({
                 labels={{
                   rename: t("workspace.viewBar.rename"),
                   delete: t("workspace.viewBar.delete"),
+                  deleteTitle: t("workspace.viewBar.deleteTitle"),
                   deleteConfirm: t("workspace.viewBar.deleteConfirm"),
+                  cancel: t("workspace.viewBar.cancel"),
                 }}
               />
               <div className="relative w-full max-w-sm">
@@ -569,6 +638,17 @@ export default function ObjectListPage({
           save: t("workspace.viewBar.save"),
           cancel: t("workspace.viewBar.cancel"),
         }}
+      />
+
+      <ConfirmDialog
+        open={resetConfirmOpen}
+        title={t("workspace.viewBar.resetTitle")}
+        message={t("workspace.viewBar.resetConfirm")}
+        confirmLabel={t("workspace.viewBar.reset")}
+        cancelLabel={t("workspace.viewBar.cancel")}
+        onConfirm={() => void handleReset()}
+        onClose={() => setResetConfirmOpen(false)}
+        loading={resetting}
       />
     </div>
   );
