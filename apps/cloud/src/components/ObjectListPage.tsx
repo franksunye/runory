@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, useCallback } from "react";
+import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { Plus, Search, PackageOpen, Settings, Save, RotateCcw } from "lucide-react";
 import SchemaTable from "./SchemaTable";
@@ -88,6 +88,30 @@ export default function ObjectListPage({
     }
     return filters;
   }, [searchParams]);
+
+  // One-time sync: restore preference filters to URL on initial load.
+  // After this, all filter operations go through URL params, so add/remove
+  // works naturally and Save captures the full URL state.
+  const prefFiltersSyncedRef = useRef(false);
+  useEffect(() => {
+    if (prefFiltersSyncedRef.current) return;
+    if (preference === undefined) return; // SWR still loading
+
+    prefFiltersSyncedRef.current = true;
+
+    if (!preference?.filters?.length) return;
+
+    // If URL already has filter params, they take precedence (shared link, etc.)
+    const hasUrlFilters = Array.from(searchParams.keys()).some((k) => k.startsWith("filter."));
+    if (hasUrlFilters) return;
+
+    const params = new URLSearchParams(searchParams.toString());
+    for (const f of preference.filters) {
+      params.set(`filter.${f.field}`, String(f.value));
+    }
+    router.replace(`${basePath}?${params.toString()}`, { scroll: false });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [preference]);
 
   // Local search input (debounced). Initialized from URL, then user-controlled.
   const [searchInput, setSearchInput] = useState(urlSearch);
@@ -246,10 +270,10 @@ export default function ObjectListPage({
   }, [viewDefId, workspaceId, mutatePreference, router, basePath, allColumnFields, pageSize, t]);
 
   // Save current state as a view preference (explicit action)
-  const [saving, setSaving] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const handleSavePreferences = useCallback(async () => {
     if (!viewDefId) return;
-    setSaving(true);
+    setSaveStatus("saving");
     try {
       const stateForSave = {
         search: debouncedSearch,
@@ -266,10 +290,11 @@ export default function ObjectListPage({
         body: JSON.stringify(input),
       });
       void mutatePreference();
+      setSaveStatus("saved");
+      setTimeout(() => setSaveStatus("idle"), 2000);
     } catch {
-      // Error is silently swallowed; the SWR cache stays stale and the user can retry.
-    } finally {
-      setSaving(false);
+      setSaveStatus("error");
+      setTimeout(() => setSaveStatus("idle"), 3000);
     }
   }, [viewDefId, debouncedSearch, sortBy, sortOrder, relationFilters, currentPageSize, visibleFields, preference, workspaceId, mutatePreference]);
 
@@ -321,12 +346,15 @@ export default function ObjectListPage({
         <button
           type="button"
           onClick={handleSavePreferences}
-          disabled={saving}
-          className="app-button-secondary"
+          disabled={saveStatus === "saving"}
+          className={`app-button-secondary ${saveStatus === "saved" ? "!text-green-600 !border-green-300" : ""} ${saveStatus === "error" ? "!text-red-600 !border-red-300" : ""}`}
           title={t("workspace.savePreferences")}
         >
           <Save size={16} />
-          {saving ? t("surface.loading") : t("workspace.savePreferences")}
+          {saveStatus === "saving" ? t("surface.loading")
+            : saveStatus === "saved" ? t("workspace.viewBar.saved")
+            : saveStatus === "error" ? t("workspace.viewBar.saveFailed")
+            : t("workspace.savePreferences")}
         </button>
       )}
       {hasPack && canCreate && hasCreateAction ? (
