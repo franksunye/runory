@@ -11,6 +11,7 @@ import type {
 } from "@runory/contracts";
 import { useI18n } from "@/i18n/locale-provider";
 import { apiFetch } from "@/lib/api-fetch";
+import { objectKeyToRouteSegment } from "@/lib/route-conversion";
 import WorkflowRunTimeline from "@/components/workflow/WorkflowRunTimeline";
 
 // ── Types ──
@@ -196,7 +197,7 @@ function RunDetailSection({
         )}
         {hasRecord && (
           <button
-            onClick={() => router.push(`/w/${workspaceId}/o/${instance.object_type}/${instance.record_id}`)}
+            onClick={() => router.push(`/w/${workspaceId}/${objectKeyToRouteSegment(instance.object_type)}/${instance.record_id}`)}
             className="flex items-center gap-1.5 text-indigo-600 hover:text-indigo-700"
           >
             <ExternalLink size={13} />

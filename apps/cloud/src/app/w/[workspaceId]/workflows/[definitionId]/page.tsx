@@ -12,6 +12,7 @@ import type {
 import { useI18n } from "@/i18n/locale-provider";
 import type { MessageKey } from "@/i18n/messages";
 import { apiFetch } from "@/lib/api-fetch";
+import { objectKeyToRouteSegment } from "@/lib/route-conversion";
 import { WorkflowFlowDiagram } from "@/components/workflow/WorkflowFlowDiagram";
 import WorkflowRunTimeline from "@/components/workflow/WorkflowRunTimeline";
 
@@ -311,7 +312,7 @@ function InstancesSection({
                   </div>
                   {hasRecord && (
                     <button
-                      onClick={() => router.push(`/w/${workspaceId}/o/${inst.object_type}/${inst.record_id}`)}
+                      onClick={() => router.push(`/w/${workspaceId}/${objectKeyToRouteSegment(inst.object_type)}/${inst.record_id}`)}
                       className="app-button-secondary min-h-8"
                       title={t("workflow.record")}
                     >
