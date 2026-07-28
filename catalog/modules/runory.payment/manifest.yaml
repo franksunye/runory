@@ -270,7 +270,7 @@ domain:
     - key: payment.fail_refund
       contractVersion: "1.0.0"
       aggregate: refund
-      transition: { from: [requested, processing], to: failed }
+      operation: action
       allowedActorTypes: [user, api_key, system]
       permission: payment.provider_event
       idempotent: true
@@ -278,7 +278,9 @@ domain:
       requiredEffects: []
       emits: [payment.refund_failed]
       auditRequired: true
-      postconditions: [refund.status == failed]
+      postconditions:
+        - An eligible requested or processing refund becomes failed.
+        - A late failure cannot regress a succeeded or cancelled refund.
     - key: payment.connect.start
       contractVersion: "1.0.0"
       aggregate: payment_provider_account

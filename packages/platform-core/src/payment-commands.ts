@@ -1014,13 +1014,21 @@ async function confirmRefund(
     [workspaceId, payment.id, event.providerRefundId],
   );
   if (!refund) throw new NotFoundError("Requested Refund was not found.");
-  if (normalizePaymentCurrency(event.currency) !== payment.currency || event.amountMinor !== refund.amount_minor) {
-    throw paymentError("PAYMENT_REFUND_MISMATCH", "Provider refund amount or currency does not match request.");
+  // If the refund is already succeeded, this is a duplicate replay — skip the
+  // balance pre-check so executeCommand's idempotency guard can return the
+  // cached result.  Without this, the pre-check would read the already-updated
+  // refunded_amount_minor and throw PAYMENT_REFUND_EXCEEDS_BALANCE.
+  const alreadySucceeded = refund.status === "succeeded";
+  if (!alreadySucceeded) {
+    if (normalizePaymentCurrency(event.currency) !== payment.currency || event.amountMinor !== refund.amount_minor) {
+      throw paymentError("PAYMENT_REFUND_MISMATCH", "Provider refund amount or currency does not match request.");
+    }
+    const total = payment.refunded_amount_minor + refund.amount_minor;
+    if (total > payment.amount_minor) {
+      throw paymentError("PAYMENT_REFUND_EXCEEDS_BALANCE", "Provider refund exceeds payment balance.");
+    }
   }
   const total = payment.refunded_amount_minor + refund.amount_minor;
-  if (total > payment.amount_minor) {
-    throw paymentError("PAYMENT_REFUND_EXCEEDS_BALANCE", "Provider refund exceeds payment balance.");
-  }
   const paymentStatus = total === payment.amount_minor ? "refunded" : "partially_refunded";
   const paymentRequest = await queryOne<PaymentRequestRecord>(
     `SELECT * FROM ${businessTable("payment_request")}
@@ -1113,7 +1121,10 @@ async function failRefund(
     [workspaceId, event.providerRefundId],
   );
   if (!refund) throw new NotFoundError("Requested Refund was not found.");
-  const failed = {
+  // A refund already in a terminal success state must not be regressed by a
+  // late-arriving (reordered) refund.failed event — mirror the guard in failPayment.
+  const ignored = refund.status === "succeeded" || refund.status === "cancelled";
+  const next = ignored ? refund : {
     ...refund,
     status: "failed" as const,
     aggregate_version: refund.aggregate_version + 1,
@@ -1131,12 +1142,12 @@ async function failRefund(
     input: event,
   }, async () => ({
     statements: [
-      {
+      ...(ignored ? [] : [{
         sql: `UPDATE ${businessTable("refund")}
           SET status = 'failed', aggregate_version = aggregate_version + 1, updated_at = ?
           WHERE workspace_id = ? AND id = ?`,
         args: [now(), workspaceId, refund.id],
-      },
+      }]),
       providerReferenceStatement({
         workspaceId,
         provider: event.provider,
@@ -1146,8 +1157,8 @@ async function failRefund(
         providerObjectId: event.providerRefundId,
         providerEventId: event.providerEventId,
         payloadHash,
-        status: "failed",
-        errorCode: "refund_failed",
+        status: ignored ? "ignored" : "failed",
+        errorCode: ignored ? undefined : "refund_failed",
         occurredAt: event.occurredAt,
       }),
     ],
@@ -1155,17 +1166,17 @@ async function failRefund(
       aggregateType: "refund",
       aggregateId: refund.id,
       eventType: "payment.refund_failed",
-      payload: { paymentId: refund.payment_id, providerRefundId: event.providerRefundId },
+      payload: { paymentId: refund.payment_id, providerRefundId: event.providerRefundId, ignored },
     }],
     audit: {
-      action: "payment.refund_failed",
+      action: ignored ? "payment.refund_failed.ignored" : "payment.refund_failed",
       entityType: "refund",
       entityId: refund.id,
       before: refund,
-      after: failed,
+      after: next,
     },
-    aggregate: failed,
-    newVersion: failed.aggregate_version,
+    aggregate: next,
+    newVersion: next.aggregate_version,
   }));
 }
 

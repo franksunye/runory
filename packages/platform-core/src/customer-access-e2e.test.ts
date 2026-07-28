@@ -39,6 +39,8 @@ import {
 import { acceptQuote } from "./quote-commands";
 import {
   requestPayment,
+  requestPaymentRefund,
+  attachProviderRefund,
   upsertPaymentProviderAccount,
   applyProviderPaymentEvent,
 } from "./payment-commands";
@@ -816,6 +818,270 @@ describe("§14.5 End-to-End Customer Journey", () => {
         [fixture.workspaceId, paymentId],
       );
       expect(Number(allocationCount!.count)).toBe(1);
+    });
+  });
+
+  // ───────────────────────────────────────────────────────────────────────────
+  // Reordered provider events
+  // ───────────────────────────────────────────────────────────────────────────
+
+  describe("reordered provider events", () => {
+    it("reordered provider payment events do not regress authoritative state", async () => {
+      // ── Set up the full customer journey (grant → quote accept → invoice → payment request) ──
+
+      const { commandResult: issueResult, rawToken } = await issueFullGrant(fixture);
+      const grantId = issueResult.aggregate.id;
+      const customerActor: CommandActor = { type: "customer", id: grantId };
+
+      const exchange = await exchangeCustomerAccessToken(rawToken);
+
+      // Accept the quote
+      const { expectedVersion } = await resolveCustomerQuoteAccept(
+        fixture.workspaceId,
+        grantId,
+        fixture.quoteId,
+      );
+      await acceptQuote(fixture.workspaceId, fixture.quoteId, customerActor, expectedVersion);
+
+      // Create work order, complete it, and issue invoice
+      const workOrderId = await createWorkOrderFromQuote(fixture);
+      const { invoiceId } = await completeWorkOrderAndIssueInvoice(fixture, workOrderId);
+
+      // Customer starts checkout
+      const payResult = await requestPayment(
+        fixture.workspaceId,
+        {
+          sourceObjectType: "invoice",
+          sourceObjectId: invoiceId,
+          purpose: "final",
+          amountMinor: 11000,
+          currency: "USD",
+          providerAccountId: fixture.providerAccountId,
+          customerContactId: fixture.contactId,
+          successUrl: "https://access.test.example.com/success",
+          cancelUrl: "https://access.test.example.com/cancel",
+        },
+        customerActor,
+        "cmd-e2e-reorder-001",
+      );
+
+      const paymentRequestId = payResult.aggregate.id;
+      const paymentId = payResult.aggregate.paymentId;
+
+      // ── Step 3: Apply payment.succeeded event first ──
+
+      const successOccurredAt = new Date("2026-01-15T12:00:00.000Z").toISOString();
+      const successEvent = {
+        type: "payment.succeeded" as const,
+        provider: "stripe",
+        providerEventId: "evt_e2e_reorder_success_001",
+        providerPaymentId: "pi_e2e_reorder_001",
+        paymentRequestRef: paymentRequestId,
+        amountMinor: 11000,
+        currency: "USD",
+        occurredAt: successOccurredAt,
+      };
+      const successPayloadHash = "payload_hash_e2e_reorder_success_001";
+
+      const successResult = await applyProviderPaymentEvent(
+        fixture.workspaceId,
+        fixture.providerAccountId,
+        successEvent,
+        successPayloadHash,
+      );
+      expect(successResult.status).toBe("succeeded");
+
+      // Verify payment is succeeded
+      const paymentAfterSuccess = await queryOne<{ status: string }>(
+        `SELECT status FROM ${businessTable("payment")} WHERE workspace_id = ? AND id = ?`,
+        [fixture.workspaceId, paymentId],
+      );
+      expect(paymentAfterSuccess!.status).toBe("succeeded");
+
+      // Verify invoice is paid
+      const invoiceAfterSuccess = await queryOne<{
+        status: string;
+        amount_paid_minor: number;
+        balance_due_minor: number;
+      }>(
+        `SELECT status, amount_paid_minor, balance_due_minor FROM ${businessTable("invoice")} WHERE workspace_id = ? AND id = ?`,
+        [fixture.workspaceId, invoiceId],
+      );
+      expect(invoiceAfterSuccess!.status).toBe("paid");
+      expect(invoiceAfterSuccess!.amount_paid_minor).toBe(11000);
+      expect(invoiceAfterSuccess!.balance_due_minor).toBe(0);
+
+      // ── Step 4: Apply payment.failed with DIFFERENT providerEventId, SAME providerPaymentId, EARLIER occurredAt ──
+
+      const failOccurredAt = new Date("2026-01-15T11:30:00.000Z").toISOString();
+      const failResult = await applyProviderPaymentEvent(
+        fixture.workspaceId,
+        fixture.providerAccountId,
+        {
+          type: "payment.failed",
+          provider: "stripe",
+          providerEventId: "evt_e2e_reorder_fail_001",
+          providerPaymentId: "pi_e2e_reorder_001",
+          paymentRequestRef: paymentRequestId,
+          safeFailureCode: "card_declined",
+          occurredAt: failOccurredAt,
+        },
+        "payload_hash_e2e_reorder_fail_001",
+      );
+
+      // The command itself succeeds — the event is processed but ignored
+      expect(failResult.status).toBe("succeeded");
+
+      // ── Step 5: Verify authoritative state is NOT regressed ──
+
+      // Payment status stays "succeeded"
+      const paymentAfterFail = await queryOne<{ status: string; failure_code: string | null }>(
+        `SELECT status, failure_code FROM ${businessTable("payment")} WHERE workspace_id = ? AND id = ?`,
+        [fixture.workspaceId, paymentId],
+      );
+      expect(paymentAfterFail!.status).toBe("succeeded");
+      expect(paymentAfterFail!.failure_code).toBeNull();
+
+      // payment_request stays "paid"
+      const requestAfterFail = await queryOne<{ status: string; amount_paid_minor: number }>(
+        `SELECT status, amount_paid_minor FROM ${businessTable("payment_request")} WHERE workspace_id = ? AND id = ?`,
+        [fixture.workspaceId, paymentRequestId],
+      );
+      expect(requestAfterFail!.status).toBe("paid");
+      expect(requestAfterFail!.amount_paid_minor).toBe(11000);
+
+      // invoice stays "paid"
+      const invoiceAfterFail = await queryOne<{
+        status: string;
+        amount_paid_minor: number;
+        balance_due_minor: number;
+      }>(
+        `SELECT status, amount_paid_minor, balance_due_minor FROM ${businessTable("invoice")} WHERE workspace_id = ? AND id = ?`,
+        [fixture.workspaceId, invoiceId],
+      );
+      expect(invoiceAfterFail!.status).toBe("paid");
+      expect(invoiceAfterFail!.amount_paid_minor).toBe(11000);
+      expect(invoiceAfterFail!.balance_due_minor).toBe(0);
+
+      // The payment.failed event should be recorded as "ignored" in provider reference
+      const ignoredRef = await queryOne<{ processed_status: string }>(
+        `SELECT processed_status FROM ${businessTable("payment_provider_reference")}
+         WHERE workspace_id = ? AND provider_event_id = ?`,
+        [fixture.workspaceId, "evt_e2e_reorder_fail_001"],
+      );
+      expect(ignoredRef!.processed_status).toBe("ignored");
+
+      // ── Step 6: Apply payment.succeeded again with the SAME providerEventId (duplicate) → idempotent ──
+
+      const duplicateResult = await applyProviderPaymentEvent(
+        fixture.workspaceId,
+        fixture.providerAccountId,
+        successEvent,
+        successPayloadHash,
+      );
+
+      // Result must be identical to the first call (command-level idempotency)
+      expect(duplicateResult).toEqual(successResult);
+
+      // Verify no duplicate payment record
+      const paymentCount = await queryOne<{ count: number }>(
+        `SELECT COUNT(*) AS count FROM ${businessTable("payment")} WHERE workspace_id = ? AND payment_request_id = ?`,
+        [fixture.workspaceId, paymentRequestId],
+      );
+      expect(Number(paymentCount!.count)).toBe(1);
+
+      // Verify no duplicate provider reference for the success event
+      const successRefCount = await queryOne<{ count: number }>(
+        `SELECT COUNT(*) AS count FROM ${businessTable("payment_provider_reference")}
+         WHERE workspace_id = ? AND provider_event_id = ?`,
+        [fixture.workspaceId, "evt_e2e_reorder_success_001"],
+      );
+      expect(Number(successRefCount!.count)).toBe(1);
+
+      // Verify no duplicate invoice_payment_allocation
+      const allocationCount = await queryOne<{ count: number }>(
+        `SELECT COUNT(*) AS count FROM ${businessTable("invoice_payment_allocation")}
+         WHERE workspace_id = ? AND payment_id = ?`,
+        [fixture.workspaceId, paymentId],
+      );
+      expect(Number(allocationCount!.count)).toBe(1);
+
+      // ── Step 7: Refund scenario — refund.succeeded then refund.failed (different providerEventId) ──
+
+      // Request a full refund for the succeeded payment
+      const refundResult = await requestPaymentRefund(
+        fixture.workspaceId,
+        paymentId,
+        11000,
+        "customer_requested",
+        fixture.actor,
+      );
+      expect(refundResult.status).toBe("succeeded");
+      const refundId = refundResult.aggregate.id;
+
+      // Attach a provider refund ID (simulating the provider creating the refund)
+      const providerRefundId = "re_e2e_reorder_001";
+      await attachProviderRefund({
+        workspaceId: fixture.workspaceId,
+        refundId,
+        providerRefundId,
+      });
+
+      // Apply refund.succeeded
+      const refundSuccessResult = await applyProviderPaymentEvent(
+        fixture.workspaceId,
+        fixture.providerAccountId,
+        {
+          type: "refund.succeeded",
+          provider: "stripe",
+          providerEventId: "evt_e2e_reorder_refund_success_001",
+          providerRefundId,
+          providerPaymentId: "pi_e2e_reorder_001",
+          amountMinor: 11000,
+          currency: "USD",
+          occurredAt: new Date("2026-01-15T13:00:00.000Z").toISOString(),
+        },
+        "payload_hash_e2e_reorder_refund_success_001",
+      );
+      expect(refundSuccessResult.status).toBe("succeeded");
+
+      // Verify refund is succeeded
+      const refundAfterSuccess = await queryOne<{ status: string }>(
+        `SELECT status FROM ${businessTable("refund")} WHERE workspace_id = ? AND id = ?`,
+        [fixture.workspaceId, refundId],
+      );
+      expect(refundAfterSuccess!.status).toBe("succeeded");
+
+      // Apply refund.failed with DIFFERENT providerEventId but SAME providerRefundId
+      // (simulates a late-arriving failure event for the same refund)
+      const refundFailResult = await applyProviderPaymentEvent(
+        fixture.workspaceId,
+        fixture.providerAccountId,
+        {
+          type: "refund.failed",
+          provider: "stripe",
+          providerEventId: "evt_e2e_reorder_refund_fail_001",
+          providerRefundId,
+          occurredAt: new Date("2026-01-15T12:45:00.000Z").toISOString(),
+        },
+        "payload_hash_e2e_reorder_refund_fail_001",
+      );
+      expect(refundFailResult.status).toBe("succeeded");
+
+      // Verify refund stays "succeeded" (not regressed by the late failure event)
+      const refundAfterFail = await queryOne<{ status: string }>(
+        `SELECT status FROM ${businessTable("refund")} WHERE workspace_id = ? AND id = ?`,
+        [fixture.workspaceId, refundId],
+      );
+      expect(refundAfterFail!.status).toBe("succeeded");
+
+      // The refund.failed event should be recorded as "ignored" in provider reference
+      const refundFailRef = await queryOne<{ processed_status: string }>(
+        `SELECT processed_status FROM ${businessTable("payment_provider_reference")}
+         WHERE workspace_id = ? AND provider_event_id = ?`,
+        [fixture.workspaceId, "evt_e2e_reorder_refund_fail_001"],
+      );
+      expect(refundFailRef!.processed_status).toBe("ignored");
     });
   });
 });
