@@ -32,6 +32,21 @@ import { detectConflicts } from "./schedule";
 // on command-runtime directly for the actor type.
 export type { CommandActor } from "./command-runtime";
 
+// ── Work Order Number Generator ──
+
+/**
+ * Generate a human-readable work order number.
+ *
+ * Format: `WO-YYYYMMDD-XXXXXXXX` (date + 8-char suffix from the record ID).
+ * This aligns with the invoice number pattern (`INV-YYYYMMDD-XXXXXXXX`)
+ * for visual consistency across business documents.
+ */
+export function generateWorkOrderNumber(workOrderId: string): string {
+  const date = now().slice(0, 10).replaceAll("-", "");
+  const suffix = workOrderId.slice(-8).toUpperCase();
+  return `WO-${date}-${suffix}`;
+}
+
 // ── Types ──
 
 export interface WorkOrderRecord {

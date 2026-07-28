@@ -24,6 +24,7 @@ import {
   type CommandHandlerResult,
   type CommandResult,
 } from "./command-runtime";
+import { generateWorkOrderNumber } from "./fsm-commands";
 
 // Re-export CommandActor so consumers of quote-commands do not need to depend
 // on command-runtime directly for the actor type.
@@ -1062,7 +1063,7 @@ export async function convertToWorkOrder(
 
       // Create the work order
       const woId = genId("wo");
-      const woNumber = `WO-${Date.now().toString(36).toUpperCase()}`;
+      const woNumber = generateWorkOrderNumber(woId);
       const ts = now();
 
       // Compute snapshot hash for provenance

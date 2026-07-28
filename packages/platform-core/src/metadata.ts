@@ -5,6 +5,7 @@ import { assertNotGovernedUpdate } from "./governed-fields";
 import { resolveRecordVisibility, type VisibilityScope } from "./visibility";
 import { ConflictError, NotFoundError, InvalidInputError } from "./context";
 import { AsyncLocalStorage } from "node:async_hooks";
+import { generateWorkOrderNumber } from "./fsm-commands";
 import {
   normalizeLegacyViewConfig,
   parseViewConfig,
@@ -1010,6 +1011,13 @@ function resolveDisplayField(fields: FieldDefinition[]): string {
 export async function createRecord(workspaceId: string, objectKey: string, data: Record<string, unknown>): Promise<Record<string, unknown> & { id: string }> {
   const id = genId("rec");
   const ts = now();
+
+  // Auto-generate work_order_number if not provided by the caller.
+  // This ensures all creation paths (generic API, voice intake, etc.) produce
+  // a human-readable number. The quote conversion flow provides its own number.
+  if (objectKey === "work_order" && data.work_order_number === undefined) {
+    data = { ...data, work_order_number: generateWorkOrderNumber(id) };
+  }
   const fields = await getFields(workspaceId, objectKey);
   const moduleFields = fields.filter(f => f.ownership === "module_owned");
   const extFields = fields.filter(f => f.ownership === "workspace_extension");

@@ -5,6 +5,7 @@ import { execute, now, queryAll, queryOne } from "./db";
 import { createRecord, getRecord, getRecords, updateRecord } from "./metadata";
 import { enqueueOutboxMessage } from "./outbox";
 import { createConversation, createNotificationMessage, createVoiceMessage } from "./messaging";
+import { generateWorkOrderNumber } from "./fsm-commands";
 
 export type Urgency = "low" | "medium" | "high" | "urgent";
 export type VoiceCallStatus = "initiated" | "ringing" | "answered" | "ended" | "analyzed" | "failed";

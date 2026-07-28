@@ -21,6 +21,7 @@ import type {
 import { queryOne, queryAll } from "./db";
 import { TABLES, businessTable } from "./contracts";
 import type { CustomerAccessGrantRecord } from "./customer-access-commands";
+import { generateWorkOrderNumber } from "./fsm-commands";
 
 // ── Helpers ──
 
@@ -158,7 +159,10 @@ function buildQuoteDto(quote: QuoteRow, lines: QuoteLineRow[]): CustomerQuoteDto
 function buildWorkOrderDto(wo: WorkOrderRow): CustomerWorkOrderStatusDto {
   return {
     id: wo.id,
-    number: wo.work_order_number ?? wo.id,
+    // Never expose the raw record ID to the customer. If work_order_number is
+    // missing (legacy data), derive a stable display number from the record ID
+    // so the customer sees a professional identifier like "WO-20260728-A1B2C3D4".
+    number: wo.work_order_number ?? generateWorkOrderNumber(wo.id),
     title: wo.title,
     status: wo.status,
     scheduledStart: wo.scheduled_start,
