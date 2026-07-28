@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
-import { businessTable, queryOne } from "@runory/platform-core";
+import {
+  applyProviderPaymentEvent,
+  businessTable,
+  hashProviderPayload,
+  queryOne,
+} from "@runory/platform-core";
+import { mapStripeEvent } from "@/integrations/payments/stripe/mapper";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -13,10 +19,10 @@ export const runtime = "nodejs";
 // resolved solely from the event's top-level connected-account id and the
 // verified livemode flag.
 //
-// This is a contract-level implementation: it verifies the signature, resolves
-// the workspace, and returns 200. Actual event processing (account.updated,
-// checkout completion, etc.) will be implemented with the full Stripe
-// integration.
+// Event processing: the verified Stripe event is normalized via mapStripeEvent
+// and dispatched to applyProviderPaymentEvent, which updates payment / payment
+// request / invoice status idempotently using the provider event reference
+// table for deduplication.
 export async function POST(request: NextRequest) {
   const webhookSecret = process.env.STRIPE_CONNECT_WEBHOOK_SECRET;
   const signature = request.headers.get("stripe-signature");
@@ -28,7 +34,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const payload = await request.text();
+  const rawBody = await request.text();
 
   // The Stripe SDK constructor requires an API key, but webhook signature
   // verification (constructEvent) only uses the webhook secret — the API key is
@@ -40,7 +46,7 @@ export async function POST(request: NextRequest) {
 
   let event: Stripe.Event;
   try {
-    event = stripe.webhooks.constructEvent(payload, signature, webhookSecret);
+    event = stripe.webhooks.constructEvent(rawBody, signature, webhookSecret);
   } catch (error) {
     console.error("[stripe:connect-webhook] signature verification failed", {
       message: error instanceof Error ? error.message : String(error),
@@ -67,8 +73,8 @@ export async function POST(request: NextRequest) {
   const mode: "test" | "live" = livemode ? "live" : "test";
   const table = businessTable("payment_provider_account");
 
-  const row = await queryOne<{ workspace_id: string }>(
-    `SELECT workspace_id FROM ${table}
+  const row = await queryOne<{ workspace_id: string; id: string }>(
+    `SELECT workspace_id, id FROM ${table}
      WHERE provider_account_ref = ? AND provider = 'stripe' AND mode = ?
      LIMIT 1`,
     [accountId, mode],
@@ -85,12 +91,62 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // Contract-level implementation (Spec §9.5): signature verified and
-  // workspace resolved from the connected-account id. Actual event processing
-  // (account.updated, checkout completion, etc.) will be implemented with the
-  // full Stripe integration.
-  return NextResponse.json(
-    { received: true, workspaceId: row.workspace_id },
-    { status: 200 },
-  );
+  // Normalize the Stripe event into a provider-agnostic payment event.
+  // Returns null for events we don't process (e.g., checkout.session.completed
+  // with payment_status != "paid").
+  const normalized = mapStripeEvent(event as unknown as Parameters<typeof mapStripeEvent>[0]);
+
+  if (!normalized) {
+    // Event type is not relevant to payment processing — acknowledge and exit.
+    return NextResponse.json(
+      { received: true, workspaceId: row.workspace_id, processed: false },
+      { status: 200 },
+    );
+  }
+
+  // Process the event through the payment command handler. This is idempotent:
+  // the provider_event_reference table deduplicates by providerEventId.
+  const payloadHash = hashProviderPayload(Buffer.from(rawBody));
+
+  try {
+    await applyProviderPaymentEvent(
+      row.workspace_id,
+      row.id,
+      normalized,
+      payloadHash,
+    );
+
+    return NextResponse.json(
+      { received: true, workspaceId: row.workspace_id, processed: true },
+      { status: 200 },
+    );
+  } catch (error) {
+    // Idempotency: if the event was already processed, the provider event
+    // reference unique constraint will reject the insert. Return 200 so Stripe
+    // does not retry.
+    const message = error instanceof Error ? error.message : String(error);
+    if (message.includes("UNIQUE") || message.includes("already") || message.includes("DUPLICATE")) {
+      console.info("[stripe:connect-webhook] event already processed", {
+        eventId: event.id,
+        type: event.type,
+      });
+      return NextResponse.json(
+        { received: true, workspaceId: row.workspace_id, processed: false, deduplicated: true },
+        { status: 200 },
+      );
+    }
+
+    // Log the error but still return 200 to prevent Stripe from retrying
+    // endlessly. The error is also captured in the provider_event_reference
+    // table with status "failed" if the transaction reached that point.
+    console.error("[stripe:connect-webhook] event processing failed", {
+      eventId: event.id,
+      type: event.type,
+      message,
+    });
+    return NextResponse.json(
+      { received: true, workspaceId: row.workspace_id, processed: false, error: message },
+      { status: 200 },
+    );
+  }
 }
