@@ -15,6 +15,9 @@ const COMMAND_SOURCE_FIXTURE = {
   "module:runory.payment@0.2.0": [
     "payment.confirm_provider_result",
     "payment.confirm_refund",
+    "payment.connect.disconnect",
+    "payment.connect.start",
+    "payment.connect.sync",
     "payment.expire_request",
     "payment.fail_provider_result",
     "payment.fail_refund",
@@ -80,7 +83,7 @@ describe("Command architecture inventory", () => {
 
     expect(inventory.issues).toEqual([]);
     expect(inventory.summary).toMatchObject({
-      commandCount: 48,
+      commandCount: 51,
       sourceCount: 8,
       moduleSourceCount: 5,
       platformServiceSourceCount: 3,

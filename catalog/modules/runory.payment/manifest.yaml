@@ -106,6 +106,15 @@ objects:
         validation:
           options: [configured, restricted, active, disabled]
       - { key: capabilities_json, label: Capabilities, type: text, ownership: module_owned }
+      - key: onboarding_status
+        label: Onboarding Status
+        type: select
+        ownership: module_owned
+        required: true
+        default_value: "not_started"
+        validation:
+          options: [not_started, configured, active, complete, restricted, disconnected]
+      - { key: aggregate_version, label: Aggregate Version, type: number, ownership: module_owned, required: true, default_value: "1" }
 
   - key: payment_provider_reference
     label: Payment Provider Reference
@@ -168,12 +177,13 @@ domain:
     - { key: payment_request, stateField: status, versionField: aggregate_version }
     - { key: payment, stateField: status, versionField: aggregate_version }
     - { key: refund, stateField: status, versionField: aggregate_version }
+    - { key: payment_provider_account, stateField: onboarding_status, versionField: aggregate_version }
   commands:
     - key: payment.request
       contractVersion: "1.0.0"
       aggregate: payment_request
       operation: create
-      allowedActorTypes: [user, api_key, system]
+      allowedActorTypes: [user, api_key, system, customer]
       permission: payment.request
       idempotent: true
       requiresExpectedVersion: false
@@ -269,6 +279,42 @@ domain:
       emits: [payment.refund_failed]
       auditRequired: true
       postconditions: [refund.status == failed]
+    - key: payment.connect.start
+      contractVersion: "1.0.0"
+      aggregate: payment_provider_account
+      operation: action
+      allowedActorTypes: [user, api_key]
+      permission: payment.configure
+      idempotent: true
+      requiresExpectedVersion: false
+      requiredEffects: []
+      emits: [payment_connect.onboarding_started]
+      auditRequired: true
+      postconditions: [A Connect onboarding session is initiated for the provider account.]
+    - key: payment.connect.sync
+      contractVersion: "1.0.0"
+      aggregate: payment_provider_account
+      operation: action
+      allowedActorTypes: [system]
+      permission: payment.configure
+      idempotent: true
+      requiresExpectedVersion: false
+      requiredEffects: []
+      emits: [payment_connect.synced]
+      auditRequired: true
+      postconditions: [The provider account Connect lifecycle fields are reconciled with the provider.]
+    - key: payment.connect.disconnect
+      contractVersion: "1.0.0"
+      aggregate: payment_provider_account
+      transition: { from: [configured, active, complete, restricted], to: disconnected }
+      allowedActorTypes: [user, api_key, system]
+      permission: payment.configure
+      idempotent: true
+      requiresExpectedVersion: true
+      requiredEffects: []
+      emits: [payment_connect.disconnected]
+      auditRequired: true
+      postconditions: [payment_provider_account.onboarding_status == disconnected]
 
 permissions:
   - payment.view
@@ -277,6 +323,7 @@ permissions:
   - payment.refund
   - payment.reconcile
   - payment.configure_provider
+  - payment.configure
   - payment.view_diagnostics
   - payment.provider_event
 

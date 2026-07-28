@@ -99,11 +99,20 @@ export type AuditAction =
   | "form_submission.submit"
   | "form_submission.return"
   | "form_submission.accept"
-  | "form_submission.save_draft";
+  | "form_submission.save_draft"
+  // Customer Access (v0.8 Batch 3, Tech Spec §12)
+  | "customer_access.issue"
+  | "customer_access.exchange"
+  | "customer_access.access_denied"
+  | "customer_access.revoke"
+  | "customer_access.logout"
+  | "payment.connect.start"
+  | "payment.connect.sync"
+  | "payment.connect.disconnect";
 
 export interface AuditEventInput {
   workspaceId: string;
-  actorType: "user" | "api_key" | "system" | "agent";
+  actorType: "user" | "api_key" | "system" | "agent" | "customer";
   actorId: string;
   action: AuditAction;
   entityType: string;
@@ -316,6 +325,7 @@ const ACTOR_LABELS: Record<string, string> = {
   api_key: "API Key",
   system: "系统",
   agent: "Agent",
+  customer: "客户",
 };
 
 const ENTITY_LABELS: Record<string, string> = {
@@ -335,6 +345,8 @@ const ENTITY_LABELS: Record<string, string> = {
   workspace: "工作区",
   organization: "组织",
   user: "用户",
+  customer_access_grant: "客户访问授权",
+  payment_provider_account: "支付商户账户",
 };
 
 function getActorLabel(actorType: string, actorId: string): string {
@@ -549,6 +561,58 @@ export function renderAuditSummary(event: AuditEvent): AuditSummaryEntry {
         summary: `${actor} 导入了工作区配置`,
         category: "system",
         detail: `对象: ${after?.imported ?? "?"}, 统计: ${JSON.stringify(after?.stats ?? {})}`,
+      };
+
+    // Customer Access actions (v0.8 Batch 3, Tech Spec §12)
+    case "customer_access.issue":
+      return {
+        summary: `${actor} 签发了客户访问授权`,
+        category: "admin",
+        detail: `主体: ${after?.subjectType ?? "?"} #${truncateId(String(after?.subjectId ?? ""))} · 根对象: ${after?.rootObjectType ?? "?"} · 过期: ${after?.expiresAt ?? "?"}`,
+      };
+    case "customer_access.exchange":
+      return {
+        summary: `${actor} 兑换了客户访问令牌`,
+        category: "system",
+        detail: `授权 ID: ${truncateId(entityId)}`,
+      };
+    case "customer_access.access_denied":
+      return {
+        summary: `客户访问被拒绝`,
+        category: "system",
+        detail: `授权 ID: ${truncateId(entityId)} · 原因: 记录在审计上下文中`,
+      };
+    case "customer_access.revoke":
+      return {
+        summary: `${actor} 撤销了客户访问授权`,
+        category: "admin",
+        detail: `授权 ID: ${truncateId(entityId)}`,
+      };
+    case "customer_access.logout":
+      return {
+        summary: `${actor} 退出了客户访问会话`,
+        category: "system",
+        detail: `授权 ID: ${truncateId(entityId)}`,
+      };
+
+    // Stripe Connect actions (v0.8 Batch 3, Tech Spec §12)
+    case "payment.connect.start":
+      return {
+        summary: `${actor} 启动了 Stripe Connect 商户接入`,
+        category: "admin",
+        detail: `商户账户 ID: ${truncateId(entityId)} · 模式: ${after?.mode ?? "?"}`,
+      };
+    case "payment.connect.sync":
+      return {
+        summary: `系统同步了 Stripe Connect 商户状态`,
+        category: "system",
+        detail: `商户账户 ID: ${truncateId(entityId)} · 状态: ${after?.onboarding_status ?? "?"}`,
+      };
+    case "payment.connect.disconnect":
+      return {
+        summary: `${actor} 断开了 Stripe Connect 商户接入`,
+        category: "admin",
+        detail: `商户账户 ID: ${truncateId(entityId)}`,
       };
 
     default:

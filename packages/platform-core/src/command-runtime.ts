@@ -41,7 +41,7 @@ import { authorizeCommandActor } from "./command-contracts/authorization";
 // ── Types ──
 
 export interface CommandActor {
-  type: "user" | "api_key" | "system" | "agent";
+  type: "user" | "api_key" | "system" | "agent" | "customer";
   id: string;
 }
 

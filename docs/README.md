@@ -41,6 +41,7 @@ Runory documentation is organized by topic authority and lifecycle rather than b
 - [v0.6–v0.7 External Benchmark Retrospective](releases/v0.6-v0.7-external-benchmark-retrospective-2026-07-27.md) — maps later benchmark language to released evidence and schedules the minimum Payment reconciliation gap forward.
 - [v0.8 Product Maturity and Customer Access Execution Plan](product/v0.8-product-maturity-execution-plan.md) — accepted Product Surface convergence, minimum customer access, merchant-owned Stripe Connect payment, and proportional Workflow visibility scope.
 - [v0.8 Product Maturity and Customer Access Technical Specification](product/v0.8-product-maturity-technical-spec.md) — binding schemas, APIs, authorization, Stripe Connect Direct-Charge, migration, compatibility, and test contract for v0.8 implementation.
+- [Runory UI Surface Technical Decision and Standards](architecture/v0.8-ui-surface-technical-decision.md) — binding Runory-native UI architecture, state, field rendering, responsive, preference, and proportionality rules derived from the Twenty study.
 - [v0.8 Reference Source Study](research/v0.8-reference-source-study-2026-07-27.md) — pinned Twenty, Directus, NocoBase, Frappe, and Windmill source evidence and bounded adoption decisions behind the v0.8 specification.
 - [v0.7 Planning Brief](product/v0.7-planning-brief.md) — historical discovery frame and Pareto selection questions.
 - [v0.6 Foundation Architecture Stabilization Plan](architecture/v0.6-foundation-architecture-stabilization-plan.md) — active foundation consolidation that opens v0.6.
@@ -53,6 +54,7 @@ Runory documentation is organized by topic authority and lifecycle rather than b
 - [Commercial FSM Customer Demand Benchmark](research/commercial-fsm-customer-demand-benchmark.md) — supporting research.
 - [Adjacent Platform Landscape](research/adjacent-platform-landscape.md) — active long-term benchmark across Twenty, NocoBase, Frappe, Windmill, Directus, Odoo, and related platforms.
 - [Twenty Platform Benchmark](research/twenty-platform-benchmark.md) — detailed Product Surface, Workflow Builder, Apps, and external-Agent reference.
+- [Twenty UI Code-Level Study](research/twenty-ui-code-study-2026-07-27.md) — pinned UI source evidence; implementation decisions are governed by the Runory UI Surface Technical Decision.
 - [v0.8 Reference Source Study](research/v0.8-reference-source-study-2026-07-27.md) — implementation-level evidence and Adopt/Adapt/Defer/Reject decisions for the v0.8 View and Workflow projection contracts.
 
 Versioned iteration plans provide implementation history but do not override the Product Definition or a newer active specification.
@@ -87,6 +89,7 @@ Versioned iteration plans provide implementation history but do not override the
 **Authority:** [Architecture Overview](architecture/overview.md)
 
 - [Architecture Overview](architecture/overview.md) — canonical platform overview.
+- [Runory UI Surface Technical Decision and Standards](architecture/v0.8-ui-surface-technical-decision.md) — Runory-native shared UI boundary and implementation rules informed by Twenty without copying its UI runtime.
 - [v0.6 Foundation Architecture Stabilization Plan](architecture/v0.6-foundation-architecture-stabilization-plan.md) — active cross-cutting architecture review and refactoring plan.
 - [Module Architecture](architecture/module-architecture.md) — module boundaries and composition.
 - [Workspace Customization Boundaries](architecture/workspace-customization-boundaries.md) — canonical Metadata, Workflow, and governed Extension decision guide.

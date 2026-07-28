@@ -4,9 +4,10 @@ import { createRequestContext, BusinessError } from "../context";
 import { TABLES } from "../contracts";
 import { queryOne } from "../db";
 import { ERROR_CODES } from "../errors";
+import { authorizeCustomerCommandActor } from "./customer-authorization";
 
 type ContractActor = {
-  type: "user" | "api_key" | "system" | "agent";
+  type: "user" | "api_key" | "system" | "agent" | "customer";
   id: string;
 };
 
@@ -24,6 +25,10 @@ function permissionDenied(message: string): BusinessError {
  * System actors represent trusted in-process services. Human, API-key, and
  * future Agent actors must resolve to an active Workspace/Organization member
  * and pass the existing business-permission policy.
+ *
+ * Customer actors (Tech Spec §7) are resolved through a dedicated branch that
+ * verifies an active, unexpired customer-access grant and capability match —
+ * they are never treated as Workspace members.
  */
 export async function authorizeCommandActor(
   workspaceId: string,
@@ -36,6 +41,13 @@ export async function authorizeCommandActor(
     );
   }
   if (actor.type === "system") return;
+
+  // Customer actors delegate to the customer-access authorization branch.
+  // They must never resolve as Workspace members (Tech Spec §7.2).
+  if (actor.type === "customer") {
+    await authorizeCustomerCommandActor(workspaceId, actor.id, contract);
+    return;
+  }
 
   const identity = await queryOne<{
     user_id: string | null;

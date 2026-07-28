@@ -2,20 +2,31 @@
 
 | Metadata | Value |
 | --- | --- |
-| Status | `active` |
+| Status | `evidence` |
 | Topic | `architecture` |
 | Applies to | `v0.8.x` Batch 2 — UI surface maturity |
 | Owner | Product / Engineering |
-| Last reviewed | 2026-07-27 |
+| Last reviewed | 2026-07-28 |
 | Source baseline | Twenty commit `6060d88` at `/Users/yesun/Code/runory-reference-platforms/twenty` |
 | Governing guardrails | [External Benchmark Adoption Guardrails](../product/external-benchmark-adoption-guardrails.md) |
+| Binding decision | [Runory UI Surface Technical Decision and Standards](../architecture/v0.8-ui-surface-technical-decision.md) |
+| Supersedes | — |
+| Superseded by | [Runory UI Surface Technical Decision and Standards](../architecture/v0.8-ui-surface-technical-decision.md) as implementation authority |
 
 ## 1. Purpose
 
 This document records a code-level understanding of Twenty's UI implementation
 to inform Runory's Batch 2 (UI surface maturity). It is not a feature-parity
 exercise. Each section maps a Twenty pattern to a concrete Runory adaptation
-decision, classified as Adopt, Adapt, or Reject.
+candidate, classified as Adopt, Adapt, or Reject.
+
+This document is research evidence, not an implementation specification. The
+[Runory UI Surface Technical Decision and Standards](../architecture/v0.8-ui-surface-technical-decision.md)
+evaluates these candidates against the implemented Runory contracts and is the
+binding authority. In particular, it rejects a generic SWR state hook, runtime
+field-renderer registration, shadcn adoption, broad Server Component migration,
+and mandatory container queries for this batch; it also defers partial-data UI
+until an API owns typed partial-success semantics.
 
 ## 2. Twenty architecture summary
 
@@ -497,30 +508,35 @@ apps/cloud/src/components/
   ObjectDetailPage.tsx (refactored to use states + RecordSummaryCard)
 ```
 
-## 12. Alternative approaches — not copying Twenty
+## 12. Candidate alternatives evaluated — not copying Twenty
+
+> The alternatives in sections 12–15 are retained as proposal history. They
+> must not be implemented directly; use the linked binding UI decision.
 
 Twenty is a general-purpose configurable platform: users create custom
-objects, views, and workflows at runtime. Runory's 37 modules and 80 views
-are known at build time. This difference means Twenty's architectural
-patterns (Widget engine, treadmill virtualization, PageLayout config
-system) are over-engineering for Runory. The sections below analyze
-alternative implementations that achieve the same UX outcomes with less
-complexity, while preserving Runory's extensibility requirements.
+objects, views, and workflows at runtime. Runory already has a dynamic object
+route shell and supports declarative Workspace-owned small custom objects; it
+also intends to make object creation more flexible. The material difference is
+not "dynamic versus fixed": Runory composes governed, versioned metadata and a
+closed set of admitted UI/business primitives, while Twenty also carries a
+broader Widget/PageLayout application runtime. The sections below analyze ways
+to preserve Runory's dynamic-object direction without prematurely adopting that
+entire runtime.
 
 ### 12.1 Why not copy Twenty's architecture
 
 | Dimension | Twenty | Runory |
 | --- | --- | --- |
-| Object model | User-defined at runtime | Fixed at build time (37 modules) |
-| View system | Needs generic Widget/PageLayout engine | Known views, stable structure |
+| Object model | User-defined at runtime | Installed and Workspace-owned objects through governed declarative metadata; broader dynamic creation planned |
+| View system | Generic views plus Widget/PageLayout engine | Typed dynamic list/form views plus stable composite product pages |
 | State management | Jotai atom families (complex) | SWR (simple) |
 | Styling | SCSS Modules + bridge variables | Tailwind CSS |
 | Rendering | Pure Client Components | Next.js (can use Server Components) |
 | Data scale | Potentially millions of records | Hundreds to low thousands per object |
 
 Twenty invests heavily in generic configurable systems because it must.
-Runory's fixed schema advantage means the same UX can be achieved with
-simpler, more type-safe primitives.
+Runory's advantage is a governed primitive vocabulary: new objects can be
+dynamic without making their UI or authoritative behavior arbitrary.
 
 ### 12.2 State standardization — discriminated union + hook
 
@@ -712,9 +728,9 @@ components (`LoadingState`, `EmptyState`) and field display, using
 
 ### 12.9 Extensibility without a Widget engine
 
-Twenty needs a Widget/PageLayout engine because users create custom
-objects and views at runtime. Runory's modules are known at build time,
-but the system must still support flexible extension:
+Twenty's product supports a broader Widget/PageLayout application runtime.
+Runory also needs runtime-created objects and views, but can support them by
+composing admitted declarative primitives:
 
 1. **Workspace Extensions** add custom fields to existing objects —
    handled by the `FieldDisplay` registry (section 12.3). Extension
@@ -726,10 +742,10 @@ but the system must still support flexible extension:
    does not need to know whether a column came from a module or an
    extension.
 
-3. **Future module field types** — a module can declare a new `FieldType`
-   value in its manifest and ship a corresponding `registerFieldDisplay()`
-   call in its frontend entry point. The core UI picks it up
-   automatically.
+3. **Future field primitives** — a genuinely new `FieldType` is introduced
+   through a versioned platform contract, compatibility review, renderer, and
+   tests. Dynamic objects built from existing field types require no frontend
+   registration.
 
 4. **Custom actions** — modules declare Commands and ViewActions in
    manifests. The UI renders them through the existing
@@ -741,7 +757,7 @@ insight: Runory's extensions compose through **typed contracts**
 (FieldType registry, ViewAction array, View config schema), not through
 a generic UI runtime.
 
-## 13. Revised Batch 2 deliverables (incorporating alternatives)
+## 13. Candidate Batch 2 deliverables (non-binding)
 
 | Deliverable | Approach | Why not Twenty's |
 | --- | --- | --- |
@@ -766,13 +782,13 @@ a generic UI runtime.
 | State tokens in `globals.css` | Add `--state-*` semantic tokens | Twenty has full `--t-*` token system (over-scope) |
 | Server Components for read-only surfaces | Next.js RSC for field display and states | Twenty is pure Client Components |
 
-## 14. Extensibility contract
+## 14. Candidate extensibility contract (non-binding)
 
 The UI layer must support these extension paths without core code changes:
 
 | Extension path | Mechanism | Example |
 | --- | --- | --- |
-| New field type | `registerFieldDisplay(type, renderer)` | A future `currency` type ships its renderer |
+| New field type | Versioned platform contract plus renderer and compatibility tests | A future `currency` primitive is added deliberately; new objects reuse it declaratively |
 | Custom field on existing object | Workspace Extension adds field; existing registry renders it | Extension adds `priority` select field to Work Order |
 | View column modification | Workspace Extension plan modifies `view_definitions` config | Extension hides a column, reorders others |
 | New action on existing view | Module manifest declares new ViewAction; UI renders via `view-actions.ts` | Quote module adds `quote.submit` command action |
@@ -783,7 +799,7 @@ This contract is the extensibility boundary. Anything beyond it (custom
 page layouts, widget reordering, inline editing, canvas builder) is
 explicitly deferred and would require a future architecture decision.
 
-## 15. Validation criteria
+## 15. Candidate validation criteria (non-binding)
 
 1. No schema-driven surface contains bespoke loading/empty/error markup —
    all use shared `SurfaceStateRenderer` or individual state components.

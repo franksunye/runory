@@ -5,3 +5,4 @@ export * from "./command-contracts/registry";
 export * from "./command-contracts/runtime-plan";
 export * from "./command-contracts/validation";
 export * from "./command-contracts/workspace";
+export * from "./command-contracts/customer-authorization";

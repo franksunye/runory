@@ -469,7 +469,7 @@ export type ModulePresentation = z.infer<typeof modulePresentationSchema>;
 // manifest.
 export const commandConsistencySchema = z.enum(["atomic", "outbox", "projection"]);
 export const commandOperationSchema = z.enum(["create", "transition", "action"]);
-export const commandActorTypeSchema = z.enum(["user", "api_key", "system", "agent"]);
+export const commandActorTypeSchema = z.enum(["user", "api_key", "system", "agent", "customer"]);
 
 export const aggregateContractSchema = z.object({
   key: z.string().min(1),

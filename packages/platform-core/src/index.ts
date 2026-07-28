@@ -49,3 +49,7 @@ export * from "./operational-projections";
 export * from "./voice-intake";
 export * from "./payment-commands";
 export * from "./invoice-commands";
+export * from "./customer-access-commands";
+export * from "./customer-access-session";
+export * from "./customer-access-context";
+export * from "./payment-connect-commands";

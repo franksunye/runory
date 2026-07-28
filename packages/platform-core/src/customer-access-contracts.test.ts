@@ -1,5 +1,6 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, beforeAll, afterAll } from "vitest";
 import {
+  commandActorTypeSchema,
   customerAccessCapabilitySchema,
   customerAccessGrantSchema,
   customerAccessGrantStatusSchema,
@@ -9,12 +10,21 @@ import {
   customerAccessContextDtoSchema,
 } from "@runory/contracts";
 import { loadPlatformServiceContractManifest } from "./platform-service-contracts";
+import { loadModuleManifest } from "./installer";
 import {
   generateAccessToken,
   hashAccessToken,
   validateCapabilities,
   validateExpiry,
 } from "./customer-access-commands";
+import {
+  CUSTOMER_ACCESS_COOKIE_NAME,
+  createCustomerAccessSession,
+  verifyCustomerAccessSession,
+  customerAccessCookieOptions,
+  rateLimitFingerprint,
+  CUSTOMER_ACCESS_RESPONSE_HEADERS,
+} from "./customer-access-session";
 
 // ── Platform Service Manifest ──
 
@@ -379,5 +389,158 @@ describe("Customer Access context DTO schema", () => {
       availableActions: ["quote.delete"],
     };
     expect(customerAccessContextDtoSchema.safeParse(ctx).success).toBe(false);
+  });
+});
+
+// ── Customer Command Authorization (Tech Spec §7) ──
+
+describe("Customer Command actor type and contract admissibility", () => {
+  it("commandActorTypeSchema includes 'customer'", () => {
+    const values = commandActorTypeSchema.options;
+    expect(values).toContain("customer");
+    expect(values).toEqual(["user", "api_key", "system", "agent", "customer"]);
+  });
+
+  it("quote.accept contract allows customer actors", () => {
+    const manifest = loadModuleManifest("runory.quote");
+    const cmd = manifest.domain?.commands.find((c) => c.key === "quote.accept");
+    expect(cmd).toBeDefined();
+    expect(cmd!.allowedActorTypes).toContain("customer");
+  });
+
+  it("payment.request contract allows customer actors", () => {
+    const manifest = loadModuleManifest("runory.payment");
+    const cmd = manifest.domain?.commands.find((c) => c.key === "payment.request");
+    expect(cmd).toBeDefined();
+    expect(cmd!.allowedActorTypes).toContain("customer");
+  });
+
+  it("only quote.accept and payment.request admit customer among all module commands", () => {
+    const moduleIds = [
+      "runory.quote", "runory.payment", "runory.invoice", "runory.work-order",
+      "runory.contact", "runory.company", "runory.schedule", "runory.form",
+      "runory.workflow", "runory.automation", "runory.fsm",
+    ];
+    const customerAdmissible: string[] = [];
+    for (const id of moduleIds) {
+      let manifest;
+      try { manifest = loadModuleManifest(id); } catch { continue; }
+      if (manifest.status === "retired") continue;
+      for (const cmd of manifest.domain?.commands ?? []) {
+        if (cmd.allowedActorTypes.includes("customer" as never)) {
+          customerAdmissible.push(cmd.key);
+        }
+      }
+    }
+    expect(customerAdmissible.sort()).toEqual(["payment.request", "quote.accept"]);
+  });
+
+  it("no platform service command other than customer_access allows customer actors", () => {
+    const manifest = loadPlatformServiceContractManifest("runory.customer-access");
+    for (const cmd of manifest.domain.commands) {
+      expect(cmd.allowedActorTypes).not.toContain("customer" as never);
+    }
+  });
+});
+
+// ── Session Cookie (Tech Spec §6.2) ──
+
+describe("Customer Access session cookie", () => {
+  // Use a test secret so the session functions work without env config
+  const originalSecret = process.env.CUSTOMER_ACCESS_SESSION_SECRET;
+  beforeAll(() => {
+    process.env.CUSTOMER_ACCESS_SESSION_SECRET = "test-secret-at-least-32-characters-long-for-testing";
+  });
+  afterAll(() => {
+    if (originalSecret) process.env.CUSTOMER_ACCESS_SESSION_SECRET = originalSecret;
+    else delete process.env.CUSTOMER_ACCESS_SESSION_SECRET;
+  });
+
+  const mockGrant = {
+    id: "cag_test",
+    workspace_id: "ws_test",
+    subject_type: "contact" as const,
+    subject_id: "ctc_test",
+    root_object_type: "quote" as const,
+    root_record_id: "qt_test",
+    capabilities_json: JSON.stringify(["quote.view", "quote.accept"]),
+    token_hash: "a".repeat(64),
+    status: "active" as const,
+    expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+    first_accessed_at: null,
+    last_accessed_at: null,
+    revoked_at: null,
+    revoked_by: null,
+    created_by: "usr_test",
+    aggregate_version: 1,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  };
+
+  it("creates and verifies a signed session cookie", () => {
+    const cookie = createCustomerAccessSession(mockGrant);
+    expect(cookie).toContain(".");
+    const payload = verifyCustomerAccessSession(cookie);
+    expect(payload).not.toBeNull();
+    expect(payload!.grantId).toBe("cag_test");
+    expect(payload!.workspaceId).toBe("ws_test");
+    expect(payload!.expiresAt).toBe(mockGrant.expires_at);
+  });
+
+  it("rejects a tampered cookie signature", () => {
+    const cookie = createCustomerAccessSession(mockGrant);
+    const parts = cookie.split(".");
+    const tampered = `${parts[0]}.invalidSignature`;
+    expect(verifyCustomerAccessSession(tampered)).toBeNull();
+  });
+
+  it("rejects a malformed cookie", () => {
+    expect(verifyCustomerAccessSession("not-a-valid-cookie")).toBeNull();
+    expect(verifyCustomerAccessSession("")).toBeNull();
+  });
+
+  it("cookie name is 'runory_customer_access'", () => {
+    expect(CUSTOMER_ACCESS_COOKIE_NAME).toBe("runory_customer_access");
+  });
+
+  it("cookie options are HttpOnly, SameSite=Lax, Path=/", () => {
+    const opts = customerAccessCookieOptions(mockGrant.expires_at);
+    expect(opts.httpOnly).toBe(true);
+    expect(opts.sameSite).toBe("lax");
+    expect(opts.path).toBe("/");
+    expect(opts.maxAge).toBeGreaterThan(0);
+  });
+
+  it("expired cookie options have maxAge=0", () => {
+    const opts = customerAccessCookieOptions(new Date(Date.now() - 1000).toISOString());
+    expect(opts.maxAge).toBe(0);
+  });
+});
+
+// ── Rate Limit Fingerprint (Tech Spec §6.3) ──
+
+describe("Customer Access rate limit fingerprint", () => {
+  it("produces a deterministic 32-char hex fingerprint", () => {
+    const fp = rateLimitFingerprint("192.168.1.1", "cag_test");
+    expect(fp).toHaveLength(32);
+    expect(fp).toMatch(/^[0-9a-f]{32}$/);
+  });
+
+  it("produces different fingerprints for different inputs", () => {
+    const fp1 = rateLimitFingerprint("192.168.1.1", "cag_a");
+    const fp2 = rateLimitFingerprint("192.168.1.2", "cag_a");
+    const fp3 = rateLimitFingerprint("192.168.1.1", "cag_b");
+    expect(fp1).not.toBe(fp2);
+    expect(fp1).not.toBe(fp3);
+  });
+});
+
+// ── Protected Response Headers (Tech Spec §6.3) ──
+
+describe("Customer Access protected response headers", () => {
+  it("includes Cache-Control, Referrer-Policy, and X-Robots-Tag", () => {
+    expect(CUSTOMER_ACCESS_RESPONSE_HEADERS["Cache-Control"]).toBe("private, no-store");
+    expect(CUSTOMER_ACCESS_RESPONSE_HEADERS["Referrer-Policy"]).toBe("no-referrer");
+    expect(CUSTOMER_ACCESS_RESPONSE_HEADERS["X-Robots-Tag"]).toBe("noindex, nofollow");
   });
 });
