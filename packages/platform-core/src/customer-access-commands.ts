@@ -93,15 +93,12 @@ export function validateCapabilities(
       );
     }
     // Root-object-type capability constraints
-    if (rootObjectType === "quote") {
-      if (cap === "work_order.view_status") {
-        throw new BusinessError(
-          ERROR_CODES.INVALID_INPUT,
-        `INVALID_INPUT: Capability '${cap}' is not valid for root_object_type 'quote'.`,
-          400,
-        );
-      }
-    }
+    //
+    // "work_order.view_status" is valid for root_object_type "quote" because
+    // the context resolver resolves the work_order from quote.work_order_id
+    // once the quote is converted. The downstream capabilities
+    // (service_report.view, invoice.view, invoice.pay, payment.view_status)
+    // are also resolved through the work_order chain.
     if (rootObjectType === "work_order") {
       if (cap === "quote.view" || cap === "quote.accept") {
         throw new BusinessError(
