@@ -46,12 +46,17 @@ export async function GET(
     const url = new URL(request.url);
     const limit = Math.min(Number(url.searchParams.get("limit") ?? "20"), 50);
     const status = url.searchParams.get("status");
+    const definitionId = url.searchParams.get("definitionId");
 
     const conditions = ["workspace_id = ?"];
     const args: unknown[] = [workspaceId];
     if (status) {
       conditions.push("status = ?");
       args.push(status);
+    }
+    if (definitionId) {
+      conditions.push("workflow_definition_id = ?");
+      args.push(definitionId);
     }
 
     const instances = await queryAll<WorkflowInstanceRow>(

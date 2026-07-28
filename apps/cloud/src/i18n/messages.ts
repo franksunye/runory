@@ -1562,7 +1562,7 @@ export const en = {
 
   // V2-only UI: page & editor structural keys
   "workflow.pageTitle": "Workflows",
-  "workflow.pageSubtitle": "Manage step-based workflow definitions and running instances.",
+  "workflow.pageSubtitle": "Manage step-based workflow definitions.",
   "workflow.createWorkflow": "Create Workflow",
   "workflow.createWorkflowTitle": "Create Workflow",
   "workflow.editWorkflowTitle": "Edit Workflow · {name}",
@@ -1576,6 +1576,16 @@ export const en = {
   "workflow.onReject": "On Reject",
   "workflow.placeholderOnApprove": "next_step_id",
   "workflow.placeholderOnReject": "next_step_id",
+
+  // Workflow list/detail split
+  "workflow.viewDetail": "View Details",
+  "workflow.viewRunDetail": "View Run",
+  "workflow.definitionDetail": "Workflow Definition",
+  "workflow.definitionNotFound": "Workflow definition not found",
+  "workflow.runDetail": "Workflow Run",
+  "workflow.runNotFound": "Workflow run not found",
+  "workflow.startedAt": "Started",
+  "workflow.completedAt": "Completed",
 
   "mobile.appName": "Runory Field",
   "mobile.tagline": "Field work, simplified",
@@ -2535,7 +2545,7 @@ export const zh: Messages = {
   "workflow.assigneeRule": "受理规则",
   "workflow.targetObject": "目标对象",
   "workflow.pageTitle": "工作流",
-  "workflow.pageSubtitle": "管理步骤化工作流定义与运行中的实例。",
+  "workflow.pageSubtitle": "管理工作流定义。",
   "workflow.createWorkflow": "创建工作流",
   "workflow.createWorkflowTitle": "创建工作流",
   "workflow.editWorkflowTitle": "编辑工作流 · {name}",
@@ -2549,6 +2559,16 @@ export const zh: Messages = {
   "workflow.onReject": "拒绝时跳转",
   "workflow.placeholderOnApprove": "next_step_id",
   "workflow.placeholderOnReject": "next_step_id",
+
+  // Workflow list/detail split
+  "workflow.viewDetail": "查看详情",
+  "workflow.viewRunDetail": "查看运行",
+  "workflow.definitionDetail": "工作流定义",
+  "workflow.definitionNotFound": "工作流定义未找到",
+  "workflow.runDetail": "工作流运行",
+  "workflow.runNotFound": "工作流运行未找到",
+  "workflow.startedAt": "开始时间",
+  "workflow.completedAt": "完成时间",
 
   "mobile.appName": "Runory Field",
   "mobile.tagline": "现场作业，化繁为简",
