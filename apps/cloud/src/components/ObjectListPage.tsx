@@ -1,9 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import Link from "next/link";
-import { Plus, Search, Inbox } from "lucide-react";
+import { Plus, Search, PackageOpen, Settings, Save } from "lucide-react";
 import SchemaTable from "./SchemaTable";
 import type { FieldDefinition } from "@runory/platform-core";
 import {
@@ -13,9 +12,16 @@ import {
   useRecords,
   useWorkspaceAccess,
   useWorkspaceChangeEvent,
+  useViewPreference,
 } from "@/lib/api-hooks";
 import { useI18n } from "@/i18n/locale-provider";
 import { extractViewActions, filterActionsByPermission } from "@/lib/view-actions";
+import { EmptyState, LoadingState, ErrorState } from "@/components/states";
+import { PageHeader } from "@/components/layout";
+import {
+  buildPreferenceInput,
+} from "@/lib/view-preference-resolver";
+import { apiFetch } from "@/lib/api-fetch";
 
 export interface SortOption {
   value: string;
@@ -64,12 +70,16 @@ export default function ObjectListPage({
   const { data: installations = [], isLoading: loadingInst } = useInstallations(workspaceId);
   const { data: workspaceAccess } = useWorkspaceAccess(workspaceId);
   const { data: objDetail, isLoading: loadingObj } = useFields(workspaceId, objectKey);
-  const { data: views = [], isLoading: loadingViews } = useViews(workspaceId, objectKey);
+  const { data: views = [], isLoading: loadingViews, error: viewError, mutate: mutateViews } = useViews(workspaceId, objectKey);
 
-  const [searchInput, setSearchInput] = useState("");
-  const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [sortValue, setSortValue] = useState(effectiveSortOptions[0]?.value ?? "created_at:desc");
-  const [visibleCount, setVisibleCount] = useState(pageSize);
+  // Resolve the view definition for preference lookup
+  const viewDef = views.find((v) => v.viewKey === viewKey);
+  const viewDefId = viewDef?.id ?? null;
+  const { data: preference, mutate: mutatePreference } = useViewPreference(workspaceId, viewDefId);
+
+  // URL query state: q (search), sort, filter.*
+  const urlSearch = searchParams.get("q") ?? "";
+  const urlSort = searchParams.get("sort") ?? "";
   const relationFilters = useMemo(() => {
     const filters: Record<string, string> = {};
     for (const [key, value] of searchParams.entries()) {
@@ -78,21 +88,43 @@ export default function ObjectListPage({
     return filters;
   }, [searchParams]);
 
+  // Local search input (debounced). Initialized from URL, then user-controlled.
+  const [searchInput, setSearchInput] = useState(urlSearch);
+  const [debouncedSearch, setDebouncedSearch] = useState(urlSearch);
+
+  // Sync search input when URL changes (e.g., back/forward, shared link)
   useEffect(() => {
-    const t = setTimeout(() => setDebouncedSearch(searchInput), 300);
-    return () => clearTimeout(t);
+    setSearchInput(urlSearch);
+  }, [urlSearch]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(searchInput), 300);
+    return () => clearTimeout(timer);
   }, [searchInput]);
 
+  // Build view defaults from the resolved view config
+  const viewConfig = viewDef?.config ?? null;
+  const viewColumns = useMemo(() => {
+    if (!viewConfig || !Array.isArray(viewConfig.columns)) return [];
+    return viewConfig.columns as Array<{ field: string; label?: string; width?: "sm" | "md" | "lg" }>;
+  }, [viewConfig]);
+
+  // Sort: use URL sort if present, otherwise preference sort, otherwise default
+  const effectiveSortValue = urlSort || (preference?.sort ? `${preference.sort.field}:${preference.sort.direction}` : "") || effectiveSortOptions[0]?.value || "created_at:desc";
   const [sortBy, sortOrder] = useMemo(() => {
-    const [field, order] = sortValue.split(":");
+    const [field, order] = effectiveSortValue.split(":");
     return [field, (order as "asc" | "desc") ?? "desc"];
-  }, [sortValue]);
+  }, [effectiveSortValue]);
+
+  // Page size from preference or prop default
+  const effectivePageSize = preference?.pageSize ?? pageSize;
+  const [visibleCount, setVisibleCount] = useState(effectivePageSize);
 
   useEffect(() => {
-    setVisibleCount(pageSize);
-  }, [debouncedSearch, sortValue, pageSize, relationFilters]);
+    setVisibleCount(effectivePageSize);
+  }, [debouncedSearch, effectiveSortValue, effectivePageSize, relationFilters]);
 
-  const { data: records = [], isLoading: loadingRecords } = useRecords(workspaceId, objectKey, {
+  const { data: records = [], isLoading: loadingRecords, error: recordError, mutate: mutateRecords } = useRecords(workspaceId, objectKey, {
     search: debouncedSearch || undefined,
     sortBy,
     sortOrder,
@@ -124,12 +156,52 @@ export default function ObjectListPage({
   const loading = loadingInst || (hasPack && (loadingObj || loadingViews || loadingRecords));
 
   const fields: FieldDefinition[] = objDetail?.fields ?? [];
-  const viewConfig = views.find((v) => v.viewKey === viewKey)?.config ?? null;
   const viewActions = filterActionsByPermission(
     extractViewActions(viewConfig as Record<string, unknown> | null),
     permissions,
   );
   const hasCreateAction = viewActions.some((a) => a.key === "create" && a.kind === "navigate");
+
+  // Filter view columns by preference visibleFields when available
+  const effectiveColumns = useMemo(() => {
+    if (!preference?.visibleFields?.length) return viewColumns;
+    const prefSet = new Set(preference.visibleFields);
+    const filtered = viewColumns.filter((c) => prefSet.has(c.field));
+    return filtered.length > 0 ? filtered : viewColumns;
+  }, [viewColumns, preference]);
+
+  const effectiveViewConfig = useMemo(() => {
+    if (!viewConfig) return null;
+    return { ...viewConfig, columns: effectiveColumns };
+  }, [viewConfig, effectiveColumns]);
+
+  // Save current state as a view preference (explicit action)
+  const [saving, setSaving] = useState(false);
+  const handleSavePreferences = useCallback(async () => {
+    if (!viewDefId) return;
+    setSaving(true);
+    try {
+      const stateForSave = {
+        search: debouncedSearch,
+        sortBy,
+        sortOrder,
+        filters: relationFilters,
+        pageSize: effectivePageSize,
+        visibleFields: effectiveColumns.map((c) => c.field),
+      };
+      const input = buildPreferenceInput(stateForSave, preference?.version);
+      await apiFetch(`/api/workspaces/${workspaceId}/views/${viewDefId}/preference`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(input),
+      });
+      void mutatePreference();
+    } catch {
+      // Error is silently swallowed; the SWR cache stays stale and the user can retry.
+    } finally {
+      setSaving(false);
+    }
+  }, [viewDefId, debouncedSearch, sortBy, sortOrder, relationFilters, effectivePageSize, effectiveColumns, preference, workspaceId, mutatePreference]);
 
   // Extension field notice
   const extensionFields = fields.filter((f) => f.ownership === "workspace_extension");
@@ -153,25 +225,38 @@ export default function ObjectListPage({
     setShowExtensionNotice(false);
   };
 
+  const handleCreate = () => router.push(`${basePath}/new`);
+  const clearSearch = () => setSearchInput("");
+  const errorMessage =
+    recordError?.message || viewError?.message || t("surface.error.description");
+  const handleRetry = () => {
+    if (recordError) void mutateRecords();
+    if (viewError) void mutateViews();
+  };
+  const headerActions = (
+    <>
+      {hasPack && viewDefId && (
+        <button
+          type="button"
+          onClick={handleSavePreferences}
+          disabled={saving}
+          className="app-button-secondary"
+          title={t("workspace.savePreferences")}
+        >
+          <Save size={16} />
+          {saving ? t("surface.loading") : t("workspace.savePreferences")}
+        </button>
+      )}
+      {hasPack && canCreate && hasCreateAction ? (
+        <button type="button" onClick={handleCreate} className="app-button-primary">
+          <Plus size={16} />{effectiveCreateLabel}
+        </button>
+      ) : null}
+    </>
+  );
+
   if (loading) {
-    return (
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div className="space-y-2">
-            <div className="app-skeleton h-3 w-28" />
-            <div className="app-skeleton h-8 w-56" />
-          </div>
-          <div className="app-skeleton h-10 w-32 rounded-lg" />
-        </div>
-        <div className="app-card overflow-hidden p-0">
-          <div className="space-y-2 p-4">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="app-skeleton h-10 w-full" />
-            ))}
-          </div>
-        </div>
-      </div>
-    );
+    return <LoadingState variant="page" />;
   }
 
   const totalCount = records.length;
@@ -181,40 +266,30 @@ export default function ObjectListPage({
 
   return (
     <div className="space-y-6 page-enter">
-      <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          {packName && <p className="app-eyebrow">{packName}</p>}
-          <h1 className="mt-2 text-3xl font-bold tracking-[-.025em] text-slate-950">{title}</h1>
-          {effectiveSubtitle && <p className="mt-2 text-sm text-slate-500">{effectiveSubtitle}</p>}
-        </div>
-        {hasPack && canCreate && hasCreateAction && (
-          <div className="flex items-center gap-2 self-start">
-            <button
-              type="button"
-              onClick={() => router.push(`${basePath}/new`)}
-              className="app-button-primary"
-            >
-              <Plus size={16} />{effectiveCreateLabel}
-            </button>
-          </div>
-        )}
-      </header>
+      <PageHeader
+        eyebrow={packName}
+        title={title}
+        subtitle={effectiveSubtitle}
+        actions={headerActions}
+      />
 
       {!hasPack ? (
-        <div className="app-card flex flex-col items-center px-6 py-12 text-center">
-          <Inbox size={32} className="text-slate-300" />
-          <p className="mt-3 text-base font-semibold text-slate-800">{t("workspace.noPack")}</p>
-          <p className="mt-1 text-sm text-slate-500">
-            {packName ? t("workspace.noPackHint", { packName }) : t("workspace.noPackHint", { packName: "" })}
-          </p>
-          <Link
-            href={`/w/${workspaceId}/dashboard`}
-            className="app-button-primary mt-4"
-          >
-            {t("workspace.goDashboard")}
-          </Link>
-        </div>
-      ) : viewConfig ? (
+        <EmptyState
+          icon={PackageOpen}
+          title={t("workspace.noPack")}
+          description={t("workspace.noPackHint", { packName: packName ?? "" })}
+          action={{
+            label: t("workspace.goDashboard"),
+            onClick: () => router.push(`/w/${workspaceId}/dashboard`),
+            tone: "primary",
+          }}
+        />
+      ) : (recordError || viewError) ? (
+        <ErrorState
+          description={errorMessage}
+          retryAction={{ label: t("surface.error.retry"), onClick: handleRetry }}
+        />
+      ) : effectiveViewConfig ? (
         <div className="space-y-3">
           {showExtensionNotice && (
             <div className="rounded-lg border border-purple-200 bg-purple-50 px-4 py-3 text-sm text-purple-900">
@@ -251,8 +326,13 @@ export default function ObjectListPage({
               />
             </div>
             <select
-              value={sortValue}
-              onChange={(e) => setSortValue(e.target.value)}
+              value={effectiveSortValue}
+              onChange={(e) => {
+                // Update URL sort param
+                const params = new URLSearchParams(searchParams.toString());
+                params.set("sort", e.target.value);
+                router.replace(`${basePath}?${params.toString()}`, { scroll: false });
+              }}
               className="app-input max-w-[200px]"
             >
               {effectiveSortOptions.map((opt) => (
@@ -267,37 +347,26 @@ export default function ObjectListPage({
 
           {totalCount === 0 ? (
             isSearching ? (
-              <div className="app-card flex flex-col items-center px-6 py-12 text-center">
-                <Search size={28} className="text-slate-300" />
-                <p className="mt-3 text-sm text-slate-500">{t("workspace.noResults")}</p>
-                <button
-                  type="button"
-                  onClick={() => setSearchInput("")}
-                  className="app-button-secondary mt-4"
-                >
-                  {t("workspace.clearSearch")}
-                </button>
-              </div>
+              <EmptyState
+                icon={Search}
+                title={t("surface.empty.noResults")}
+                action={{ label: t("surface.empty.clearSearch"), onClick: clearSearch }}
+              />
             ) : (
-              <div className="app-card flex flex-col items-center px-6 py-12 text-center">
-                <Inbox size={32} className="text-slate-300" />
-                <p className="mt-3 text-sm text-slate-500">{t("workspace.noRecords", { title })}</p>
-                {canCreate && hasCreateAction && (
-                  <button
-                    type="button"
-                    onClick={() => router.push(`${basePath}/new`)}
-                    className="app-button-primary mt-4"
-                  >
-                    <Plus size={16} />{t("workspace.addFirst", { title })}
-                  </button>
-                )}
-              </div>
+              <EmptyState
+                title={t("workspace.noRecords", { title })}
+                action={
+                  canCreate && hasCreateAction
+                    ? { label: t("workspace.add", { title }), onClick: handleCreate, tone: "primary" }
+                    : undefined
+                }
+              />
             )
           ) : (
             <>
               <SchemaTable
                 fields={fields}
-                viewConfig={viewConfig}
+                viewConfig={effectiveViewConfig}
                 records={visibleRecords}
                 workspaceId={workspaceId}
                 objectKey={objectKey}
@@ -307,7 +376,7 @@ export default function ObjectListPage({
                 <div className="flex justify-center pt-2">
                   <button
                     type="button"
-                    onClick={() => setVisibleCount((c) => c + pageSize)}
+                    onClick={() => setVisibleCount((c) => c + effectivePageSize)}
                     className="app-button-secondary"
                   >
                     {t("workspace.loadMore")}
@@ -318,7 +387,7 @@ export default function ObjectListPage({
           )}
         </div>
       ) : (
-        <p className="text-sm text-slate-500">{t("workspace.viewNotFound")}</p>
+        <EmptyState icon={Settings} title={t("workspace.viewNotFound")} />
       )}
     </div>
   );

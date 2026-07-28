@@ -2,12 +2,13 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Inbox } from "lucide-react";
 import type { FieldDefinition } from "@runory/platform-core";
 import type { ViewAction } from "@runory/contracts";
 import { useI18n } from "@/i18n/locale-provider";
 import type { MessageKey } from "@/i18n/messages";
 import { objectKeyToRouteSegment } from "@/lib/dynamic-object";
+import { FieldDisplay } from "@/components/fields";
+import { EmptyState, ErrorState, LoadingState } from "@/components/states";
 import UserAvatar from "./UserAvatar";
 
 type RecordData = Record<string, string | number | boolean | null>;
@@ -25,6 +26,12 @@ interface SchemaTableProps {
   objectKey: string;
   basePath?: string;
   embedded?: boolean;
+  /** When true, renders a shared loading skeleton in place of the table body. */
+  loading?: boolean;
+  /** When true, renders a shared error state instead of the table body. */
+  error?: boolean;
+  /** When provided, the error state exposes a retry action bound to this handler. */
+  onRetry?: () => void;
 }
 
 interface ListColumn {
@@ -37,7 +44,7 @@ type TFunc = (key: MessageKey, params?: Record<string, string | number>) => stri
 // ── Relative time formatting ──
 
 export function formatRelativeTime(
-  value: string | number | boolean | null,
+  value: string | number | boolean | null | undefined,
   t?: TFunc
 ): string {
   if (value === null || value === undefined || value === "") return "—";
@@ -58,43 +65,7 @@ export function formatRelativeTime(
   return t ? t("workspace.table.yearsAgo", { years }) : `${years} yr ago`;
 }
 
-// ── Badge renderer ──
-
-function Badge({ label, className }: { label: string; className: string }) {
-  return (
-    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${className}`}>
-      {label}
-    </span>
-  );
-}
-
-const STATUS_BADGE_CLASS: Record<string, string> = {
-  todo: "bg-slate-100 text-slate-700",
-  in_progress: "bg-blue-100 text-blue-700",
-  done: "bg-emerald-100 text-emerald-700",
-  cancelled: "bg-red-100 text-red-700",
-};
-
-const PRIORITY_BADGE_CLASS: Record<string, string> = {
-  low: "bg-slate-100 text-slate-700",
-  medium: "bg-blue-100 text-blue-700",
-  high: "bg-orange-100 text-orange-700",
-  urgent: "bg-red-100 text-red-700",
-};
-
-const STATUS_LABEL_KEY: Record<string, MessageKey> = {
-  todo: "workspace.table.statusTodo",
-  in_progress: "workspace.table.statusInProgress",
-  done: "workspace.table.statusDone",
-  cancelled: "workspace.table.statusCancelled",
-};
-
-const PRIORITY_LABEL_KEY: Record<string, MessageKey> = {
-  low: "workspace.table.priorityLow",
-  medium: "workspace.table.priorityMedium",
-  high: "workspace.table.priorityHigh",
-  urgent: "workspace.table.priorityUrgent",
-};
+// ── Neutral value formatting (fallback when field metadata is unavailable) ──
 
 function formatValue(
   value: string | number | boolean | null,
@@ -117,37 +88,42 @@ function formatValue(
 function renderCell(
   fieldKey: string,
   value: string | number | boolean | null,
-  type: string,
+  field: FieldDefinition | undefined,
   t: TFunc,
-  locale?: string,
+  locale: string,
   displayValue?: string | null,
   targetObject?: string,
   workspaceId?: string
 ): React.ReactNode {
-  if (value === null || value === undefined || value === "") return <span className="text-slate-400">—</span>;
-
-  if (fieldKey === "status" && typeof value === "string") {
-    const className = STATUS_BADGE_CLASS[value];
-    const labelKey = STATUS_LABEL_KEY[value];
-    if (className && labelKey) return <Badge label={t(labelKey)} className={className} />;
+  if (value === null || value === undefined || value === "") {
+    return <span className="text-slate-400">—</span>;
   }
 
-  if (fieldKey === "priority" && typeof value === "string") {
-    const className = PRIORITY_BADGE_CLASS[value];
-    const labelKey = PRIORITY_LABEL_KEY[value];
-    if (className && labelKey) return <Badge label={t(labelKey)} className={className} />;
-  }
-
+  // Page-level display preference: relative time for audit timestamp fields.
+  // This stays a pre-FieldDisplay check because relative time is a list-level
+  // display choice, not a behavior owned by a field type renderer.
   if (fieldKey === "created_at" || fieldKey === "updated_at") {
     return <span title={String(value)}>{formatRelativeTime(value, t)}</span>;
   }
 
-  if (type === "user" && displayValue) {
-    return <span className="font-medium text-slate-800">{displayValue}</span>;
+  // If the field metadata is missing (e.g. a view column referencing an unknown
+  // field), fall back to a neutral text render. FieldDisplay requires a full
+  // FieldDefinition, so we lean on the legacy formatValue helper here.
+  if (!field) {
+    return <span className="text-slate-700">{formatValue(value, "text", t, locale)}</span>;
   }
 
-  // For lookup fields, render the display label as a link to the referenced record
-  if (type === "lookup" && displayValue) {
+  // Lookup: render the display label via FieldDisplay and wrap it in a Link to
+  // the referenced record when an authorized internal route is available.
+  if (field.type === "lookup") {
+    const rendered = (
+      <FieldDisplay
+        field={field}
+        value={value}
+        displayValue={displayValue ?? undefined}
+        locale={locale}
+      />
+    );
     if (targetObject && workspaceId) {
       const routeSegment = objectKeyToRouteSegment(targetObject);
       const href = `/w/${workspaceId}/${routeSegment}/${value}`;
@@ -159,14 +135,66 @@ function renderCell(
           onClick={(e) => e.stopPropagation()}
           className="font-medium text-indigo-600 hover:text-indigo-800"
         >
-          {displayValue}
+          {rendered}
         </Link>
       );
     }
-    return <>{displayValue}</>;
+    return rendered;
   }
 
-  return <>{formatValue(value, type, t, locale)}</>;
+  return (
+    <FieldDisplay
+      field={field}
+      value={value}
+      displayValue={displayValue ?? undefined}
+      locale={locale}
+    />
+  );
+}
+
+/** Resolves the cell content for a single column of a single record. */
+function buildCell(
+  record: RecordData,
+  col: ListColumn,
+  fieldMap: Map<string, FieldDefinition>,
+  t: TFunc,
+  locale: string,
+  workspaceId: string,
+): { fieldDef: FieldDefinition | undefined; label: string; content: React.ReactNode; isExtension: boolean } {
+  const fieldDef = fieldMap.get(col.field);
+  const label = col.label ?? fieldDef?.label ?? col.field;
+  const isExtension = fieldDef?.ownership === "workspace_extension";
+  const displayKey = `${col.field}_display`;
+  const displayValue = (record as Record<string, unknown>)[displayKey] as string | null | undefined;
+  const targetObject = fieldDef?.validation?.targetObject as string | undefined;
+  const avatarUrl = (
+    (record as Record<string, unknown>).avatar_url
+    ?? (record as Record<string, unknown>).user_id_avatar_url
+  ) as string | null | undefined;
+
+  const cell = renderCell(
+    col.field,
+    record[col.field],
+    fieldDef,
+    t,
+    locale,
+    displayValue,
+    targetObject,
+    workspaceId,
+  );
+
+  // Attach avatar to the "name" column when available — same as the desktop table.
+  const content =
+    col.field === "name" && avatarUrl ? (
+      <span className="flex items-center gap-2.5">
+        <UserAvatar name={String(record.name ?? "")} avatarUrl={avatarUrl} size="sm" />
+        <span>{cell}</span>
+      </span>
+    ) : (
+      cell
+    );
+
+  return { fieldDef, label, content, isExtension };
 }
 
 export default function SchemaTable({
@@ -177,6 +205,9 @@ export default function SchemaTable({
   objectKey,
   basePath,
   embedded = false,
+  loading = false,
+  error = false,
+  onRetry,
 }: SchemaTableProps) {
   const { t, locale } = useI18n();
   const router = useRouter();
@@ -188,26 +219,49 @@ export default function SchemaTable({
     return <p className="text-sm text-slate-500">{t("workspace.table.noColumns")}</p>;
   }
 
-  if (records.length === 0) {
+  if (loading) {
+    return <LoadingState variant="table" rows={6} columns={columns.length} />;
+  }
+
+  if (error) {
     return (
-      <div className={`${embedded ? "border-t border-slate-100" : "app-card"} flex flex-col items-center px-6 py-10 text-center`}>
-        <Inbox size={28} className="text-slate-300" />
-        <p className="mt-3 text-sm text-slate-500">{t("workspace.table.noData")}</p>
+      <div className={embedded ? "border-t border-slate-100" : "app-card overflow-hidden p-0"}>
+        <ErrorState
+          title={t("surface.error.title")}
+          description={t("surface.error.description")}
+          retryAction={
+            onRetry
+              ? { label: t("surface.error.retry"), onClick: onRetry }
+              : undefined
+          }
+        />
       </div>
     );
   }
 
+  if (records.length === 0) {
+    return (
+      <div className={embedded ? "border-t border-slate-100" : "app-card overflow-hidden p-0"}>
+        <EmptyState title={t("workspace.table.noData")} />
+      </div>
+    );
+  }
+
+  const containerClass = embedded
+    ? "overflow-hidden border-t border-slate-100"
+    : "app-card overflow-hidden p-0";
+
   return (
-    <div className={embedded ? "overflow-hidden border-t border-slate-100" : "app-card overflow-hidden p-0"}>
-      <div className="overflow-x-auto">
+    <div className={containerClass}>
+      {/* Desktop table (sm+) */}
+      <div className="hidden overflow-x-auto sm:block">
         <table className="min-w-full divide-y divide-slate-200">
           <thead className="bg-slate-50/80">
             <tr>
               {columns.map((col) => {
                 const fieldDef = fieldMap.get(col.field);
                 const label = col.label ?? fieldDef?.label ?? col.field;
-                const isExtension =
-                  fieldDef?.ownership === "workspace_extension";
+                const isExtension = fieldDef?.ownership === "workspace_extension";
                 return (
                   <th
                     key={col.field}
@@ -237,27 +291,13 @@ export default function SchemaTable({
                   className="cursor-pointer transition hover:bg-indigo-50/40"
                 >
                   {columns.map((col) => {
-                    const fieldDef = fieldMap.get(col.field);
-                    const type = fieldDef?.type ?? "text";
-                    const displayKey = `${col.field}_display`;
-                    const displayValue = (record as Record<string, unknown>)[displayKey] as string | null | undefined;
-                    const targetObject = fieldDef?.validation?.targetObject as string | undefined;
-                    const avatarUrl = (
-                      (record as Record<string, unknown>).avatar_url
-                      ?? (record as Record<string, unknown>).user_id_avatar_url
-                    ) as string | null | undefined;
-                    const cell = renderCell(col.field, record[col.field], type, t, locale, displayValue, targetObject, workspaceId);
+                    const { content } = buildCell(record, col, fieldMap, t, locale, workspaceId);
                     return (
                       <td
                         key={col.field}
                         className="whitespace-nowrap px-4 py-3 text-sm text-slate-700"
                       >
-                        {col.field === "name" && avatarUrl ? (
-                          <span className="flex items-center gap-2.5">
-                            <UserAvatar name={String(record.name ?? "")} avatarUrl={avatarUrl} size="sm" />
-                            <span>{cell}</span>
-                          </span>
-                        ) : cell}
+                        {content}
                       </td>
                     );
                   })}
@@ -271,6 +311,56 @@ export default function SchemaTable({
             })}
           </tbody>
         </table>
+      </div>
+
+      {/* Mobile card list (below sm) — reuses the same columns, FieldDisplay, and record URL */}
+      <div className="divide-y divide-slate-100 sm:hidden">
+        {records.map((record) => {
+          const href = `${linkBase}/${record.id}`;
+          const cells = columns.map((col) =>
+            buildCell(record, col, fieldMap, t, locale, workspaceId),
+          );
+          const [titleCell, ...restCells] = cells;
+
+          return (
+            <button
+              key={String(record.id)}
+              type="button"
+              onClick={() => router.push(href)}
+              className="block w-full px-4 py-3 text-left transition hover:bg-indigo-50/40"
+            >
+              {/* Title row: first column value rendered prominently */}
+              {titleCell && (
+                <div className="mb-1 flex items-center justify-between gap-2">
+                  <span className="min-w-0 flex-1 truncate text-sm font-semibold text-slate-900">
+                    {titleCell.content}
+                  </span>
+                  <span className="shrink-0 text-xs font-semibold text-indigo-600">
+                    {t("workspace.table.view")}
+                  </span>
+                </div>
+              )}
+              {/* Remaining fields as label/value pairs */}
+              {restCells.length > 0 && (
+                <dl className="grid grid-cols-2 gap-x-3 gap-y-1">
+                  {restCells.map((c, i) => (
+                    <div key={columns[i + 1]?.field ?? i} className="min-w-0">
+                      <dt className="truncate text-[11px] font-medium uppercase tracking-wide text-slate-400">
+                        {c.label}
+                        {c.isExtension && (
+                          <span className="ml-1 rounded bg-purple-100 px-1 text-[9px] font-medium text-purple-700">
+                            {t("workspace.extension")}
+                          </span>
+                        )}
+                      </dt>
+                      <dd className="truncate text-xs text-slate-700">{c.content}</dd>
+                    </div>
+                  ))}
+                </dl>
+              )}
+            </button>
+          );
+        })}
       </div>
     </div>
   );

@@ -12,6 +12,7 @@ import {
   CheckCircle2,
   ClipboardList,
   CreditCard,
+  FileQuestion,
   FileText,
   Loader2,
   MapPin,
@@ -50,6 +51,9 @@ import type { Locale } from "@/i18n/config";
 import { objectKeyToRouteSegment } from "@/lib/dynamic-object";
 import type { MessageKey } from "@/i18n/messages";
 import { apiFetch, apiDelete, apiPost } from "@/lib/api-fetch";
+import { LoadingState, ErrorState, EmptyState } from "@/components/states";
+import { FieldDisplay } from "@/components/fields";
+import { Card, CardContent, SectionHeader } from "@/components/layout";
 
 // Maps object keys to i18n label keys for backlink panel labels.
 // Without this, backlink panels show the relation's child→parent label
@@ -1492,25 +1496,23 @@ export default function ObjectDetailPage({
   };
 
   if (loading) {
-    return (
-      <div className="space-y-6">
-        <div className="app-skeleton h-8 w-48" />
-        <div className="app-card space-y-4 p-6">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="app-skeleton h-10 w-full" />
-          ))}
-        </div>
-      </div>
-    );
+    return <LoadingState variant="detail" />;
   }
 
   if (!record) {
+    const errorMessage = error ?? (recordError instanceof Error ? recordError.message : null);
+    const handleRetry = () => {
+      mutateRecord();
+    };
     return (
       <div className="space-y-4">
-        {(error || recordError) && (
-          <div className="app-error">
-            {error ?? (recordError instanceof Error ? recordError.message : t("workspace.recordNotFound"))}
-          </div>
+        {errorMessage ? (
+          <ErrorState
+            description={errorMessage}
+            retryAction={{ label: t("surface.error.retry"), onClick: handleRetry }}
+          />
+        ) : (
+          <EmptyState icon={FileQuestion} title={t("workspace.recordNotFound")} />
         )}
         <Link
           href={basePath}
@@ -1526,51 +1528,60 @@ export default function ObjectDetailPage({
     const value = record[field.fieldKey];
     const resolvedDisplayValue = record[`${field.fieldKey}_display`];
     const isExtension = field.ownership === "workspace_extension";
-    const isDateType = field.type === "date" || field.type === "datetime";
-    let displayValue: React.ReactNode;
-    if (field.type === "boolean") {
-      displayValue = value ? t("workspace.yes") : t("workspace.no");
-    } else if (value === null || value === undefined || value === "") {
-      displayValue = "—";
-    } else if (field.type === "user" && resolvedDisplayValue) {
-      displayValue = String(resolvedDisplayValue);
-    } else if (isDateType) {
-      try {
-        const date = new Date(String(value));
-        if (Number.isNaN(date.getTime())) {
+
+    // Extension fields may carry workspace-specific or legacy types that fall
+    // outside the closed FieldType union, so they stay on the proven manual
+    // rendering path (with their purple badge) instead of FieldDisplay.
+    if (isExtension) {
+      let displayValue: React.ReactNode;
+      if (field.type === "boolean") {
+        displayValue = value ? t("workspace.yes") : t("workspace.no");
+      } else if (value === null || value === undefined || value === "") {
+        displayValue = "—";
+      } else if (field.type === "user" && resolvedDisplayValue) {
+        displayValue = String(resolvedDisplayValue);
+      } else if (field.type === "date") {
+        try {
+          const date = new Date(String(value));
+          displayValue = Number.isNaN(date.getTime())
+            ? String(value)
+            : date.toLocaleDateString(locale === "zh" ? "zh-CN" : "en-US", {
+                year: "numeric",
+                month: "short",
+                day: "numeric",
+              });
+        } catch {
           displayValue = String(value);
-        } else if (field.type === "datetime") {
-          displayValue = date.toLocaleString(locale === "zh" ? "zh-CN" : "en-US", {
-            year: "numeric",
-            month: "short",
-            day: "numeric",
-            hour: "2-digit",
-            minute: "2-digit",
-          });
-        } else {
-          displayValue = date.toLocaleDateString(locale === "zh" ? "zh-CN" : "en-US", {
-            year: "numeric",
-            month: "short",
-            day: "numeric",
-          });
         }
-      } catch {
+      } else {
         displayValue = String(value);
       }
-    } else {
-      displayValue = String(value);
-    }
-    return (
-      <div key={field.id}>
-        <dt className="flex items-center gap-1 text-xs font-bold uppercase tracking-wider text-slate-500">
-          {field.label}
-          {isExtension && (
+      return (
+        <div key={field.id}>
+          <dt className="flex items-center gap-1 text-xs font-bold uppercase tracking-wider text-slate-500">
+            {field.label}
             <span className="rounded bg-purple-100 px-1 text-[10px] font-medium text-purple-700">
               {t("workspace.extension")}
             </span>
-          )}
+          </dt>
+          <dd className="mt-1 text-sm text-slate-900">{displayValue}</dd>
+        </div>
+      );
+    }
+
+    return (
+      <div key={field.id}>
+        <dt className="text-xs font-bold uppercase tracking-wider text-slate-500">
+          {field.label}
         </dt>
-        <dd className="mt-1 text-sm text-slate-900">{displayValue}</dd>
+        <dd className="mt-1 text-sm text-slate-900">
+          <FieldDisplay
+            field={field}
+            value={value}
+            displayValue={resolvedDisplayValue != null ? String(resolvedDisplayValue) : undefined}
+            locale={locale}
+          />
+        </dd>
       </div>
     );
   };
@@ -1773,20 +1784,24 @@ export default function ObjectDetailPage({
                 ));
               if (sectionFields.length === 0) return null;
               return (
-                <div key={si} className="app-card p-5 sm:p-6">
-                  <h3 className="mb-4 text-sm font-bold text-slate-900">{section.title}</h3>
-                  <dl className="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2">
-                    {sectionFields.map(renderFieldRow)}
-                  </dl>
-                </div>
+                <Card key={si}>
+                  <CardContent>
+                    <SectionHeader title={section.title} />
+                    <dl className="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2">
+                      {sectionFields.map(renderFieldRow)}
+                    </dl>
+                  </CardContent>
+                </Card>
               );
             })
           ) : (
-            <div className="app-card p-5 sm:p-6">
-              <dl className="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2">
-                {fields.filter((field) => !fkFieldKeys.has(field.fieldKey)).map(renderFieldRow)}
-              </dl>
-            </div>
+            <Card>
+              <CardContent>
+                <dl className="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2">
+                  {fields.filter((field) => !fkFieldKeys.has(field.fieldKey)).map(renderFieldRow)}
+                </dl>
+              </CardContent>
+            </Card>
           )}
 
           {/* Workflow panel: fetches its own workflow data */}

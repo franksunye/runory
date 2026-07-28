@@ -139,6 +139,34 @@ export function useViews(workspaceId: string, objectKey: string) {
   return { data, error, isLoading, mutate };
 }
 
+// ── View Preferences ──
+
+export interface ViewPreferenceData {
+  id: string;
+  workspaceId: string;
+  userId: string;
+  viewDefinitionId: string;
+  visibleFields: string[];
+  filters: Array<{ field: string; operator: "eq"; value: string | number | boolean }>;
+  sort: { field: string; direction: "asc" | "desc" } | null;
+  pageSize: number | null;
+  version: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
+ * Fetch the current user's saved preference for a list view.
+ * Returns null when no preference exists.
+ * `viewId` is the view definition's `id` field (not viewKey).
+ */
+export function useViewPreference(workspaceId: string, viewId: string | null) {
+  const { data, error, isLoading, mutate } = useSWR<ViewPreferenceData | null>(
+    viewId ? workspaceKey(workspaceId, `views/${viewId}/preference`) : null
+  );
+  return { data, error, isLoading, mutate };
+}
+
 export interface RelationsResponse {
   relations: RelationDefinition[];
   backlinks: RelationDefinition[];

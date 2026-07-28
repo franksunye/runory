@@ -174,6 +174,7 @@ export const en = {
   "workspace.search": "Search...",
   "workspace.clearSearch": "Clear search",
   "workspace.loadMore": "Load more",
+  "workspace.savePreferences": "Save view",
   "workspace.recordCount": "{count} records",
   "workspace.noResults": "No matching records found",
   "workspace.noRecords": "No {title} records yet",
@@ -212,6 +213,18 @@ export const en = {
   "workspace.updatedAt": "Updated: {time}",
   "workspace.yes": "Yes",
   "workspace.no": "No",
+
+  // Surface shared state components
+  "surface.loading": "Loading…",
+  "surface.empty.title": "No records found",
+  "surface.empty.description": "There are no records to display yet.",
+  "surface.empty.noResults": "No results found",
+  "surface.empty.clearSearch": "Clear search",
+  "surface.empty.addFirst": "Add {title}",
+  "surface.error.title": "Something went wrong",
+  "surface.error.description": "An error occurred while loading the data.",
+  "surface.error.retry": "Retry",
+
   // Workspace navigation
   "workspace.nav.dashboard": "Dashboard",
   "workspace.nav.settings": "Settings",
@@ -2036,7 +2049,9 @@ export const zh: Messages = {
   "oss.eyebrow": "开放架构，开放开发。", "oss.title": "看得见系统如何运行，也能参与它如何生长。", "oss.subtitle": "Runory 公开核心代码、架构决策与产品演进。Cloud 提供免运维托管服务，开放 Runtime 保留部署与数据的长期选择。", "oss.viewGithub": "查看 GitHub", "oss.readArchitecture": "阅读架构", "oss.what": "开放范围", "oss.whatTitle": "开放的不只是一份代码快照。", "oss.runtime": "元数据、安装、扩展、权限与审计构成可移植运行时。", "oss.capabilities": "业务能力以声明式、可版本化的交付单元进行组合。", "oss.sdk": "面向开发者的验证、构建与发布候选工作流。", "oss.model": "商业模式", "oss.modelBody": "开放 Runtime 让模型、能力和部署方式保持透明；Runory Cloud 对托管、升级、Catalog 运营和企业级运行体验收费。v0.4 阶段 Cloud 免费。", "oss.license": "许可证状态", "oss.licenseBody": "源码仓库当前已公开，但仓库尚未提交正式的开源许可证文件。在许可证确定并发布前，法律意义上应视为公开源码，而不是已完成授权的 Open Source 发行版。", "oss.licenseNext": "v0.4 正式发布前必须完成许可证决策，并在仓库、发行说明和本页面保持一致。", "oss.finalTitle": "从代码和设计决策开始了解 Runory。", "oss.finalBody": "查看当前实现、Release 计划和架构文档。v0.4 仍在快速建设中，真实反馈比漂亮承诺更重要。", "oss.openGithub": "打开 GitHub",
   "login.eyebrow": "无密码登录", "login.title": "登录到 Runory", "login.codeTitle": "输入验证码", "login.subtitle": "使用邮箱验证码登录，无需密码。首次登录将自动创建工作区。", "login.codeSubtitle": "我们已发送6位验证码至", "login.verify": "验证并登录", "login.otherEmail": "使用其他邮箱", "login.expiry": "验证码10分钟内有效，单次使用", "login.devHint": "验证码登录", "login.devHintDesc": "输入邮箱后，使用页面上显示的6位验证码完成登录。",
   // Workspace common (v0.3.6)
-  "workspace.loading": "加载中...", "workspace.loadFailed": "加载失败", "workspace.retry": "重试", "workspace.refresh": "刷新", "workspace.save": "保存", "workspace.saving": "保存中...", "workspace.cancel": "取消", "workspace.delete": "删除", "workspace.deleting": "删除中...", "workspace.edit": "编辑", "workspace.create": "创建", "workspace.search": "搜索...", "workspace.clearSearch": "清除搜索", "workspace.loadMore": "加载更多", "workspace.recordCount": "共 {count} 条记录", "workspace.noResults": "没有找到匹配的记录", "workspace.noRecords": "还没有{title}记录", "workspace.addFirst": "添加第一个{title}", "workspace.add": "添加{title}", "workspace.backToList": "返回{title}列表", "workspace.backToParent": "返回主记录", "workspace.detailTitle": "{title}详情", "workspace.createTitle": "新建{title}", "workspace.createSubtitle": "填写信息后保存", "workspace.deleteConfirm": "确定要删除此{label}吗？此操作不可撤销。", "workspace.createFailed": "创建失败", "workspace.updateFailed": "更新失败", "workspace.deleteFailed": "删除失败", "workspace.viewNotFound": "未找到列表视图配置。", "workspace.recordNotFound": "记录不存在", "workspace.noPack": "尚未安装业务模块", "workspace.noPackHint": "安装 {packName} 后即可开始使用。", "workspace.goDashboard": "前往工作台", "workspace.extensionNotice": "新的工作区字段已可用", "workspace.extensionNoticeBody": "{fields} 已加入 {title} 列表和表单。此提示仅在字段变更后出现一次。", "workspace.dismiss": "知道了", "workspace.extension": "扩展", "workspace.recordId": "记录 ID：{id}", "workspace.workflow.title": "工作流", "workspace.workflow.currentState": "当前状态", "workspace.workflow.availableActions": "可用操作", "workspace.workflow.commentPlaceholder": "备注（可选）", "workspace.workflow.confirm": "确认", "workspace.workflow.approval": "审批", "workspace.workflow.terminalState": "工作流已完成", "workspace.workflow.history": "历史", "workspace.workflow.drivenByWorkflow": "由工作流驱动 — 请在工作流面板中操作状态", "workspace.workflow.autoStartLocked": "创建时将由工作流设置为「{state}」", "workspace.createdAt": "创建时间：{time}", "workspace.updatedAt": "更新时间：{time}", "workspace.yes": "是", "workspace.no": "否",
+  "workspace.loading": "加载中...", "workspace.loadFailed": "加载失败", "workspace.retry": "重试", "workspace.refresh": "刷新", "workspace.save": "保存", "workspace.saving": "保存中...", "workspace.cancel": "取消", "workspace.delete": "删除", "workspace.deleting": "删除中...", "workspace.edit": "编辑", "workspace.create": "创建", "workspace.search": "搜索...", "workspace.clearSearch": "清除搜索", "workspace.loadMore": "加载更多", "workspace.savePreferences": "保存视图", "workspace.recordCount": "共 {count} 条记录", "workspace.noResults": "没有找到匹配的记录", "workspace.noRecords": "还没有{title}记录", "workspace.addFirst": "添加第一个{title}", "workspace.add": "添加{title}", "workspace.backToList": "返回{title}列表", "workspace.backToParent": "返回主记录", "workspace.detailTitle": "{title}详情", "workspace.createTitle": "新建{title}", "workspace.createSubtitle": "填写信息后保存", "workspace.deleteConfirm": "确定要删除此{label}吗？此操作不可撤销。", "workspace.createFailed": "创建失败", "workspace.updateFailed": "更新失败", "workspace.deleteFailed": "删除失败", "workspace.viewNotFound": "未找到列表视图配置。", "workspace.recordNotFound": "记录不存在", "workspace.noPack": "尚未安装业务模块", "workspace.noPackHint": "安装 {packName} 后即可开始使用。", "workspace.goDashboard": "前往工作台", "workspace.extensionNotice": "新的工作区字段已可用", "workspace.extensionNoticeBody": "{fields} 已加入 {title} 列表和表单。此提示仅在字段变更后出现一次。", "workspace.dismiss": "知道了", "workspace.extension": "扩展", "workspace.recordId": "记录 ID：{id}", "workspace.workflow.title": "工作流", "workspace.workflow.currentState": "当前状态", "workspace.workflow.availableActions": "可用操作", "workspace.workflow.commentPlaceholder": "备注（可选）", "workspace.workflow.confirm": "确认", "workspace.workflow.approval": "审批", "workspace.workflow.terminalState": "工作流已完成", "workspace.workflow.history": "历史", "workspace.workflow.drivenByWorkflow": "由工作流驱动 — 请在工作流面板中操作状态", "workspace.workflow.autoStartLocked": "创建时将由工作流设置为「{state}」", "workspace.createdAt": "创建时间：{time}", "workspace.updatedAt": "更新时间：{time}", "workspace.yes": "是", "workspace.no": "否",
+  // Surface shared state components (zh)
+  "surface.loading": "加载中…", "surface.empty.title": "未找到记录", "surface.empty.description": "暂无记录可显示。", "surface.empty.noResults": "未找到匹配结果", "surface.empty.clearSearch": "清除搜索", "surface.empty.addFirst": "添加{title}", "surface.error.title": "出错了", "surface.error.description": "加载数据时发生错误。", "surface.error.retry": "重试",
   "workspace.nav.dashboard": "工作台", "workspace.nav.settings": "设置", "workspace.nav.members": "成员与权限", "workspace.nav.audit": "审计日志", "workspace.nav.trash": "回收站", "workspace.nav.activity": "活动", "workspace.nav.modules": "模块", "workspace.nav.automations": "自动化", "workspace.nav.workflows": "工作流", "workspace.nav.myWork": "我的工作", "workspace.nav.planning": "计划排程", "workspace.nav.forms": "表单", "workspace.nav.outbox": "发件箱", "workspace.nav.migration": "迁移", "workspace.nav.apiKeys": "API 密钥", "workspace.nav.billing": "账单", "workspace.nav.customize": "自定义", "workspace.nav.export": "导入 / 导出", "workspace.nav.manage": "管理中心", "workspace.nav.accountMenu": "账户与工作空间菜单", "workspace.nav.workspaceSettings": "工作空间设置", "workspace.nav.objectPriceBookItem": "价格目录明细", "workspace.nav.objectQuoteLine": "报价明细", "workspace.nav.objectInvoice": "发票",
   // Form strings (v0.3.6)
   "workspace.form.required": "{field}为必填项", "workspace.form.noFields": "表单未配置任何字段。",
