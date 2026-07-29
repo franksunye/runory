@@ -767,6 +767,23 @@ describe("mergeWidgetConfig (v0.3.3)", () => {
     expect(merged.data.object).toBe("task");
     expect(merged.data.limit).toBe(15);
   });
+
+  it("supports a workspace visualization override without changing data intent", () => {
+    const trendWidget: WidgetDeclaration = {
+      key: "new_tasks_trend",
+      type: "trend_chart",
+      label: "New Tasks",
+      icon: "trending-up",
+      tone: "indigo",
+      visualization: { type: "bar" },
+      data: { kind: "timeseries", object: "task", range: "14d" },
+    };
+
+    const merged = mergeWidgetConfig(trendWidget, { visualization: { type: "line" } });
+
+    expect(merged.visualization?.type).toBe("line");
+    expect(merged.data).toEqual(trendWidget.data);
+  });
 });
 
 describe("configOverride persistence (v0.3.3)", () => {

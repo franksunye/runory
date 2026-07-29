@@ -508,13 +508,13 @@ export default function NavigationShell({
               <div key={category} className="pt-3 first:pt-0">
                 <button
                   onClick={() => toggleGroup(category)}
-                  className="sidebar-group-label flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 transition hover:bg-slate-50 hover:text-slate-600"
+                  className="sidebar-group-label flex w-full items-center gap-1.5 rounded-md py-1.5 transition hover:bg-slate-50 hover:text-slate-600"
                 >
                   {isExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
                   <span>{groupLabel}</span>
                 </button>
                 {isExpanded && (
-                  <div className="ml-3 space-y-0.5 border-l border-slate-200 pl-2">
+                  <div className="mt-0.5 space-y-0.5">
                     {items.map((item) =>
                       renderNavItem(item, category, `${category}-${item.id}`)
                     )}
@@ -526,7 +526,7 @@ export default function NavigationShell({
 
           {/* Ungrouped items */}
           {ungroupedItems.length > 0 && (
-            <div className="ml-3 border-l border-slate-200 pl-2 pt-1">
+            <div className="space-y-0.5 pt-1">
               {ungroupedItems.map((item) => renderNavItem(item, undefined, `ungrouped-${item.id}`))}
             </div>
           )}

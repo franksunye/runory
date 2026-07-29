@@ -324,6 +324,9 @@ export type DashboardZone = (typeof DASHBOARD_ZONES)[number];
 export const WIDGET_TYPES = ["metric_card", "trend_chart", "breakdown", "list", "activity_feed"] as const;
 export type WidgetType = (typeof WIDGET_TYPES)[number];
 
+export const WIDGET_VISUALIZATION_TYPES = ["bar", "line", "area", "donut"] as const;
+export type WidgetVisualizationType = (typeof WIDGET_VISUALIZATION_TYPES)[number];
+
 export const WIDGET_DATA_KINDS = ["count", "group_count", "recent", "timeseries"] as const;
 export type WidgetDataKind = (typeof WIDGET_DATA_KINDS)[number];
 
@@ -367,6 +370,9 @@ export const widgetDeclarationSchema = z.object({
   label: z.string(),
   icon: z.string().default("file"),
   tone: z.string().default("slate"),
+  visualization: z.object({
+    type: z.enum(WIDGET_VISUALIZATION_TYPES),
+  }).optional(),
   data: widgetDataIntentSchema,
   sub: widgetSubIntentSchema.optional(),         // metric_card only
   link: z.string().optional(),

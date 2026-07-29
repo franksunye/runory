@@ -98,6 +98,24 @@ const ZONE_LABEL_KEY: Record<DashboardZone, MessageKey> = {
   activity: "dashboard.zone.activity",
 };
 
+const VISUALIZATION_LABEL_KEY: Record<string, MessageKey> = {
+  bar: "dashboard.chartType.bar",
+  line: "dashboard.chartType.line",
+  area: "dashboard.chartType.area",
+  donut: "dashboard.chartType.donut",
+};
+
+function configurableFieldsForWidget(widget: WidgetDeclaration, chartStyleLabel: string): WidgetConfigurableField[] {
+  const fields = [...(widget.configurable ?? [])];
+  if (fields.some((field) => field.path === "visualization.type")) return fields;
+  if (widget.type === "trend_chart") {
+    fields.unshift({ path: "visualization.type", label: chartStyleLabel, type: "select", options: ["bar", "line", "area"] });
+  } else if (widget.type === "breakdown") {
+    fields.unshift({ path: "visualization.type", label: chartStyleLabel, type: "select", options: ["bar", "donut"] });
+  }
+  return fields;
+}
+
 export default function DashboardEditMode({
   workspaceId,
   layout,
@@ -294,7 +312,7 @@ export default function DashboardEditMode({
               <div className="space-y-2">
                 {items.map((item, index) => {
                   const key = itemKey(item);
-                  const configurable = item.widget.configurable ?? [];
+                  const configurable = configurableFieldsForWidget(item.widget, t("dashboard.chartStyle"));
                   const isConfiguring = configuringKey === key;
                   const hasConfigOverride = item.configOverride !== null && Object.keys(item.configOverride).length > 0;
                   return (
@@ -303,7 +321,7 @@ export default function DashboardEditMode({
                         <div className="flex items-center gap-2">
                           <span className="text-sm font-medium text-slate-700">{item.widget.label}</span>
                           <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] text-slate-500">
-                            {item.widget.type}
+                            {item.widget.type.replaceAll("_", " ")}
                           </span>
                           <span className="rounded bg-slate-50 px-1.5 py-0.5 text-[10px] text-slate-400" title={item.moduleId}>
                             {shortModuleLabel(item.moduleId)}
@@ -439,6 +457,9 @@ function WidgetConfigPanel({ item, fields, saving, onCancel, onSave }: WidgetCon
             : declared;
           const next = setNestedValue(seed, f.path, initial);
           Object.assign(seed, next);
+        } else if (f.path === "visualization.type") {
+          const next = setNestedValue(seed, f.path, "bar");
+          Object.assign(seed, next);
         } else if (f.type === "multiselect") {
           const next = setNestedValue(seed, f.path, []);
           Object.assign(seed, next);
@@ -535,7 +556,7 @@ function ConfigField({ field, value, onChange }: ConfigFieldProps) {
           className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm text-slate-900 focus:border-indigo-400 focus:outline-none"
         >
           {(field.options ?? []).map((opt) => (
-            <option key={opt} value={opt}>{opt}</option>
+            <option key={opt} value={opt}>{VISUALIZATION_LABEL_KEY[opt] ? t(VISUALIZATION_LABEL_KEY[opt]) : opt}</option>
           ))}
         </select>
       </div>

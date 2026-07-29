@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import Link from "next/link";
 import {
-  Activity, AlertCircle, CheckCircle2, Clock, ListChecks,
+  Activity, AlertCircle, BarChart3, CheckCircle2, Clock, LineChart, ListChecks,
   PieChart, RefreshCw, TrendingUp, Users,
 } from "lucide-react";
 import type { WidgetDeclaration } from "@runory/contracts";
@@ -11,6 +11,7 @@ import { useI18n } from "@/i18n/locale-provider";
 import type { MessageKey } from "@/i18n/messages";
 import { formatRelativeTime } from "../SchemaTable";
 import { apiFetch } from "@/lib/api-fetch";
+import { formatDateValue, formatNumberValue, humanizeSelectValue } from "@/components/fields/format";
 
 // ── Types ──
 
@@ -77,6 +78,16 @@ const TONE_MAP: Record<string, string> = {
   green: "bg-green-50 text-green-600",
   red: "bg-red-50 text-red-600",
   slate: "bg-slate-100 text-slate-600",
+};
+
+const CHART_COLOR_MAP: Record<string, string> = {
+  indigo: "#6366f1",
+  blue: "#3b82f6",
+  emerald: "#10b981",
+  green: "#22c55e",
+  amber: "#f59e0b",
+  red: "#ef4444",
+  slate: "#64748b",
 };
 
 function getTone(name: string): string {
@@ -313,14 +324,14 @@ function MetricCardWidget({
   const subLabel = data.sub?.label;
 
   const content = (
-    <div className="app-card p-5 transition hover:shadow-sm">
-      <div className="flex items-center justify-between">
-        <div className={`grid size-10 place-items-center rounded-lg ${tone}`}>
-          <Icon size={20} />
+    <div className="app-card min-h-32 p-4 transition hover:border-slate-300 hover:shadow-sm sm:p-5">
+      <div className="flex items-start justify-between gap-3">
+        <p className="text-sm font-medium text-slate-600">{widget.label}</p>
+        <div className={`grid size-8 shrink-0 place-items-center rounded-lg ${tone}`}>
+          <Icon size={16} />
         </div>
       </div>
-      <p className="mt-3 text-2xl font-bold tracking-tight text-slate-950">{value}</p>
-      <p className="text-sm font-medium text-slate-700">{widget.label}</p>
+      <p className="mt-3 text-3xl font-semibold tracking-[-.035em] text-slate-950">{value}</p>
       {subLabel && <p className="mt-1 text-xs text-slate-500">{subLabel}</p>}
     </div>
   );
@@ -346,37 +357,58 @@ function TrendChartWidget({ widget, data }: { widget: WidgetDeclaration; data: W
   }
 
   const maxValue = Math.max(...series.map((s) => s.count), 1);
+  const total = series.reduce((sum, point) => sum + point.count, 0);
   const barWidth = 100 / series.length;
+  const requestedStyle = widget.visualization?.type ?? "bar";
+  const chartStyle = requestedStyle === "line" || requestedStyle === "area" ? requestedStyle : "bar";
+  const chartColor = CHART_COLOR_MAP[widget.tone] ?? CHART_COLOR_MAP.indigo;
+  const points = series.map((point, index) => ({
+    ...point,
+    x: series.length === 1 ? 50 : 2 + (index / (series.length - 1)) * 96,
+    y: 92 - (point.count / maxValue) * 82,
+  }));
+  const linePath = points.map((point, index) => `${index === 0 ? "M" : "L"}${point.x},${point.y}`).join(" ");
+  const areaPath = points.length > 0
+    ? `${linePath} L${points[points.length - 1].x},92 L${points[0].x},92 Z`
+    : "";
+  const ChartIcon = chartStyle === "bar" ? BarChart3 : LineChart;
 
   return (
     <div className="app-card p-5 sm:p-6">
-      <div className="mb-4 flex items-center justify-between">
-        <h3 className="flex items-center gap-2 font-bold text-slate-900">
-          <TrendingUp size={18} className="text-indigo-600" />
-          {widget.label}
-        </h3>
+      <div className="mb-5 flex items-start justify-between gap-3">
+        <div>
+          <h3 className="font-semibold text-slate-900">{widget.label}</h3>
+          <p className="mt-1 text-xs text-slate-500">{total} total · {series.length} periods</p>
+        </div>
+        <div className="grid size-8 place-items-center rounded-lg bg-slate-50 text-slate-500">
+          <ChartIcon size={16} />
+        </div>
       </div>
-      <div className="relative h-40">
-        <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="h-full w-full">
-          {[25, 50, 75, 100].map((y) => (
-            <line key={y} x1="0" y1={y} x2="100" y2={y} stroke="#e2e8f0" strokeWidth="0.3" />
+      <div className="relative h-44" role="img" aria-label={`${widget.label}: ${total} total`}>
+        <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="h-full w-full overflow-visible">
+          {[10, 37, 64, 92].map((y) => (
+            <line key={y} x1="0" y1={y} x2="100" y2={y} stroke="#e2e8f0" strokeWidth="0.35" vectorEffect="non-scaling-stroke" />
           ))}
-          {series.map((s, i) => {
-            const x = i * barWidth + barWidth * 0.15;
-            const w = barWidth * 0.7;
-            const h = (s.count / maxValue) * 100;
-            return (
-              <rect
-                key={s.date}
-                x={x}
-                y={100 - h}
-                width={w}
-                height={h}
-                fill="#6366f1"
-                rx="0.3"
-              />
-            );
-          })}
+          {chartStyle === "area" && <path d={areaPath} fill={chartColor} opacity="0.12" />}
+          {chartStyle === "line" || chartStyle === "area" ? (
+            <>
+              <path d={linePath} fill="none" stroke={chartColor} strokeWidth="2" vectorEffect="non-scaling-stroke" />
+              {points.map((point) => (
+                <circle key={point.date} cx={point.x} cy={point.y} r="1.4" fill="white" stroke={chartColor} strokeWidth="1.5" vectorEffect="non-scaling-stroke">
+                  <title>{point.date}: {point.count}</title>
+                </circle>
+              ))}
+            </>
+          ) : series.map((point, index) => {
+              const x = index * barWidth + barWidth * 0.18;
+              const width = barWidth * 0.64;
+              const height = (point.count / maxValue) * 82;
+              return (
+                <rect key={point.date} x={x} y={92 - height} width={width} height={height} fill={chartColor} rx="0.7" opacity="0.88">
+                  <title>{point.date}: {point.count}</title>
+                </rect>
+              );
+            })}
         </svg>
       </div>
       <div className="mt-2 flex justify-between text-[10px] text-slate-400">
@@ -405,19 +437,45 @@ function BreakdownWidget({ widget, data }: { widget: WidgetDeclaration; data: Wi
   }
 
   const colors = ["#6366f1", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899"];
+  const chartStyle = widget.visualization?.type === "donut" ? "donut" : "bar";
+  let offset = 0;
+  const donutSegments = groups.map((group, index) => {
+    const start = offset;
+    offset += (group.count / total) * 100;
+    return `${colors[index % colors.length]} ${start}% ${offset}%`;
+  }).join(", ");
 
   return (
     <div className="app-card p-5 sm:p-6">
-      <h3 className="mb-4 flex items-center gap-2 font-bold text-slate-900">
-        <PieChart size={18} className="text-slate-600" />
-        {widget.label}
-      </h3>
-      <div className="space-y-3">
+      <div className="mb-5 flex items-start justify-between gap-3">
+        <div>
+          <h3 className="font-semibold text-slate-900">{widget.label}</h3>
+          <p className="mt-1 text-xs text-slate-500">{total} total</p>
+        </div>
+        <div className="grid size-8 place-items-center rounded-lg bg-slate-50 text-slate-500">
+          {chartStyle === "donut" ? <PieChart size={16} /> : <BarChart3 size={16} />}
+        </div>
+      </div>
+      {chartStyle === "donut" && (
+        <div className="mb-5 flex justify-center">
+          <div
+            className="grid size-36 place-items-center rounded-full"
+            style={{ background: `conic-gradient(${donutSegments})` }}
+            role="img"
+            aria-label={`${widget.label}: ${total} total`}
+          >
+            <div className="grid size-24 place-items-center rounded-full bg-white text-center shadow-inner">
+              <div><p className="text-2xl font-semibold text-slate-950">{total}</p><p className="text-[10px] uppercase tracking-wide text-slate-400">Total</p></div>
+            </div>
+          </div>
+        </div>
+      )}
+      <div className={chartStyle === "donut" ? "grid gap-2 sm:grid-cols-2" : "space-y-3"}>
         {groups.map((g, i) => {
           const pct = total > 0 ? (g.count / total) * 100 : 0;
           const color = colors[i % colors.length];
           const key = BREAKDOWN_LABEL_KEY[g.key];
-          const label = key ? t(key) : g.key;
+          const label = key ? t(key) : humanizeSelectValue(g.key);
           return (
             <div key={g.key}>
               <div className="mb-1 flex items-center justify-between text-sm">
@@ -427,9 +485,9 @@ function BreakdownWidget({ widget, data }: { widget: WidgetDeclaration; data: Wi
                 </span>
                 <span className="font-medium text-slate-900">{g.count}</span>
               </div>
-              <div className="h-2 overflow-hidden rounded-full bg-slate-100">
+              {chartStyle === "bar" && <div className="h-2 overflow-hidden rounded-full bg-slate-100">
                 <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: color }} />
-              </div>
+              </div>}
             </div>
           );
         })}
@@ -440,10 +498,14 @@ function BreakdownWidget({ widget, data }: { widget: WidgetDeclaration; data: Wi
 
 // ── List Widget ──
 
-function formatCellValue(value: unknown, t: TFunc): string {
+function formatCellValue(value: unknown, t: TFunc, locale: string): string {
   if (value === null || value === undefined) return "—";
-  if (typeof value === "string") return value;
-  if (typeof value === "number") return String(value);
+  if (typeof value === "string") {
+    if (/^\d{4}-\d{2}-\d{2}(?:T.*)?$/.test(value)) return formatDateValue(value, locale) ?? value;
+    if (/[_-]/.test(value) && !value.includes(" ") && !value.startsWith("usr_")) return humanizeSelectValue(value);
+    return value;
+  }
+  if (typeof value === "number") return formatNumberValue(value, locale) ?? String(value);
   if (typeof value === "boolean") return value ? t("workspace.yes") : t("workspace.no");
   return String(value);
 }
@@ -457,7 +519,7 @@ function ListWidget({
   data: WidgetDataResponse;
   workspaceId: string;
 }) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const records = data.data.records ?? [];
   const columns = widget.data.columns ?? [];
 
@@ -484,7 +546,7 @@ function ListWidget({
             <tr className="border-b border-slate-100 bg-slate-50/50">
               {columns.map((col) => (
                 <th key={col} className="px-4 py-2.5 text-left text-xs font-medium uppercase tracking-wide text-slate-500">
-                  {col}
+                  {humanizeSelectValue(col)}
                 </th>
               ))}
             </tr>
@@ -494,7 +556,7 @@ function ListWidget({
               <tr key={(record.id as string) ?? i} className="border-b border-slate-50 last:border-0">
                 {columns.map((col) => (
                   <td key={col} className="px-4 py-2.5 text-slate-700">
-                    {formatCellValue(record[col], t)}
+                    {formatCellValue(record[col], t, locale)}
                   </td>
                 ))}
               </tr>

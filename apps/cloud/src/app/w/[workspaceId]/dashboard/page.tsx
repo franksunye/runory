@@ -4,7 +4,7 @@ import { useState, useCallback, useEffect } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import {
-  Database, PackagePlus, Plus, RefreshCw, Settings2, Sparkles, X,
+  ChevronDown, ChevronUp, Database, PackagePlus, Plus, RefreshCw, Settings2, X,
 } from "lucide-react";
 import type { WidgetDeclaration, DashboardZone } from "@runory/contracts";
 import { notifyWorkspaceNavigationChanged, notifyWorkspaceDataChanged } from "@/lib/workspace-events";
@@ -15,6 +15,12 @@ import { useI18n } from "@/i18n/locale-provider";
 import { apiFetch, apiPost } from "@/lib/api-fetch";
 
 const DASHBOARD_ZONES: DashboardZone[] = ["metrics", "trends", "lists", "activity"];
+const DASHBOARD_PREVIEW_LIMIT: Record<DashboardZone, number> = {
+  metrics: 8,
+  trends: 4,
+  lists: 4,
+  activity: 1,
+};
 
 const CRM_LITE_PACK_ID = "crm-lite-pack";
 
@@ -58,6 +64,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [hasData, setHasData] = useState(false);
   const [editMode, setEditMode] = useState(false);
+  const [expandedZones, setExpandedZones] = useState<Set<DashboardZone>>(() => new Set());
   // Batch widget data: keyed by `${moduleId}:${widgetKey}:${instance}`.
   const [widgetDataMap, setWidgetDataMap] = useState<Record<string, WidgetDataResponse | null>>({});
   const [widgetErrorMap, setWidgetErrorMap] = useState<Record<string, string | null>>({});
@@ -310,33 +317,22 @@ export default function DashboardPage() {
   const listsWidgets = layout.filter((item) => item.zone === "lists");
   const activityWidgets = layout.filter((item) => item.zone === "activity");
   const widgetKeyOf = (item: LayoutItem) => `${item.moduleId}:${item.widgetKey}:${item.instance}`;
-  const availableRoutes = new Set(navigationData?.items.map((item) => item.route) ?? []);
-  const platformSurfaces = new Set(navigationData?.platformSurfaces ?? []);
-  const quickLinks = [
-    platformSurfaces.has("my_work")
-      ? { href: `/w/${workspaceId}/my-work`, label: t("onboarding.stepOpenMyWork") }
-      : null,
-    platformSurfaces.has("planning")
-      ? { href: `/w/${workspaceId}/planning`, label: t("onboarding.stepOpenPlanning") }
-      : null,
-    availableRoutes.has("/work-orders")
-      ? { href: `/w/${workspaceId}/work-orders`, label: t("onboarding.stepOpenWorkOrders") }
-      : null,
-    availableRoutes.has("/companies")
-      ? { href: `/w/${workspaceId}/companies`, label: t("workspace.nav.objectCompany") }
-      : null,
-    availableRoutes.has("/deals")
-      ? { href: `/w/${workspaceId}/deals`, label: t("workspace.nav.objectDeal") }
-      : null,
-    availableRoutes.has("/tasks")
-      ? { href: `/w/${workspaceId}/tasks`, label: t("workspace.nav.objectTask") }
-      : null,
-  ].filter((link): link is { href: string; label: string } => link !== null).slice(0, 4);
+  const toggleZone = (zone: DashboardZone) => {
+    setExpandedZones((current) => {
+      const next = new Set(current);
+      if (next.has(zone)) next.delete(zone);
+      else next.add(zone);
+      return next;
+    });
+  };
+  const visibleMetricsWidgets = expandedZones.has("metrics") ? metricsWidgets : metricsWidgets.slice(0, DASHBOARD_PREVIEW_LIMIT.metrics);
+  const visibleTrendsWidgets = expandedZones.has("trends") ? trendsWidgets : trendsWidgets.slice(0, DASHBOARD_PREVIEW_LIMIT.trends);
+  const visibleListsWidgets = expandedZones.has("lists") ? listsWidgets : listsWidgets.slice(0, DASHBOARD_PREVIEW_LIMIT.lists);
 
   return (
     <div className="space-y-6">
       {/* Header */}
-      <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+      <header className="flex flex-col gap-4 border-b border-slate-200/80 pb-5 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="app-eyebrow">Workbench</p>
           <h1 className="mt-2 text-3xl font-bold tracking-[-.025em] text-slate-950">{t("dashboard.title")}</h1>
@@ -349,8 +345,13 @@ export default function DashboardPage() {
             </button>
           ) : (
             <>
-              <button onClick={() => void loadLayout()} className="app-button-secondary">
-                <RefreshCw size={16} />{t("workspace.refresh")}
+              <button
+                onClick={() => void loadLayout()}
+                className="app-button-ghost"
+                aria-label={t("workspace.refresh")}
+                title={t("workspace.refresh")}
+              >
+                <RefreshCw size={16} />
               </button>
               <button onClick={() => setEditMode(true)} className="app-button-secondary">
                 <Settings2 size={16} />{t("dashboard.editDashboard")}
@@ -359,24 +360,6 @@ export default function DashboardPage() {
           )}
         </div>
       </header>
-
-      {/* First-time onboarding hint */}
-      {quickLinks.length > 0 && <div className="rounded-xl border border-indigo-100 bg-indigo-50/50 p-4">
-        <div className="flex items-start gap-3">
-          <Sparkles size={18} className="mt-0.5 shrink-0 text-indigo-600" />
-          <div className="flex-1">
-            <p className="text-sm font-bold text-slate-900">{t("onboarding.demoLoadedTitle")}</p>
-            <p className="mt-1 text-xs text-slate-600">{t("onboarding.demoLoadedBody")}</p>
-            <div className="mt-3 flex flex-wrap gap-2">
-              {quickLinks.map((link) => (
-                <Link key={link.href} href={link.href} className="inline-flex items-center gap-1 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50">
-                  {link.label}
-                </Link>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>}
 
       {error && <div role="alert" className="app-error">{error}</div>}
 
@@ -398,8 +381,19 @@ export default function DashboardPage() {
         <>
           {/* Metrics Zone */}
           {metricsWidgets.length > 0 && (
-            <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              {metricsWidgets.map((item) => (
+            <section className="space-y-3" aria-labelledby="dashboard-metrics-heading">
+              <DashboardZoneHeader
+                id="dashboard-metrics-heading"
+                title={t("dashboard.section.metrics")}
+                count={metricsWidgets.length}
+                expanded={expandedZones.has("metrics")}
+                collapsible={metricsWidgets.length > DASHBOARD_PREVIEW_LIMIT.metrics}
+                onToggle={() => toggleZone("metrics")}
+                showMoreLabel={t("dashboard.showMore")}
+                showLessLabel={t("dashboard.showLess")}
+              />
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              {visibleMetricsWidgets.map((item) => (
                 <WidgetRenderer
                   key={widgetKeyOf(item)}
                   workspaceId={workspaceId}
@@ -415,13 +409,25 @@ export default function DashboardPage() {
                   onRefreshAll={() => void loadWidgetData(layout)}
                 />
               ))}
+              </div>
             </section>
           )}
 
           {/* Trends Zone */}
           {trendsWidgets.length > 0 && (
-            <section className="grid gap-4 lg:grid-cols-2">
-              {trendsWidgets.map((item) => (
+            <section className="space-y-3" aria-labelledby="dashboard-trends-heading">
+              <DashboardZoneHeader
+                id="dashboard-trends-heading"
+                title={t("dashboard.section.trends")}
+                count={trendsWidgets.length}
+                expanded={expandedZones.has("trends")}
+                collapsible={trendsWidgets.length > DASHBOARD_PREVIEW_LIMIT.trends}
+                onToggle={() => toggleZone("trends")}
+                showMoreLabel={t("dashboard.showMore")}
+                showLessLabel={t("dashboard.showLess")}
+              />
+              <div className="grid gap-4 lg:grid-cols-2">
+              {visibleTrendsWidgets.map((item) => (
                 <WidgetRenderer
                   key={widgetKeyOf(item)}
                   workspaceId={workspaceId}
@@ -437,13 +443,25 @@ export default function DashboardPage() {
                   onRefreshAll={() => void loadWidgetData(layout)}
                 />
               ))}
+              </div>
             </section>
           )}
 
           {/* Lists Zone */}
           {listsWidgets.length > 0 && (
-            <section className="grid gap-4 lg:grid-cols-2">
-              {listsWidgets.map((item) => (
+            <section className="space-y-3" aria-labelledby="dashboard-lists-heading">
+              <DashboardZoneHeader
+                id="dashboard-lists-heading"
+                title={t("dashboard.section.lists")}
+                count={listsWidgets.length}
+                expanded={expandedZones.has("lists")}
+                collapsible={listsWidgets.length > DASHBOARD_PREVIEW_LIMIT.lists}
+                onToggle={() => toggleZone("lists")}
+                showMoreLabel={t("dashboard.showMore")}
+                showLessLabel={t("dashboard.showLess")}
+              />
+              <div className="grid gap-4 lg:grid-cols-2">
+              {visibleListsWidgets.map((item) => (
                 <WidgetRenderer
                   key={widgetKeyOf(item)}
                   workspaceId={workspaceId}
@@ -459,12 +477,23 @@ export default function DashboardPage() {
                   onRefreshAll={() => void loadWidgetData(layout)}
                 />
               ))}
+              </div>
             </section>
           )}
 
           {/* Activity Zone */}
           {activityWidgets.length > 0 && (
-            <section>
+            <section className="space-y-3" aria-labelledby="dashboard-activity-heading">
+              <DashboardZoneHeader
+                id="dashboard-activity-heading"
+                title={t("dashboard.section.activity")}
+                count={activityWidgets.length}
+                expanded={false}
+                collapsible={false}
+                onToggle={() => undefined}
+                showMoreLabel={t("dashboard.showMore")}
+                showLessLabel={t("dashboard.showLess")}
+              />
               {activityWidgets.map((item) => (
                 <WidgetRenderer
                   key={widgetKeyOf(item)}
@@ -485,6 +514,41 @@ export default function DashboardPage() {
           )}
         </>
       )}
+    </div>
+  );
+}
+
+function DashboardZoneHeader({
+  id,
+  title,
+  count,
+  expanded,
+  collapsible,
+  onToggle,
+  showMoreLabel,
+  showLessLabel,
+}: {
+  id: string;
+  title: string;
+  count: number;
+  expanded: boolean;
+  collapsible: boolean;
+  onToggle: () => void;
+  showMoreLabel: string;
+  showLessLabel: string;
+}) {
+  return (
+    <div className="flex min-h-8 items-center justify-between gap-3 px-1">
+      <div className="flex items-center gap-2">
+        <h2 id={id} className="text-sm font-semibold text-slate-800">{title}</h2>
+        <span className="rounded-full bg-slate-200/70 px-2 py-0.5 text-[10px] font-semibold text-slate-500">{count}</span>
+      </div>
+      {collapsible ? (
+        <button type="button" onClick={onToggle} className="app-button-ghost h-8 px-2.5 text-xs">
+          {expanded ? showLessLabel : showMoreLabel}
+          {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+        </button>
+      ) : null}
     </div>
   );
 }

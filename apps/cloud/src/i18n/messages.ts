@@ -465,6 +465,17 @@ export const en = {
   "dashboard.rangeMinMax": "Range {min} - {max}",
   "dashboard.rangeMin": "Min {min}",
   "dashboard.rangeMax": "Max {max}",
+  "dashboard.chartStyle": "Chart style",
+  "dashboard.chartType.bar": "Bar",
+  "dashboard.chartType.line": "Line",
+  "dashboard.chartType.area": "Area",
+  "dashboard.chartType.donut": "Donut",
+  "dashboard.section.metrics": "Key metrics",
+  "dashboard.section.trends": "Trends",
+  "dashboard.section.lists": "Operational lists",
+  "dashboard.section.activity": "Recent activity",
+  "dashboard.showMore": "Show more",
+  "dashboard.showLess": "Show less",
   // Extension list (v0.3.6)
   "extension.risk.low": "Low risk",
   "extension.risk.medium": "Medium risk",
@@ -2105,7 +2116,7 @@ export const zh: Messages = {
   // Widget renderer (v0.3.6)
   "widget.freshnessUpdated": "数据更新于 {label}（点击刷新）", "widget.freshnessLongAgo": "较久前", "widget.viewAll": "查看全部", "widget.noActivity": "暂无活动", "widget.loading": "{label} 加载中", "widget.action.recordCreate": "新增了记录", "widget.action.recordUpdate": "更新了记录", "widget.action.recordDelete": "删除了记录", "widget.action.extensionApply": "应用了扩展", "widget.action.extensionRollback": "回滚了扩展", "widget.action.apiKeyCreate": "创建了 API 密钥", "widget.action.apiKeyRevoke": "撤销了 API 密钥",
   // Dashboard edit mode (v0.3.6)
-  "dashboard.saveFailed": "保存失败", "dashboard.resetFailed": "重置失败", "dashboard.zone.metrics": "指标卡", "dashboard.zone.trends": "趋势图", "dashboard.zone.lists": "列表", "dashboard.zone.activity": "动态", "dashboard.editMode": "编辑模式", "dashboard.resetDefault": "重置默认", "dashboard.done": "完成", "dashboard.addWidget": "添加组件", "dashboard.emptyZone": "此区域暂无组件", "dashboard.hidden": "已隐藏", "dashboard.customized": "已自定义", "dashboard.configure": "配置", "dashboard.moveUp": "上移", "dashboard.moveDown": "下移", "dashboard.show": "显示", "dashboard.hide": "隐藏", "dashboard.availableWidgets": "可添加的组件：", "dashboard.allWidgetsAdded": "所有可用组件已在此工作台", "dashboard.add": "添加", "dashboard.widgetConfig": "组件配置", "dashboard.restoreDefault": "恢复默认", "dashboard.notSelected": "未选择", "dashboard.rangeMinMax": "范围 {min} - {max}", "dashboard.rangeMin": "最小 {min}", "dashboard.rangeMax": "最大 {max}",
+  "dashboard.saveFailed": "保存失败", "dashboard.resetFailed": "重置失败", "dashboard.zone.metrics": "指标卡", "dashboard.zone.trends": "趋势图", "dashboard.zone.lists": "列表", "dashboard.zone.activity": "动态", "dashboard.editMode": "编辑模式", "dashboard.resetDefault": "重置默认", "dashboard.done": "完成", "dashboard.addWidget": "添加组件", "dashboard.emptyZone": "此区域暂无组件", "dashboard.hidden": "已隐藏", "dashboard.customized": "已自定义", "dashboard.configure": "配置", "dashboard.moveUp": "上移", "dashboard.moveDown": "下移", "dashboard.show": "显示", "dashboard.hide": "隐藏", "dashboard.availableWidgets": "可添加的组件：", "dashboard.allWidgetsAdded": "所有可用组件已在此工作台", "dashboard.add": "添加", "dashboard.widgetConfig": "组件配置", "dashboard.restoreDefault": "恢复默认", "dashboard.notSelected": "未选择", "dashboard.rangeMinMax": "范围 {min} - {max}", "dashboard.rangeMin": "最小 {min}", "dashboard.rangeMax": "最大 {max}", "dashboard.chartStyle": "图表样式", "dashboard.chartType.bar": "柱状图", "dashboard.chartType.line": "折线图", "dashboard.chartType.area": "面积图", "dashboard.chartType.donut": "环形图", "dashboard.section.metrics": "关键指标", "dashboard.section.trends": "趋势", "dashboard.section.lists": "运营列表", "dashboard.section.activity": "近期动态", "dashboard.showMore": "展开更多", "dashboard.showLess": "收起",
   // Extension list (v0.3.6)
   "extension.risk.low": "低风险", "extension.risk.medium": "中风险", "extension.risk.high": "高风险", "extension.type.text": "文本", "extension.type.email": "邮箱", "extension.type.phone": "电话", "extension.type.number": "数字", "extension.type.date": "日期", "extension.type.select": "下拉选择", "extension.type.boolean": "是/否", "extension.rolledBack": "已回滚「{name}」至版本 #{version}", "extension.rollbackFailed": "回滚失败", "extension.requestFailed": "请求失败", "extension.count": "共 {count} 个已安装扩展", "extension.empty": "暂无已安装扩展", "extension.emptyHint": "通过「添加字段」流程创建的扩展会显示在这里", "extension.createdAt": "创建于 {date}", "extension.status": "状态：{status}", "extension.viewDetails": "查看详情", "extension.rollback": "回滚", "extension.fieldsCount": "包含字段（{count}）", "extension.required": "必填", "extension.noFields": "无字段信息", "extension.versionHistory": "版本历史", "extension.rolledBackFrom": "回滚自 v{version}", "extension.confirmRollback": "确认回滚", "extension.confirmRollbackBody": "确定要回滚扩展「{name}」的当前版本（v{version}）吗？回滚后，该版本添加的字段和数据将从视图中移除。", "extension.rollingBack": "回滚中...",
   // Diff preview additional (v0.3.6)
