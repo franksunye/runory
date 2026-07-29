@@ -396,6 +396,15 @@ export async function requireWorkspaceContext(
 
   if (!access) throw new AuthorizationError();
 
+  // Resolve principal.userId to the actual database user ID.
+  // authorizeWorkspace matches by external_id OR id, so principal.userId
+  // might be an external_id (e.g. "persona:sales-manager") rather than the
+  // actual user ID (e.g. "usr_xxx"). Update it so downstream command actors
+  // and permission group checks use the correct ID.
+  if (access.userId && access.userId !== principal.userId) {
+    principal = { ...principal, userId: access.userId };
+  }
+
   const ctx = createRequestContext({
     requestId,
     principal,
