@@ -20,6 +20,7 @@ Runory documentation is organized by topic authority and lifecycle rather than b
 | --- | --- | --- |
 | Understand Runory | [Product Definition](product/product-definition.md) | [Concepts](concepts.md), [Architecture Overview](architecture/overview.md) |
 | Understand the roadmap | [Product Roadmap](product/product-roadmap.md) | [Engineering Benchmark Adoption Roadmap](product/engineering-benchmark-adoption-roadmap.md), [External Benchmark Adoption Guardrails](product/external-benchmark-adoption-guardrails.md), [Adjacent Platform Landscape](research/adjacent-platform-landscape.md) |
+| Understand commercial delivery | [Commercial Pricing and Packaging](product/commercial-pricing-and-packaging.md) | [Customer Implementation and Agent-assisted Delivery Model](product/customer-implementation-delivery-model.md), [Payment Product Definition](product/payment-product-definition.md), [Voice Intake Product Definition](product/voice-intake-product-definition.md) |
 | Start using Runory | [Getting Started](getting-started.md) | [Workspace Guide](workspace-guide.md), [Packs and Modules](packs-and-modules.md) |
 | Understand the platform | [Architecture Overview](architecture/overview.md) | [Module Architecture](architecture/module-architecture.md), [Repository Structure](architecture/repository-structure.md) |
 | Build or extend Runory | [Workspace Customization Boundaries](architecture/workspace-customization-boundaries.md) | [SDK / Module Development](sdk-module-development.md), [Add a Governed Command](sdk/governed-command-development.md), [Workspace Extension Architecture](architecture/workspace-extension-architecture.md) |
@@ -34,6 +35,8 @@ Runory documentation is organized by topic authority and lifecycle rather than b
 **Authority:** [Product Definition](product/product-definition.md)
 
 - [Product Definition](product/product-definition.md) — canonical product boundary and positioning.
+- [Commercial Pricing and Packaging](product/commercial-pricing-and-packaging.md) — proposed authority for Free, paid plans, implementation bands, provider usage, partner economics, and discount control.
+- [Customer Implementation and Agent-assisted Delivery Model](product/customer-implementation-delivery-model.md) — proposed paid-production onboarding, provider provisioning, UAT, cutover, and Agent-assisted implementation model.
 - [Product Roadmap](product/product-roadmap.md) — active FSM-first milestone sequence through v4.0; v0.6–v1.0 releases are jointly gated by the companion engineering roadmap.
 - [Engineering Benchmark Adoption Roadmap](product/engineering-benchmark-adoption-roadmap.md) — binding v0.6–v1.0 engineering, UX, workflow, platform, delivery, and external-benchmark maturity gates.
 - [External Benchmark Adoption Guardrails](product/external-benchmark-adoption-guardrails.md) — mandatory scope, complexity, convergence, and Adopt/Adapt/Defer/Reject rules for external-reference adoption.
