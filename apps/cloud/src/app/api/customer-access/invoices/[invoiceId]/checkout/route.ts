@@ -10,8 +10,12 @@ import {
   verifyCustomerAccessSession,
   shouldSampleAccessDenied,
   auditCustomerAccessDenied,
+  rateLimitFingerprint,
+  checkMutationRateLimit,
+  validateSameOrigin,
+  extractClientIp,
 } from "@runory/platform-core";
-import { ensureStripeProviderAccount, getStripePaymentConfiguration } from "@/integrations/payments/config";
+import { resolveConnectProviderAccount } from "@/integrations/payments/config";
 import { processPaymentOutboxForAggregate } from "@/integrations/payments/outbox-processor";
 
 export const dynamic = "force-dynamic";
@@ -55,6 +59,22 @@ export async function POST(
     return unavailableResponse();
   }
 
+  // Same-origin validation (Tech Spec §8.2)
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? new URL(request.url).origin;
+  if (!validateSameOrigin(request.headers.get("origin"), appUrl)) {
+    return unavailableResponse();
+  }
+
+  // IP + Grant fingerprint rate limiting (Tech Spec §6.3)
+  const clientIp = extractClientIp(request.headers);
+  const fingerprint = rateLimitFingerprint(clientIp, grant.id);
+  if (!checkMutationRateLimit(fingerprint)) {
+    return NextResponse.json(
+      { success: false, error: { code: "RATE_LIMITED", message: "RATE_LIMITED" } },
+      { status: 429 },
+    );
+  }
+
   const { invoiceId } = await params;
 
   try {
@@ -94,8 +114,10 @@ export async function POST(
     }
 
     // Derive all inputs server-side — nothing from the browser.
-    const config = getStripePaymentConfiguration();
-    const providerAccount = await ensureStripeProviderAccount(grant.workspace_id);
+    // Per Tech Spec §9: resolve the Connect account from the database and
+    // verify readiness before creating a Direct Charge.
+    const connectAccount = await resolveConnectProviderAccount(grant.workspace_id);
+    const providerAccount = connectAccount;
 
     // Derive customer contact from grant subject.
     let customerContactId: string | undefined;

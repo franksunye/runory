@@ -21,6 +21,7 @@ import { useI18n } from "@/i18n/locale-provider";
 import type { MessageKey } from "@/i18n/messages";
 import UserAvatar from "./UserAvatar";
 import PersonaSwitcher from "./PersonaSwitcher";
+import AdministrationNavigation, { isAdministrationPath } from "./administration/AdministrationNavigation";
 
 // ── Types ──
 
@@ -135,12 +136,6 @@ function getRoleDisplay(role: string, t: TFunc) {
   };
 }
 
-const MANAGEMENT_ROUTES = [
-  "/manage", "/modules", "/customize", "/members",
-  "/workflows", "/automations", "/forms", "/outbox", "/migration",
-  "/audit", "/trash", "/export", "/api-keys", "/settings", "/billing",
-];
-
 // ── Pack category display names ──
 
 const CATEGORY_LABEL_KEY: Record<string, MessageKey> = {
@@ -154,7 +149,8 @@ const CATEGORY_LABEL_KEY: Record<string, MessageKey> = {
   general: "workspace.nav.categoryGeneral",
 };
 
-function getCategoryLabel(category: string, t: TFunc): string {
+function getCategoryLabel(category: string, t: TFunc, locale: string): string {
+  if (category === "field_service" && locale === "zh") return "现场服务";
   const key = CATEGORY_LABEL_KEY[category];
   if (key) return t(key);
 
@@ -233,7 +229,7 @@ export default function NavigationShell({
 }: NavigationShellProps) {
   const pathname = usePathname();
   const router = useRouter();
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
@@ -244,6 +240,7 @@ export default function NavigationShell({
   const accountMenuButtonRef = useRef<HTMLButtonElement>(null);
   const canManage = role === "owner" || role === "admin";
   const hasFsm = packs.some((p) => p.category === "field_service");
+  const administrationContext = isAdministrationPath(pathname, workspaceId);
 
   const isActiveRoute = (route: string) => {
     const href = `/w/${workspaceId}${route}`;
@@ -287,7 +284,7 @@ export default function NavigationShell({
   // the available product surface immediately.
   useEffect(() => {
     if (groupsInitialized || packs.length === 0) return;
-    setExpandedGroups(new Set(packs.map((pack) => pack.packId)));
+    setExpandedGroups(new Set(packs.map((pack) => pack.category)));
     setGroupsInitialized(true);
   }, [groupsInitialized, packs]);
 
@@ -299,24 +296,20 @@ export default function NavigationShell({
         return itemPackId === pack.packId;
       });
       const isActive = packItems.some((item) => isActiveRoute(item.route));
-      if (isActive && !expandedGroups.has(pack.packId)) {
-        setExpandedGroups((prev) => new Set(prev).add(pack.packId));
+      if (isActive) {
+        setExpandedGroups((prev) => {
+          if (prev.has(pack.category)) return prev;
+          return new Set(prev).add(pack.category);
+        });
       }
     }
   }, [pathname, navigation, packs, modulePackMap]);
 
-  const isAdministrationActive = () => canManage && MANAGEMENT_ROUTES
-    .filter((route) => route !== "/settings")
-    .some((route) => {
-      const full = `/w/${workspaceId}${route}`;
-      return pathname === full || pathname.startsWith(`${full}/`);
-    });
-
-  const toggleGroup = (packId: string) => {
+  const toggleGroup = (category: string) => {
     setExpandedGroups((prev) => {
       const next = new Set(prev);
-      if (next.has(packId)) next.delete(packId);
-      else next.add(packId);
+      if (next.has(category)) next.delete(category);
+      else next.add(category);
       return next;
     });
   };
@@ -378,15 +371,18 @@ export default function NavigationShell({
 
   // Group nav items by pack, preserving pack installation order.
   // Items without a pack mapping go into an "Other" group.
-  const packGroups = packs.map((pack) => ({
-    pack,
-    items: visibleNavigation
-      .filter((item) => {
-        const itemPackId = item.moduleId ? modulePackMap[item.moduleId] : undefined;
-        return itemPackId === pack.packId;
-      })
-      .sort((a, b) => a.sortOrder - b.sortOrder),
-  }));
+  // Merge Packs that share a user-facing category. Pack ownership remains in
+  // metadata; the navigation presents one stable business taxonomy.
+  const packGroups = packs.reduce<Array<{ category: string; items: NavigationItem[] }>>((groups, pack) => {
+    const packItems = visibleNavigation.filter((item) => {
+      const itemPackId = item.moduleId ? modulePackMap[item.moduleId] : undefined;
+      return itemPackId === pack.packId;
+    });
+    const existing = groups.find((group) => group.category === pack.category);
+    if (existing) existing.items.push(...packItems);
+    else groups.push({ category: pack.category, items: [...packItems] });
+    return groups;
+  }, []).map((group) => ({ ...group, items: group.items.sort((a, b) => a.sortOrder - b.sortOrder) }));
 
   // Items not associated with any installed pack
   const ungroupedItems = visibleNavigation
@@ -446,7 +442,7 @@ export default function NavigationShell({
         {!collapsed && (
           <div className="min-w-0 flex-1">
             <div className="truncate text-sm font-bold tracking-tight text-slate-950">Runory</div>
-            <div className="truncate text-[11px] text-slate-500">Business Cloud</div>
+            <div className="truncate text-[11px] text-slate-500">{administrationContext ? t("workspace.nav.manage") : "Business Cloud"}</div>
           </div>
         )}
         <button
@@ -466,6 +462,15 @@ export default function NavigationShell({
       </div>
 
       {/* Scrollable Nav Area */}
+      {administrationContext ? (
+        <AdministrationNavigation
+          workspaceId={workspaceId}
+          pathname={pathname}
+          collapsed={collapsed}
+          canManage={canManage}
+          onNavigate={() => setMobileOpen(false)}
+        />
+      ) : (
       <nav className="flex-1 overflow-y-auto px-3 py-4" aria-label={t("workspace.nav.workspaceNav")}>
         {/* Dashboard */}
         {renderNavItem({ id: "dashboard", label: t("workspace.nav.dashboard"), route: "/dashboard", icon: LayoutDashboard })}
@@ -487,22 +492,22 @@ export default function NavigationShell({
 
         {/* Pack Groups */}
         <div className={collapsed ? "space-y-1" : "space-y-1"}>
-          {packGroups.map(({ pack, items }) => {
+          {packGroups.map(({ category, items }) => {
             if (items.length === 0) return null;
-            const groupLabel = getCategoryLabel(pack.category, t);
-            const isExpanded = expandedGroups.has(pack.packId) || collapsed;
+            const groupLabel = getCategoryLabel(category, t, locale);
+            const isExpanded = expandedGroups.has(category) || collapsed;
 
             if (collapsed) {
               // Collapsed mode: show items directly with tooltips
               return items.map((item) =>
-                renderNavItem(item, pack.category, `${pack.packId}-${item.id}`)
+                renderNavItem(item, category, `${category}-${item.id}`)
               );
             }
 
             return (
-              <div key={pack.packId} className="pt-3 first:pt-0">
+              <div key={category} className="pt-3 first:pt-0">
                 <button
-                  onClick={() => toggleGroup(pack.packId)}
+                  onClick={() => toggleGroup(category)}
                   className="sidebar-group-label flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 transition hover:bg-slate-50 hover:text-slate-600"
                 >
                   {isExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
@@ -511,7 +516,7 @@ export default function NavigationShell({
                 {isExpanded && (
                   <div className="ml-3 space-y-0.5 border-l border-slate-200 pl-2">
                     {items.map((item) =>
-                      renderNavItem(item, pack.category, `${pack.packId}-${item.id}`)
+                      renderNavItem(item, category, `${category}-${item.id}`)
                     )}
                   </div>
                 )}
@@ -527,6 +532,7 @@ export default function NavigationShell({
           )}
         </div>
       </nav>
+      )}
 
       {/* Compact identity / workspace utility menu. */}
       <div ref={accountMenuRef} className="relative border-t border-slate-200/80 p-2">
@@ -572,11 +578,15 @@ export default function NavigationShell({
 
             <div className="my-1 border-t border-slate-100" />
 
+            <p className="px-3 pb-1 pt-2 text-[10px] font-bold uppercase tracking-[.14em] text-slate-400">
+              {t("workspace.nav.manage")}
+            </p>
+
             {canManage && (
               <Link
                 href={`/w/${workspaceId}/manage`}
                 onClick={() => { setAccountMenuOpen(false); setMobileOpen(false); }}
-                className={`flex min-h-10 items-center gap-3 rounded-lg px-3 text-sm font-medium ${isAdministrationActive() ? "bg-indigo-50 text-indigo-700" : "text-slate-700 hover:bg-slate-50"}`}
+                className={`flex min-h-10 items-center gap-3 rounded-lg px-3 text-sm font-medium ${administrationContext ? "bg-indigo-50 text-indigo-700" : "text-slate-700 hover:bg-slate-50"}`}
               >
                 <ShieldCheck size={18} />
                 <span>{t("workspace.nav.manage")}</span>
@@ -599,9 +609,12 @@ export default function NavigationShell({
               <span>{t("workspace.nav.myWorkspaces")}</span>
             </Link>
 
-            <div className="my-1 border-t border-slate-100" />
-
-            <PersonaSwitcher variant="account" />
+            {currentUser?.authMethod === "demo" ? (
+              <>
+                <div className="my-1 border-t border-slate-100" />
+                <PersonaSwitcher variant="account" />
+              </>
+            ) : null}
 
             <div className="my-1 border-t border-slate-100" />
 
@@ -615,9 +628,6 @@ export default function NavigationShell({
               <span>{t("switcher.logout")}</span>
             </button>
 
-            <p className="mt-1 border-t border-slate-100 px-3 pt-2 text-[10px] leading-relaxed text-slate-400">
-              {t("workspace.nav.dataBoundary")}
-            </p>
           </div>
         )}
       </div>
@@ -625,10 +635,13 @@ export default function NavigationShell({
   );
 
   const sidebarWidth = collapsed ? "var(--sidebar-w-collapsed)" : "var(--sidebar-w)";
+  const overviewCanvas = ["/dashboard", "/my-work", "/planning", "/activity"]
+    .some((route) => isActiveRoute(route));
+  const useNeutralCanvas = administrationContext || !overviewCanvas;
 
   return (
     <div
-      className="min-h-screen bg-[radial-gradient(circle_at_85%_0%,rgba(86,100,245,.08),transparent_26%)] md:grid md:grid-cols-[var(--workspace-sidebar-w)_minmax(0,1fr)]"
+      className={`min-h-screen md:grid md:grid-cols-[var(--workspace-sidebar-w)_minmax(0,1fr)] ${useNeutralCanvas ? "bg-slate-50" : "bg-[radial-gradient(circle_at_85%_0%,rgba(86,100,245,.08),transparent_26%)]"}`}
       style={{ ["--workspace-sidebar-w" as string]: sidebarWidth }}
     >
       {/* Desktop sidebar */}
@@ -667,7 +680,7 @@ export default function NavigationShell({
           <span className="ml-3 font-bold">{workspaceName || "Runory"}</span>
         </header>
 
-        <div className="mx-auto max-w-[1280px] px-4 py-7 sm:px-7 lg:px-10 lg:py-9">
+        <div className={`mx-auto px-4 py-7 sm:px-7 lg:px-10 lg:py-9 ${administrationContext ? "max-w-[1180px]" : "max-w-[1280px]"}`}>
           <div className="page-enter">{children}</div>
         </div>
       </main>

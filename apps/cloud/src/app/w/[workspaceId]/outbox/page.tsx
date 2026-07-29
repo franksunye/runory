@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { useI18n } from "@/i18n/locale-provider";
 import { apiFetch, apiPost } from "@/lib/api-fetch";
+import AdministrationPageHeader from "@/components/administration/AdministrationPageHeader";
 
 interface OutboxMessage {
   id: string;
@@ -37,7 +38,8 @@ function formatDate(iso: string | null): string {
 
 export default function OutboxPage() {
   const workspaceId = useParams().workspaceId as string;
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
+  const zh = locale === "zh";
 
   const [messages, setMessages] = useState<OutboxMessage[]>([]);
   const [loading, setLoading] = useState(true);
@@ -124,27 +126,45 @@ export default function OutboxPage() {
         </div>
       )}
 
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">{t("outbox.title")}</h1>
-          <div className="mt-1 flex gap-3 text-sm text-slate-500">
-            <span className="text-amber-600">{counts.pending} {t("outbox.statusPending")}</span>
-            <span className="text-red-600">{counts.failed} {t("outbox.statusFailed")}</span>
-            <span className="text-green-600">{counts.delivered} {t("outbox.statusDelivered")}</span>
-          </div>
-        </div>
-        <button onClick={() => void load()} disabled={loading} className="app-button-ghost">
-          {loading ? <Loader2 size={16} className="animate-spin" /> : <RefreshCw size={16} />}
-          {t("workspace.refresh")}
-        </button>
-      </div>
+      <AdministrationPageHeader
+        workspaceId={workspaceId}
+        eyebrow={zh ? "高级运维" : "Advanced operations"}
+        title={zh ? "交付诊断" : "Delivery diagnostics"}
+        description={zh ? "检查自动化通知、Webhook 与支付指令的交付状态。原始事件与 Payload 仅供授权管理员排障。" : "Inspect delivery health for automated notifications, webhooks, and payment instructions. Raw events and payloads are reserved for authorized troubleshooting."}
+        actions={
+          <button onClick={() => void load()} disabled={loading} className="app-button-secondary">
+            {loading ? <Loader2 size={16} className="animate-spin" /> : <RefreshCw size={16} />}
+            {t("workspace.refresh")}
+          </button>
+        }
+      />
+
+      <section className="grid overflow-hidden rounded-xl border border-slate-200 bg-white shadow-[0_1px_2px_rgba(15,23,42,.03)] sm:grid-cols-3" aria-label={zh ? "交付状态摘要" : "Delivery status summary"}>
+        {[
+          { label: t("outbox.statusPending"), value: counts.pending, icon: Clock3, tone: "text-amber-700", iconBg: "bg-amber-50" },
+          { label: t("outbox.statusFailed"), value: counts.failed, icon: AlertCircle, tone: "text-red-600", iconBg: "bg-red-50" },
+          { label: t("outbox.statusDelivered"), value: counts.delivered, icon: CheckCircle2, tone: "text-emerald-700", iconBg: "bg-emerald-50" },
+        ].map((item) => {
+          const Icon = item.icon;
+          return (
+            <div key={item.label} className="flex items-center gap-3 border-b border-slate-100 px-5 py-4 last:border-b-0 sm:border-b-0 sm:border-r sm:last:border-r-0">
+              <span className={`grid size-9 place-items-center rounded-lg ${item.iconBg} ${item.tone}`}><Icon size={17} /></span>
+              <div><p className="text-xl font-bold tracking-tight text-slate-950">{item.value}</p><p className="text-xs font-medium text-slate-500">{item.label}</p></div>
+            </div>
+          );
+        })}
+      </section>
 
       {/* Filter */}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3">
+        <div>
+          <p className="text-sm font-semibold text-slate-800">{zh ? "交付事件" : "Delivery events"}</p>
+          <p className="mt-0.5 text-xs text-slate-500">{zh ? "按状态筛选需要关注的事件。" : "Filter events by the status that needs attention."}</p>
+        </div>
         <select
           value={filterStatus}
           onChange={(e) => setFilterStatus(e.target.value)}
+          aria-label={zh ? "筛选交付状态" : "Filter delivery status"}
           className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-indigo-500"
         >
           <option value="">{t("myWork.filterAll")}</option>
@@ -168,9 +188,9 @@ export default function OutboxPage() {
           <p className="text-sm font-medium text-slate-500">{t("outbox.empty")}</p>
         </div>
       ) : (
-        <div className="space-y-3">
+        <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-[0_1px_2px_rgba(15,23,42,.03)]">
           {messages.map((msg) => (
-            <div key={msg.id} className="app-card p-4">
+            <article key={msg.id} className="border-b border-slate-100 p-4 last:border-b-0 sm:p-5">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
@@ -245,7 +265,7 @@ export default function OutboxPage() {
                   )}
                 </div>
               </div>
-            </div>
+            </article>
           ))}
         </div>
       )}

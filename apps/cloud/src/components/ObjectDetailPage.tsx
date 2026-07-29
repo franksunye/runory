@@ -17,6 +17,7 @@ import {
   Loader2,
   MapPin,
   Minus,
+  MoreHorizontal,
   Navigation,
   PenLine,
   Pencil,
@@ -1592,6 +1593,37 @@ export default function ObjectDetailPage({
     : null;
   const identityName = typeof record.name === "string" ? record.name : title;
 
+  const fieldSectionPanels = viewSections.length > 0
+    ? viewSections.map((section, sectionIndex) => {
+        const sectionFields = section.fields
+          .map((sectionField) => fieldMap.get(sectionField.field))
+          .filter((field): field is FieldDefinition => (
+            Boolean(field)
+            && !fkFieldKeys.has(field!.fieldKey)
+            && !CANONICAL_DETAIL_HIDDEN_FIELDS[objectKey]?.has(field!.fieldKey)
+          ));
+        if (sectionFields.length === 0) return null;
+        return (
+          <Card key={`${section.title}-${sectionIndex}`} className="rounded-xl shadow-[0_1px_2px_rgba(15,23,42,.03)]">
+            <CardContent>
+              <SectionHeader title={section.title} />
+              <dl className="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
+                {sectionFields.map(renderFieldRow)}
+              </dl>
+            </CardContent>
+          </Card>
+        );
+      })
+    : (
+      <Card className="rounded-xl shadow-[0_1px_2px_rgba(15,23,42,.03)]">
+        <CardContent>
+          <dl className="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
+            {fields.filter((field) => !fkFieldKeys.has(field.fieldKey)).map(renderFieldRow)}
+          </dl>
+        </CardContent>
+      </Card>
+    );
+
   return (
     <div className="space-y-6 page-enter">
       <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
@@ -1604,17 +1636,17 @@ export default function ObjectDetailPage({
               presence={record.availability_status === "available" ? "online" : record.availability_status === "busy" ? "busy" : "offline"}
             />
           )}
-          <div>
-          <Link
-            href={basePath}
-            className="inline-flex items-center gap-1 text-xs font-semibold text-slate-500 transition hover:text-slate-800"
-          >
-            <ArrowLeft size={14} />{backLabel ?? t("workspace.backToList", { title })}
-          </Link>
-          <h1 className="mt-2 text-3xl font-bold tracking-[-.025em] text-slate-950">
-            {t("workspace.detailTitle", { title })}
-          </h1>
-          {identityAvatarUrl && <p className="mt-1 text-sm font-medium text-slate-500">{identityName}</p>}
+          <div className="min-w-0">
+            <Link
+              href={basePath}
+              className="inline-flex items-center gap-1 text-xs font-semibold text-slate-500 transition hover:text-slate-800"
+            >
+              <ArrowLeft size={14} />{backLabel ?? t("workspace.backToList", { title })}
+            </Link>
+            <p className="app-eyebrow mt-3">{title}</p>
+            <h1 className="mt-1 truncate text-3xl font-bold tracking-[-.03em] text-slate-950">
+              {identityName}
+            </h1>
           </div>
         </div>
         {!editing && !FINANCIAL_OBJECTS.has(objectKey) && (
@@ -1626,14 +1658,21 @@ export default function ObjectDetailPage({
             >
               <Pencil size={15} />{t("workspace.edit")}
             </button>
-            <button
-              type="button"
-              onClick={handleDelete}
-              disabled={deleting}
-              className="app-button-danger"
-            >
-              <Trash2 size={15} />{deleting ? t("workspace.deleting") : t("workspace.delete")}
-            </button>
+            <details className="group/detail-actions relative">
+              <summary className="app-button-secondary flex cursor-pointer list-none px-3" aria-label={t("workspace.delete")}>
+                <MoreHorizontal size={18} />
+              </summary>
+              <div className="absolute right-0 top-full z-40 mt-1 min-w-[190px] rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl">
+                <button
+                  type="button"
+                  onClick={handleDelete}
+                  disabled={deleting}
+                  className="flex min-h-9 w-full items-center gap-2 rounded-lg px-3 text-left text-sm font-semibold text-red-600 hover:bg-red-50 disabled:opacity-50"
+                >
+                  <Trash2 size={15} />{deleting ? t("workspace.deleting") : t("workspace.delete")}
+                </button>
+              </div>
+            </details>
           </div>
         )}
       </header>
@@ -1772,94 +1811,70 @@ export default function ObjectDetailPage({
             </section>
           )}
 
-          {/* Field sections (grouped cards) */}
-          {viewSections.length > 0 ? (
-            viewSections.map((section, si) => {
-              const sectionFields = section.fields
-                .map((sf) => fieldMap.get(sf.field))
-                .filter((f): f is FieldDefinition => (
-                  Boolean(f)
-                  && !fkFieldKeys.has(f!.fieldKey)
-                  && !CANONICAL_DETAIL_HIDDEN_FIELDS[objectKey]?.has(f!.fieldKey)
-                ));
-              if (sectionFields.length === 0) return null;
-              return (
-                <Card key={si}>
-                  <CardContent>
-                    <SectionHeader title={section.title} />
-                    <dl className="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2">
-                      {sectionFields.map(renderFieldRow)}
-                    </dl>
-                  </CardContent>
-                </Card>
-              );
-            })
-          ) : (
-            <Card>
-              <CardContent>
-                <dl className="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2">
-                  {fields.filter((field) => !fkFieldKeys.has(field.fieldKey)).map(renderFieldRow)}
-                </dl>
-              </CardContent>
-            </Card>
-          )}
+          <div className="grid gap-6 xl:grid-cols-[minmax(320px,.82fr)_minmax(0,1.18fr)] xl:items-start">
+            <div className="space-y-4">
+              {fieldSectionPanels}
 
-          {/* Workflow panel: fetches its own workflow data */}
-          <RecordWorkflowPanel
-            workspaceId={workspaceId}
-            objectKey={objectKey}
-            recordId={recordId}
-          />
+              {/* Parent associations stay close to the record's primary fields. */}
+              {parentLinks.length > 0 && (
+                <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-[0_1px_2px_rgba(15,23,42,.03)] sm:p-6">
+                  {parentLinks.map((cfg) => (
+                    <ParentLinkPanel
+                      key={cfg.foreignKey}
+                      workspaceId={workspaceId}
+                      record={record}
+                      config={cfg}
+                    />
+                  ))}
+                </div>
+              )}
 
-          {/* Parent associations */}
-          {parentLinks.length > 0 && (
-            <div className="app-card p-5 sm:p-6">
-              {parentLinks.map((cfg) => (
-                <ParentLinkPanel
-                  key={cfg.foreignKey}
+              <div className="px-1 text-xs text-slate-400">
+                <p>{t("workspace.createdAt", { time: formatMetaDate(record.created_at, locale) })}</p>
+                <p>{t("workspace.updatedAt", { time: formatMetaDate(record.updated_at, locale) })}</p>
+              </div>
+            </div>
+
+            <div className="space-y-6">
+              {/* Workflow panel: fetches its own workflow data. */}
+              <RecordWorkflowPanel
+                workspaceId={workspaceId}
+                objectKey={objectKey}
+                recordId={recordId}
+              />
+
+              {/* FSM execution requirements are first-class business context.
+                  A Visit owns the immutable requirement snapshot; its Work Order
+                  receives an aggregate, read-only roll-up across all Visits. */}
+              {objectKey === "service_visit" && (
+                <ServiceVisitRequiredWorkPanel workspaceId={workspaceId} visitId={recordId} />
+              )}
+              {objectKey === "work_order" && (
+                <WorkOrderDeliverablesPanel workspaceId={workspaceId} workOrderId={recordId} />
+              )}
+
+              {/* Related collections, including composition-style child tables. */}
+              {related.map((cfg) => (
+                <RelatedRecordsPanel
+                  key={`${cfg.objectKey}:${cfg.foreignKey}`}
                   workspaceId={workspaceId}
-                  record={record}
+                  parentObjectKey={objectKey}
+                  recordId={recordId}
                   config={cfg}
                 />
               ))}
+
+              {/* Activity Timeline (v0.5.1) */}
+              {isValidTimelineSubject(objectKey) && (
+                <RecordTimelineSection
+                  workspaceId={workspaceId}
+                  subjectType={objectKey}
+                  subjectId={recordId}
+                />
+              )}
             </div>
-          )}
-
-          {/* FSM execution requirements are first-class business context.
-              A Visit owns the immutable requirement snapshot; its Work Order
-              receives an aggregate, read-only roll-up across all Visits. */}
-          {objectKey === "service_visit" && (
-            <ServiceVisitRequiredWorkPanel workspaceId={workspaceId} visitId={recordId} />
-          )}
-          {objectKey === "work_order" && (
-            <WorkOrderDeliverablesPanel workspaceId={workspaceId} workOrderId={recordId} />
-          )}
-
-          {/* Related collections, including composition-style child tables. */}
-          {related.map((cfg) => (
-            <RelatedRecordsPanel
-              key={`${cfg.objectKey}:${cfg.foreignKey}`}
-              workspaceId={workspaceId}
-              parentObjectKey={objectKey}
-              recordId={recordId}
-              config={cfg}
-            />
-          ))}
-
-          {/* Activity Timeline (v0.5.1) */}
-          {isValidTimelineSubject(objectKey) && (
-            <RecordTimelineSection
-              workspaceId={workspaceId}
-              subjectType={objectKey}
-              subjectId={recordId}
-            />
-          )}
-
-          {/* Meta */}
-          <div className="text-xs text-slate-400">
-            <p>{t("workspace.createdAt", { time: formatMetaDate(record.created_at, locale) })}</p>
-            <p>{t("workspace.updatedAt", { time: formatMetaDate(record.updated_at, locale) })}</p>
           </div>
+
         </div>
       )}
     </div>

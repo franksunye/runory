@@ -7,7 +7,6 @@ import {
   AlertTriangle,
   Check,
   Pencil,
-  RefreshCw,
   Save,
   Settings,
   SlidersHorizontal,
@@ -15,6 +14,7 @@ import {
 } from "lucide-react";
 import { useI18n } from "@/i18n/locale-provider";
 import { apiFetch, apiPost, apiPatch } from "@/lib/api-fetch";
+import AdministrationPageHeader from "@/components/administration/AdministrationPageHeader";
 
 type OrgRole = "owner" | "admin" | "member";
 
@@ -142,20 +142,12 @@ export default function SettingsPage() {
 
   return (
     <div className="space-y-6">
-      <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <p className="app-eyebrow">Settings</p>
-          <h1 className="mt-2 text-2xl font-bold tracking-tight text-slate-950">{t("settings.title")}</h1>
-          <p className="mt-1 text-sm text-slate-500">{t("settings.subtitle")}</p>
-        </div>
-        <button
-          type="button"
-          onClick={() => { setLoading(true); void loadData(); }}
-          className="app-button-secondary self-start"
-        >
-          <RefreshCw size={16} />{t("workspace.refresh")}
-        </button>
-      </header>
+      <AdministrationPageHeader
+        workspaceId={workspaceId}
+        eyebrow={locale === "zh" ? "工作区" : "Workspace"}
+        title={t("settings.title")}
+        description={t("settings.subtitle")}
+      />
 
       {error && <div role="alert" className="app-error">{error}</div>}
       {message && (
@@ -165,7 +157,7 @@ export default function SettingsPage() {
       )}
 
       {/* Customize hint */}
-      <div className="app-card flex items-center gap-3 border-indigo-100 bg-indigo-50/40 p-4">
+      <div className="flex items-center gap-3 rounded-xl border border-indigo-100 bg-indigo-50/50 p-4">
         <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-indigo-100 text-indigo-600">
           <SlidersHorizontal size={18} />
         </span>
@@ -182,7 +174,7 @@ export default function SettingsPage() {
       </div>
 
       {/* Workspace metadata */}
-      <section className="app-card p-5 sm:p-6">
+      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_1px_2px_rgba(15,23,42,.03)] sm:p-6">
         <div className="mb-4 flex items-center gap-2">
           <Settings size={18} className="text-indigo-600" />
           <h2 className="text-sm font-bold text-slate-900">{t("settings.infoTitle")}</h2>
@@ -275,7 +267,7 @@ export default function SettingsPage() {
       </section>
 
       {/* Language */}
-      <section className="app-card p-5 sm:p-6">
+      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_1px_2px_rgba(15,23,42,.03)] sm:p-6">
         <div className="mb-4 flex items-center gap-2">
           <Settings size={18} className="text-indigo-600" />
           <h2 className="text-sm font-bold text-slate-900">{t("settings.languageTitle")}</h2>

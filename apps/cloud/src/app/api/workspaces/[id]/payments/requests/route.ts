@@ -3,17 +3,13 @@ import {
   requestPayment,
   listPaymentsForSource,
   requireBusinessPermission,
-  InvalidInputError,
   type CommandActor,
   type PaymentPurpose,
   type PaymentSourceType,
 } from "@runory/platform-core";
 import { requireWorkspaceContext } from "@/lib/auth";
 import { getOrCreateRequestId, handleError, successResponse } from "@/lib/http";
-import {
-  ensureStripeProviderAccount,
-  getStripePaymentConfiguration,
-} from "@/integrations/payments/config";
+import { resolveConnectProviderAccount } from "@/integrations/payments/config";
 import { processPaymentOutboxForAggregate } from "@/integrations/payments/outbox-processor";
 
 export const dynamic = "force-dynamic";
@@ -66,13 +62,9 @@ export async function POST(
       description?: string;
       expiresAt?: string;
     };
-    const config = getStripePaymentConfiguration();
-    if (body.currency?.trim().toUpperCase() !== config.currency) {
-      throw new InvalidInputError(
-        `Payments are configured for ${config.currency}; received ${body.currency || "no currency"}.`,
-      );
-    }
-    const providerAccount = await ensureStripeProviderAccount(workspaceId);
+    // Resolve the Connect account from the database (Tech Spec §9).
+    const connectAccount = await resolveConnectProviderAccount(workspaceId);
+    const providerAccount = connectAccount;
     const idempotencyKey = request.headers.get("idempotency-key") ?? undefined;
     const origin = process.env.NEXT_PUBLIC_APP_URL ?? new URL(request.url).origin;
     const actor: CommandActor = {

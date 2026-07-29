@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { Plus, Search, PackageOpen, Settings, Save, RotateCcw, Check } from "lucide-react";
+import { Plus, Search, PackageOpen, Settings, Save, RotateCcw, Check, MoreHorizontal } from "lucide-react";
 import SchemaTable from "./SchemaTable";
 import type { FieldDefinition } from "@runory/platform-core";
 import {
@@ -224,6 +224,31 @@ export default function ObjectListPage({
     return { ...viewConfig, columns: effectiveColumns };
   }, [viewConfig, effectiveColumns]);
 
+  const preferenceDirty = useMemo(() => {
+    const savedSort = preference?.sort
+      ? `${preference.sort.field}:${preference.sort.direction}`
+      : effectiveSortOptions[0]?.value ?? "created_at:desc";
+    const savedPageSize = preference?.pageSize ?? pageSize;
+    const savedFields = preference?.visibleFields?.length
+      ? allColumnFields.filter((field) => preference.visibleFields?.includes(field))
+      : allColumnFields;
+    const savedFilters = (preference?.filters ?? [])
+      .map((filter) => [filter.field, String(filter.value)] as const)
+      .sort(([left], [right]) => left.localeCompare(right));
+    const currentFilters = Object.entries(relationFilters)
+      .sort(([left], [right]) => left.localeCompare(right));
+
+    return effectiveSortValue !== savedSort
+      || currentPageSize !== savedPageSize
+      || visibleFields.join("|") !== savedFields.join("|")
+      || JSON.stringify(currentFilters) !== JSON.stringify(savedFilters);
+  }, [preference, effectiveSortOptions, pageSize, allColumnFields, relationFilters, effectiveSortValue, currentPageSize, visibleFields]);
+
+  const canManageViews = workspaceAccess?.workspaceRole === "admin"
+    || workspaceAccess?.workspaceRole === "owner"
+    || permissions.has("*");
+  const canResetView = Boolean(preference) || Boolean(urlSearch || urlSort || Object.keys(relationFilters).length);
+
   // ── ViewBar action handlers ──
 
   // Add a filter by updating URL params
@@ -412,41 +437,6 @@ export default function ObjectListPage({
   };
   const headerActions = (
     <>
-      {hasPack && viewDefId && (
-        <button
-          type="button"
-          onClick={() => setResetConfirmOpen(true)}
-          disabled={resetting || !preference}
-          className="app-button-secondary"
-          title={t("workspace.viewBar.reset")}
-        >
-          <RotateCcw size={15} />
-          {resetting ? t("surface.loading") : t("workspace.viewBar.reset")}
-        </button>
-      )}
-      {hasPack && viewDefId && (
-        <button
-          type="button"
-          onClick={() => void handleSavePreference()}
-          disabled={savingPreference}
-          className="app-button-secondary"
-          title={t("workspace.viewBar.save")}
-        >
-          <Check size={15} />
-          {savedFeedback ? t("workspace.viewBar.saved") : savingPreference ? t("surface.loading") : t("workspace.viewBar.save")}
-        </button>
-      )}
-      {hasPack && viewDefId && (
-        <button
-          type="button"
-          onClick={() => setSaveDialogOpen(true)}
-          className="app-button-secondary"
-          title={t("workspace.viewBar.saveAsView")}
-        >
-          <Save size={16} />
-          {t("workspace.viewBar.saveAsView")}
-        </button>
-      )}
       {hasPack && canCreate && hasCreateAction ? (
         <button type="button" onClick={handleCreate} className="app-button-primary">
           <Plus size={16} />{effectiveCreateLabel}
@@ -515,8 +505,9 @@ export default function ObjectListPage({
           )}
 
           {/* ViewBar: view selector, search, sort, column settings, page size */}
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex flex-1 items-center gap-2">
+          <div className="rounded-xl border border-slate-200 bg-white p-2.5 shadow-[0_1px_2px_rgba(15,23,42,.03)]">
+          <div className="flex flex-col gap-2.5 lg:flex-row lg:items-center">
+            <div className="flex min-w-0 flex-1 items-center gap-2">
               <ViewSelector
                 workspaceId={workspaceId}
                 objectKey={objectKey}
@@ -530,18 +521,18 @@ export default function ObjectListPage({
                   cancel: t("workspace.viewBar.cancel"),
                 }}
               />
-              <div className="relative w-full max-w-sm">
+              <div className="relative min-w-0 flex-1 lg:max-w-md">
                 <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                 <input
                   type="search"
                   value={searchInput}
                   onChange={(e) => setSearchInput(e.target.value)}
                   placeholder={effectiveSearchPlaceholder}
-                  className="app-input pl-9"
+                  className="app-input h-10 pl-9"
                 />
               </div>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center justify-end gap-1 lg:shrink-0 lg:flex-nowrap">
               <select
                 value={effectiveSortValue}
                 onChange={(e) => {
@@ -549,7 +540,8 @@ export default function ObjectListPage({
                   params.set("sort", e.target.value);
                   router.replace(`${basePath}?${params.toString()}`, { scroll: false });
                 }}
-                className="app-input max-w-[200px]"
+                aria-label="Sort records"
+                className="app-input h-10 min-w-[150px] max-w-[190px]"
               >
                 {effectiveSortOptions.map((opt) => (
                   <option key={opt.value} value={opt.value}>
@@ -566,20 +558,67 @@ export default function ObjectListPage({
                 value={currentPageSize}
                 onChange={handlePageSizeChange}
               />
+              {hasPack && viewDefId && (preferenceDirty || canManageViews || canResetView) ? (
+                <details className="group/view-options relative">
+                  <summary
+                    className="app-button-ghost flex cursor-pointer list-none"
+                    aria-label={t("workspace.viewBar.save")}
+                    title={t("workspace.viewBar.save")}
+                  >
+                    <MoreHorizontal size={18} />
+                  </summary>
+                  <div className="absolute right-0 top-full z-50 mt-1 min-w-[210px] overflow-hidden rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl">
+                    {preferenceDirty ? (
+                      <button
+                        type="button"
+                        onClick={() => void handleSavePreference()}
+                        disabled={savingPreference}
+                        className="flex min-h-9 w-full items-center gap-2 rounded-lg px-3 text-left text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                      >
+                        <Check size={15} />
+                        {savedFeedback ? t("workspace.viewBar.saved") : savingPreference ? t("surface.loading") : t("workspace.viewBar.save")}
+                      </button>
+                    ) : null}
+                    {canManageViews ? (
+                      <button
+                        type="button"
+                        onClick={() => setSaveDialogOpen(true)}
+                        className="flex min-h-9 w-full items-center gap-2 rounded-lg px-3 text-left text-sm font-medium text-slate-700 hover:bg-slate-50"
+                      >
+                        <Save size={15} />{t("workspace.viewBar.saveAsView")}
+                      </button>
+                    ) : null}
+                    {canResetView ? (
+                      <button
+                        type="button"
+                        onClick={() => setResetConfirmOpen(true)}
+                        disabled={resetting}
+                        className="flex min-h-9 w-full items-center gap-2 rounded-lg px-3 text-left text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                      >
+                        <RotateCcw size={15} />
+                        {resetting ? t("surface.loading") : t("workspace.viewBar.reset")}
+                      </button>
+                    ) : null}
+                  </div>
+                </details>
+              ) : null}
             </div>
           </div>
 
           {/* FilterBar: active filter chips + add filter */}
-          <FilterBar
-            fields={fields}
-            activeFilters={relationFilters}
-            onRemoveFilter={handleRemoveFilter}
-            onAddFilter={handleAddFilter}
-            workspaceId={workspaceId}
-            objectKey={objectKey}
-          />
+          <div className="mt-2 border-t border-slate-100 px-1 pt-2">
+            <FilterBar
+              fields={fields}
+              activeFilters={relationFilters}
+              onRemoveFilter={handleRemoveFilter}
+              onAddFilter={handleAddFilter}
+              workspaceId={workspaceId}
+              objectKey={objectKey}
+            />
+          </div>
+          </div>
 
-          <p className="text-xs text-slate-500">{t("workspace.recordCount", { count: totalCount })}</p>
+          <p className="px-1 text-xs font-medium text-slate-500">{t("workspace.recordCount", { count: totalCount })}</p>
 
           {totalCount === 0 ? (
             isSearching ? (

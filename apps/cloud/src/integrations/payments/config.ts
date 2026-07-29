@@ -1,8 +1,11 @@
 import {
   getPaymentProviderAccount,
   upsertPaymentProviderAccount,
+  getConnectProviderAccount,
+  assertConnectReady,
   type PaymentProviderAccount,
   type PaymentProviderMode,
+  type PaymentProviderAccountConnect,
 } from "@runory/platform-core";
 
 function required(name: string): string {
@@ -18,6 +21,39 @@ export interface StripePaymentConfiguration {
   mode: PaymentProviderMode;
   currency: string;
   webhookSecret: string;
+}
+
+/**
+ * Resolve the active Stripe Connect account for a workspace from the database.
+ *
+ * Per Tech Spec §9: all checkout/refund operations must execute as Direct
+ * Charges on the workspace merchant's Connected Account, not the platform
+ * account. This function resolves the Connect account and verifies readiness
+ * before returning it.
+ */
+export async function resolveConnectProviderAccount(
+  workspaceId: string,
+  mode: PaymentProviderMode = "test",
+): Promise<PaymentProviderAccountConnect> {
+  const account = await getConnectProviderAccount(workspaceId, mode);
+  assertConnectReady(account);
+  return account;
+}
+
+export async function ensureStripeProviderAccount(
+  workspaceId: string,
+): Promise<PaymentProviderAccount> {
+  const config = getStripePaymentConfiguration();
+  if (config.workspaceId !== workspaceId) {
+    throw new Error("STRIPE_WORKSPACE_NOT_CONFIGURED");
+  }
+  return upsertPaymentProviderAccount({
+    workspaceId,
+    id: config.providerAccountId,
+    provider: "stripe",
+    mode: config.mode,
+    providerAccountRef: config.providerAccountRef,
+  });
 }
 
 export function getStripePaymentConfiguration(): StripePaymentConfiguration {
@@ -38,22 +74,6 @@ export function getStripePaymentConfiguration(): StripePaymentConfiguration {
     currency,
     webhookSecret: required("STRIPE_WEBHOOK_SECRET"),
   };
-}
-
-export async function ensureStripeProviderAccount(
-  workspaceId: string,
-): Promise<PaymentProviderAccount> {
-  const config = getStripePaymentConfiguration();
-  if (config.workspaceId !== workspaceId) {
-    throw new Error("STRIPE_WORKSPACE_NOT_CONFIGURED");
-  }
-  return upsertPaymentProviderAccount({
-    workspaceId,
-    id: config.providerAccountId,
-    provider: "stripe",
-    mode: config.mode,
-    providerAccountRef: config.providerAccountRef,
-  });
 }
 
 export async function resolveStripeWebhookAccount(): Promise<{

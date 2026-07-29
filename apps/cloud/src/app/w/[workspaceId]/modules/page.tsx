@@ -4,11 +4,12 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
-  ArrowLeft, CheckCircle2, Database, LayoutGrid, PackagePlus,
+  CheckCircle2, Database, LayoutGrid, PackagePlus,
   RefreshCw, Sparkles, AlertCircle, ChevronRight,
 } from "lucide-react";
 import { notifyWorkspaceNavigationChanged } from "@/lib/workspace-events";
 import { useI18n } from "@/i18n/locale-provider";
+import AdministrationPageHeader from "@/components/administration/AdministrationPageHeader";
 
 interface PackSummary {
   packId: string;
@@ -40,7 +41,7 @@ interface PackSummary {
 export default function ModulesPage() {
   const workspaceId = useParams().workspaceId as string;
   const router = useRouter();
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const [packs, setPacks] = useState<PackSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [installingId, setInstallingId] = useState<string | null>(null);
@@ -180,31 +181,13 @@ export default function ModulesPage() {
 
   return (
     <div className="space-y-6">
-      <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <p className="app-eyebrow">Module center</p>
-          <h1 className="mt-2 text-3xl font-bold tracking-[-.025em] text-slate-950">
-            {t("modules.title")}
-          </h1>
-          <p className="mt-2 text-sm text-slate-500">{t("modules.subtitle")}</p>
-        </div>
-        <button
-          type="button"
-          onClick={() => { setLoading(true); void loadData(); }}
-          className="app-button-secondary self-start"
-        >
-          <RefreshCw size={16} />
-          {t("workspace.refresh")}
-        </button>
-      </header>
-
-      <Link
-        href={`/w/${workspaceId}/dashboard`}
-        className="inline-flex items-center gap-1 text-sm font-medium text-indigo-600 hover:text-indigo-800"
-      >
-        <ArrowLeft size={14} />
-        {t("workspace.goDashboard")}
-      </Link>
+      <AdministrationPageHeader
+        workspaceId={workspaceId}
+        eyebrow={locale === "zh" ? "业务应用" : "Business apps"}
+        title={t("modules.title")}
+        description={t("modules.subtitle")}
+        actions={<button type="button" onClick={() => { setLoading(true); void loadData(); }} className="app-button-secondary"><RefreshCw size={16} />{t("workspace.refresh")}</button>}
+      />
 
       {error && (
         <div role="alert" className="app-error">

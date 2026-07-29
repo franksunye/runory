@@ -10,6 +10,7 @@ import { objectKeyToRouteSegment } from "@/lib/dynamic-object";
 import { FieldDisplay } from "@/components/fields";
 import { EmptyState, ErrorState, LoadingState } from "@/components/states";
 import UserAvatar from "./UserAvatar";
+import { ChevronRight } from "lucide-react";
 
 type RecordData = Record<string, string | number | boolean | null>;
 type ViewConfig = {
@@ -249,14 +250,14 @@ export default function SchemaTable({
 
   const containerClass = embedded
     ? "overflow-hidden border-t border-slate-100"
-    : "app-card overflow-hidden p-0";
+    : "overflow-hidden rounded-xl border border-slate-200 bg-white shadow-[0_1px_2px_rgba(15,23,42,.03)]";
 
   return (
     <div className={containerClass}>
       {/* Desktop table (sm+) */}
       <div className="hidden overflow-x-auto sm:block">
         <table className="min-w-full divide-y divide-slate-200">
-          <thead className="bg-slate-50/80">
+          <thead className="sticky top-0 z-10 bg-slate-50/95 backdrop-blur">
             <tr>
               {columns.map((col) => {
                 const fieldDef = fieldMap.get(col.field);
@@ -265,7 +266,7 @@ export default function SchemaTable({
                 return (
                   <th
                     key={col.field}
-                    className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-slate-500"
+                    className="px-4 py-2.5 text-left text-[11px] font-bold uppercase tracking-[.08em] text-slate-500"
                   >
                     <span className="inline-flex items-center gap-1">
                       {label}
@@ -278,7 +279,6 @@ export default function SchemaTable({
                   </th>
                 );
               })}
-              <th className="px-4 py-3" />
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100 bg-white">
@@ -290,22 +290,28 @@ export default function SchemaTable({
                   onClick={() => router.push(href)}
                   className="cursor-pointer transition hover:bg-indigo-50/40"
                 >
-                  {columns.map((col) => {
-                    const { content } = buildCell(record, col, fieldMap, t, locale, workspaceId);
+                  {columns.map((col, columnIndex) => {
+                    const { content, fieldDef } = buildCell(record, col, fieldMap, t, locale, workspaceId);
+                    const primaryContent = columnIndex === 0 && fieldDef?.type !== "lookup"
+                      ? (
+                        <Link
+                          href={href}
+                          onClick={(event) => event.stopPropagation()}
+                          className="font-semibold text-slate-900 transition hover:text-indigo-700"
+                        >
+                          {content}
+                        </Link>
+                      )
+                      : content;
                     return (
                       <td
                         key={col.field}
-                        className="whitespace-nowrap px-4 py-3 text-sm text-slate-700"
+                        className="whitespace-nowrap px-4 py-2.5 text-sm text-slate-700"
                       >
-                        {content}
+                        {primaryContent}
                       </td>
                     );
                   })}
-                  <td className="whitespace-nowrap px-4 py-3 text-right text-sm">
-                    <span className="text-xs font-semibold text-indigo-600 group-hover:text-indigo-800">
-                      {t("workspace.table.view")}
-                    </span>
-                  </td>
                 </tr>
               );
             })}
@@ -335,9 +341,7 @@ export default function SchemaTable({
                   <span className="min-w-0 flex-1 truncate text-sm font-semibold text-slate-900">
                     {titleCell.content}
                   </span>
-                  <span className="shrink-0 text-xs font-semibold text-indigo-600">
-                    {t("workspace.table.view")}
-                  </span>
+                  <ChevronRight size={16} className="shrink-0 text-slate-300" aria-hidden="true" />
                 </div>
               )}
               {/* Remaining fields as label/value pairs */}

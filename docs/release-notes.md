@@ -4,6 +4,40 @@ This is the public changelog for Runory Cloud. Runory is in **Cloud Early Access
 
 For the v0.1 release definition and acceptance matrix, see [v0.1.0 Cloud Early Access](./releases/v0.1.0-cloud-early-access.md). For concepts and terminology used here, see [Concepts](./concepts.md).
 
+## v0.8.x — Product Maturity and Customer Access (in progress)
+
+`v0.8` delivers the customer-access platform, Stripe Connect Direct Charge integration, view preferences, and UI surface maturation. The binding specification is [v0.8 Product Maturity Technical Spec](./product/v0.8-product-maturity-technical-spec.md).
+
+### What ships in v0.8
+
+- **Customer Access Platform.** Signed, opaque access tokens exchanged for HttpOnly session cookies. Customers can view quotes, accept quotes, view work order status, view invoices, initiate checkout, and view payment status — all through server-derived inputs with no browser-authoritative values.
+- **Stripe Connect Direct Charges.** Checkout Sessions and refunds execute on the merchant's Connected Account, not the platform account. The server resolves the Connect account from the database and verifies readiness before any payment activity.
+- **Connect Onboarding.** Stripe-hosted Express onboarding through the outbox pattern. Account links are created via Stripe API and persisted for the frontend to redirect.
+- **Connect Webhook Reliability.** Extended event coverage (checkout.session.completed, payment_intent.payment_failed, checkout.session.expired, payment_intent.processing, refund.updated, account.updated). Idempotent deduplication via provider_event_reference. HTTP 500 on genuine failures to trigger Stripe retry.
+- **Security Boundaries.** Same-origin validation, IP + grant fingerprint rate limiting, workspace/root/subject context verification on token exchange, and sampled access-denied audit.
+- **Stale Account State Guard.** `assertConnectReady` rejects accounts whose `last_synced_at` exceeds a 24-hour threshold, preventing operations on potentially revoked or restricted accounts.
+- **View Preferences.** ViewBar with ViewSelector, FilterBar, ColumnSettings, PageSizeSelector, Save, Save as View, Reset, Rename, and Delete — forming a complete view configuration closed loop.
+- **UI Surface Maturation.** Standardized state components (EmptyState, LoadingState, ErrorState), unified field rendering with 9 type-specific renderers, shared layout primitives, desktop/mobile responsive consistency, and permission-filtered action rendering.
+
+### Stripe Connect implementation status
+
+| Capability | Status |
+| --- | --- |
+| Direct Charge checkout on Connected Account | Implemented |
+| Refund on Connected Account | Implemented |
+| Connect onboarding via Stripe API | Implemented |
+| Connect webhook event coverage | Implemented |
+| Readiness guard with staleness check | Implemented |
+| Customer mutation security boundaries | Implemented |
+| Two-merchant Stripe sandbox evidence | Pending |
+| Production live-money evidence | v1.0 |
+
+### Not yet available in v0.8
+
+- Two-merchant Stripe sandbox end-to-end evidence (next milestone before final Tag)
+- Production live-money payment processing (v1.0)
+- Application fee collection (post-GA decision)
+
 ## v0.4.x — Public Free Launch (in progress)
 
 `v0.4` is the first publicly usable free launch of Runory Cloud. It is not about adding more business packs or deeper runtime features — it is about making Runory usable by the expected first audience: English-first users, open-source-curious developers, SMB operators trying Cloud for free, and builders using MCP/Skill/Agent workflows.

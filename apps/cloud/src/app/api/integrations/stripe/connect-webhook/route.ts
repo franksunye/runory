@@ -5,6 +5,11 @@ import {
   businessTable,
   hashProviderPayload,
   queryOne,
+  updateConnectOnboardingStatus,
+  resolveOnboardingStatus,
+  type ConnectSyncData,
+  type ConnectOnboardingStatus,
+  type ConnectRequirementsStatus,
 } from "@runory/platform-core";
 import { mapStripeEvent } from "@/integrations/payments/stripe/mapper";
 
@@ -20,9 +25,14 @@ export const runtime = "nodejs";
 // verified livemode flag.
 //
 // Event processing: the verified Stripe event is normalized via mapStripeEvent
-// and dispatched to applyProviderPaymentEvent, which updates payment / payment
-// request / invoice status idempotently using the provider event reference
-// table for deduplication.
+// and dispatched to either:
+//   - updateConnectOnboardingStatus (for account.updated events)
+//   - applyProviderPaymentEvent (for payment/refund/dispute events)
+//
+// Both paths are idempotent via the provider_event_reference table.
+//
+// Error handling: idempotent conflicts (already processed) return 200.
+// Genuine processing failures return 500 so Stripe retries the event.
 export async function POST(request: NextRequest) {
   const webhookSecret = process.env.STRIPE_CONNECT_WEBHOOK_SECRET;
   const signature = request.headers.get("stripe-signature");
@@ -73,8 +83,8 @@ export async function POST(request: NextRequest) {
   const mode: "test" | "live" = livemode ? "live" : "test";
   const table = businessTable("payment_provider_account");
 
-  const row = await queryOne<{ workspace_id: string; id: string }>(
-    `SELECT workspace_id, id FROM ${table}
+  const row = await queryOne<{ workspace_id: string; id: string; onboarding_status: string }>(
+    `SELECT workspace_id, id, onboarding_status FROM ${table}
      WHERE provider_account_ref = ? AND provider = 'stripe' AND mode = ?
      LIMIT 1`,
     [accountId, mode],
@@ -92,8 +102,7 @@ export async function POST(request: NextRequest) {
   }
 
   // Normalize the Stripe event into a provider-agnostic payment event.
-  // Returns null for events we don't process (e.g., checkout.session.completed
-  // with payment_status != "paid").
+  // Returns null for events we don't process.
   const normalized = mapStripeEvent(event as unknown as Parameters<typeof mapStripeEvent>[0]);
 
   if (!normalized) {
@@ -104,10 +113,62 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // Process the event through the payment command handler. This is idempotent:
-  // the provider_event_reference table deduplicates by providerEventId.
   const payloadHash = hashProviderPayload(Buffer.from(rawBody));
 
+  // Handle account.updated events separately — these update the Connect
+  // onboarding status, not payment state.
+  if (normalized.type === "account.updated") {
+    try {
+      const syncData: ConnectSyncData = {
+        details_submitted: normalized.detailsSubmitted,
+        charges_enabled: normalized.chargesEnabled,
+        payouts_enabled: normalized.payoutsEnabled,
+        requirements_status: normalized.requirementsStatus as ConnectRequirementsStatus,
+        requirements_json: normalized.requirementsJson,
+      };
+      const currentStatus = row.onboarding_status as ConnectOnboardingStatus;
+      const newStatus = resolveOnboardingStatus(syncData, currentStatus);
+      await updateConnectOnboardingStatus(
+        row.workspace_id,
+        row.id,
+        newStatus,
+        syncData,
+      );
+      return NextResponse.json(
+        { received: true, workspaceId: row.workspace_id, processed: true, type: "account.updated" },
+        { status: 200 },
+      );
+    } catch (error) {
+      console.error("[stripe:connect-webhook] account.updated processing failed", {
+        eventId: event.id,
+        message: error instanceof Error ? error.message : String(error),
+      });
+      // Return 500 so Stripe retries — this is a genuine processing failure.
+      return NextResponse.json(
+        { received: true, workspaceId: row.workspace_id, processed: false, error: "account.update_failed" },
+        { status: 500 },
+      );
+    }
+  }
+
+  // Handle dispute events — log and acknowledge for now; full dispute
+  // workflow is deferred to v0.9.2 reconciliation.
+  if (normalized.type === "dispute.created" || normalized.type === "dispute.closed") {
+    console.info("[stripe:connect-webhook] dispute event received", {
+      eventId: event.id,
+      type: normalized.type,
+      disputeId: normalized.disputeId,
+      workspaceId: row.workspace_id,
+    });
+    return NextResponse.json(
+      { received: true, workspaceId: row.workspace_id, processed: true, type: normalized.type },
+      { status: 200 },
+    );
+  }
+
+  // Process payment/refund events through the payment command handler.
+  // This is idempotent: the provider_event_reference table deduplicates
+  // by providerEventId.
   try {
     await applyProviderPaymentEvent(
       row.workspace_id,
@@ -121,10 +182,11 @@ export async function POST(request: NextRequest) {
       { status: 200 },
     );
   } catch (error) {
-    // Idempotency: if the event was already processed, the provider event
+    const message = error instanceof Error ? error.message : String(error);
+
+    // Idempotent: if the event was already processed, the provider event
     // reference unique constraint will reject the insert. Return 200 so Stripe
     // does not retry.
-    const message = error instanceof Error ? error.message : String(error);
     if (message.includes("UNIQUE") || message.includes("already") || message.includes("DUPLICATE")) {
       console.info("[stripe:connect-webhook] event already processed", {
         eventId: event.id,
@@ -136,9 +198,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Log the error but still return 200 to prevent Stripe from retrying
-    // endlessly. The error is also captured in the provider_event_reference
-    // table with status "failed" if the transaction reached that point.
+    // Genuine processing failure — return 500 so Stripe retries the event.
     console.error("[stripe:connect-webhook] event processing failed", {
       eventId: event.id,
       type: event.type,
@@ -146,7 +206,7 @@ export async function POST(request: NextRequest) {
     });
     return NextResponse.json(
       { received: true, workspaceId: row.workspace_id, processed: false, error: message },
-      { status: 200 },
+      { status: 500 },
     );
   }
 }

@@ -1,6 +1,6 @@
 import type { JSX } from "react";
 import type { FieldDisplayProps } from "../registry";
-import { resolveDisplayLabel } from "../format";
+import { humanizeSelectValue, resolveDisplayLabel } from "../format";
 
 /**
  * Renders a select field value as a neutral badge using the resolved option
@@ -16,5 +16,6 @@ export default function SelectDisplay({ value, displayValue }: FieldDisplayProps
   if (label === null) {
     return <span className="text-slate-400">—</span>;
   }
-  return <span className="app-badge bg-slate-100 text-slate-700">{label}</span>;
+  const businessLabel = displayValue ? label : humanizeSelectValue(label);
+  return <span className="app-badge bg-slate-100 text-slate-700">{businessLabel}</span>;
 }

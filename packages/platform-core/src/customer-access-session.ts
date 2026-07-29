@@ -12,7 +12,7 @@
 
 import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 import { queryOne, batch } from "./db";
-import { TABLES } from "./contracts";
+import { TABLES, businessTable } from "./contracts";
 import { hashAccessToken } from "./customer-access-commands";
 import type { CustomerAccessGrantRecord } from "./customer-access-commands";
 import { writeAuditEvent } from "./audit-service";
@@ -198,6 +198,10 @@ export async function exchangeCustomerAccessToken(
     throw new CustomerAccessUnavailableError();
   }
 
+  // Per Tech Spec §6.2: verify root record, subject record, and workspace
+  // are still in a valid state. All failures collapse to UNAVAILABLE.
+  await verifyGrantContext(grant);
+
   // Update first/last accessed timestamps
   const nowIso = new Date(nowMs).toISOString();
   const isFirstAccess = grant.first_accessed_at === null;
@@ -217,6 +221,65 @@ export async function exchangeCustomerAccessToken(
   const cookieOptions = customerAccessCookieOptions(grant.expires_at);
 
   return { grant, cookieValue, cookieOptions };
+}
+
+/**
+ * Verify that the grant's root record, subject record, and workspace are
+ * still in a valid state for customer access.
+ *
+ * Per Tech Spec §6.2: token exchange must verify root, subject, and
+ * Workspace status — not just grant status and expiry.
+ *
+ * All failures throw CustomerAccessUnavailableError to avoid leaking
+ * information about the specific failure reason.
+ */
+async function verifyGrantContext(grant: CustomerAccessGrantRecord): Promise<void> {
+  // 1. Verify workspace exists and is active
+  //    The workspaces table uses `status` (default 'active') and soft-delete
+  //    columns `archived_at` / `pending_deletion_at` / `purged_at` — not
+  //    `deleted_at` like business tables.
+  const workspace = await queryOne<{ id: string; status: string }>(
+    `SELECT id, status FROM ${TABLES.workspaces} WHERE id = ?`,
+    [grant.workspace_id],
+  );
+  if (!workspace || workspace.status !== "active") {
+    throw new CustomerAccessUnavailableError();
+  }
+
+  // 2. Verify root record exists and is in a valid state for customer access
+  //    Quotes in 'sent' or 'accepted' status are valid for customer access.
+  //    Work orders in active statuses are valid for customer access.
+  const rootTable = businessTable(grant.root_object_type);
+  const rootStatusColumn = grant.root_object_type === "quote" ? "status" : "status";
+  const root = await queryOne<{ id: string; status: string; deleted_at: string | null }>(
+    `SELECT id, ${rootStatusColumn} AS status, deleted_at FROM ${rootTable}
+     WHERE workspace_id = ? AND id = ?`,
+    [grant.workspace_id, grant.root_record_id],
+  );
+  if (!root || root.deleted_at) {
+    throw new CustomerAccessUnavailableError();
+  }
+  // Valid root statuses: sent, accepted (quote); any non-cancelled (work_order)
+  if (grant.root_object_type === "quote") {
+    if (!["sent", "accepted"].includes(root.status)) {
+      throw new CustomerAccessUnavailableError();
+    }
+  } else {
+    if (root.status === "cancelled" || root.status === "closed") {
+      throw new CustomerAccessUnavailableError();
+    }
+  }
+
+  // 3. Verify subject record exists
+  const subjectTable = businessTable(grant.subject_type);
+  const subject = await queryOne<{ id: string; deleted_at: string | null }>(
+    `SELECT id, deleted_at FROM ${subjectTable}
+     WHERE workspace_id = ? AND id = ?`,
+    [grant.workspace_id, grant.subject_id],
+  );
+  if (!subject || subject.deleted_at) {
+    throw new CustomerAccessUnavailableError();
+  }
 }
 
 // ── Session Resolution ──
@@ -329,6 +392,63 @@ export function shouldSampleAccessDenied(fingerprint: string): boolean {
   }
   accessDeniedLastSampled.set(fingerprint, now);
   return true;
+}
+
+// ── Mutation Rate Limiting (Tech Spec §6.3) ──
+
+const MUTATION_RATE_LIMIT_WINDOW_MS = 10_000; // 10 seconds
+const MUTATION_RATE_LIMIT_MAX = 5; // max 5 mutations per window per fingerprint
+const mutationAttemptTimestamps = new Map<string, number[]>();
+
+/**
+ * Check if a customer mutation request should be rate-limited.
+ * Per Tech Spec §6.3: mutation attempts are rate-limited by IP plus
+ * token/grant fingerprint.
+ *
+ * Returns true if the request is allowed, false if rate-limited.
+ */
+export function checkMutationRateLimit(fingerprint: string): boolean {
+  const now = Date.now();
+  const timestamps = mutationAttemptTimestamps.get(fingerprint) ?? [];
+  // Prune timestamps outside the window
+  const recent = timestamps.filter((ts) => now - ts < MUTATION_RATE_LIMIT_WINDOW_MS);
+  if (recent.length >= MUTATION_RATE_LIMIT_MAX) {
+    return false;
+  }
+  recent.push(now);
+  mutationAttemptTimestamps.set(fingerprint, recent);
+  return true;
+}
+
+// ── Same-Origin Validation (Tech Spec §8.2) ──
+
+/**
+ * Validate that the request origin matches the expected application origin.
+ * Per Tech Spec §8.2: customer mutation routes must verify same-origin
+ * to prevent CSRF attacks.
+ *
+ * Returns true if the origin is valid, false otherwise.
+ */
+export function validateSameOrigin(requestOrigin: string | null, appUrl: string): boolean {
+  if (!requestOrigin) return false;
+  try {
+    const expected = new URL(appUrl);
+    const actual = new URL(requestOrigin);
+    return actual.origin === expected.origin;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Extract the client IP from a request, checking common forwarded headers.
+ */
+export function extractClientIp(headers: Headers): string {
+  return (
+    headers.get("x-forwarded-for")?.split(",")[0]?.trim()
+    || headers.get("x-real-ip")
+    || "unknown"
+  );
 }
 
 /**

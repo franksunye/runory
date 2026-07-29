@@ -6,7 +6,7 @@
 | Topic | `product` |
 | Applies to | `v0.8–v1.0` |
 | Owner | Product / Engineering / Operations |
-| Last reviewed | 2026-07-17 |
+| Last reviewed | 2026-07-29 |
 | Supersedes | — |
 | Superseded by | — |
 
@@ -238,7 +238,35 @@ are evidenced:
 If these gates are incomplete, Runory may keep merchant payments in Sandbox or
 feature-flagged preview, but must not market them as a GA production capability.
 
-## 8. Related documents
+## 8. v0.8 implementation status (2026-07-29)
+
+The following v0.8.1 sandbox-complete capabilities have been implemented and
+pass automated tests (1316 platform-core + 338 cloud tests):
+
+| Capability | Stage | Status |
+| --- | --- | --- |
+| Connect account lifecycle (start, sync, disconnect) | A | Implemented |
+| Connect readiness guard with 24h staleness check | A | Implemented |
+| Direct Charge checkout on Connected Account | B | Implemented |
+| Refund on Connected Account | B | Implemented |
+| Connect onboarding via Stripe API (outbox pattern) | A | Implemented |
+| Connect webhook: checkout.session.completed | B | Implemented |
+| Connect webhook: payment_intent.payment_failed | C | Implemented |
+| Connect webhook: checkout.session.expired | C | Implemented |
+| Connect webhook: payment_intent.processing | C | Implemented |
+| Connect webhook: refund.updated | C | Implemented |
+| Connect webhook: account.updated | C | Implemented |
+| Webhook idempotency via provider_event_reference | B | Implemented |
+| Webhook HTTP 500 on genuine failure (Stripe retry) | C | Implemented |
+| Customer access security: same-origin, rate limit, context verify | C | Implemented |
+| Cross-tenant isolation in checkout and webhook paths | B | Implemented |
+
+Remaining before final v0.8 Tag:
+
+- Two-merchant Stripe sandbox end-to-end evidence (Stage A/B manual verification)
+- Production live-money evidence (Stage D, v1.0)
+
+## 9. Related documents
 
 - [Payment Product Definition](payment-product-definition.md)
 - [Payment Technical Specification](payment-technical-spec.md)

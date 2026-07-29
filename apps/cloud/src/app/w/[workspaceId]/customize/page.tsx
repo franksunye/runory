@@ -2,41 +2,30 @@
 
 import { useState } from "react";
 import { useParams } from "next/navigation";
-import Link from "next/link";
-import { ArrowLeft, ListChecks, Plus, SlidersHorizontal } from "lucide-react";
+import { ListChecks, Plus } from "lucide-react";
 import AddFieldWizard from "@/components/customize/AddFieldWizard";
 import ExtensionList from "@/components/customize/ExtensionList";
 import { useI18n } from "@/i18n/locale-provider";
+import AdministrationPageHeader from "@/components/administration/AdministrationPageHeader";
 
 type Tab = "add" | "installed";
 
 export default function CustomizePage() {
   const workspaceId = useParams().workspaceId as string;
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const [tab, setTab] = useState<Tab>("add");
 
   return (
     <div className="space-y-6">
-      <header>
-        <p className="app-eyebrow">Customize</p>
-        <h1 className="mt-2 text-3xl font-bold tracking-[-.025em] text-slate-950">
-          {t("customize.title")}
-        </h1>
-        <p className="mt-2 text-sm text-slate-500">
-          {t("customize.subtitle")}
-        </p>
-      </header>
-
-      <Link
-        href={`/w/${workspaceId}/manage`}
-        className="inline-flex items-center gap-1 text-sm font-medium text-indigo-600 hover:text-indigo-800"
-      >
-        <ArrowLeft size={14} />
-        {t("customize.backToManage")}
-      </Link>
+      <AdministrationPageHeader
+        workspaceId={workspaceId}
+        eyebrow={locale === "zh" ? "对象与字段" : "Objects & fields"}
+        title={t("customize.title")}
+        description={t("customize.subtitle")}
+      />
 
       {/* Tabs */}
-      <div className="flex gap-1 rounded-xl bg-slate-100 p-1">
+      <div className="flex gap-1 rounded-xl border border-slate-200 bg-white p-1 shadow-[0_1px_2px_rgba(15,23,42,.03)]">
         <button
           type="button"
           onClick={() => setTab("add")}

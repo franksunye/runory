@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { useI18n } from "@/i18n/locale-provider";
 import { apiFetch, apiPost, apiDelete } from "@/lib/api-fetch";
+import AdministrationPageHeader from "@/components/administration/AdministrationPageHeader";
 
 interface ApiKey {
   id: string;
@@ -44,7 +45,7 @@ function formatDate(iso: string | null): string {
 export default function ApiKeysPage() {
   const params = useParams();
   const workspaceId = params.workspaceId as string;
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
 
   const [keys, setKeys] = useState<ApiKey[]>([]);
   const [loading, setLoading] = useState(true);
@@ -173,20 +174,17 @@ export default function ApiKeysPage() {
 
   return (
     <div className="space-y-6">
-      <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <p className="app-eyebrow">API Keys</p>
-          <h1 className="mt-2 text-2xl font-bold tracking-tight text-slate-950">{t("apiKeys.title")}</h1>
-          <p className="mt-1 text-sm text-slate-500">{t("apiKeys.subtitle")}</p>
-        </div>
-        <button
-          type="button"
-          onClick={() => { setLoading(true); void loadKeys(); }}
-          className="app-button-secondary self-start"
-        >
-          <RefreshCw size={16} />{t("workspace.refresh")}
-        </button>
-      </header>
+      <AdministrationPageHeader
+        workspaceId={workspaceId}
+        eyebrow={locale === "zh" ? "开发者访问" : "Developer access"}
+        title={t("apiKeys.title")}
+        description={t("apiKeys.subtitle")}
+        actions={
+          <button type="button" onClick={() => { setLoading(true); void loadKeys(); }} className="app-button-secondary">
+            <RefreshCw size={16} />{t("workspace.refresh")}
+          </button>
+        }
+      />
 
       {error && <div role="alert" className="app-error">{error}</div>}
       {message && !revealedKey && (

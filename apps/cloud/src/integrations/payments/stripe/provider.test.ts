@@ -16,6 +16,7 @@ describe("StripePaymentProvider", () => {
       workspaceId: "ws_123",
       paymentRequestId: "payreq_123",
       providerAccountId: "provider_123",
+      providerAccountRef: "acct_test123",
       amountMinor: 12_500,
       currency: "usd",
       description: "Quote deposit",
@@ -41,7 +42,7 @@ describe("StripePaymentProvider", () => {
           price_data: expect.objectContaining({ currency: "usd", unit_amount: 12_500 }),
         }],
       }),
-      { idempotencyKey: "idem_checkout_123" },
+      { idempotencyKey: "idem_checkout_123", stripeAccount: "acct_test123" },
     );
   });
 
@@ -58,6 +59,7 @@ describe("StripePaymentProvider", () => {
       workspaceId: "ws_123",
       paymentRequestId: "payreq_blank_email",
       providerAccountId: "provider_123",
+      providerAccountRef: "acct_test123",
       amountMinor: 100,
       currency: "CNY",
       description: "Quote deposit",
@@ -69,7 +71,7 @@ describe("StripePaymentProvider", () => {
 
     expect(create).toHaveBeenCalledWith(
       expect.objectContaining({ customer_email: undefined }),
-      { idempotencyKey: "idem_checkout_blank_email" },
+      { idempotencyKey: "idem_checkout_blank_email", stripeAccount: "acct_test123" },
     );
   });
 
@@ -119,6 +121,7 @@ describe("StripePaymentProvider", () => {
       workspaceId: "ws_123",
       paymentId: "pay_123",
       providerAccountId: "provider_123",
+      providerAccountRef: "acct_test123",
       providerPaymentId: "pi_123",
       amountMinor: 2_500,
       currency: "USD",
@@ -129,7 +132,7 @@ describe("StripePaymentProvider", () => {
     });
     expect(create).toHaveBeenCalledWith(
       expect.objectContaining({ payment_intent: "pi_123", amount: 2_500 }),
-      { idempotencyKey: "idem_refund_123" },
+      { idempotencyKey: "idem_refund_123", stripeAccount: "acct_test123" },
     );
   });
 
@@ -148,6 +151,7 @@ describe("StripePaymentProvider", () => {
 
     await expect(provider.retrievePayment({
       providerAccountId: "provider_123",
+      providerAccountRef: "acct_test123",
       providerPaymentId: "pi_123",
     })).resolves.toMatchObject({
       status: "succeeded",
@@ -155,6 +159,6 @@ describe("StripePaymentProvider", () => {
       refundedAmountMinor: 2_500,
       currency: "USD",
     });
-    expect(retrieve).toHaveBeenCalledWith("pi_123", { expand: ["latest_charge"] });
+    expect(retrieve).toHaveBeenCalledWith("pi_123", { expand: ["latest_charge"] }, { stripeAccount: "acct_test123" });
   });
 });

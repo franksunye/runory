@@ -18,6 +18,7 @@ import {
 import { useI18n } from "@/i18n/locale-provider";
 import type { MessageKey } from "@/i18n/messages";
 import { apiFetch, apiPost } from "@/lib/api-fetch";
+import AdministrationPageHeader from "@/components/administration/AdministrationPageHeader";
 
 interface UsageItem {
   metric: string;
@@ -79,7 +80,7 @@ const METRIC_ORDER = ["records", "workspaces", "members", "api_requests", "agent
 export default function BillingPage() {
   const params = useParams();
   const workspaceId = params.workspaceId as string;
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
 
   const [data, setData] = useState<BillingData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -173,16 +174,13 @@ export default function BillingPage() {
 
   return (
     <div className="space-y-6">
-      <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <p className="app-eyebrow">Billing</p>
-          <h1 className="mt-2 text-2xl font-bold tracking-tight text-slate-950">{t("billing.title")}</h1>
-          <p className="mt-1 text-sm text-slate-500">{t("billing.subtitle")}</p>
-        </div>
-        <button onClick={() => { setLoading(true); void loadBilling(); }} className="app-button-secondary self-start">
-          <RefreshCw size={16} />{t("workspace.refresh")}
-        </button>
-      </header>
+      <AdministrationPageHeader
+        workspaceId={workspaceId}
+        eyebrow={locale === "zh" ? "账单与订阅" : "Billing"}
+        title={t("billing.title")}
+        description={t("billing.subtitle")}
+        actions={<button onClick={() => { setLoading(true); void loadBilling(); }} className="app-button-secondary"><RefreshCw size={16} />{t("workspace.refresh")}</button>}
+      />
 
       {error && <div role="alert" className="app-error">{error}</div>}
 

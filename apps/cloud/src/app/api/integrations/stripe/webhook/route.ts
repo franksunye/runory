@@ -31,6 +31,14 @@ export async function POST(request: NextRequest) {
     });
     if (!event) return NextResponse.json({ received: true, ignored: true });
 
+    // Only process payment/refund events through the SaaS billing webhook.
+    // Account updates and disputes are handled by the Connect webhook.
+    if (event.type === "account.updated"
+      || event.type === "dispute.created"
+      || event.type === "dispute.closed") {
+      return NextResponse.json({ received: true, ignored: true });
+    }
+
     const result = await applyProviderPaymentEvent(
       config.workspaceId,
       config.providerAccountId,

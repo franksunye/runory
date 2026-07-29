@@ -98,6 +98,53 @@ async function setupWorkspace() {
     [workspaceId, `stripe-e2e-${workspaceId.slice(-8)}`, timestamp, timestamp],
   );
   await installPack(workspaceId, "sales-quote-pack");
+
+  // Migration 0048 (Connect columns) is tolerant and may have been skipped
+  // because the payment_provider_account table didn't exist when migrations
+  // ran. Ensure the Connect columns exist before inserting a Connect account.
+  const ppaTable = businessTable("payment_provider_account");
+  const ppaCols = await db.execute({ sql: `PRAGMA table_info(${ppaTable})` });
+  const colNames = new Set(ppaCols.rows.map((r) => (r as unknown as { name: string }).name));
+  const connectCols: Record<string, string> = {
+    account_configuration_version: "TEXT",
+    onboarding_status: "TEXT NOT NULL DEFAULT 'not_started'",
+    details_submitted: "INTEGER NOT NULL DEFAULT 0",
+    charges_enabled: "INTEGER NOT NULL DEFAULT 0",
+    payouts_enabled: "INTEGER NOT NULL DEFAULT 0",
+    requirements_status: "TEXT NOT NULL DEFAULT 'clear'",
+    requirements_json: "TEXT",
+    last_synced_at: "TEXT",
+    disconnected_at: "TEXT",
+    aggregate_version: "INTEGER NOT NULL DEFAULT 1",
+  };
+  for (const [col, def] of Object.entries(connectCols)) {
+    if (!colNames.has(col)) {
+      await execute(`ALTER TABLE ${ppaTable} ADD COLUMN ${col} ${def}`);
+    }
+  }
+
+  // Create a Connect-ready Stripe provider account (Tech Spec §9).
+  // The route resolves the Connect account and calls assertConnectReady,
+  // so the account must be fully onboarded with a recent sync.
+  await execute(
+    `INSERT INTO ${ppaTable}
+      (id, workspace_id, provider, mode, provider_account_ref, status,
+       account_configuration_version, onboarding_status, details_submitted,
+       charges_enabled, payouts_enabled, requirements_status, requirements_json,
+       last_synced_at, disconnected_at, aggregate_version, created_at, updated_at)
+     VALUES (?, ?, 'stripe', 'test', ?, 'active',
+       1, 'complete', 1, 1, 1, 'clear', NULL,
+       ?, NULL, 1, ?, ?)`,
+    [
+      process.env.STRIPE_PAYMENT_PROVIDER_ACCOUNT_ID!,
+      workspaceId,
+      process.env.STRIPE_ACCOUNT_ID!,
+      timestamp,
+      timestamp,
+      timestamp,
+    ],
+  );
+
   const quote = await createRecord(workspaceId, "quote", {
     quote_number: "Q-E2E-STRIPE",
     title: "Stripe E2E accepted quote",

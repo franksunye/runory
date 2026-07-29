@@ -9,6 +9,7 @@ import InvitationAccessPanel from "@/components/access/InvitationAccessPanel";
 import type { AccessDirectory, AccessInvitation } from "@/components/access/access-types";
 import { apiFetch } from "@/lib/api-fetch";
 import { useI18n } from "@/i18n/locale-provider";
+import AdministrationPageHeader from "@/components/administration/AdministrationPageHeader";
 
 type TabKey = "people" | "roles" | "invitations";
 
@@ -57,12 +58,15 @@ export default function MembersPage() {
 
   return (
     <div className="space-y-6 page-enter">
-      <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div><p className="app-eyebrow">{zh ? "身份与访问" : "Identity & access"}</p><h1 className="mt-2 text-3xl font-bold tracking-[-.025em] text-slate-950">{zh ? "人员与访问" : "People & access"}</h1><p className="mt-2 text-sm text-slate-500">{zh ? "管理谁可以进入工作区、负责什么业务，以及可以访问哪些数据。" : "Manage who can enter, what they can do, and which data they can access."}</p></div>
-        <button type="button" onClick={() => { setLoading(true); void load(); }} className="app-button-secondary self-start"><RefreshCw size={16} />{zh ? "刷新" : "Refresh"}</button>
-      </header>
+      <AdministrationPageHeader
+        workspaceId={workspaceRef}
+        eyebrow={zh ? "身份与访问" : "Identity & access"}
+        title={zh ? "人员与访问" : "People & access"}
+        description={zh ? "管理谁可以进入工作区、负责什么业务，以及可以访问哪些数据。" : "Manage who can enter, what they can do, and which data they can access."}
+        actions={<button type="button" onClick={() => { setLoading(true); void load(); }} className="app-button-secondary"><RefreshCw size={16} />{zh ? "刷新" : "Refresh"}</button>}
+      />
 
-      <nav className="flex gap-1 overflow-x-auto rounded-xl border border-slate-200 bg-white p-1" aria-label={zh ? "人员与访问导航" : "People and access navigation"}>
+      <nav className="flex gap-1 overflow-x-auto rounded-xl border border-slate-200 bg-white p-1 shadow-[0_1px_2px_rgba(15,23,42,.03)]" aria-label={zh ? "人员与访问导航" : "People and access navigation"}>
         {tabs.map((tab) => { const Icon = tab.icon; const active = activeTab === tab.key; return <button key={tab.key} type="button" onClick={() => setActiveTab(tab.key)} className={`inline-flex min-w-fit items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition ${active ? "bg-slate-950 text-white shadow-sm" : "text-slate-600 hover:bg-slate-50"}`} aria-current={active ? "page" : undefined}><Icon size={16} />{tab.label}<span className={`rounded-full px-1.5 py-0.5 text-[10px] ${active ? "bg-white/15 text-white" : "bg-slate-100 text-slate-500"}`}>{tab.count}</span></button>; })}
       </nav>
 

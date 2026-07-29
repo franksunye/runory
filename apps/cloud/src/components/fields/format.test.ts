@@ -7,6 +7,7 @@ import {
   formatBooleanLabel,
   initials,
   resolveDisplayLabel,
+  humanizeSelectValue,
 } from "./format";
 
 // ── intlLocale ──
@@ -204,5 +205,12 @@ describe("resolveDisplayLabel", () => {
 
   it("prefers displayValue over value even when value is non-empty", () => {
     expect(resolveDisplayLabel("uuid-123", "Acme Corp")).toBe("Acme Corp");
+  });
+});
+
+describe("humanizeSelectValue", () => {
+  it("turns machine select values into business labels", () => {
+    expect(humanizeSelectValue("marketing_qualified")).toBe("Marketing qualified");
+    expect(humanizeSelectValue("in-progress")).toBe("In progress");
   });
 });

@@ -11,6 +11,7 @@ import {
   CheckCircle2,
   CheckSquare,
   ChevronRight,
+  Code2,
   Loader2,
   Package,
   User,
@@ -81,12 +82,13 @@ function stepLabels(t: TFunc): string[] {
 }
 
 export default function AddFieldWizard() {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const workspaceId = useParams().workspaceId as string;
 
   const [step, setStep] = useState<Step>(1);
   const [objects, setObjects] = useState<ObjectInfo[]>([]);
   const [loadingObjects, setLoadingObjects] = useState(true);
+  const [showTechnicalNames, setShowTechnicalNames] = useState(false);
 
   const [targetObject, setTargetObject] = useState("");
   const [label, setLabel] = useState("");
@@ -469,8 +471,23 @@ export default function AddFieldWizard() {
       {/* Step 1: Choose Object */}
       {step === 1 && (
         <div className="app-card p-6">
-          <h2 className="text-base font-bold text-slate-950">{t("addField.selectObjectTitle")}</h2>
-          <p className="mt-1 text-sm text-slate-500">{t("addField.selectObjectHint")}</p>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <h2 className="text-base font-bold text-slate-950">{t("addField.selectObjectTitle")}</h2>
+              <p className="mt-1 text-sm text-slate-500">{t("addField.selectObjectHint")}</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowTechnicalNames((visible) => !visible)}
+              className="app-button-ghost self-start text-xs"
+              aria-pressed={showTechnicalNames}
+            >
+              <Code2 size={15} />
+              {showTechnicalNames
+                ? (locale === "zh" ? "隐藏技术名称" : "Hide technical names")
+                : (locale === "zh" ? "显示技术名称" : "Show technical names")}
+            </button>
+          </div>
           <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {objects.map((obj) => {
               const Icon = OBJECT_ICONS[obj.objectKey] ?? Box;
@@ -493,9 +510,9 @@ export default function AddFieldWizard() {
                   >
                     <Icon size={20} />
                   </span>
-                  <div>
+                  <div className="min-w-0">
                     <p className="text-sm font-bold text-slate-950">{obj.label}</p>
-                    <p className="text-xs text-slate-400">{obj.objectKey}</p>
+                    {showTechnicalNames ? <p className="truncate font-mono text-xs text-slate-400">{obj.objectKey}</p> : null}
                   </div>
                   {selected && (
                     <CheckCircle2 size={18} className="ml-auto text-indigo-600" />

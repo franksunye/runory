@@ -7,12 +7,17 @@ import {
 } from "@runory/platform-core";
 import { requireWorkspaceContext } from "@/lib/auth";
 import { getOrCreateRequestId, handleError, successResponse } from "@/lib/http";
+import { processConnectOnboardingOutbox } from "@/integrations/payments/connect-outbox-processor";
 
 export const dynamic = "force-dynamic";
 
 // POST /api/workspaces/[id]/integrations/stripe/connect/onboarding
 // Start or resume the Stripe-managed Connect onboarding flow for the active
 // workspace/mode mapping (Tech Spec §9.3 — payment.connect.start).
+//
+// The command writes an outbox message; this route then processes it to create
+// a Stripe Connected Account (if needed) and an Account Link, returning the
+// real onboarding URL.
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
@@ -38,8 +43,14 @@ export async function POST(
       ctx.requestId,
     );
 
+    // Process the onboarding outbox to create the Stripe Account Link.
+    const onboardingUrl = await processConnectOnboardingOutbox(
+      workspaceId,
+      command.aggregate.id,
+    );
+
     return successResponse(
-      { onboardingUrl: command.aggregate.onboarding_url },
+      { onboardingUrl: onboardingUrl ?? command.aggregate.onboarding_url },
       200,
       ctx.requestId,
     );

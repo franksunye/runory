@@ -8,6 +8,10 @@ import {
   verifyCustomerAccessSession,
   shouldSampleAccessDenied,
   auditCustomerAccessDenied,
+  rateLimitFingerprint,
+  checkMutationRateLimit,
+  validateSameOrigin,
+  extractClientIp,
 } from "@runory/platform-core";
 
 export const dynamic = "force-dynamic";
@@ -47,6 +51,22 @@ export async function POST(
       await auditCustomerAccessDenied(payload.workspaceId, payload.grantId);
     }
     return unavailableResponse();
+  }
+
+  // Same-origin validation (Tech Spec §8.2)
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? new URL(request.url).origin;
+  if (!validateSameOrigin(request.headers.get("origin"), appUrl)) {
+    return unavailableResponse();
+  }
+
+  // IP + Grant fingerprint rate limiting (Tech Spec §6.3)
+  const clientIp = extractClientIp(request.headers);
+  const fingerprint = rateLimitFingerprint(clientIp, grant.id);
+  if (!checkMutationRateLimit(fingerprint)) {
+    return NextResponse.json(
+      { success: false, error: { code: "RATE_LIMITED", message: "RATE_LIMITED" } },
+      { status: 429 },
+    );
   }
 
   const { quoteId } = await params;

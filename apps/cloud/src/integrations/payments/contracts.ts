@@ -6,6 +6,7 @@ export interface CreateCheckoutInput {
   workspaceId: string;
   paymentRequestId: string;
   providerAccountId: string;
+  providerAccountRef: string;
   amountMinor: number;
   currency: string;
   description: string;
@@ -28,6 +29,7 @@ export interface CreateRefundInput {
   workspaceId: string;
   paymentId: string;
   providerAccountId: string;
+  providerAccountRef: string;
   providerPaymentId: string;
   amountMinor: number;
   currency: string;
@@ -73,6 +75,15 @@ export type NormalizedPaymentEvent =
       occurredAt: string;
     }
   | {
+      type: "payment.processing";
+      provider: PaymentProviderName;
+      providerEventId: string;
+      providerAccountId?: string;
+      providerPaymentId: string;
+      paymentRequestRef?: string;
+      occurredAt: string;
+    }
+  | {
       type: "checkout.expired";
       provider: PaymentProviderName;
       providerEventId: string;
@@ -100,6 +111,40 @@ export type NormalizedPaymentEvent =
       providerRefundId: string;
       providerPaymentId?: string;
       occurredAt: string;
+    }
+  | {
+      type: "account.updated";
+      provider: PaymentProviderName;
+      providerEventId: string;
+      providerAccountId?: string;
+      detailsSubmitted: boolean;
+      chargesEnabled: boolean;
+      payoutsEnabled: boolean;
+      requirementsStatus: string;
+      requirementsJson: string | null;
+      occurredAt: string;
+    }
+  | {
+      type: "dispute.created";
+      provider: PaymentProviderName;
+      providerEventId: string;
+      providerAccountId?: string;
+      providerPaymentId: string;
+      disputeId: string;
+      amountMinor: number;
+      currency: string;
+      reason: string;
+      occurredAt: string;
+    }
+  | {
+      type: "dispute.closed";
+      provider: PaymentProviderName;
+      providerEventId: string;
+      providerAccountId?: string;
+      providerPaymentId: string;
+      disputeId: string;
+      status: string;
+      occurredAt: string;
     };
 
 export interface ProviderPaymentSnapshot {
@@ -118,6 +163,7 @@ export interface PaymentProvider {
   parseWebhook(input: RawWebhookInput): Promise<NormalizedPaymentEvent | null>;
   retrievePayment(input: {
     providerAccountId: string;
+    providerAccountRef: string;
     providerPaymentId: string;
   }): Promise<ProviderPaymentSnapshot>;
 }

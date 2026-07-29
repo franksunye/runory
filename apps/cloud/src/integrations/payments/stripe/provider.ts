@@ -65,7 +65,10 @@ export class StripePaymentProvider implements PaymentProvider {
           },
         },
       }],
-    }, { idempotencyKey: input.idempotencyKey });
+    }, {
+      idempotencyKey: input.idempotencyKey,
+      stripeAccount: input.providerAccountRef,
+    });
 
     if (!session.url) throw new Error("STRIPE_CHECKOUT_URL_MISSING");
     return {
@@ -90,7 +93,10 @@ export class StripePaymentProvider implements PaymentProvider {
         workspace_id: input.workspaceId,
         provider_account_id: input.providerAccountId,
       },
-    }, { idempotencyKey: input.idempotencyKey });
+    }, {
+      idempotencyKey: input.idempotencyKey,
+      stripeAccount: input.providerAccountRef,
+    });
 
     if (refund.status !== "pending" && refund.status !== "succeeded") {
       throw new Error("STRIPE_REFUND_NOT_ACCEPTED");
@@ -112,10 +118,11 @@ export class StripePaymentProvider implements PaymentProvider {
     return mapStripeEvent(event);
   }
 
-  async retrievePayment(input: { providerAccountId: string; providerPaymentId: string }) {
+  async retrievePayment(input: { providerAccountId: string; providerAccountRef: string; providerPaymentId: string }) {
     const intent = await this.client.paymentIntents.retrieve(
       input.providerPaymentId,
       { expand: ["latest_charge"] },
+      { stripeAccount: input.providerAccountRef },
     );
     const latestCharge = typeof intent.latest_charge === "object"
       ? intent.latest_charge

@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { useI18n } from "@/i18n/locale-provider";
 import { apiFetch, apiPost } from "@/lib/api-fetch";
+import AdministrationPageHeader from "@/components/administration/AdministrationPageHeader";
 
 interface Toast { type: "success" | "error"; message: string }
 
@@ -34,7 +35,7 @@ interface MigrationResult {
 
 export default function MigrationPage() {
   const workspaceId = useParams().workspaceId as string;
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
 
   const [result, setResult] = useState<MigrationResult | null>(null);
   const [loading, setLoading] = useState(false);
@@ -114,11 +115,12 @@ export default function MigrationPage() {
         </div>
       )}
 
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-slate-900">{t("migration.title")}</h1>
-        <p className="mt-1 text-sm text-slate-500">{t("migration.description")}</p>
-      </div>
+      <AdministrationPageHeader
+        workspaceId={workspaceId}
+        eyebrow={locale === "zh" ? "高级运维" : "Advanced operations"}
+        title={locale === "zh" ? "数据变更" : "Data changes"}
+        description={t("migration.description")}
+      />
 
       {/* Steps */}
       <div className="flex items-center gap-2 text-sm">

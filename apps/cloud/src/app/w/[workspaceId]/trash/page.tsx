@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import { RefreshCw, RotateCcw, Trash2, Package } from "lucide-react";
 import { useI18n } from "@/i18n/locale-provider";
 import { apiFetch, apiPatch, apiDelete } from "@/lib/api-fetch";
+import AdministrationPageHeader from "@/components/administration/AdministrationPageHeader";
 
 interface ObjectDef {
   objectKey: string;
@@ -19,7 +20,7 @@ interface DeletedRecord {
 export default function TrashPage() {
   const params = useParams();
   const workspaceId = params.workspaceId as string;
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
 
   const [objects, setObjects] = useState<ObjectDef[]>([]);
   const [selectedObject, setSelectedObject] = useState<string | null>(null);
@@ -137,22 +138,19 @@ export default function TrashPage() {
 
   return (
     <div className="space-y-6">
-      <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <p className="app-eyebrow">Trash</p>
-          <h1 className="mt-2 text-2xl font-bold tracking-tight text-slate-950">{t("trash.title")}</h1>
-          <p className="mt-1 text-sm text-slate-500">
-            {t("trash.subtitle")}
-          </p>
-        </div>
-        <button
+      <AdministrationPageHeader
+        workspaceId={workspaceId}
+        eyebrow={locale === "zh" ? "数据治理" : "Data governance"}
+        title={t("trash.title")}
+        description={t("trash.subtitle")}
+        actions={<button
           type="button"
           onClick={() => { if (selectedObject) loadRecords(selectedObject); }}
           className="app-button-secondary"
         >
           <RefreshCw size={16} />{t("workspace.refresh")}
-        </button>
-      </header>
+        </button>}
+      />
 
       {error && <div role="alert" className="app-error">{error}</div>}
       {message && (

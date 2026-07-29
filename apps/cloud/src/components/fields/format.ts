@@ -87,3 +87,10 @@ export function resolveDisplayLabel(
   if (label === undefined || label === "") return null;
   return label;
 }
+
+/** Converts a stored select value into a calm business label when metadata has no explicit label. */
+export function humanizeSelectValue(value: string): string {
+  const normalized = value.replace(/[_-]+/g, " ").replace(/\s+/g, " ").trim();
+  if (!normalized) return value;
+  return normalized.charAt(0).toUpperCase() + normalized.slice(1);
+}

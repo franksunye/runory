@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { useI18n } from "@/i18n/locale-provider";
 import type { MessageKey } from "@/i18n/messages";
+import AdministrationPageHeader from "@/components/administration/AdministrationPageHeader";
 
 interface AuditSummaryEntry {
   summary: string;
@@ -81,7 +82,7 @@ function formatTime(ts: string): string {
 export default function AuditPage() {
   const params = useParams();
   const workspaceId = params.workspaceId as string;
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
 
   const [events, setEvents] = useState<AuditEventWithSummary[]>([]);
   const [loading, setLoading] = useState(true);
@@ -160,15 +161,12 @@ export default function AuditPage() {
 
   return (
     <div className="space-y-6">
-      <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <p className="app-eyebrow">Audit</p>
-          <h1 className="mt-2 text-2xl font-bold tracking-tight text-slate-950">{t("auditPage.title")}</h1>
-          <p className="mt-1 text-sm text-slate-500">
-            {t("auditPage.subtitle", { total: events.length, filtered: filteredEvents.length })}
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
+      <AdministrationPageHeader
+        workspaceId={workspaceId}
+        eyebrow={locale === "zh" ? "数据治理" : "Data governance"}
+        title={t("auditPage.title")}
+        description={t("auditPage.subtitle", { total: events.length, filtered: filteredEvents.length })}
+        actions={<>
           <button
             type="button"
             onClick={() => { setLoading(true); void loadLogs(); }}
@@ -185,8 +183,8 @@ export default function AuditPage() {
             <Download size={16} />
             {exporting ? t("auditPage.exporting") : t("auditPage.exportButton")}
           </button>
-        </div>
-      </header>
+        </>}
+      />
 
       {error && <div role="alert" className="app-error">{error}</div>}
       {message && (

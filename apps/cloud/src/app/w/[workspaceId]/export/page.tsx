@@ -17,6 +17,7 @@ import {
 import { useI18n } from "@/i18n/locale-provider";
 import type { MessageKey } from "@/i18n/messages";
 import { apiFetch, apiPost } from "@/lib/api-fetch";
+import AdministrationPageHeader from "@/components/administration/AdministrationPageHeader";
 
 type ExportStatus = "pending" | "running" | "completed" | "failed";
 type ExportFormat = "json" | "csv";
@@ -231,20 +232,19 @@ export default function ExportPage() {
 
   return (
     <div className="space-y-6">
-      <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <p className="app-eyebrow">Export</p>
-          <h1 className="mt-2 text-2xl font-bold tracking-tight text-slate-950">{t("exportPage.title")}</h1>
-          <p className="mt-1 text-sm text-slate-500">{t("exportPage.subtitle")}</p>
-        </div>
-        <button
+      <AdministrationPageHeader
+        workspaceId={workspaceId}
+        eyebrow={locale === "zh" ? "数据治理" : "Data governance"}
+        title={t("exportPage.title")}
+        description={t("exportPage.subtitle")}
+        actions={<button
           type="button"
           onClick={() => { setLoading(true); void loadData(); }}
-          className="app-button-secondary self-start"
+          className="app-button-secondary"
         >
           <RefreshCw size={16} />{t("workspace.refresh")}
-        </button>
-      </header>
+        </button>}
+      />
 
       {error && <div role="alert" className="app-error">{error}</div>}
       {message && (

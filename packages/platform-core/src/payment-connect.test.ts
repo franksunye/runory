@@ -1303,7 +1303,7 @@ describe("§14.6 Stripe Connect test matrix", () => {
   // ── 13. Stale account state ──
 
   describe("13. Stale account state (last_synced_at) handling", () => {
-    it("assertConnectReady passes for a complete account even with old last_synced_at (implementation note: no staleness check)", async () => {
+    it("assertConnectReady rejects a complete account with stale last_synced_at (24h threshold)", async () => {
       const acct = await createReadyConnectAccount(wsA, "acct_test_a");
 
       // Manually set last_synced_at far in the past
@@ -1318,12 +1318,17 @@ describe("§14.6 Stripe Connect test matrix", () => {
       expect(account.onboarding_status).toBe("complete");
       expect(account.last_synced_at).toBe(staleTs);
 
-      // Implementation note: assertConnectReady does NOT check last_synced_at
-      // staleness. The spec §14.6 mentions "stale account states reject new
-      // Checkout/refund execution", but the current implementation treats any
-      // non-disconnected, complete account as ready regardless of sync age.
-      // This test documents that behavior. A staleness guard would need to be
-      // added to assertConnectReady to fully satisfy the spec.
+      // Per Tech Spec §14.6: stale account states reject new Checkout/refund
+      // execution. assertConnectReady enforces a 24-hour staleness threshold.
+      expect(() => assertConnectReady(account)).toThrow("PAYMENT_CONNECT_STALE");
+    });
+
+    it("assertConnectReady passes for a complete account with recent last_synced_at", async () => {
+      const acct = await createReadyConnectAccount(wsA, "acct_test_b");
+      const account = await getConnectProviderAccount(wsA.ws, "test");
+      expect(account.onboarding_status).toBe("complete");
+      // last_synced_at is set by createReadyConnectAccount → syncConnectAccount
+      expect(account.last_synced_at).not.toBeNull();
       expect(() => assertConnectReady(account)).not.toThrow();
     });
 

@@ -164,6 +164,15 @@ export type ProviderPaymentEvent =
       occurredAt: string;
     }
   | {
+      type: "payment.processing";
+      provider: string;
+      providerEventId: string;
+      providerAccountId?: string;
+      providerPaymentId: string;
+      paymentRequestRef?: string;
+      occurredAt: string;
+    }
+  | {
       type: "checkout.expired";
       provider: string;
       providerEventId: string;
@@ -462,6 +471,7 @@ export async function requestPayment(
           paymentId,
           provider: providerAccount.provider,
           providerAccountId: input.providerAccountId,
+          providerAccountRef: providerAccount.provider_account_ref,
           providerMode: providerAccount.mode,
           amountMinor: input.amountMinor,
           currency,
@@ -579,6 +589,9 @@ export async function applyProviderPaymentEvent(
   }
   if (event.type === "payment.failed") {
     return failPayment(workspaceId, providerAccountId, event, actor, payloadHash);
+  }
+  if (event.type === "payment.processing") {
+    return markPaymentProcessing(workspaceId, providerAccountId, event, actor, payloadHash);
   }
   if (event.type === "checkout.expired") {
     return expirePaymentRequest(workspaceId, providerAccountId, event, actor, payloadHash);
@@ -789,6 +802,88 @@ async function failPayment(
   }));
 }
 
+async function markPaymentProcessing(
+  workspaceId: string,
+  providerAccountId: string,
+  event: Extract<ProviderPaymentEvent, { type: "payment.processing" }>,
+  actor: CommandActor,
+  payloadHash?: string,
+) {
+  const payment = event.paymentRequestRef
+    ? await queryOne<PaymentRecord>(
+        `SELECT * FROM ${businessTable("payment")} WHERE workspace_id = ? AND payment_request_id = ?`,
+        [workspaceId, event.paymentRequestRef],
+      )
+    : await queryOne<PaymentRecord>(
+        `SELECT * FROM ${businessTable("payment")}
+         WHERE workspace_id = ? AND provider_account_id = ? AND provider_payment_id = ?`,
+        [workspaceId, providerAccountId, event.providerPaymentId],
+      );
+  if (!payment) throw new NotFoundError("Payment referenced by Stripe was not found.");
+  if (payment.provider_account_id !== providerAccountId) {
+    throw paymentError("PAYMENT_PROVIDER_ACCOUNT_MISMATCH", "Payment belongs to another provider account.");
+  }
+  const ignored = payment.status === "succeeded"
+    || payment.status === "refunded"
+    || payment.status === "partially_refunded"
+    || payment.status === "failed";
+  const next = ignored ? payment : {
+    ...payment,
+    status: "processing" as const,
+    provider_payment_id: event.providerPaymentId,
+    aggregate_version: payment.aggregate_version + 1,
+    updated_at: now(),
+  };
+  return executeCommand({
+    commandId: eventCommandId(providerAccountId, event.providerEventId),
+    workspaceId,
+    commandType: "payment.mark_processing",
+    aggregateType: "payment",
+    aggregateId: payment.id,
+    expectedVersion: null,
+    actor,
+    occurredAt: event.occurredAt,
+    input: event,
+  }, async () => ({
+    statements: [
+      ...(ignored ? [] : [{
+        sql: `UPDATE ${businessTable("payment")}
+          SET status = 'processing', provider_payment_id = ?,
+              aggregate_version = aggregate_version + 1, updated_at = ?
+          WHERE workspace_id = ? AND id = ?`,
+        args: [event.providerPaymentId, now(), workspaceId, payment.id],
+      }]),
+      providerReferenceStatement({
+        workspaceId,
+        provider: event.provider,
+        providerAccountId,
+        eventType: event.type,
+        providerObjectType: "payment_intent",
+        providerObjectId: event.providerPaymentId,
+        providerEventId: event.providerEventId,
+        payloadHash,
+        status: ignored ? "ignored" : "processed",
+        occurredAt: event.occurredAt,
+      }),
+    ],
+    events: [{
+      aggregateType: "payment",
+      aggregateId: payment.id,
+      eventType: "payment.processing",
+      payload: { ignored },
+    }],
+    audit: {
+      action: ignored ? "payment.mark_processing.ignored" : "payment.mark_processing",
+      entityType: "payment",
+      entityId: payment.id,
+      before: payment,
+      after: next,
+    },
+    aggregate: next,
+    newVersion: next.aggregate_version,
+  }));
+}
+
 async function expirePaymentRequest(
   workspaceId: string,
   providerAccountId: string,
@@ -897,6 +992,7 @@ export async function requestPaymentRefund(
   if (amountMinor > payment.amount_minor - reserved) {
     throw paymentError("PAYMENT_REFUND_EXCEEDS_BALANCE", "Refund exceeds the remaining refundable balance.");
   }
+  const providerAccount = await getPaymentProviderAccount(workspaceId, payment.provider_account_id);
   const refundId = `ref_${randomUUID()}`;
   const timestamp = now();
   const commandId = idempotencyKey ?? `payment.refund:${refundId}`;
@@ -952,6 +1048,7 @@ export async function requestPaymentRefund(
         paymentId,
         provider: payment.provider,
         providerAccountId: payment.provider_account_id,
+        providerAccountRef: providerAccount.provider_account_ref,
         providerPaymentId: payment.provider_payment_id,
         amountMinor,
         currency: payment.currency,

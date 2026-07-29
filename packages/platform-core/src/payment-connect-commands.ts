@@ -80,7 +80,7 @@ function connectError(code: string, message: string, status = 409): BusinessErro
  *   - details_submitted but not all capabilities        → "in_progress"
  *   - otherwise preserves current status (or "in_progress" if not_started)
  */
-function resolveOnboardingStatus(
+export function resolveOnboardingStatus(
   syncData: ConnectSyncData,
   currentStatus: ConnectOnboardingStatus,
 ): ConnectOnboardingStatus {
@@ -165,6 +165,39 @@ export async function updateConnectOnboardingStatus(
         workspaceId,
         providerAccountId,
       ],
+      expectedRowsAffected: 1,
+    },
+  ]);
+}
+
+/**
+ * Attach the onboarding URL (and optionally the provider_account_ref for a
+ * newly created Stripe Connected Account) back to the provider account record.
+ *
+ * Called by the onboarding outbox processor after it creates a Stripe Account
+ * Link via the Stripe API.
+ */
+export async function attachConnectOnboardingUrl(
+  workspaceId: string,
+  providerAccountId: string,
+  onboardingUrl: string,
+  providerAccountRef?: string,
+): Promise<void> {
+  const table = businessTable("payment_provider_account");
+  const timestamp = now();
+  await batch([
+    {
+      sql: providerAccountRef
+        ? `UPDATE ${table}
+            SET provider_account_ref = ?,
+                updated_at = ?
+            WHERE workspace_id = ? AND id = ?`
+        : `UPDATE ${table}
+            SET updated_at = ?
+            WHERE workspace_id = ? AND id = ?`,
+      args: providerAccountRef
+        ? [providerAccountRef, timestamp, workspaceId, providerAccountId]
+        : [timestamp, workspaceId, providerAccountId],
       expectedRowsAffected: 1,
     },
   ]);
@@ -580,11 +613,18 @@ export async function disconnectConnectAccount(
  *   - Onboarding is not complete.
  *   - charges_enabled is false.
  *   - The account is disconnected or restricted.
+ *   - The account state is stale (last_synced_at exceeds the freshness window).
  *
  * Called by checkout and refund paths before any payment activity.
+ *
+ * Per Tech Spec §9.4: stale account state must prevent new Checkout/Refund
+ * operations to avoid acting on potentially revoked or restricted accounts.
  */
+const CONNECT_STALENESS_THRESHOLD_MS = 24 * 60 * 60 * 1000; // 24 hours
+
 export function assertConnectReady(
   providerAccount: PaymentProviderAccountConnect,
+  nowMs: number = Date.now(),
 ): void {
   if (providerAccount.provider !== "stripe") {
     throw connectError(
@@ -618,6 +658,26 @@ export function assertConnectReady(
     throw connectError(
       "PAYMENT_CONNECT_CHARGES_DISABLED",
       "Charges are not enabled on this Stripe Connect account.",
+      403,
+    );
+  }
+  // Stale readiness check: reject if the account state hasn't been synced
+  // within the freshness window. This prevents acting on potentially revoked
+  // or restricted accounts (Tech Spec §9.4).
+  if (providerAccount.last_synced_at) {
+    const syncedMs = new Date(providerAccount.last_synced_at).getTime();
+    if (!Number.isNaN(syncedMs) && nowMs - syncedMs > CONNECT_STALENESS_THRESHOLD_MS) {
+      throw connectError(
+        "PAYMENT_CONNECT_STALE",
+        "Stripe Connect account state is stale. Sync the account before processing payments.",
+        403,
+      );
+    }
+  } else {
+    // No sync has ever been performed — treat as stale.
+    throw connectError(
+      "PAYMENT_CONNECT_STALE",
+      "Stripe Connect account has never been synced. Sync the account before processing payments.",
       403,
     );
   }

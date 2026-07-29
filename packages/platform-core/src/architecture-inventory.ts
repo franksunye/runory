@@ -94,6 +94,11 @@ export const COMMAND_IMPLEMENTATIONS: readonly CommandImplementationDeclaration[
     sourceFile: "payment-commands.ts",
   },
   {
+    key: "payment.mark_processing",
+    aggregate: "payment",
+    sourceFile: "payment-commands.ts",
+  },
+  {
     key: "payment.expire_request",
     aggregate: "payment_request",
     sourceFile: "payment-commands.ts",

@@ -224,6 +224,18 @@ domain:
       postconditions:
         - An eligible pending or processing payment becomes failed.
         - A late failure cannot regress a succeeded or refunded payment.
+    - key: payment.mark_processing
+      contractVersion: "1.0.0"
+      aggregate: payment
+      transition: { from: [pending], to: processing }
+      allowedActorTypes: [user, api_key, system]
+      permission: payment.provider_event
+      idempotent: true
+      requiresExpectedVersion: false
+      requiredEffects: []
+      emits: [payment.processing]
+      auditRequired: true
+      postconditions: [payment.status == processing]
     - key: payment.expire_request
       contractVersion: "1.0.0"
       aggregate: payment_request

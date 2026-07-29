@@ -93,9 +93,9 @@ body { margin: 0; min-width: 320px; min-height: 100vh; background: var(--canvas)
 
 @layer components {
   .app-card {
-    @apply rounded-2xl border bg-white;
+    @apply rounded-xl border bg-white;
     border-color: var(--line);
-    box-shadow: var(--shadow-lg);
+    box-shadow: var(--shadow-sm);
   }
 
   .app-button-primary {

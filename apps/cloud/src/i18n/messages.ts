@@ -307,7 +307,7 @@ export const en = {
   "workspace.nav.roleViewerInitial": "V",
   "workspace.nav.currentUserFallback": "Current user",
   "workspace.nav.categoryCrm": "CRM",
-  "workspace.nav.categoryFieldService": "FSM",
+  "workspace.nav.categoryFieldService": "Field Service",
   "workspace.nav.categorySales": "Sales",
   "workspace.nav.categoryMarketing": "Marketing",
   "workspace.nav.categoryAiVisibility": "AI Visibility",
