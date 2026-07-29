@@ -527,6 +527,182 @@ export async function approvalDecideHandler(
   };
 }
 
+// ── System Command Execution ──
+
+/**
+ * Executor function for a system_command workflow step.
+ * Receives the workspace ID and the workflow subject's record ID.
+ * The executor is responsible for reading the current aggregate version
+ * and calling the appropriate command function with a system actor.
+ */
+type SystemCommandExecutor = (
+  workspaceId: string,
+  subjectId: string
+) => Promise<void>;
+
+/**
+ * Registry mapping command type strings to their executor functions.
+ * Business modules register their executors at load time via
+ * registerSystemCommandExecutor(), following the same composition pattern
+ * as command-contracts/providers. The workflow engine itself remains
+ * domain-agnostic and knows nothing about specific command implementations.
+ */
+const systemCommandExecutors = new Map<string, SystemCommandExecutor>();
+
+/**
+ * Register a system_command executor at runtime.
+ * Allows business modules to register their own command executors without
+ * modifying the workflow engine directly. This follows the same registration
+ * pattern as registerCommandEffectProvider() in command-contracts/.
+ */
+export function registerSystemCommandExecutor(
+  commandType: string,
+  executor: SystemCommandExecutor
+): void {
+  systemCommandExecutors.set(commandType, executor);
+}
+
+/**
+ * After a workflow step transition (approval.decide or work_item.complete),
+ * check if the new current step is a system_command. If so, execute the bound
+ * command automatically and advance the workflow to the next step.
+ *
+ * This closes the gap where the workflow engine advanced current_step_id to
+ * a system_command step but never executed the bound command, leaving the
+ * workflow stuck and the subject record in an inconsistent state.
+ *
+ * Handles consecutive system_command steps (e.g., command → command → end)
+ * by looping until a non-system_command step is reached.
+ */
+async function advanceSystemCommandStep(
+  workspaceId: string,
+  instanceId: string,
+  stepId: string | null
+): Promise<void> {
+  if (!stepId) return;
+
+  // Read the workflow instance to get the definition version
+  const instance = await queryOne<WorkflowInstanceRow>(
+    `SELECT * FROM ${TABLES.workflowInstances} WHERE workspace_id = ? AND id = ?`,
+    [workspaceId, instanceId]
+  );
+  if (!instance) return;
+
+  // Read the definition version
+  const versionRow = await queryOne<{ definition_json: string }>(
+    `SELECT definition_json FROM ${TABLES.workflowDefinitionVersions} WHERE id = ?`,
+    [instance.definition_version_id]
+  );
+  if (!versionRow) return;
+
+  const wfDef = JSON.parse(versionRow.definition_json) as WorkflowDefinition;
+  let currentStepId: string | null = stepId;
+
+  while (currentStepId) {
+    const step = wfDef.steps.find(s => s.id === currentStepId);
+    if (!step || step.kind !== "system_command" || !step.command) break;
+
+    const executor = systemCommandExecutors.get(step.command);
+    if (!executor) {
+      console.warn(
+        `[workflow] No executor registered for system_command "${step.command}". ` +
+        `Workflow instance ${instanceId} is stuck at step "${currentStepId}".`
+      );
+      break;
+    }
+
+    // Execute the bound command with a system actor
+    await executor(workspaceId, instance.record_id);
+
+    // Advance to the next step
+    const ts = now();
+    const afterStepId = step.next ?? null;
+    const afterStep = afterStepId ? wfDef.steps.find(s => s.id === afterStepId) : null;
+
+    // Get event sequence
+    const lastEvent = await queryOne<{ max_seq: number }>(
+      `SELECT MAX(sequence) as max_seq FROM ${TABLES.workflowEvents}
+       WHERE instance_id = ?`,
+      [instanceId]
+    );
+    const nextSeq = (lastEvent?.max_seq ?? 0) + 1;
+
+    const statements: Array<{ sql: string; args?: unknown[] }> = [
+      // Write workflow event for system_command execution
+      {
+        sql: `INSERT INTO ${TABLES.workflowEvents}
+              (id, workspace_id, instance_id, sequence, event_type, step_id,
+               actor_type, actor_id, payload_json, occurred_at)
+              VALUES (?, ?, ?, ?, 'workflow.system_command_executed', ?, 'system', 'system', ?, ?)`,
+        args: [genId("wfe"), workspaceId, instanceId, nextSeq, currentStepId,
+               JSON.stringify({ command: step.command, nextStepId: afterStepId }), ts],
+      },
+    ];
+
+    if (afterStep) {
+      // Update current_step_id
+      statements.push({
+        sql: `UPDATE ${TABLES.workflowInstances}
+              SET current_step_id = ?, version = version + 1, updated_at = ?
+              WHERE id = ?`,
+        args: [afterStepId, ts, instanceId],
+      });
+
+      if (afterStep.kind === "end") {
+        // Complete the instance
+        statements.push({
+          sql: `UPDATE ${TABLES.workflowInstances}
+                SET status = 'completed', completed_at = ?, version = version + 1, updated_at = ?
+                WHERE id = ?`,
+          args: [ts, ts, instanceId],
+        });
+      } else if (afterStep.kind === "approval" || afterStep.kind === "human_task") {
+        // Create work item for the next step
+        const newWorkItemId = genId("wi");
+        const assigneeRule = afterStep.assigneeRule;
+        const stepDueAt = resolveStepDueAt(afterStep, ts);
+        statements.push({
+          sql: `INSERT INTO ${TABLES.workItems}
+                (id, workspace_id, instance_id, step_id, kind, status,
+                 subject_type, subject_id, assignee_type, assignee_id,
+                 candidate_rule_json, form_binding_id, due_at, version, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, 'ready', ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`,
+          args: [newWorkItemId, workspaceId, instanceId, afterStepId, afterStep.kind,
+                 instance.object_type, instance.record_id,
+                 assigneeRule?.permissionGroup ? "permission_group" : (assigneeRule?.userId ? "user" : null),
+                 assigneeRule?.permissionGroup ?? assigneeRule?.userId ?? null,
+                 assigneeRule ? JSON.stringify(assigneeRule) : null,
+                 afterStep.formBindingId ?? null,
+                 stepDueAt, ts, ts],
+        });
+
+        if (stepDueAt) {
+          statements.push({
+            sql: `INSERT INTO ${TABLES.workflowTimers}
+                  (id, workspace_id, instance_id, work_item_id, timer_type,
+                   due_at, status, payload_json, created_at, updated_at)
+                  VALUES (?, ?, ?, ?, 'sla', ?, 'active', NULL, ?, ?)`,
+            args: [genId("wft"), workspaceId, instanceId, newWorkItemId, stepDueAt, ts, ts],
+          });
+        }
+      }
+    } else {
+      // No next step — complete the instance
+      statements.push({
+        sql: `UPDATE ${TABLES.workflowInstances}
+              SET status = 'completed', completed_at = ?, version = version + 1, updated_at = ?
+              WHERE id = ?`,
+        args: [ts, ts, instanceId],
+      });
+    }
+
+    await batch(statements);
+
+    // Continue if the next step is also a system_command
+    currentStepId = afterStep?.kind === "system_command" ? afterStepId : null;
+  }
+}
+
 export async function approvalDecide(
   workspaceId: string,
   workItemId: string,
@@ -537,7 +713,7 @@ export async function approvalDecide(
   commandId?: string,
   requestId?: string | null
 ): Promise<CommandResult<ApprovalDecideAggregate>> {
-  return executeCommand<ApprovalDecideAggregate>(
+  const result = await executeCommand<ApprovalDecideAggregate>(
     {
       commandId: commandId ?? genId("cmd"),
       workspaceId,
@@ -552,6 +728,19 @@ export async function approvalDecide(
     },
     async () => approvalDecideHandler(workspaceId, workItemId, actor, outcome, comment, expectedVersion)
   );
+
+  // Post-commit: if the workflow advanced to a system_command step (e.g.,
+  // quote.approve after approval.decide), execute the bound command
+  // automatically and advance the workflow to the next step.
+  if (result.aggregate?.nextStepId) {
+    await advanceSystemCommandStep(
+      workspaceId,
+      result.aggregate.instanceId,
+      result.aggregate.nextStepId
+    );
+  }
+
+  return result;
 }
 
 // ── Return Work Item ──
@@ -1502,7 +1691,7 @@ export async function completeWorkItem(
   commandId?: string,
   requestId?: string | null
 ): Promise<CommandResult<Partial<WorkItemRow>>> {
-  return executeCommand<Partial<WorkItemRow>>(
+  const result = await executeCommand<Partial<WorkItemRow>>(
     {
       commandId: commandId ?? genId("cmd"),
       workspaceId,
@@ -1517,6 +1706,25 @@ export async function completeWorkItem(
     },
     async () => completeWorkItemHandler(workspaceId, workItemId, actor, expectedVersion, formData)
   );
+
+  // Post-commit: if the workflow advanced to a system_command step after
+  // completing this work item, execute the bound command automatically.
+  if (result.aggregate?.instance_id) {
+    // Read the workflow instance to get the current step
+    const instance = await queryOne<{ current_step_id: string | null }>(
+      `SELECT current_step_id FROM ${TABLES.workflowInstances} WHERE workspace_id = ? AND id = ?`,
+      [workspaceId, result.aggregate.instance_id]
+    );
+    if (instance?.current_step_id) {
+      await advanceSystemCommandStep(
+        workspaceId,
+        result.aggregate.instance_id,
+        instance.current_step_id
+      );
+    }
+  }
+
+  return result;
 }
 
 // ── Cancel Work Item ──
