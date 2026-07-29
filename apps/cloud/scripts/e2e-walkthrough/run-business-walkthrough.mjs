@@ -465,28 +465,38 @@ async function scenario2() {
     }
   }
 
-  step("2.10", "Sales Manager: Execute quote.approve (workflow system_command step)");
+  step("2.10", "Verify workflow auto-executes quote.approve (system_command step)");
   {
-    // The quote-approval workflow defines an "approved" system_command step
-    // that calls quote.approve after the approval decision. The workflow
-    // engine does not yet auto-execute system_command steps, so we call
-    // it explicitly here to simulate the workflow's intended behavior.
-    const { ok, json } = await executeCommand(ws, "quote.approve", {
-      aggregateId: state.quoteId,
-      expectedVersion: state.quoteVersion,
-    });
-    assert(ok, "quote.approve command succeeded");
-    if (json.data?.newVersion) state.quoteVersion = json.data.newVersion;
-
+    // CORRECT BEHAVIOR: After approval.decide with outcome "approved", the
+    // workflow engine should automatically execute the "approved" system_command
+    // step (which calls quote.approve) and advance to "end".
+    //
+    // The quote-approval workflow defines:
+    //   approval.onApprove → "approved" (system_command, command: "quote.approve") → "end"
+    //
+    // The workflow engine has no step executor for system_command steps.
+    // The approvalDecideHandler only updates current_step_id but does not
+    // execute the bound command. This is a known system defect (P0).
+    //
+    // This assertion MUST FAIL until the workflow engine implements
+    // system_command auto-execution.
+    await sleep(1000); // Brief pause for any async workflow processing
     const { record } = await getRecord(ws, "quote", state.quoteId);
     assert(
       record?.status === "approved",
-      `Quote status is 'approved' (got: ${record?.status})`
+      `Quote should auto-transition to 'approved' after approval.decide (got: ${record?.status})`
     );
     if (record?.aggregate_version) {
       state.quoteVersion = record.aggregate_version;
       console.log(`     Current version: ${state.quoteVersion}`);
     }
+
+    // The workflow instance should also be completed
+    const wfData = await getRecordWorkflow(ws, "quote", state.quoteId);
+    assert(
+      wfData?.status === "completed",
+      `Workflow instance should be 'completed' after system_command auto-execution (got: ${wfData?.status ?? "N/A"})`
+    );
   }
 
   // ── Phase 3: Sales Rep marks quote as sent ──
@@ -772,7 +782,7 @@ async function scenario3() {
     }
   }
 
-  step("3.6", "Dispatcher: Verify schedule entry was auto-created by Plan & Dispatch");
+  step("3.6", "Dispatcher: Verify schedule entry was auto-created and has no conflict");
   {
     // The create_visit command atomically creates a schedule entry via the
     // fsm.create_dispatched_visit effect provider.
@@ -794,6 +804,25 @@ async function scenario3() {
       }
       assert(state.scheduleEntryId != null, "Schedule entry exists for visit (auto-created by Plan & Dispatch)");
     }
+
+    // The schedule entry MUST NOT have a conflict — a conflicted schedule
+    // blocks downstream operations (start_travel, etc.). If create_visit
+    // detects a conflict, it should either reject the request or provide
+    // explicit feedback, not silently create a conflicted entry.
+    const entries = await getPlanningEntries(ws, {
+      from: isoOffset(0, 0, 0),
+      to: isoOffset(7, 23, 59),
+    });
+    const ourEntry = entries.find(
+      (e) => (e.subjectId === state.visitId || e.subject_id === state.visitId)
+    );
+    if (ourEntry) {
+      const conflictState = ourEntry.conflictState ?? ourEntry.conflict_state;
+      assert(
+        conflictState === "none",
+        `Schedule entry has no conflict (conflict_state: ${conflictState ?? "N/A"})`
+      );
+    }
   }
 
   step("3.7", "Dispatcher: Verify planning entries reflect the new schedule");
@@ -804,11 +833,12 @@ async function scenario3() {
       to: isoOffset(7, 23, 59),
     });
     assert(entries.length >= 1, `Planning entries returned (got ${entries.length})`);
-    // Check if our visit appears in the planning entries
+    // The scheduled visit MUST appear in planning entries — this is a core
+    // consistency requirement, not optional.
     const matching = entries.filter(
       (e) => e.subjectId === state.visitId || e.subject_id === state.visitId
     );
-    assert(matching.length >= 0, "Planning entries query succeeds"); // Soft assert — visibility scoping may filter
+    assert(matching.length >= 1, `E2E visit appears in planning entries (got ${matching.length} matches)`);
     console.log(`     Total planning entries: ${entries.length}`);
   }
 
@@ -835,12 +865,14 @@ async function scenario3() {
   {
     const myWork = await getMyWork(ws);
     assert(Array.isArray(myWork), "my-work returns array");
+    // The assigned visit MUST appear in the technician's my-work list.
+    // Plan & Dispatch creates work items for the visit, and the technician
+    // has accepted the assignment — the visit should be visible.
     const matching = myWork.filter(
       (wi) => wi.subjectId === state.visitId || wi.subject_id === state.visitId
     );
     console.log(`     My work items: ${myWork.length}, matching visit: ${matching.length}`);
-    // Soft assert — the visit work item may or may not appear depending on workflow config
-    assert(true, "my-work query succeeds for technician");
+    assert(matching.length >= 1, `Visit appears in technician's my-work (got ${matching.length} matches)`);
   }
 
   const f = printSummary("Scenario 3: Dispatch Flow");
@@ -1149,7 +1181,7 @@ async function scenario5() {
   }
 
   // 5.7 Workflow instances
-  step("5.7", "Verify workflow instances are tracked");
+  step("5.7", "Verify workflow instances are tracked and completed");
   {
     const instances = await listWorkflowInstances(ws, { limit: 50 });
     assert(instances.length >= 1, `Workflow instances exist (got ${instances.length})`);
@@ -1161,6 +1193,14 @@ async function scenario5() {
         (inst) => inst.record_id === state.quoteId || inst.subjectId === state.quoteId || inst.subject_id === state.quoteId
       );
       assert(quoteWf != null, "Workflow instance for E2E quote found");
+      // After the quote has been approved, accepted, and converted to a work
+      // order, the workflow instance MUST be in 'completed' status. If it's
+      // still 'running', the workflow engine failed to auto-execute the
+      // system_command step (quote.approve) after the approval decision.
+      assert(
+        quoteWf?.status === "completed",
+        `Workflow instance for E2E quote is 'completed' (got: ${quoteWf?.status ?? "N/A"})`
+      );
       if (quoteWf) {
         console.log(`     Workflow status: ${quoteWf.status ?? "N/A"}`);
       }
