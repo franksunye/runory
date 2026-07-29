@@ -1,8 +1,8 @@
 # Runory Product Definition
 
 Status: Draft v0.4  
-Date: 2026-07-15  
-Change: Clarify external-super-agent-first strategy and FSM-first product scope.
+Date: 2026-07-29  
+Change: Clarify external-super-agent-first strategy, FSM-first product scope, and commercial delivery structure.
 
 ## 1. Canonical Definition
 
@@ -119,131 +119,20 @@ External Super Agent
 
 The goal is to avoid rebuilding language understanding, conversation, planning, and general automation inside every business application.
 
-This enables Runory to keep the SME system thinner while still offering strong intelligence and automation through external Agents.
+## 6. Commercial Product Shape
 
-## 6. Difference From Existing Categories
-
-Compared with traditional SaaS, Runory supports Agent-operated configuration and execution through open, governed interfaces rather than relying only on menus or a vendor-owned internal assistant.
-
-Compared with AI Coding tools, Runory does not ask an Agent to generate a custom application from scratch. It exposes trusted FSM Modules, Packs, metadata, Commands, and Extension APIs.
-
-Compared with low-code platforms, Runory is not primarily a drag-and-drop builder. It is a business runtime with metadata-driven objects, deterministic execution, and upgrade-safe extensions.
-
-Compared with traditional FSM products, Runory is intentionally designed as a reliable execution partner for external Agents.
-
-Compared with WordPress, Runory targets governed business operations rather than websites and applies stronger contracts for permissions, workflow, commands, migration, audit, and rollback.
-
-## 7. Core Product Decisions
-
-### External Agents vs Built-in Agent
-
-Runory does not plan to make a proprietary Built-in Agent the primary product surface in the foreseeable roadmap.
-
-MCP, Skills, and SDKs are core product interfaces. Multiple approved Agents should be able to operate the same Workspace under the same authorization and audit model.
-
-### Configuration Platform vs Generative Platform
-
-Declarative configuration and Managed Workspace Extensions are the default customization mechanisms. Generated code is a last resort and must not become the normal customer customization path.
-
-### Official Module Mutability
-
-Official Modules are read-only from the Workspace perspective. Customer-specific needs are expressed through Managed Workspace Extensions, not by forking module source.
-
-### Agent Access Boundary
-
-Agents must not directly operate the database or bypass business rules.
+Runory distinguishes product exploration from paid production delivery:
 
 ```text
-Agent
-→ MCP / Skill / SDK
-→ Governed API
-→ Named Command
-→ Command Contract
-→ Permission + Validation + Transaction
-→ State + Event + Audit + Outbox
+Free product exploration
+→ Paid production subscription
+→ Bounded implementation
+→ Metered provider usage
+→ Optional partner-delivered services
 ```
 
-### UI Freedom
+The Free Workspace should demonstrate the product's end-to-end operating model without silently enabling cost-bearing or regulated production services.
 
-Runory UI is dynamic but constrained. Views are composed from validated schemas, Module UI Slots, Templates, and approved components. Agents may propose schema changes; Runory validates and renders them.
+A paid production Workspace may require configuration, provider onboarding, migration, validation, customer approval, and production cutover. Subscription payment alone does not establish production readiness.
 
-## 8. Technical Layer Definition
-
-```text
-SaaS Layer
-Identity, tenancy, Workspace, membership, API keys, audit, usage, billing
-
-Runory Runtime
-Metadata, installation, Command Runtime, Workflow Runtime,
-Permission Runtime, Extension Runtime, Catalog and release control
-
-Runory Business
-FSM Modules, business records, transactions, documents, schedules, visits, payments
-```
-
-The database namespace follows the same ownership model:
-
-```text
-saas_*
-runory_runtime_*
-runory_catalog_*
-runory_business_*
-```
-
-## 9. Cloud To Local Evolution
-
-Runory is **Cloud-first**, while preserving a **Portable Runtime** for supported advanced deployments.
-
-```text
-Runory Cloud
-→ Export supported Workspace configuration, Modules, Extensions, and data
-→ Private / Local Runtime
-```
-
-Local / Private deployment is not the default MVP path. It is an advanced deployment mode for customers with justified privacy, control, connectivity, or infrastructure requirements.
-
-Early Cloud does not depend on universal bidirectional Cloud–Local synchronization. Controlled export/import is the preferred initial boundary.
-
-## 10. Product Scope Through v1.0
-
-Runory through v1.0 is a focused Agent-ready FSM product covering:
-
-* demand intake and Contact/Company Lead lifecycle handling;
-* Customer, Contact, Site, and Asset context;
-* Quote, Contract, Invoice, and Payment;
-* Work Order, Visit, Scheduling, Dispatch, and field execution;
-* recurring service;
-* desktop, mobile, Voice Intake, and customer-facing interactions;
-* Agent-operated queries, commands, configuration, Pack adaptation, and supported deployment;
-* governed extensions without customer-specific Core forks.
-
-Advanced enterprise FSM capabilities are admitted only when supported by repeated customer evidence.
-
-## 11. Layer Summary
-
-```text
-Module     = technical business capability unit
-Pack       = commercial FSM delivery unit
-Template   = Workspace experience entry
-Extension  = Workspace-specific customization
-Runtime    = governed capability composition and execution layer
-Agent SDK  = MCP / Skill / SDK access surface for external Agents
-```
-
-```text
-Effective FSM System
-=
-SaaS Foundation
-+ Runory Runtime
-+ Official FSM Modules
-+ Pack / Template overlays
-+ Workspace Extensions
-+ User Data
-+ External Agent Access
-```
-
-## 12. Product Statement
-
-> **Runory builds lightweight FSM systems that work with the world's best Agents.**
-
-> **Agents provide intelligence and orchestration; Runory provides governed business execution and truth.**
+Commercial packaging, proposed list prices, implementation bands, provider usage, partner economics, and discount controls are defined in [Commercial Pricing and Packaging](commercial-pricing-and-packaging.md). The operating sequence and implementation controls are defined in [Customer Implementation and Agent-assisted Delivery Model](customer-implementation-delivery-model.md).
