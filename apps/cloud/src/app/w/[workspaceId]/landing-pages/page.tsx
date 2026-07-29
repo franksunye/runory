@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import SchemaTable from "@/components/SchemaTable";
+import { SortPicker } from "@/components/view-bar";
 import type { FieldDefinition } from "@runory/platform-core";
 import {
   useInstallations,
@@ -13,16 +14,10 @@ import {
   useWorkspaceChangeEvent,
 } from "@/lib/api-hooks";
 import { useI18n } from "@/i18n/locale-provider";
-import type { MessageKey } from "@/i18n/messages";
 
 const OBJECT_KEY = "landing_page";
 const VIEW_KEY = "landing_page_list";
 const PAGE_SIZE = 20;
-
-const SORT_OPTIONS: { value: string; labelKey: MessageKey }[] = [
-  { value: "created_at:desc", labelKey: "workspace.sortNewest" },
-  { value: "created_at:asc", labelKey: "workspace.sortOldest" },
-];
 
 export default function LandingPageListPage() {
   const params = useParams();
@@ -68,6 +63,11 @@ export default function LandingPageListPage() {
 
   const fields: FieldDefinition[] = objDetail?.fields ?? [];
   const viewConfig = views.find((v) => v.viewKey === VIEW_KEY)?.config ?? null;
+  const sortableFields = useMemo(() => [
+    ...fields.map((field) => ({ field: field.fieldKey, label: field.label, type: field.type })),
+    { field: "created_at", label: t("workspace.viewBar.createdTime"), type: "datetime" },
+    { field: "updated_at", label: t("workspace.viewBar.updatedTime"), type: "datetime" },
+  ], [fields, t]);
   const extensionFields = fields.filter((field) => field.ownership === "workspace_extension");
   const extensionSignature = useMemo(
     () => extensionFields.map((field) => field.fieldKey).sort().join("|"),
@@ -163,17 +163,21 @@ export default function LandingPageListPage() {
               placeholder={t("landingPages.searchPlaceholder")}
               className="w-full max-w-sm rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
             />
-            <select
-              value={sortValue}
-              onChange={(e) => setSortValue(e.target.value)}
-              className="rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-            >
-              {SORT_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {t(opt.labelKey)}
-                </option>
-              ))}
-            </select>
+            <SortPicker
+              fields={sortableFields}
+              field={sortBy}
+              direction={sortOrder}
+              onChange={(field, direction) => setSortValue(`${field}:${direction}`)}
+              labels={{
+                title: t("workspace.viewBar.sort"),
+                ascending: t("workspace.viewBar.sortAscending"),
+                descending: t("workspace.viewBar.sortDescending"),
+                searchFields: t("workspace.viewBar.searchFields"),
+                fields: t("workspace.viewBar.sortableFields"),
+                noFields: t("workspace.viewBar.noSortableFields"),
+                close: t("workspace.viewBar.closeSort"),
+              }}
+            />
           </div>
 
           {/* Record count */}

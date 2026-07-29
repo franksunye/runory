@@ -12,7 +12,7 @@ import {
   MessageSquare, Tag, Target, Heart, AlertTriangle, Gift,
   Headphones, Briefcase, PanelLeftClose, PanelLeftOpen,
   Building2, ClipboardList, MapPin,
-  ChevronUp, LogOut,
+  ChevronUp, CreditCard, LogOut, PhoneCall, ReceiptText,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { NavigationItem } from "@runory/platform-core";
@@ -79,8 +79,11 @@ const iconMap: Record<string, React.ComponentType<{ size?: number; strokeWidth?:
   "trending-up": TrendingUp,
   "message-circle": MessageCircle,
   "message-square": MessageSquare,
+  "phone-call": PhoneCall,
   inbox: Inbox,
   tag: Tag,
+  "credit-card": CreditCard,
+  "receipt-text": ReceiptText,
   target: Target,
   heart: Heart,
   gift: Gift,

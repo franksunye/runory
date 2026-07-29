@@ -997,6 +997,106 @@ export type ExtensionPlan = z.infer<typeof extensionPlanSchema>;
 export type CustomFieldPlan = z.infer<typeof customFieldPlanSchema>;
 export type ViewModificationPlan = z.infer<typeof viewModificationPlanSchema>;
 
+// ── Workspace Provisioning (v0.9.0 Repeatable Delivery) ──
+
+export const provisioningPackSpecSchema = z.object({
+  packId: z.string(),
+  includeDemoData: z.boolean().optional(),
+});
+
+export const provisioningExtensionSpecSchema = z.object({
+  name: z.string(),
+  plan: extensionPlanSchema,
+});
+
+export const provisioningSpecSchema = z.object({
+  workspaceName: z.string(),
+  templateId: z.string().optional(),
+  packs: z.array(provisioningPackSpecSchema),
+  extensions: z.array(provisioningExtensionSpecSchema).optional(),
+  metadata: z.record(z.string(), z.string()).optional(),
+});
+
+export const provisioningStepResultSchema = z.object({
+  step: z.string(),
+  status: z.enum(["success", "skipped", "failed"]),
+  durationMs: z.number(),
+  error: z.string().optional(),
+  details: z.record(z.string(), z.unknown()).optional(),
+});
+
+export const provisioningResultSchema = z.object({
+  workspaceId: z.string(),
+  workspaceSlug: z.string(),
+  status: z.enum(["success", "partial", "failed"]),
+  steps: z.array(provisioningStepResultSchema),
+  totalDurationMs: z.number(),
+  packsInstalled: z.array(z.string()),
+  extensionsApplied: z.array(z.string()),
+  demoRecordsCreated: z.number(),
+});
+
+export const referenceSolutionSchema = z.object({
+  name: z.string(),
+  version: z.string(),
+  description: z.string(),
+  spec: provisioningSpecSchema,
+});
+
+export type ProvisioningPackSpec = z.infer<typeof provisioningPackSpecSchema>;
+export type ProvisioningExtensionSpec = z.infer<typeof provisioningExtensionSpecSchema>;
+export type ProvisioningSpec = z.infer<typeof provisioningSpecSchema>;
+export type ProvisioningStepResult = z.infer<typeof provisioningStepResultSchema>;
+export type ProvisioningResult = z.infer<typeof provisioningResultSchema>;
+export type ReferenceSolution = z.infer<typeof referenceSolutionSchema>;
+
+// ── Workspace Health Check (v0.9.0) ──
+
+export const healthCheckCategorySchema = z.enum([
+  "command_contracts",
+  "schema_drift",
+  "view_integrity",
+  "entitlement",
+  "extension_consistency",
+  "installation",
+]);
+
+export const healthCheckItemSchema = z.object({
+  category: healthCheckCategorySchema,
+  status: z.enum(["healthy", "warning", "error"]),
+  message: z.string(),
+  detail: z.record(z.string(), z.unknown()).optional(),
+});
+
+export const workspaceHealthReportSchema = z.object({
+  workspaceId: z.string(),
+  overallStatus: z.enum(["healthy", "warning", "error"]),
+  items: z.array(healthCheckItemSchema),
+  checkedAt: z.string(),
+});
+
+export type HealthCheckCategory = z.infer<typeof healthCheckCategorySchema>;
+export type HealthCheckItem = z.infer<typeof healthCheckItemSchema>;
+export type WorkspaceHealthReport = z.infer<typeof workspaceHealthReportSchema>;
+
+// ── Support Diagnostics Package (v0.9.0) ──
+
+export const diagnosticsPackageSchema = z.object({
+  workspaceId: z.string(),
+  workspaceName: z.string(),
+  generatedAt: z.string(),
+  configuration: z.record(z.string(), z.unknown()),
+  contractInventory: z.record(z.string(), z.unknown()),
+  compatibilityReport: z.record(z.string(), z.unknown()).optional(),
+  rolloutStatus: z.array(z.record(z.string(), z.unknown())).default([]),
+  outboxFailures: z.array(z.record(z.string(), z.unknown())).default([]),
+  migrationState: z.record(z.string(), z.unknown()),
+  installationErrors: z.array(z.record(z.string(), z.unknown())).default([]),
+  healthReport: workspaceHealthReportSchema.optional(),
+});
+
+export type DiagnosticsPackage = z.infer<typeof diagnosticsPackageSchema>;
+
 // ── Automation Runtime (v0.3.5) ──
 
 export const automationTriggerSchema = z.object({

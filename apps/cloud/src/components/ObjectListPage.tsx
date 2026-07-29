@@ -18,16 +18,11 @@ import { useI18n } from "@/i18n/locale-provider";
 import { extractViewActions, filterActionsByPermission } from "@/lib/view-actions";
 import { EmptyState, LoadingState, ErrorState } from "@/components/states";
 import { PageHeader } from "@/components/layout";
-import { ViewSelector, FilterBar, ColumnSettings, PageSizeSelector, SaveViewDialog, ConfirmDialog } from "@/components/view-bar";
+import { ViewSelector, FilterBar, SortPicker, ColumnSettings, PageSizeSelector, SaveViewDialog, ConfirmDialog } from "@/components/view-bar";
 import {
   buildPreferenceInput,
 } from "@/lib/view-preference-resolver";
 import { apiFetch, type ApiResult } from "@/lib/api-fetch";
-
-export interface SortOption {
-  value: string;
-  label: string;
-}
 
 export interface ObjectListPageProps {
   objectKey: string;
@@ -36,7 +31,6 @@ export interface ObjectListPageProps {
   title: string;
   subtitle?: string;
   searchPlaceholder?: string;
-  sortOptions?: SortOption[];
   createLabel?: string;
   packName?: string;
   pageSize?: number;
@@ -49,7 +43,6 @@ export default function ObjectListPage({
   title,
   subtitle,
   searchPlaceholder,
-  sortOptions,
   createLabel,
   packName,
   pageSize = 20,
@@ -63,15 +56,11 @@ export default function ObjectListPage({
   const effectiveSubtitle = subtitle ?? t("workspace.subtitle");
   const effectiveSearchPlaceholder = searchPlaceholder ?? t("workspace.search");
   const effectiveCreateLabel = createLabel ?? t("workspace.addRecord");
-  const effectiveSortOptions = sortOptions ?? [
-    { value: "created_at:desc", label: t("workspace.sortNewest") },
-    { value: "created_at:asc", label: t("workspace.sortOldest") },
-  ];
-
   const { data: installations = [], isLoading: loadingInst } = useInstallations(workspaceId);
   const { data: workspaceAccess } = useWorkspaceAccess(workspaceId);
   const { data: objDetail, isLoading: loadingObj } = useFields(workspaceId, objectKey);
   const { data: views = [], isLoading: loadingViews, error: viewError, mutate: mutateViews } = useViews(workspaceId, objectKey);
+  const fields: FieldDefinition[] = objDetail?.fields ?? [];
 
   // Resolve the view definition for preference lookup
   const viewDef = views.find((v) => v.viewKey === viewKey);
@@ -139,8 +128,37 @@ export default function ObjectListPage({
     return viewConfig.columns as Array<{ field: string; label?: string; width?: "sm" | "md" | "lg" }>;
   }, [viewConfig]);
 
+  // Sorting is metadata-driven: every installed or dynamically-created field
+  // becomes available without adding object-specific UI code. Keep the visible
+  // view order first, then append the remaining object fields and system dates.
+  const sortableFields = useMemo(() => {
+    const fieldByKey = new Map(fields.map((field) => [field.fieldKey, field]));
+    const orderedKeys = [
+      ...viewColumns.map((column) => column.field),
+      ...fields.map((field) => field.fieldKey),
+    ];
+    const seen = new Set<string>();
+    const result: Array<{ field: string; label: string; type?: string }> = [];
+
+    for (const fieldKey of orderedKeys) {
+      if (seen.has(fieldKey)) continue;
+      const field = fieldByKey.get(fieldKey);
+      if (!field) continue;
+      seen.add(fieldKey);
+      result.push({ field: field.fieldKey, label: field.label, type: field.type });
+    }
+
+    if (!seen.has("created_at")) {
+      result.push({ field: "created_at", label: t("workspace.viewBar.createdTime"), type: "datetime" });
+    }
+    if (!seen.has("updated_at")) {
+      result.push({ field: "updated_at", label: t("workspace.viewBar.updatedTime"), type: "datetime" });
+    }
+    return result;
+  }, [fields, viewColumns, t]);
+
   // Sort: use URL sort if present, otherwise preference sort, otherwise default
-  const effectiveSortValue = urlSort || (preference?.sort ? `${preference.sort.field}:${preference.sort.direction}` : "") || effectiveSortOptions[0]?.value || "created_at:desc";
+  const effectiveSortValue = urlSort || (preference?.sort ? `${preference.sort.field}:${preference.sort.direction}` : "") || "created_at:desc";
   const [sortBy, sortOrder] = useMemo(() => {
     const [field, order] = effectiveSortValue.split(":");
     return [field, (order as "asc" | "desc") ?? "desc"];
@@ -207,7 +225,6 @@ export default function ObjectListPage({
       : permissions.has(`${objectKey}.create`)));
   const loading = loadingInst || (hasPack && (loadingObj || loadingViews || loadingRecords));
 
-  const fields: FieldDefinition[] = objDetail?.fields ?? [];
   const viewActions = filterActionsByPermission(
     extractViewActions(viewConfig as Record<string, unknown> | null),
     permissions,
@@ -227,7 +244,7 @@ export default function ObjectListPage({
   const preferenceDirty = useMemo(() => {
     const savedSort = preference?.sort
       ? `${preference.sort.field}:${preference.sort.direction}`
-      : effectiveSortOptions[0]?.value ?? "created_at:desc";
+      : "created_at:desc";
     const savedPageSize = preference?.pageSize ?? pageSize;
     const savedFields = preference?.visibleFields?.length
       ? allColumnFields.filter((field) => preference.visibleFields?.includes(field))
@@ -242,7 +259,7 @@ export default function ObjectListPage({
       || currentPageSize !== savedPageSize
       || visibleFields.join("|") !== savedFields.join("|")
       || JSON.stringify(currentFilters) !== JSON.stringify(savedFilters);
-  }, [preference, effectiveSortOptions, pageSize, allColumnFields, relationFilters, effectiveSortValue, currentPageSize, visibleFields]);
+  }, [preference, pageSize, allColumnFields, relationFilters, effectiveSortValue, currentPageSize, visibleFields]);
 
   const canManageViews = workspaceAccess?.workspaceRole === "admin"
     || workspaceAccess?.workspaceRole === "owner"
@@ -533,22 +550,25 @@ export default function ObjectListPage({
               </div>
             </div>
             <div className="flex flex-wrap items-center justify-end gap-1 lg:shrink-0 lg:flex-nowrap">
-              <select
-                value={effectiveSortValue}
-                onChange={(e) => {
+              <SortPicker
+                fields={sortableFields}
+                field={sortBy}
+                direction={sortOrder}
+                onChange={(field, direction) => {
                   const params = new URLSearchParams(searchParams.toString());
-                  params.set("sort", e.target.value);
+                  params.set("sort", `${field}:${direction}`);
                   router.replace(`${basePath}?${params.toString()}`, { scroll: false });
                 }}
-                aria-label="Sort records"
-                className="app-input h-10 min-w-[150px] max-w-[190px]"
-              >
-                {effectiveSortOptions.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
+                labels={{
+                  title: t("workspace.viewBar.sort"),
+                  ascending: t("workspace.viewBar.sortAscending"),
+                  descending: t("workspace.viewBar.sortDescending"),
+                  searchFields: t("workspace.viewBar.searchFields"),
+                  fields: t("workspace.viewBar.sortableFields"),
+                  noFields: t("workspace.viewBar.noSortableFields"),
+                  close: t("workspace.viewBar.closeSort"),
+                }}
+              />
               <ColumnSettings
                 columns={viewColumns}
                 visibleFields={visibleFields}

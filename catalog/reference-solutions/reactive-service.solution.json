@@ -1,0 +1,27 @@
+{
+  "name": "reactive-service",
+  "version": "1.0.0",
+  "description": "Canonical Reactive Repair / Callout service configuration. Covers the full journey from customer request through quote, work order, dispatch, visit, completion, invoice, payment, and aftercare.",
+  "spec": {
+    "workspaceName": "Reactive Service",
+    "packs": [
+      {
+        "packId": "crm-lite-pack",
+        "includeDemoData": true
+      },
+      {
+        "packId": "fsm-pack",
+        "includeDemoData": true
+      },
+      {
+        "packId": "sales-quote-pack",
+        "includeDemoData": true
+      }
+    ],
+    "extensions": [],
+    "metadata": {
+      "solutionType": "reactive-repair-callout",
+      "journeyStages": "request,triage,quote,work-order,dispatch,visit,completion,invoice,payment,aftercare"
+    }
+  }
+}
