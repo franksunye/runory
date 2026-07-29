@@ -5,6 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "pnpm --filter @runory/cloud dev",
+    "dev:stripe": "pnpm --filter @runory/cloud dev:stripe",
+    "stripe:billing:setup": "pnpm --filter @runory/cloud stripe:billing:setup",
+    "stripe:billing:verify": "pnpm --filter @runory/cloud stripe:billing:verify",
     "dev:cloud": "pnpm --filter @runory/cloud dev",
     "dev:mcp": "pnpm --filter @runory/mcp dev",
     "build": "pnpm --recursive build",

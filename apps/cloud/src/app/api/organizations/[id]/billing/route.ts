@@ -64,11 +64,16 @@ export async function GET(
         subscription,
         hasBillingCustomer: Boolean(customer),
         canManageBilling: membership.role === "owner",
-        selfServePlans: [{
-          id: "pro",
-          name: "Pro",
-          price: getPlanById("pro")?.price ?? "$29/month",
-        }],
+        selfServePlans: ["starter", "growth", "pro"]
+          .map((planId) => getPlanById(planId as PlanId))
+          .filter((plan): plan is NonNullable<typeof plan> => Boolean(plan?.active && plan.selfServe))
+          .map((plan) => ({
+            id: plan.id,
+            name: plan.name,
+            price: plan.price,
+            description: plan.description,
+            includedMinutes: plan.includedMinutes,
+          })),
         billingHistory: [],
       },
       200,

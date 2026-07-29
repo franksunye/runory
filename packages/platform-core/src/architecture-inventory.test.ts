@@ -22,6 +22,8 @@ const COMMAND_SOURCE_FIXTURE = {
     "payment.fail_provider_result",
     "payment.fail_refund",
     "payment.mark_processing",
+    "payment.reconcile",
+    "payment.replay_event",
     "payment.request",
     "payment.request_refund",
   ],
@@ -84,7 +86,7 @@ describe("Command architecture inventory", () => {
 
     expect(inventory.issues).toEqual([]);
     expect(inventory.summary).toMatchObject({
-      commandCount: 52,
+      commandCount: 54,
       sourceCount: 8,
       moduleSourceCount: 5,
       platformServiceSourceCount: 3,

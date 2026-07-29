@@ -3,7 +3,7 @@ import { batch, genId, now, queryAll, queryOne } from "./db";
 import { TABLES } from "./contracts";
 import { EARLY_ACCESS_QUOTAS, type QuotaMetric } from "./entitlements";
 
-export type BillingPlan = "starter" | "pro" | "enterprise";
+export type BillingPlan = "starter" | "growth" | "pro" | "enterprise";
 export type BillingSubscriptionStatus =
   | "incomplete"
   | "incomplete_expired"
@@ -61,18 +61,45 @@ export interface BillingSubscriptionEvent {
   latestInvoiceId?: string | null;
 }
 
-const PRO_QUOTAS: Record<QuotaMetric, number> = {
-  workspaces: 20,
-  members: 50,
-  records: 500_000,
-  storage_bytes: 50 * 1024 * 1024 * 1024,
-  api_requests: 1_000_000,
-  agent_operations: 10_000,
+export const BILLING_PLAN_QUOTAS: Record<BillingPlan, Record<QuotaMetric, number>> = {
+  starter: {
+    workspaces: 5,
+    members: 15,
+    records: 100_000,
+    storage_bytes: 10 * 1024 * 1024 * 1024,
+    api_requests: 250_000,
+    agent_operations: 3_000,
+  },
+  growth: {
+    workspaces: 20,
+    members: 50,
+    records: 500_000,
+    storage_bytes: 50 * 1024 * 1024 * 1024,
+    api_requests: 1_000_000,
+    agent_operations: 10_000,
+  },
+  pro: {
+    workspaces: 100,
+    members: 250,
+    records: 2_000_000,
+    storage_bytes: 250 * 1024 * 1024 * 1024,
+    api_requests: 5_000_000,
+    agent_operations: 50_000,
+  },
+  // Enterprise remains sales-assisted. These defaults are only a safe fallback;
+  // contracted overrides remain authoritative for an Enterprise organization.
+  enterprise: {
+    workspaces: 100,
+    members: 250,
+    records: 2_000_000,
+    storage_bytes: 250 * 1024 * 1024 * 1024,
+    api_requests: 5_000_000,
+    agent_operations: 50_000,
+  },
 };
 
 function quotasForPlan(plan: BillingPlan | "early_access"): Record<QuotaMetric, number> {
-  if (plan === "pro") return PRO_QUOTAS;
-  return EARLY_ACCESS_QUOTAS;
+  return plan === "early_access" ? EARLY_ACCESS_QUOTAS : BILLING_PLAN_QUOTAS[plan];
 }
 
 function mapCustomer(row: {

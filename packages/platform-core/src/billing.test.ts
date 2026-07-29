@@ -76,6 +76,17 @@ describe("Runory subscription billing projection", () => {
     await expect(getEntitlement(organizationId)).resolves.toMatchObject({
       plan: "pro",
       status: "active",
+      quotas: { workspaces: 100, members: 250 },
+    });
+  });
+
+  it("projects Growth with its own tiered quotas", async () => {
+    await applyBillingSubscriptionEvent(event({
+      providerPriceId: "price_runory_growth",
+      plan: "growth",
+    }));
+    await expect(getEntitlement(organizationId)).resolves.toMatchObject({
+      plan: "growth",
       quotas: { workspaces: 20, members: 50 },
     });
   });

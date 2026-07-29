@@ -45,7 +45,13 @@ interface BillingData {
   } | null;
   hasBillingCustomer: boolean;
   canManageBilling: boolean;
-  selfServePlans: Array<{ id: string; name: string; price: string }>;
+  selfServePlans: Array<{
+    id: "starter" | "growth" | "pro";
+    name: string;
+    price: string;
+    description: string;
+    includedMinutes: number | null;
+  }>;
   billingHistory: unknown[];
 }
 
@@ -54,6 +60,11 @@ const FEATURE_LABELS: Record<string, { labelKey?: MessageKey; icon: typeof Packa
   extensions: { labelKey: "billing.feature.extensions", icon: Zap },
   api_access: { labelKey: "billing.feature.apiAccess", icon: KeyRound },
   audit_log: { labelKey: "billing.feature.auditLog", icon: ScrollText },
+  voice_intake: { labelKey: "billing.feature.voiceIntake", icon: CreditCard },
+  advanced_analytics: { labelKey: "billing.feature.advancedAnalytics", icon: Zap },
+  priority_onboarding: { labelKey: "billing.feature.priorityOnboarding", icon: Users },
+  priority_support: { labelKey: "billing.feature.prioritySupport", icon: Users },
+  custom_roles: { labelKey: "billing.feature.customRoles", icon: KeyRound },
 };
 
 const METRIC_LABELS: Record<string, { labelKey?: MessageKey; icon: typeof Users; format: (v: number) => string }> = {
@@ -86,7 +97,7 @@ export default function BillingPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [organizationId, setOrganizationId] = useState<string | null>(null);
-  const [billingAction, setBillingAction] = useState<"checkout" | "portal" | null>(null);
+  const [billingAction, setBillingAction] = useState<`checkout:${"starter" | "growth" | "pro"}` | "portal" | null>(null);
 
   const loadBilling = useCallback(async () => {
     try {
@@ -119,16 +130,16 @@ export default function BillingPage() {
     }
   }, [workspaceId]);
 
-  const startCheckout = async () => {
+  const startCheckout = async (plan: "starter" | "growth" | "pro") => {
     if (!organizationId) return;
-    setBillingAction("checkout");
+    setBillingAction(`checkout:${plan}`);
     setError(null);
     try {
       const result = await apiPost<{
         success: boolean;
         data: { checkoutUrl: string };
       }>(`/api/organizations/${organizationId}/billing/checkout`, {
-        plan: "pro",
+        plan,
         returnPath: `/w/${workspaceId}/billing`,
       }, {
         headers: { "Idempotency-Key": `billing-checkout:${organizationId}:${crypto.randomUUID()}` },
@@ -171,6 +182,10 @@ export default function BillingPage() {
     const bi = METRIC_ORDER.indexOf(b.metric);
     return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
   });
+  const currentPlan = data?.selfServePlans.find((plan) => plan.id === data.plan);
+  const hasActiveSubscription = Boolean(
+    data?.subscription && ["active", "trialing", "past_due"].includes(data.subscription.status),
+  );
 
   return (
     <div className="space-y-6">
@@ -202,7 +217,7 @@ export default function BillingPage() {
                 <CheckCircle2 size={14} />{data?.status ?? "active"}
               </span>
               <span className="text-sm font-semibold text-slate-700">
-                {data?.plan === "pro" ? t("billing.proPlan") : t("billing.free")}
+                {currentPlan ? `${currentPlan.name} · ${currentPlan.price}` : t("billing.free")}
               </span>
             </div>
             {data?.subscription && (
@@ -353,22 +368,49 @@ export default function BillingPage() {
           <p className="mt-2 max-w-md text-sm leading-6 text-slate-500">
             {t("billing.comingSoonBody")}
           </p>
-          <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
-            <span className="app-badge bg-white text-slate-600">{t("billing.proPlan")}</span>
-            <span className="app-badge bg-white text-slate-600">{t("billing.enterprisePlan")}</span>
-          </div>
-          {data?.plan !== "pro" && (
-            <button
-              type="button"
-              disabled={!data?.canManageBilling || billingAction !== null}
-              onClick={() => void startCheckout()}
-              className="app-button-primary mt-5 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {billingAction === "checkout" ? <Loader2 size={18} className="animate-spin" /> : <CreditCard size={18} />}
-              {t("billing.proPlan")}
-            </button>
-          )}
         </div>
+        <div className="mt-7 grid gap-4 lg:grid-cols-3">
+          {(data?.selfServePlans ?? []).map((plan) => {
+            const isCurrent = data?.plan === plan.id;
+            const isGrowth = plan.id === "growth";
+            return (
+              <article
+                key={plan.id}
+                className={`relative flex min-h-64 flex-col rounded-2xl border bg-white p-5 text-left shadow-sm ${
+                  isGrowth ? "border-indigo-300 ring-1 ring-indigo-100" : "border-slate-200"
+                }`}
+              >
+                {isGrowth && (
+                  <span className="absolute right-4 top-4 rounded-full bg-indigo-50 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-indigo-700">
+                    Recommended
+                  </span>
+                )}
+                <h4 className="text-base font-bold text-slate-950">{plan.name}</h4>
+                <p className="mt-2 text-2xl font-bold tracking-tight text-slate-950">{plan.price}</p>
+                <p className="mt-3 text-sm leading-6 text-slate-500">{plan.description}</p>
+                {plan.includedMinutes !== null && (
+                  <p className="mt-3 text-xs font-semibold text-slate-600">
+                    {plan.includedMinutes.toLocaleString()} included voice minutes
+                  </p>
+                )}
+                <button
+                  type="button"
+                  disabled={isCurrent || hasActiveSubscription || !data?.canManageBilling || billingAction !== null}
+                  onClick={() => void startCheckout(plan.id)}
+                  className={`${isGrowth ? "app-button-primary" : "app-button-secondary"} mt-auto w-full justify-center disabled:cursor-not-allowed disabled:opacity-60`}
+                >
+                  {billingAction === `checkout:${plan.id}` ? <Loader2 size={18} className="animate-spin" /> : <CreditCard size={18} />}
+                  {isCurrent ? "Current plan" : `Choose ${plan.name}`}
+                </button>
+              </article>
+            );
+          })}
+        </div>
+        {hasActiveSubscription && (
+          <p className="mt-4 text-center text-xs text-slate-500">
+            Use Stripe subscription management to change or cancel an existing plan.
+          </p>
+        )}
       </section>
 
       {/* Billing History (empty) */}

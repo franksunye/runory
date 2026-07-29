@@ -321,6 +321,24 @@ export async function getPaymentProviderAccount(
   return row;
 }
 
+/**
+ * Load a single payment record by ID within a workspace.
+ * Used by reconciliation API routes to resolve provider info before
+ * retrieving a provider snapshot.
+ */
+export async function getPaymentRecord(
+  workspaceId: string,
+  paymentId: string,
+): Promise<PaymentRecord> {
+  const row = await queryOne<PaymentRecord>(
+    `SELECT * FROM ${businessTable("payment")}
+     WHERE workspace_id = ? AND id = ?`,
+    [workspaceId, paymentId],
+  );
+  if (!row) throw new NotFoundError(`Payment not found: ${paymentId}`);
+  return row;
+}
+
 export async function requestPayment(
   workspaceId: string,
   input: {

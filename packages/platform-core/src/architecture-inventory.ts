@@ -109,6 +109,8 @@ export const COMMAND_IMPLEMENTATIONS: readonly CommandImplementationDeclaration[
   { key: "payment.connect.start", aggregate: "payment_provider_account", sourceFile: "payment-connect-commands.ts" },
   { key: "payment.connect.sync", aggregate: "payment_provider_account", sourceFile: "payment-connect-commands.ts" },
   { key: "payment.connect.disconnect", aggregate: "payment_provider_account", sourceFile: "payment-connect-commands.ts" },
+  { key: "payment.reconcile", aggregate: "payment_reconciliation_result", sourceFile: "payment-reconciliation.ts" },
+  { key: "payment.replay_event", aggregate: "payment_reconciliation_result", sourceFile: "payment-reconciliation.ts" },
   { key: "invoice.issue_from_work_order", aggregate: "invoice", sourceFile: "invoice-commands.ts" },
   { key: "invoice.void", aggregate: "invoice", sourceFile: "invoice-commands.ts" },
   { key: "quote.submit_for_approval", aggregate: "quote", sourceFile: "quote-commands.ts" },

@@ -91,6 +91,29 @@ CREATE TABLE IF NOT EXISTS {{BUSINESS_TABLE_PREFIX}}payment_provider_reference (
   UNIQUE(workspace_id, provider, provider_account_id, provider_event_id)
 );
 
+-- v0.9.3: Reconciliation result table for payment.reconcile command
+CREATE TABLE IF NOT EXISTS {{BUSINESS_TABLE_PREFIX}}payment_reconciliation_result (
+  id TEXT PRIMARY KEY,
+  workspace_id TEXT NOT NULL,
+  payment_id TEXT NOT NULL,
+  provider TEXT NOT NULL,
+  provider_account_id TEXT NOT NULL,
+  provider_payment_id TEXT,
+  status TEXT NOT NULL,
+  comparison_json TEXT NOT NULL,
+  provider_snapshot_json TEXT,
+  canonical_snapshot_json TEXT,
+  divergences_json TEXT NOT NULL DEFAULT '[]',
+  replay_attempted INTEGER NOT NULL DEFAULT 0,
+  replay_command_id TEXT,
+  reconciled_by TEXT NOT NULL,
+  reconciled_at TEXT NOT NULL,
+  aggregate_version INTEGER NOT NULL DEFAULT 1,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  UNIQUE(workspace_id, id)
+);
+
 CREATE INDEX IF NOT EXISTS idx_payment_request_workspace_status ON {{BUSINESS_TABLE_PREFIX}}payment_request(workspace_id, status);
 CREATE INDEX IF NOT EXISTS idx_payment_request_source ON {{BUSINESS_TABLE_PREFIX}}payment_request(workspace_id, source_object_type, source_object_id);
 CREATE INDEX IF NOT EXISTS idx_payment_request_contact ON {{BUSINESS_TABLE_PREFIX}}payment_request(workspace_id, customer_contact_id);
@@ -100,6 +123,9 @@ CREATE INDEX IF NOT EXISTS idx_payment_request_payment ON {{BUSINESS_TABLE_PREFI
 CREATE INDEX IF NOT EXISTS idx_payment_status ON {{BUSINESS_TABLE_PREFIX}}payment(workspace_id, status);
 CREATE INDEX IF NOT EXISTS idx_refund_payment ON {{BUSINESS_TABLE_PREFIX}}refund(workspace_id, payment_id);
 CREATE INDEX IF NOT EXISTS idx_provider_reference_object ON {{BUSINESS_TABLE_PREFIX}}payment_provider_reference(workspace_id, provider, provider_object_type, provider_object_id);
+CREATE INDEX IF NOT EXISTS idx_reconciliation_payment ON {{BUSINESS_TABLE_PREFIX}}payment_reconciliation_result(workspace_id, payment_id);
+CREATE INDEX IF NOT EXISTS idx_reconciliation_status ON {{BUSINESS_TABLE_PREFIX}}payment_reconciliation_result(workspace_id, status);
+CREATE INDEX IF NOT EXISTS idx_reconciliation_provider ON {{BUSINESS_TABLE_PREFIX}}payment_reconciliation_result(workspace_id, provider, provider_account_id);
 
 CREATE TRIGGER IF NOT EXISTS {{BUSINESS_TABLE_PREFIX}}refund_balance_guard
 BEFORE INSERT ON {{BUSINESS_TABLE_PREFIX}}refund

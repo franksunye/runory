@@ -292,7 +292,7 @@ describe("v0.5 Commercial FSM Journey", () => {
        WHERE workspace_id = ?`,
       [workspaceId],
     );
-    expect(registered?.count).toBe(52);
+    expect(registered?.count).toBe(54);
     expect((await resolveWorkspaceCommandPlan(workspaceId, "visit.start_travel"))?.effects)
       .toHaveLength(1);
     expect((await resolveWorkspaceCommandPlan(workspaceId, "work_order.cancel"))?.effects)
@@ -301,7 +301,7 @@ describe("v0.5 Commercial FSM Journey", () => {
       .toHaveLength(0);
 
     const inventory = await getWorkspaceCommandContractInventory(workspaceId);
-    expect(inventory).toHaveLength(52);
+    expect(inventory).toHaveLength(54);
     expect(inventory.find((entry) => entry.commandKey === "visit.complete")).toMatchObject({
       sourceKind: "module",
       sourceId: "runory.service-visit",

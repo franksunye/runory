@@ -36,6 +36,7 @@ export function validateModuleCommandContracts(
       continue;
     }
     for (const field of [aggregate.stateField, aggregate.versionField]) {
+      if (field === null || field === undefined) continue;
       if (!object.fields.some((candidate) => candidate.key === field)) {
         issues.push(`aggregate '${aggregate.key}' field '${field}' is not declared`);
       }

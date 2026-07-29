@@ -3,7 +3,9 @@
 // Server-owned commercial catalog. Stripe Price IDs are configured separately
 // and never accepted from the browser.
 
-export type PlanId = "early_access" | "pro" | "enterprise";
+import { BILLING_PLAN_QUOTAS } from "@runory/platform-core";
+
+export type PlanId = "early_access" | "starter" | "growth" | "pro" | "enterprise";
 
 export interface PlanDefinition {
   id: PlanId;
@@ -20,6 +22,8 @@ export interface PlanDefinition {
     agentOperations: number;
   };
   active: boolean;
+  selfServe: boolean;
+  includedMinutes: number | null;
 }
 
 export const PLANS: PlanDefinition[] = [
@@ -38,12 +42,50 @@ export const PLANS: PlanDefinition[] = [
       agentOperations: 1_000,
     },
     active: true,
+    selfServe: false,
+    includedMinutes: null,
+  },
+  {
+    id: "starter",
+    name: "Starter",
+    price: "$449/month",
+    description: "For small service teams establishing one dependable operating loop.",
+    features: ["crm_lite", "extensions", "api_access", "audit_log", "voice_intake"],
+    limits: {
+      workspaces: BILLING_PLAN_QUOTAS.starter.workspaces,
+      members: BILLING_PLAN_QUOTAS.starter.members,
+      records: BILLING_PLAN_QUOTAS.starter.records,
+      storageBytes: BILLING_PLAN_QUOTAS.starter.storage_bytes,
+      apiRequests: BILLING_PLAN_QUOTAS.starter.api_requests,
+      agentOperations: BILLING_PLAN_QUOTAS.starter.agent_operations,
+    },
+    active: true,
+    selfServe: true,
+    includedMinutes: 1_000,
+  },
+  {
+    id: "growth",
+    name: "Growth",
+    price: "$999/month",
+    description: "For growing service businesses running a connected CRM, Sales, and FSM operation.",
+    features: ["crm_lite", "extensions", "api_access", "audit_log", "voice_intake", "advanced_analytics", "priority_onboarding"],
+    limits: {
+      workspaces: BILLING_PLAN_QUOTAS.growth.workspaces,
+      members: BILLING_PLAN_QUOTAS.growth.members,
+      records: BILLING_PLAN_QUOTAS.growth.records,
+      storageBytes: BILLING_PLAN_QUOTAS.growth.storage_bytes,
+      apiRequests: BILLING_PLAN_QUOTAS.growth.api_requests,
+      agentOperations: BILLING_PLAN_QUOTAS.growth.agent_operations,
+    },
+    active: true,
+    selfServe: true,
+    includedMinutes: 3_000,
   },
   {
     id: "pro",
     name: "Pro",
-    price: "$29/月",
-    description: "适合成长型团队，提供更高额度与高级功能。",
+    price: "$2,499/month",
+    description: "For multi-team, multi-location, or multi-service operations.",
     features: [
       "crm_lite",
       "extensions",
@@ -54,14 +96,16 @@ export const PLANS: PlanDefinition[] = [
       "custom_roles",
     ],
     limits: {
-      workspaces: 20,
-      members: 50,
-      records: 500_000,
-      storageBytes: 50 * 1024 * 1024 * 1024, // 50 GB
-      apiRequests: 1_000_000,
-      agentOperations: 10_000,
+      workspaces: BILLING_PLAN_QUOTAS.pro.workspaces,
+      members: BILLING_PLAN_QUOTAS.pro.members,
+      records: BILLING_PLAN_QUOTAS.pro.records,
+      storageBytes: BILLING_PLAN_QUOTAS.pro.storage_bytes,
+      apiRequests: BILLING_PLAN_QUOTAS.pro.api_requests,
+      agentOperations: BILLING_PLAN_QUOTAS.pro.agent_operations,
     },
     active: true,
+    selfServe: true,
+    includedMinutes: 8_000,
   },
   {
     id: "enterprise",
@@ -89,6 +133,8 @@ export const PLANS: PlanDefinition[] = [
       agentOperations: -1,
     },
     active: false,
+    selfServe: false,
+    includedMinutes: null,
   },
 ];
 

@@ -25,15 +25,23 @@ export function getRunoryBillingStripeConfig(): RunoryBillingStripeConfig {
   if (!secretKey.startsWith(mode === "test" ? "sk_test_" : "sk_live_")) {
     throw new Error("BILLING_CONFIG_KEY_MODE_MISMATCH");
   }
+  const starterPrice = required("RUNORY_BILLING_STARTER_PRICE_ID");
+  const growthPrice = required("RUNORY_BILLING_GROWTH_PRICE_ID");
   const proPrice = required("RUNORY_BILLING_PRO_PRICE_ID");
-  if (!proPrice.startsWith("price_")) throw new Error("BILLING_CONFIG_INVALID_PRO_PRICE");
+  if (![starterPrice, growthPrice, proPrice].every((price) => price.startsWith("price_"))) {
+    throw new Error("BILLING_CONFIG_INVALID_PRICE");
+  }
+  if (new Set([starterPrice, growthPrice, proPrice]).size !== 3) {
+    throw new Error("BILLING_CONFIG_DUPLICATE_PRICE");
+  }
 
   cached = {
     secretKey,
     webhookSecret: required("RUNORY_BILLING_STRIPE_WEBHOOK_SECRET"),
     mode,
     prices: {
-      starter: null,
+      starter: starterPrice,
+      growth: growthPrice,
       pro: proPrice,
       enterprise: null,
     },

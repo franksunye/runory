@@ -16,7 +16,10 @@
     "db:reset": "node scripts/db-reset.mjs",
     "contracts:repair": "tsx scripts/repair-command-contracts.mjs",
     "avatars:generate": "node scripts/generate-demo-avatars.mjs",
-    "bootstrap:demo": "node scripts/bootstrap-demo.mjs"
+    "bootstrap:demo": "node scripts/bootstrap-demo.mjs",
+    "stripe:billing:setup": "node --env-file=.env.local scripts/stripe-billing-local.mjs setup",
+    "stripe:billing:verify": "node --env-file=.env.local scripts/stripe-billing-local.mjs verify",
+    "dev:stripe": "node --env-file=.env.local scripts/stripe-billing-dev.mjs"
   },
   "dependencies": {
     "@libsql/client": "^0.17.3",

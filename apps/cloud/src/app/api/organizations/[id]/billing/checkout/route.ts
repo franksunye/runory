@@ -6,6 +6,7 @@ import {
   AuthorizationError,
   ConflictError,
   InvalidInputError,
+  type BillingPlan,
 } from "@runory/platform-core";
 import { requireOrganizationAccess } from "@/lib/auth";
 import { getOrCreateRequestId, handleError, successResponse } from "@/lib/http";
@@ -34,7 +35,10 @@ export async function POST(
       returnPath?: string;
     };
     if (body.priceId) throw new InvalidInputError("Client Price IDs are forbidden");
-    if (body.plan !== "pro") throw new InvalidInputError("Plan is not self-serve");
+    const plan = body.plan as BillingPlan;
+    if (!["starter", "growth", "pro"].includes(plan)) {
+      throw new InvalidInputError("Plan is not self-serve");
+    }
 
     const existingSubscription = await getBillingSubscription(organizationId);
     if (
@@ -67,17 +71,17 @@ export async function POST(
       mode: "subscription",
       customer: customer.providerCustomerId,
       client_reference_id: organizationId,
-      line_items: [{ price: getBillingPrice("pro"), quantity: 1 }],
+      line_items: [{ price: getBillingPrice(plan), quantity: 1 }],
       success_url: `${origin}${path}?billing=returned`,
       cancel_url: `${origin}${path}?billing=cancelled`,
       metadata: {
         organization_id: organizationId,
-        plan_id: "pro",
+        plan_id: plan,
       },
       subscription_data: {
         metadata: {
           organization_id: organizationId,
-          plan_id: "pro",
+          plan_id: plan,
         },
       },
     }, {

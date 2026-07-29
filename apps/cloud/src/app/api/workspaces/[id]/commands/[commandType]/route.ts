@@ -48,6 +48,7 @@ import {
   cancelWorkItem,
   cancelWorkflow,
   startWorkflow,
+  triggerPushForCommand,
   type CommandActor,
   type CommandHandlerResult,
   issueInvoiceFromWorkOrder,
@@ -593,6 +594,19 @@ export async function POST(
       default:
         return handleError(new Error(`Unknown command type: ${commandType}`), requestId);
     }
+
+    // ── v0.9.2 Push notification hooks (fire-and-forget) ──
+    // Trigger push notifications for P0 events after the command succeeds.
+    // Errors are caught and never block the command response.
+    triggerPushForCommand({
+      workspaceId,
+      commandType,
+      aggregateId: body.aggregateId,
+      result: result as Record<string, unknown>,
+      input: body,
+    }).catch(() => {
+      // Push dispatch failures are non-fatal; the Outbox handles retries.
+    });
 
     return successResponse(result, 200, ctx.requestId);
   } catch (e) {

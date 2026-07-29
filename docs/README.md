@@ -23,7 +23,7 @@ Runory documentation is organized by topic authority and lifecycle rather than b
 | Start using Runory | [Getting Started](getting-started.md) | [Workspace Guide](workspace-guide.md), [Packs and Modules](packs-and-modules.md) |
 | Understand the platform | [Architecture Overview](architecture/overview.md) | [Module Architecture](architecture/module-architecture.md), [Repository Structure](architecture/repository-structure.md) |
 | Build or extend Runory | [Workspace Customization Boundaries](architecture/workspace-customization-boundaries.md) | [SDK / Module Development](sdk-module-development.md), [Add a Governed Command](sdk/governed-command-development.md), [Workspace Extension Architecture](architecture/workspace-extension-architecture.md) |
-| Operate Runory | [Operations Runbooks](operations/runbooks.md) | [Backup / Restore Runbook](operations/backup-restore-runbook.md), [Troubleshooting](troubleshooting.md) |
+| Operate Runory | [Operations Runbooks](operations/runbooks.md) | [Backup / Restore Runbook](operations/backup-restore-runbook.md), [Stripe Local Development](operations/stripe-local-development.md), [Troubleshooting](troubleshooting.md) |
 | Review releases | [Release Notes](release-notes.md) | [Release evidence](releases/) |
 | Add or change documentation | [Documentation Governance](document-governance.md) | Run `pnpm docs:check` |
 

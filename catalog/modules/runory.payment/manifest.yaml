@@ -136,6 +136,29 @@ objects:
           options: [accepted, processed, ignored, failed]
       - { key: processed_at, label: Processed At, type: date, ownership: module_owned }
       - { key: error_code, label: Error Code, type: text, ownership: module_owned }
+  - key: payment_reconciliation_result
+    label: Payment Reconciliation Result
+    fields:
+      - { key: payment_id, label: Payment, type: text, ownership: module_owned, required: true }
+      - { key: provider, label: Provider, type: text, ownership: module_owned, required: true }
+      - { key: provider_account_id, label: Provider Account, type: text, ownership: module_owned, required: true }
+      - { key: provider_payment_id, label: Provider Payment ID, type: text, ownership: module_owned }
+      - key: status
+        label: Status
+        type: select
+        ownership: module_owned
+        required: true
+        validation:
+          options: [consistent, divergent, unknown]
+      - { key: comparison_json, label: Comparison, type: text, ownership: module_owned, required: true }
+      - { key: provider_snapshot_json, label: Provider Snapshot, type: text, ownership: module_owned }
+      - { key: canonical_snapshot_json, label: Canonical Snapshot, type: text, ownership: module_owned }
+      - { key: divergences_json, label: Divergences, type: text, ownership: module_owned, required: true }
+      - { key: replay_attempted, label: Replay Attempted, type: boolean, ownership: module_owned, required: true, default_value: "false" }
+      - { key: replay_command_id, label: Replay Command ID, type: text, ownership: module_owned }
+      - { key: reconciled_by, label: Reconciled By, type: text, ownership: module_owned, required: true }
+      - { key: reconciled_at, label: Reconciled At, type: date, ownership: module_owned, required: true }
+      - { key: aggregate_version, label: Aggregate Version, type: number, ownership: module_owned, required: true, default_value: "1" }
 
 views:
   - object: payment_request
@@ -178,6 +201,7 @@ domain:
     - { key: payment, stateField: status, versionField: aggregate_version }
     - { key: refund, stateField: status, versionField: aggregate_version }
     - { key: payment_provider_account, stateField: onboarding_status, versionField: aggregate_version }
+    - { key: payment_reconciliation_result, stateField: status, versionField: aggregate_version }
   commands:
     - key: payment.request
       contractVersion: "1.0.0"
@@ -329,6 +353,35 @@ domain:
       emits: [payment_connect.disconnected]
       auditRequired: true
       postconditions: [payment_provider_account.onboarding_status == disconnected]
+    - key: payment.reconcile
+      contractVersion: "1.0.0"
+      aggregate: payment_reconciliation_result
+      operation: create
+      allowedActorTypes: [user, api_key, system]
+      permission: payment.reconcile
+      idempotent: true
+      requiresExpectedVersion: false
+      requiredEffects: []
+      emits: [payment.reconciled]
+      auditRequired: true
+      postconditions:
+        - A ReconciliationResult is persisted with consistent, divergent, or unknown status.
+        - Diagnostic details never expose credentials or sensitive provider payloads.
+    - key: payment.replay_event
+      contractVersion: "1.0.0"
+      aggregate: payment_reconciliation_result
+      operation: create
+      allowedActorTypes: [user, api_key, system]
+      permission: payment.reconcile
+      idempotent: true
+      requiresExpectedVersion: false
+      requiredEffects: []
+      emits: [payment.event_replayed]
+      auditRequired: true
+      postconditions:
+        - Replayed events are dispatched through the existing provider event handler.
+        - Legal state transitions and Invoice allocation invariants are preserved.
+        - Already-processed events are idempotently skipped.
 
 permissions:
   - payment.view

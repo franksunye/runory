@@ -97,9 +97,15 @@ Portal. Members may not manage Organization billing.
 RUNORY_BILLING_STRIPE_SECRET_KEY
 RUNORY_BILLING_STRIPE_WEBHOOK_SECRET
 RUNORY_BILLING_STRIPE_MODE=test|live
+RUNORY_BILLING_STARTER_PRICE_ID
+RUNORY_BILLING_GROWTH_PRICE_ID
 RUNORY_BILLING_PRO_PRICE_ID
 NEXT_PUBLIC_APP_URL
 ```
+
+`starter`, `growth`, and `pro` are the only self-serve plan IDs. The server maps
+them to the configured Stripe Prices; browser-supplied Price IDs are rejected.
+Enterprise remains sales-assisted.
 
 Production enablement requires a live-mode Price, live webhook endpoint, secret
 rotation and storage, tax/legal decisions, alerting, support procedures, and a

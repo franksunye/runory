@@ -38,7 +38,9 @@ function payload(input: {
   eventId: string;
   created: number;
   status: string;
+  plan?: "starter" | "growth" | "pro";
 }): string {
+  const plan = input.plan ?? "pro";
   return JSON.stringify({
     id: input.eventId,
     object: "event",
@@ -56,14 +58,14 @@ function payload(input: {
         latest_invoice: "in_runory_http",
         metadata: {
           organization_id: organizationId,
-          plan_id: "pro",
+          plan_id: plan,
         },
         items: {
           object: "list",
           data: [{
             id: "si_runory_http",
             object: "subscription_item",
-            price: { id: "price_runory_pro_test", object: "price" },
+            price: { id: `price_runory_${plan}_test`, object: "price" },
           }],
         },
       },
@@ -87,6 +89,8 @@ beforeEach(async () => {
   process.env.RUNORY_BILLING_STRIPE_SECRET_KEY = "sk_test_unit";
   process.env.RUNORY_BILLING_STRIPE_WEBHOOK_SECRET = secret;
   process.env.RUNORY_BILLING_STRIPE_MODE = "test";
+  process.env.RUNORY_BILLING_STARTER_PRICE_ID = "price_runory_starter_test";
+  process.env.RUNORY_BILLING_GROWTH_PRICE_ID = "price_runory_growth_test";
   process.env.RUNORY_BILLING_PRO_PRICE_ID = "price_runory_pro_test";
   resetRunoryBillingStripeConfigForTests();
   resetRunoryBillingStripeClientForTests();
@@ -124,5 +128,19 @@ describe("Stripe Billing webhook HTTP boundary", () => {
     });
 
     expect((await POST(signedRequest(activePayload, "t=1,v1=invalid"))).status).toBe(400);
+  });
+
+  it("projects Growth from the server allowlisted Stripe Price", async () => {
+    const growthPayload = payload({
+      eventId: "evt_billing_growth_http",
+      created: 1_800_000_000,
+      status: "active",
+      plan: "growth",
+    });
+    expect((await POST(signedRequest(growthPayload))).status).toBe(200);
+    await expect(getEntitlement(organizationId)).resolves.toMatchObject({
+      plan: "growth",
+      quotas: { workspaces: 20, members: 50 },
+    });
   });
 });
