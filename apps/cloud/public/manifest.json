@@ -1,0 +1,17 @@
+{
+  "id": "/runory",
+  "name": "Runory",
+  "short_name": "Runory",
+  "description": "Field service management",
+  "start_url": "/app",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "theme_color": "#7c5cfc",
+  "background_color": "#ffffff",
+  "icons": [
+    { "src": "/m/icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/m/icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/m/icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

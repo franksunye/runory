@@ -23,7 +23,7 @@ export const metadata: Metadata = {
   ],
   metadataBase: new URL(siteUrl),
   alternates: { canonical: "/" },
-  manifest: "/m/manifest.json",
+  manifest: "/manifest.json",
   robots: { index: true, follow: true, googleBot: { index: true, follow: true, "max-image-preview": "large", "max-snippet": -1, "max-video-preview": -1 } },
   openGraph: {
     title: "Runory | Agent-native Operating System for Service Businesses",

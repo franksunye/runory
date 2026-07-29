@@ -1,5 +1,5 @@
 /* eslint-disable */
-// ── Runory Field PWA Service Worker (v0.5.1) ──
+// ── Runory PWA Service Worker (v0.9.2) ──
 //
 // Per v0.5.1 Mobile Field-Work Spec §5.3 — Cache Policy:
 //
@@ -16,7 +16,7 @@
 // responses. Deployment MUST set sw.js to no-cache, no-store, must-revalidate,
 // clean old named caches, and expose a safe update/reload path.
 
-const SW_VERSION = "runory-field-v0.5.1-v2";
+const SW_VERSION = "runory-v0.9.2";
 const STATIC_CACHE = `${SW_VERSION}-static`;
 const APP_SHELL_CACHE = `${SW_VERSION}-shell`;
 
@@ -189,6 +189,100 @@ self.addEventListener("message", (event) => {
   if (event.data === "SKIP_WAITING") {
     self.skipWaiting();
   }
+});
+
+// ──────────────────────────────────────────────
+// 5. PUSH — display push notifications (v0.9.2 Spec §7)
+// ──────────────────────────────────────────────
+//
+// Per §7 Browser & Service Worker contract: the push payload is a JSON
+// object with { title, body, route, tag?, icon?, badge? }.  If the payload
+// is missing or malformed we MUST NOT surface raw content to the user.
+
+self.addEventListener("push", (event) => {
+  let payload;
+  try {
+    payload = event.data ? event.data.json() : null;
+  } catch (_e) {
+    // Malformed payload — silently drop. Never display raw/partial content.
+    return;
+  }
+
+  if (!payload || typeof payload !== "object") {
+    return;
+  }
+
+  const title = typeof payload.title === "string" ? payload.title : "Runory";
+
+  const options = {
+    body: typeof payload.body === "string" ? payload.body : "",
+    icon: typeof payload.icon === "string" ? payload.icon : "/m/icons/icon-192.png",
+    badge: typeof payload.badge === "string" ? payload.badge : "/m/icons/icon-192.png",
+    tag: typeof payload.tag === "string" ? payload.tag : undefined,
+    data: {
+      route: typeof payload.route === "string" ? payload.route : "/",
+    },
+  };
+
+  event.waitUntil(self.registration.showNotification(title, options));
+});
+
+// ──────────────────────────────────────────────
+// 6. NOTIFICATIONCLICK — focus client or open route (v0.9.2 Spec §7)
+// ──────────────────────────────────────────────
+//
+// Per §7: on click, close the notification, then either focus an existing
+// same-origin client or open a new window to the route from the payload.
+//
+// Security: the route is validated to be a relative path.  Absolute URLs
+// (e.g. "https://evil.com") and protocol-relative URLs ("//evil.com") are
+// rejected.  The opened route always goes through normal authentication —
+// push notifications never bypass auth.
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+
+  const rawRoute =
+    event.notification.data && typeof event.notification.data.route === "string"
+      ? event.notification.data.route
+      : "/";
+
+  // Validate route is a relative path — must start with "/" but not "//".
+  let targetPath = "/";
+  if (rawRoute.startsWith("/") && !rawRoute.startsWith("//")) {
+    targetPath = rawRoute;
+  }
+
+  event.waitUntil(
+    (async () => {
+      const clientList = await self.clients.matchAll({
+        type: "window",
+        includeUncontrolled: true,
+      });
+
+      // Prefer a same-origin client already on the target route.
+      for (const client of clientList) {
+        if (
+          client.url.startsWith(self.location.origin) &&
+          new URL(client.url).pathname === targetPath
+        ) {
+          return client.focus();
+        }
+      }
+
+      // Fall back to any same-origin client.
+      for (const client of clientList) {
+        if (client.url.startsWith(self.location.origin)) {
+          return client.focus();
+        }
+      }
+
+      // No existing client — open a new window to the target route.
+      // The route is relative, so it resolves against the origin and
+      // never bypasses authentication.
+      return self.clients.openWindow(targetPath);
+    })()
+  );
 });
 
 // ──────────────────────────────────────────────

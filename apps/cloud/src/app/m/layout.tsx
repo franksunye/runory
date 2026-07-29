@@ -21,7 +21,7 @@ import { initPerformanceMeasurement } from "@/lib/performance";
 
 // Bump this when sw.js cache policy changes to force a clean update.
 const SW_PATH = "/sw.js";
-const SW_SCOPE = "/m/";
+const SW_SCOPE = "/";
 
 export default function MobileLayout({
   children,

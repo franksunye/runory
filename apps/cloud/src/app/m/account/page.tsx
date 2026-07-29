@@ -9,6 +9,7 @@ import {
 import { useI18n } from "@/i18n/locale-provider";
 import { SUPPORTED_LOCALES, type Locale } from "@/i18n/config";
 import { apiFetch } from "@/lib/api-fetch";
+import { NotificationsSettings } from "./notifications-settings";
 
 export const dynamic = "force-dynamic";
 
@@ -165,6 +166,9 @@ function MobileAccountPage() {
                 ))}
               </div>
             </section>
+
+            {/* Notifications settings */}
+            <NotificationsSettings />
 
             {/* About */}
             <section>

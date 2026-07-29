@@ -102,6 +102,10 @@ export const TABLES = {
   // v0.8 Customer Access.
   customerAccessGrants: `${PREFIXES.runoryRuntime}customer_access_grants`,
 
+  // v0.9.2 PWA Push Notifications.
+  pushSubscriptions: `${PREFIXES.runoryRuntime}push_subscriptions`,
+  pushPreferences: `${PREFIXES.runoryRuntime}push_preferences`,
+
   // Customer communication domain.
   conversations: `${PREFIXES.runoryRuntime}conversations`,
   conversationParticipants: `${PREFIXES.runoryRuntime}conversation_participants`,
