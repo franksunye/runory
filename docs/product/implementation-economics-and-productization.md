@@ -12,7 +12,7 @@
 
 Runory implementation is both a real delivery activity with real cost today and a product-learning loop that should make future delivery faster, more predictable, and less expensive.
 
-This document supplements [Commercial Pricing and Packaging](commercial-pricing-and-packaging.md) and [Customer Implementation and Agent-assisted Delivery Model](customer-implementation-delivery-model.md). The pricing document remains authoritative for commercial bands; the delivery model remains authoritative for implementation phases, gates, provider ownership, approvals, and production cutover.
+This document supplements [Commercial Pricing and Packaging](commercial-pricing-and-packaging.md), [Customer Implementation and Agent-assisted Delivery Model](customer-implementation-delivery-model.md), and [Implementation Platform Product Design](implementation-platform-product-design.md). The pricing document remains authoritative for commercial bands; the delivery model remains authoritative for implementation phases, gates, provider ownership, approvals, and production cutover; the product-design document defines the objects, surfaces, Agent interfaces, Provider Foundation, and minimum complete implementation product.
 
 ## 1. Decision
 
@@ -222,6 +222,7 @@ This statement must not imply that all customer-specific work will eventually be
 
 - [Commercial Pricing and Packaging](commercial-pricing-and-packaging.md)
 - [Customer Implementation and Agent-assisted Delivery Model](customer-implementation-delivery-model.md)
+- [Implementation Platform Product Design](implementation-platform-product-design.md)
 - [Product Definition](product-definition.md)
 - [Voice Intake Product Definition](voice-intake-product-definition.md)
 - [Voice Intake Technical Specification](voice-intake-technical-spec.md)
