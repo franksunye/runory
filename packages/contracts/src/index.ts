@@ -1097,6 +1097,303 @@ export const diagnosticsPackageSchema = z.object({
 
 export type DiagnosticsPackage = z.infer<typeof diagnosticsPackageSchema>;
 
+// ── Workspace Configuration Diff (v0.9.1) ──
+
+export const configDiffChangeTypeSchema = z.enum([
+  "added",
+  "removed",
+  "modified",
+]);
+
+export const configDiffCategorySchema = z.enum([
+  "packs",
+  "extensions",
+  "objects",
+  "fields",
+  "views",
+  "navigation",
+  "relations",
+  "automations",
+  "workflows",
+  "forms",
+]);
+
+export const configDiffEntrySchema = z.object({
+  category: configDiffCategorySchema,
+  changeType: configDiffChangeTypeSchema,
+  identifier: z.string(),
+  label: z.string().optional(),
+  before: z.record(z.string(), z.unknown()).optional(),
+  after: z.record(z.string(), z.unknown()).optional(),
+  detail: z.string().optional(),
+});
+
+export const configDiffSummarySchema = z.object({
+  totalChanges: z.number(),
+  additions: z.number(),
+  removals: z.number(),
+  modifications: z.number(),
+  byCategory: z.record(configDiffCategorySchema, z.object({
+    additions: z.number(),
+    removals: z.number(),
+    modifications: z.number(),
+  })),
+});
+
+export const coverageMetricsSchema = z.object({
+  standardCoveragePct: z.number(),
+  extensionCoveragePct: z.number(),
+  standardObjectCount: z.number(),
+  extensionObjectCount: z.number(),
+  standardFieldCount: z.number(),
+  extensionFieldCount: z.number(),
+  standardViewCount: z.number(),
+  extensionViewCount: z.number(),
+  standardNavigationCount: z.number(),
+  extensionNavigationCount: z.number(),
+  meets90_10Target: z.boolean(),
+});
+
+export const workspaceConfigDiffSchema = z.object({
+  baselineWorkspaceId: z.string(),
+  targetWorkspaceId: z.string(),
+  generatedAt: z.string(),
+  entries: z.array(configDiffEntrySchema),
+  summary: configDiffSummarySchema,
+  coverage: coverageMetricsSchema.optional(),
+});
+
+export type ConfigDiffChangeType = z.infer<typeof configDiffChangeTypeSchema>;
+export type ConfigDiffCategory = z.infer<typeof configDiffCategorySchema>;
+export type ConfigDiffEntry = z.infer<typeof configDiffEntrySchema>;
+export type ConfigDiffSummary = z.infer<typeof configDiffSummarySchema>;
+export type CoverageMetrics = z.infer<typeof coverageMetricsSchema>;
+export type WorkspaceConfigDiff = z.infer<typeof workspaceConfigDiffSchema>;
+
+// ── 90/10 Coverage Validation Report (v0.9.1) ──
+
+export const workspaceCoverageEntrySchema = z.object({
+  workspaceId: z.string(),
+  workspaceName: z.string(),
+  workspaceSlug: z.string(),
+  coverage: coverageMetricsSchema,
+  packCount: z.number(),
+  extensionCount: z.number(),
+  meetsTarget: z.boolean(),
+});
+
+export const coverageValidationReportSchema = z.object({
+  generatedAt: z.string(),
+  totalWorkspaces: z.number(),
+  passingWorkspaces: z.number(),
+  failingWorkspaces: z.number(),
+  passRate: z.number(),
+  averageStandardCoverage: z.number(),
+  averageExtensionCoverage: z.number(),
+  overallMeetsTarget: z.boolean(),
+  workspaces: z.array(workspaceCoverageEntrySchema),
+});
+
+export type WorkspaceCoverageEntry = z.infer<typeof workspaceCoverageEntrySchema>;
+export type CoverageValidationReport = z.infer<typeof coverageValidationReportSchema>;
+
+// ── Extension Template Library (v0.9.1) ──
+
+export const extensionTemplateSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  description: z.string(),
+  category: z.string(),
+  targetSolutionTypes: z.array(z.string()).default([]),
+  riskLevel: z.enum(["low", "medium", "high"]),
+  plan: extensionPlanSchema,
+});
+
+export const extensionTemplateSummarySchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  description: z.string(),
+  category: z.string(),
+  targetSolutionTypes: z.array(z.string()),
+  riskLevel: z.enum(["low", "medium", "high"]),
+  customFieldCount: z.number(),
+  viewModificationCount: z.number(),
+});
+
+export type ExtensionTemplate = z.infer<typeof extensionTemplateSchema>;
+export type ExtensionTemplateSummary = z.infer<typeof extensionTemplateSummarySchema>;
+
+// ── Upgrade Executor (v0.9.4) ──
+
+export const upgradeStepResultSchema = z.object({
+  stepIndex: z.number(),
+  fromVersion: z.string().optional(),
+  toVersion: z.string(),
+  script: z.string(),
+  risk: z.enum(["low", "medium", "high"]).default("low"),
+  status: z.enum(["pending", "running", "succeeded", "failed", "skipped"]),
+  error: z.string().optional(),
+  durationMs: z.number().default(0),
+});
+
+export const upgradeValidationCheckSchema = z.object({
+  name: z.string(),
+  status: z.enum(["pass", "fail", "warn"]),
+  message: z.string(),
+  detail: z.record(z.string(), z.unknown()).optional(),
+});
+
+export const upgradeExecutionResultSchema = z.object({
+  rolloutId: z.string(),
+  targetId: z.string(),
+  workspaceId: z.string(),
+  moduleId: z.string(),
+  fromVersion: z.string(),
+  toVersion: z.string(),
+  status: z.enum(["succeeded", "failed", "skipped"]),
+  steps: z.array(upgradeStepResultSchema),
+  validations: z.array(upgradeValidationCheckSchema).default([]),
+  startedAt: z.string(),
+  completedAt: z.string(),
+  durationMs: z.number(),
+  error: z.string().optional(),
+});
+
+export type UpgradeStepResult = z.infer<typeof upgradeStepResultSchema>;
+export type UpgradeValidationCheck = z.infer<typeof upgradeValidationCheckSchema>;
+export type UpgradeExecutionResult = z.infer<typeof upgradeExecutionResultSchema>;
+
+// ── Pack-level Rollback (v0.9.4) ──
+
+export const rollbackSnapshotSchema = z.object({
+  targetId: z.string(),
+  workspaceId: z.string(),
+  moduleId: z.string(),
+  versionBeforeUpgrade: z.string(),
+  versionAfterUpgrade: z.string(),
+  capturedAt: z.string(),
+  installationRecord: z.record(z.string(), z.unknown()),
+  metadataState: z.object({
+    objects: z.array(z.record(z.string(), z.unknown())),
+    fields: z.array(z.record(z.string(), z.unknown())),
+    views: z.array(z.record(z.string(), z.unknown())),
+    navigation: z.array(z.record(z.string(), z.unknown())),
+  }),
+});
+
+export const rollbackResultSchema = z.object({
+  targetId: z.string(),
+  workspaceId: z.string(),
+  moduleId: z.string(),
+  rolledBackToVersion: z.string(),
+  status: z.enum(["succeeded", "failed", "partial"]),
+  stepsTaken: z.array(z.string()),
+  metadataRestored: z.boolean(),
+  error: z.string().optional(),
+  completedAt: z.string(),
+});
+
+export type RollbackSnapshot = z.infer<typeof rollbackSnapshotSchema>;
+export type RollbackResult = z.infer<typeof rollbackResultSchema>;
+
+// ── Contract Freeze Enforcement (v0.9.4) ──
+
+export const contractFreezeCategorySchema = z.enum([
+  "api_routes",
+  "mcp_tools",
+  "pack_manifests",
+  "extension_contracts",
+  "command_contracts",
+  "permission_vocab",
+]);
+
+export const contractFreezeViolationSchema = z.object({
+  category: contractFreezeCategorySchema,
+  changeType: z.enum(["added", "removed", "modified"]),
+  identifier: z.string(),
+  detail: z.string().optional(),
+});
+
+export const contractFreezeSnapshotSchema = z.object({
+  capturedAt: z.string(),
+  contracts: z.record(contractFreezeCategorySchema, z.array(z.object({
+    identifier: z.string(),
+    checksum: z.string(),
+  }))),
+});
+
+export const contractFreezeReportSchema = z.object({
+  frozenAt: z.string(),
+  currentSnapshot: contractFreezeSnapshotSchema,
+  violations: z.array(contractFreezeViolationSchema),
+  isFrozen: z.boolean(),
+  totalViolations: z.number(),
+});
+
+export type ContractFreezeCategory = z.infer<typeof contractFreezeCategorySchema>;
+export type ContractFreezeViolation = z.infer<typeof contractFreezeViolationSchema>;
+export type ContractFreezeSnapshot = z.infer<typeof contractFreezeSnapshotSchema>;
+export type ContractFreezeReport = z.infer<typeof contractFreezeReportSchema>;
+
+// ── Upgrade Policy Publication (v0.9.4) ──
+
+export const policyTypeSchema = z.enum([
+  "compatibility",
+  "upgrade",
+  "deprecation",
+  "known_boundaries",
+]);
+
+export const policyDocumentSchema = z.object({
+  id: z.string(),
+  type: policyTypeSchema,
+  title: z.string(),
+  description: z.string(),
+  content: z.string(),
+  version: z.string(),
+  publishedAt: z.string(),
+  publishedBy: z.string(),
+  status: z.enum(["draft", "published", "superseded"]).default("published"),
+});
+
+export const policySummarySchema = z.object({
+  id: z.string(),
+  type: policyTypeSchema,
+  title: z.string(),
+  version: z.string(),
+  status: z.enum(["draft", "published", "superseded"]),
+  publishedAt: z.string(),
+});
+
+export type PolicyType = z.infer<typeof policyTypeSchema>;
+export type PolicyDocument = z.infer<typeof policyDocumentSchema>;
+export type PolicySummary = z.infer<typeof policySummarySchema>;
+
+// ── Vocabulary Unification (v0.9.4) ──
+
+export const vocabularyTermSchema = z.object({
+  canonical: z.string(),
+  aliases: z.array(z.string()).default([]),
+  domain: z.enum(["lifecycle", "error_handling", "permissions", "ui", "agent_tools"]),
+  description: z.string().optional(),
+});
+
+export const vocabularyUnificationReportSchema = z.object({
+  generatedAt: z.string(),
+  terms: z.array(vocabularyTermSchema),
+  duplicateCapabilities: z.array(z.object({
+    name: z.string(),
+    sources: z.array(z.string()),
+    recommendation: z.enum(["keep_first", "merge", "remove_all"]),
+    reason: z.string(),
+  })),
+  unifiedCount: z.number(),
+  remainingDuplicates: z.number(),
+});
+
+export type VocabularyTerm = z.infer<typeof vocabularyTermSchema>;
+export type VocabularyUnificationReport = z.infer<typeof vocabularyUnificationReportSchema>;
+
 // ── Automation Runtime (v0.3.5) ──
 
 export const automationTriggerSchema = z.object({

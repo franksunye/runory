@@ -1,0 +1,55 @@
+{
+  "id": "quote-expiry-section",
+  "name": "Quote Expiry Tracking",
+  "description": "Add a custom section to the quote form for tracking expiry and follow-up dates. Helps sales teams manage quote lifecycles more effectively.",
+  "category": "sales",
+  "targetSolutionTypes": ["reactive-repair-callout"],
+  "riskLevel": "low",
+  "plan": {
+    "name": "Quote Expiry Tracking",
+    "description": "Adds expiry tracking fields and a dedicated form section to quotes",
+    "targetModules": ["runory.quote"],
+    "riskLevel": "low",
+    "customFields": [
+      {
+        "targetObject": "quote",
+        "fieldKey": "follow_up_date",
+        "label": "Follow-up Date",
+        "type": "date",
+        "ownership": "workspace_extension",
+        "required": false,
+        "ui": {
+          "listColumn": false,
+          "order": 100
+        }
+      },
+      {
+        "targetObject": "quote",
+        "fieldKey": "follow_up_notes",
+        "label": "Follow-up Notes",
+        "type": "textarea",
+        "ownership": "workspace_extension",
+        "required": false,
+        "ui": {
+          "listColumn": false,
+          "order": 110
+        }
+      }
+    ],
+    "viewModifications": [
+      {
+        "targetObject": "quote",
+        "viewKey": "quote_form",
+        "modifications": {
+          "addSection": {
+            "title": "Follow-up Tracking",
+            "fields": [
+              { "field": "follow_up_date", "required": false },
+              { "field": "follow_up_notes", "required": false }
+            ]
+          }
+        }
+      }
+    ]
+  }
+}

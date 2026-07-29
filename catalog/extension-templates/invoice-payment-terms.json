@@ -1,0 +1,45 @@
+{
+  "id": "invoice-payment-terms",
+  "name": "Invoice Payment Terms",
+  "description": "Add custom payment terms and internal reference fields to invoices. Supports businesses with specific billing cycles or reference tracking needs.",
+  "category": "finance",
+  "targetSolutionTypes": ["reactive-repair-callout"],
+  "riskLevel": "low",
+  "plan": {
+    "name": "Invoice Payment Terms",
+    "description": "Adds payment terms and internal reference fields to invoices",
+    "targetModules": ["runory.invoice"],
+    "riskLevel": "low",
+    "customFields": [
+      {
+        "targetObject": "invoice",
+        "fieldKey": "payment_terms",
+        "label": "Payment Terms",
+        "type": "select",
+        "ownership": "workspace_extension",
+        "required": false,
+        "validation": {
+          "options": ["net_15", "net_30", "net_60", "due_on_receipt", "cod"]
+        },
+        "ui": {
+          "listColumn": true,
+          "slot": "invoice.invoice_form",
+          "order": 40
+        }
+      },
+      {
+        "targetObject": "invoice",
+        "fieldKey": "internal_reference",
+        "label": "Internal Reference",
+        "type": "text",
+        "ownership": "workspace_extension",
+        "required": false,
+        "ui": {
+          "listColumn": true,
+          "slot": "invoice.invoice_form",
+          "order": 50
+        }
+      }
+    ]
+  }
+}

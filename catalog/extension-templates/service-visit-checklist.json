@@ -1,0 +1,44 @@
+{
+  "id": "service-visit-checklist",
+  "name": "Service Visit Checklist",
+  "description": "Add a checklist completion field and site safety confirmation to service visits. Ensures technicians follow standard procedures during each visit.",
+  "category": "field-service",
+  "targetSolutionTypes": ["reactive-repair-callout", "scheduled-maintenance"],
+  "riskLevel": "low",
+  "plan": {
+    "name": "Service Visit Checklist",
+    "description": "Adds checklist and safety confirmation fields to service visits",
+    "targetModules": ["runory.service-visit"],
+    "riskLevel": "low",
+    "customFields": [
+      {
+        "targetObject": "service_visit",
+        "fieldKey": "checklist_completed",
+        "label": "Checklist Completed",
+        "type": "boolean",
+        "ownership": "workspace_extension",
+        "required": true,
+        "default_value": "false",
+        "ui": {
+          "listColumn": true,
+          "slot": "service_visit.service_visit_form",
+          "order": 20
+        }
+      },
+      {
+        "targetObject": "service_visit",
+        "fieldKey": "safety_confirmed",
+        "label": "Site Safety Confirmed",
+        "type": "boolean",
+        "ownership": "workspace_extension",
+        "required": true,
+        "default_value": "false",
+        "ui": {
+          "listColumn": false,
+          "slot": "service_visit.service_visit_form",
+          "order": 30
+        }
+      }
+    ]
+  }
+}

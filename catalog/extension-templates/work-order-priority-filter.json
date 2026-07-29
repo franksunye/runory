@@ -1,0 +1,47 @@
+{
+  "id": "work-order-priority-filter",
+  "name": "Work Order Priority Filter",
+  "description": "Add a priority filter to the work order list view and a custom priority field. Helps dispatchers quickly identify urgent jobs.",
+  "category": "field-service",
+  "targetSolutionTypes": ["reactive-repair-callout"],
+  "riskLevel": "low",
+  "plan": {
+    "name": "Work Order Priority Filter",
+    "description": "Adds a priority field and list view filter for work orders",
+    "targetModules": ["runory.work-order"],
+    "riskLevel": "low",
+    "customFields": [
+      {
+        "targetObject": "work_order",
+        "fieldKey": "priority_level",
+        "label": "Priority Level",
+        "type": "select",
+        "ownership": "workspace_extension",
+        "required": false,
+        "validation": {
+          "options": ["low", "medium", "high", "critical"]
+        },
+        "ui": {
+          "listColumn": true,
+          "slot": "work_order.work_order_form",
+          "order": 10
+        }
+      }
+    ],
+    "viewModifications": [
+      {
+        "targetObject": "work_order",
+        "viewKey": "work_order_list",
+        "modifications": {
+          "addFilters": [
+            {
+              "field": "priority_level",
+              "operator": "eq",
+              "value": "high"
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

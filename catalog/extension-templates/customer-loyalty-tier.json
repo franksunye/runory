@@ -1,0 +1,32 @@
+{
+  "id": "customer-loyalty-tier",
+  "name": "Customer Loyalty Tier",
+  "description": "Add a loyalty tier field to customers with list column display and form integration. Useful for service businesses that track repeat customer value.",
+  "category": "customer",
+  "targetSolutionTypes": ["reactive-repair-callout", "scheduled-maintenance"],
+  "riskLevel": "low",
+  "plan": {
+    "name": "Customer Loyalty Tier",
+    "description": "Adds a loyalty_tier field to the customer object with list and form display",
+    "targetModules": ["runory.contact", "runory.customer"],
+    "riskLevel": "low",
+    "customFields": [
+      {
+        "targetObject": "customer",
+        "fieldKey": "loyalty_tier",
+        "label": "Loyalty Tier",
+        "type": "select",
+        "ownership": "workspace_extension",
+        "required": false,
+        "validation": {
+          "options": ["bronze", "silver", "gold", "platinum"]
+        },
+        "ui": {
+          "listColumn": true,
+          "slot": "customer.customer_form",
+          "order": 50
+        }
+      }
+    ]
+  }
+}

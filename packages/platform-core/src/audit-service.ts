@@ -108,7 +108,16 @@ export type AuditAction =
   | "customer_access.logout"
   | "payment.connect.start"
   | "payment.connect.sync"
-  | "payment.connect.disconnect";
+  | "payment.connect.disconnect"
+  // Upgrade Executor & Rollback (v0.9.4)
+  | "upgrade.target_executed"
+  | "upgrade.target_failed"
+  | "upgrade.target_rolled_back"
+  | "upgrade.rollback_failed"
+  // Contract Freeze (v0.9.4)
+  | "contract.freeze"
+  // Policy Publication (v0.9.4)
+  | "policy.publish";
 
 export interface AuditEventInput {
   workspaceId: string;

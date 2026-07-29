@@ -147,6 +147,9 @@ export const TABLES = {
   releaseRollouts: `${PREFIXES.runoryCatalog}release_rollouts`,
   rolloutTargets: `${PREFIXES.runoryCatalog}rollout_targets`,
   compatibilityReports: `${PREFIXES.runoryCatalog}compatibility_reports`,
+  // v0.9.4 — Upgrade policy and contract freeze
+  platformPolicies: `${PREFIXES.runoryCatalog}platform_policies`,
+  contractFreezeSnapshots: `${PREFIXES.runoryCatalog}contract_freeze_snapshots`,
 } as const;
 
 // ── Business Table Prefix ──
