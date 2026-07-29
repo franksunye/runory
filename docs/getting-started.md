@@ -6,6 +6,8 @@ Runory is in **public free preview** during `v0.4`. There is no paid plan, no St
 
 > Read [Concepts](./concepts.md) first if you want to understand workspaces, modules, packs, and Agent operations before you start clicking.
 
+The journey below describes self-serve exploration. A future paid production Workspace that enables provider-dependent capabilities such as Voice Intake, live messaging, merchant payments, migration, or customer-specific integrations follows the separate [Customer Implementation and Agent-assisted Delivery Model](./product/customer-implementation-delivery-model.md).
+
 ## 1. Create an account with email
 
 1. Go to the Runory Cloud sign-in page.
@@ -111,5 +113,23 @@ During `v0.4`:
 - MCP and Agent operations are available to connect external agents.
 - Fair-use limits may apply; if limits are not yet technically enforced, the website and docs say so honestly.
 - Paid plans, enterprise SSO, marketplace monetization, and private/on-premise production delivery are **not** available yet.
+
+## Transition to paid production delivery
+
+The future commercial journey is intentionally separate from free exploration:
+
+```text
+Free Workspace or product demo
+→ discovery and qualification
+→ scoped order and implementation payment
+→ Implementation Run
+→ configuration, provider onboarding, migration, and validation
+→ customer UAT and go-live approval
+→ production subscription and hypercare
+```
+
+A paid production Workspace may require customer-owned or customer-authorized assets such as a phone number, carrier records, Twilio resources, Retell configuration, a Stripe Connected Account, bank and identity verification, business data, and named approvers. The subscription alone does not make these dependencies production-ready.
+
+The authoritative delivery model, payment timing, ownership rules, Agent-assisted provisioning, approval gates, and implementation evidence are defined in [Customer Implementation and Agent-assisted Delivery Model](./product/customer-implementation-delivery-model.md).
 
 See [Release Notes](./release-notes.md) for what shipped in each version.
