@@ -29,12 +29,13 @@ For the v0.1 release definition and acceptance matrix, see [v0.1.0 Cloud Early A
 | Connect webhook event coverage | Implemented |
 | Readiness guard with staleness check | Implemented |
 | Customer mutation security boundaries | Implemented |
-| Two-merchant Stripe sandbox evidence | Pending |
+| Stripe sandbox evidence (payment, refund, webhook, signature) | Completed 2026-07-29 |
+| Stripe Connect platform enrollment | Required for real Direct Charge |
 | Production live-money evidence | v1.0 |
 
 ### Not yet available in v0.8
 
-- Two-merchant Stripe sandbox end-to-end evidence (next milestone before final Tag)
+- Stripe Connect platform enrollment (required to create real Connected Accounts for two-merchant Direct Charge)
 - Production live-money payment processing (v1.0)
 - Application fee collection (post-GA decision)
 

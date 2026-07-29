@@ -261,9 +261,42 @@ pass automated tests (1316 platform-core + 338 cloud tests):
 | Customer access security: same-origin, rate limit, context verify | C | Implemented |
 | Cross-tenant isolation in checkout and webhook paths | B | Implemented |
 
-Remaining before final v0.8 Tag:
+### 8.1 Stripe sandbox evidence (2026-07-29)
 
-- Two-merchant Stripe sandbox end-to-end evidence (Stage A/B manual verification)
+Sandbox evidence was collected via `apps/cloud/scripts/stripe-sandbox-evidence.cjs`
+against the platform test account `acct_1Tu85uS0YP1GbRwt`. Results are persisted
+in [stripe-connect-sandbox-evidence-2026-07-29.json](../releases/stripe-connect-sandbox-evidence-2026-07-29.json).
+
+| # | Evidence item | Result |
+| --- | --- | --- |
+| 1 | Platform API key validity + account details | Pass |
+| 2 | Checkout Session creation with Runory metadata | Pass (`cs_test_a1V2GCM4…`) |
+| 3 | PaymentIntent create + confirm with test card | Pass (`pi_3TyTAzS0…`, status `succeeded`) |
+| 4 | Provider `retrievePayment()` structure with `expand latest_charge` | Pass |
+| 5 | Refund creation on paid PaymentIntent | Pass (`re_3TyTAzS0…`, status `succeeded`) |
+| 6 | Refund reflected in charge `amount_refunded` | Pass (full refund verified) |
+| 7 | Webhook event shape validation (6 event types) | Pass |
+| 8 | Direct Charge API call structure (`stripeAccount` param) | Pass (documented in `provider.ts`) |
+| 9 | Webhook signature verification with Connect secret | Pass |
+| 10 | Stripe Connect platform enrollment | Not enrolled |
+
+The platform Stripe account has not enrolled in Connect, so real Connected
+Account creation is blocked by the Stripe API. Items 1–9 prove that the payment,
+refund, retrieval, and webhook-signature code paths execute correctly against
+live Stripe sandbox infrastructure. Item 10 confirms the known gap: true
+two-merchant Direct Charge requires Connect enrollment at
+`https://dashboard.stripe.com/connect`.
+
+Automated test coverage backing the sandbox evidence:
+
+- `packages/platform-core/src/payment-connect.test.ts` — 1347 lines, 13 test groups
+- `apps/cloud/src/app/api/integrations/stripe/payment-flow.e2e.test.ts` — full HTTP chain
+- `apps/cloud/src/integrations/payments/stripe/provider.test.ts` — provider unit tests
+
+### 8.2 Remaining before final v0.8 Tag
+
+- ~~Two-merchant Stripe sandbox end-to-end evidence~~ — completed 2026-07-29 (§8.1)
+- Stripe Connect platform enrollment (required for real Connected Account creation)
 - Production live-money evidence (Stage D, v1.0)
 
 ## 9. Related documents

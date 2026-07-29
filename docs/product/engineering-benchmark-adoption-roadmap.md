@@ -6,7 +6,7 @@
 | Topic | `product` |
 | Applies to | `v0.6–v1.0` |
 | Owner | Product / Architecture / Engineering |
-| Last reviewed | 2026-07-27 |
+| Last reviewed | 2026-07-29 |
 | Supports | [Product Roadmap](product-roadmap.md) |
 | Governing guardrails | [External Benchmark Adoption Guardrails](external-benchmark-adoption-guardrails.md) |
 | Research inputs | [Adjacent Platform Landscape](../research/adjacent-platform-landscape.md), [Twenty Platform Benchmark](../research/twenty-platform-benchmark.md) |
@@ -254,6 +254,25 @@ Before v0.9 freezes public contracts, complete `V09-FIN-01` from the
   invariants;
 - exclude accounting, bank-statement, payout, fee, tax, and dispute systems.
 
+### 7.1.2 Mobile PWA notification delivery
+
+Complete `V09-PUSH-01` through the existing mobile, communication, and Outbox
+foundations:
+
+- standards-based Web Push with VAPID and the existing Runory Service Worker;
+- explicit opt-in, multi-device subscription lifecycle, preferences, revoke,
+  expiry cleanup, retry, audit, and diagnostics;
+- one governed Notification → Message Delivery → Outbox path for internal
+  workspace users and scoped external customer-access principals;
+- privacy-safe lock-screen content and same-origin deep links that re-run normal
+  authorization;
+- representative installed-PWA acceptance on iOS and Android;
+- no marketing broadcast, silent business-data sync, native application, or
+  parallel notification runtime.
+
+The binding contract is the
+[v0.9 Mobile PWA Notification Technical Specification](v0.9-pwa-notification-technical-spec.md).
+
 ### 7.2 Reference inputs
 
 | Reference | Adopt or adapt in v0.9 |
@@ -263,6 +282,7 @@ Before v0.9 freezes public contracts, complete `V09-FIN-01` from the
 | Twenty | App installation, publishing, versioning, and workspace-level product polish |
 | NocoBase | Plugin composition, environment configuration, self-host operational practices |
 | Directus | Extension packaging and environment/configuration portability |
+| StockWise/ZISO | Web Push subscription lifecycle, Service Worker notification handling, stale-endpoint cleanup, and device/remote diagnostics; adapt into Runory's existing tenant-scoped Notification, Message Delivery, and Outbox model |
 
 ### 7.3 Product convergence
 

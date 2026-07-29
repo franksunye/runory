@@ -1,0 +1,228 @@
+{
+  "generatedAt": "2026-07-29T08:49:24.957Z",
+  "platformAccount": "acct_1Tu85uS0YP1GbRwt",
+  "connectEnrolled": false,
+  "stagesCovered": [
+    "1 — API Key Validation",
+    "2 — Checkout Session Creation",
+    "3 — PaymentIntent Confirmation",
+    "4 — Provider retrievePayment() Structure",
+    "5 — Refund Creation",
+    "6 — Refund Verification",
+    "7 — Webhook Event Shape Validation (6 types)",
+    "8 — Direct Charge API Call Structure",
+    "9 — Webhook Signature Verification",
+    "10 — Connect Enrollment Status"
+  ],
+  "automatedTestEvidence": {
+    "unitTests": "packages/platform-core/src/payment-connect.test.ts (1347 lines, 13 test groups)",
+    "e2eTests": "apps/cloud/src/app/api/integrations/stripe/payment-flow.e2e.test.ts",
+    "providerTests": "apps/cloud/src/integrations/payments/stripe/provider.test.ts"
+  },
+  "evidence": [
+    {
+      "stage": "1",
+      "label": "Platform account balance retrieved",
+      "timestamp": "2026-07-29T08:49:19.759Z",
+      "data": {
+        "available": [
+          {
+            "amount": 2797,
+            "currency": "usd"
+          }
+        ],
+        "instantAvailable": []
+      }
+    },
+    {
+      "stage": "1",
+      "label": "Platform account details",
+      "timestamp": "2026-07-29T08:49:20.273Z",
+      "data": {
+        "id": "acct_1Tu85uS0YP1GbRwt",
+        "type": "standard",
+        "country": "US",
+        "defaultCurrency": "usd",
+        "chargesEnabled": false,
+        "payoutsEnabled": false,
+        "detailsSubmitted": false
+      }
+    },
+    {
+      "stage": "2",
+      "label": "Checkout Session created",
+      "timestamp": "2026-07-29T08:49:20.861Z",
+      "data": {
+        "sessionId": "cs_test_a1V2GCM4nGn8ppIrXUSMsyPhOwqdFwkEwPIVYwrjTm7assjui3rxtxxqfB",
+        "checkoutUrl": "https://checkout.stripe.com/c/pay/cs_test_a1V2GCM4nGn8ppIrXUSMsyPhOwqdFwkEwPIVYw...",
+        "paymentIntent": null,
+        "amountTotal": 1000,
+        "currency": "usd",
+        "metadata": {
+          "payment_request_id": "pr_evidence_sandbox",
+          "provider_account_id": "payment_provider_stripe_test",
+          "workspace_id": "ws_evidence_sandbox"
+        }
+      }
+    },
+    {
+      "stage": "3",
+      "label": "PaymentIntent created",
+      "timestamp": "2026-07-29T08:49:21.224Z",
+      "data": {
+        "intentId": "pi_3TyTAzS0YP1GbRwt1RzTQOCE",
+        "status": "requires_payment_method",
+        "amount": 1000,
+        "currency": "usd"
+      }
+    },
+    {
+      "stage": "3",
+      "label": "PaymentIntent after confirmation with test card",
+      "timestamp": "2026-07-29T08:49:22.349Z",
+      "data": {
+        "intentId": "pi_3TyTAzS0YP1GbRwt1RzTQOCE",
+        "status": "succeeded",
+        "amount": 1000,
+        "amountReceived": 1000,
+        "currency": "usd",
+        "chargeId": "ch_3TyTAzS0YP1GbRwt1Pk4VSkA"
+      }
+    },
+    {
+      "stage": "4",
+      "label": "PaymentIntent retrieved with expand latest_charge",
+      "timestamp": "2026-07-29T08:49:22.710Z",
+      "data": {
+        "intentId": "pi_3TyTAzS0YP1GbRwt1RzTQOCE",
+        "status": "succeeded",
+        "amount": 1000,
+        "refundedAmount": 0,
+        "currency": "USD",
+        "chargeId": "ch_3TyTAzS0YP1GbRwt1Pk4VSkA",
+        "chargeAmount": 1000,
+        "chargeRefunded": 0
+      }
+    },
+    {
+      "stage": "5",
+      "label": "Refund created",
+      "timestamp": "2026-07-29T08:49:24.300Z",
+      "data": {
+        "refundId": "re_3TyTAzS0YP1GbRwt1PJKkfVs",
+        "status": "succeeded",
+        "amount": 1000,
+        "currency": "usd",
+        "paymentIntent": "pi_3TyTAzS0YP1GbRwt1RzTQOCE",
+        "metadata": {
+          "payment_id": "pay_evidence_sandbox",
+          "provider_account_id": "payment_provider_stripe_test",
+          "workspace_id": "ws_evidence_sandbox"
+        }
+      }
+    },
+    {
+      "stage": "6",
+      "label": "PaymentIntent after refund",
+      "timestamp": "2026-07-29T08:49:24.680Z",
+      "data": {
+        "intentId": "pi_3TyTAzS0YP1GbRwt1RzTQOCE",
+        "refundedAmount": 1000,
+        "chargeAmount": 1000,
+        "fullyRefunded": true
+      }
+    },
+    {
+      "stage": "7",
+      "label": "checkout.session.completed webhook event",
+      "timestamp": "2026-07-29T08:49:24.680Z",
+      "data": {
+        "eventId": "evt_evidence_checkout_1785314964680",
+        "type": "checkout.session.completed",
+        "account": "acct_1Tu85uS0YP1GbRwt",
+        "signatureValid": true
+      }
+    },
+    {
+      "stage": "7",
+      "label": "payment_intent.payment_failed event shape",
+      "timestamp": "2026-07-29T08:49:24.680Z",
+      "data": {
+        "type": "payment_intent.payment_failed",
+        "wouldTriggerRetry": true,
+        "mappedStatus": "failed"
+      }
+    },
+    {
+      "stage": "7",
+      "label": "refund.updated event shape",
+      "timestamp": "2026-07-29T08:49:24.680Z",
+      "data": {
+        "type": "refund.updated",
+        "refundId": "re_3TyTAzS0YP1GbRwt1PJKkfVs",
+        "status": "succeeded"
+      }
+    },
+    {
+      "stage": "7",
+      "label": "checkout.session.expired event shape",
+      "timestamp": "2026-07-29T08:49:24.680Z",
+      "data": {
+        "type": "checkout.session.expired",
+        "mappedStatus": "cancelled"
+      }
+    },
+    {
+      "stage": "7",
+      "label": "account.updated event shape",
+      "timestamp": "2026-07-29T08:49:24.680Z",
+      "data": {
+        "type": "account.updated",
+        "chargesEnabled": true,
+        "payoutsEnabled": true
+      }
+    },
+    {
+      "stage": "7",
+      "label": "payment_intent.processing event shape",
+      "timestamp": "2026-07-29T08:49:24.680Z",
+      "data": {
+        "type": "payment_intent.processing",
+        "mappedStatus": "processing"
+      }
+    },
+    {
+      "stage": "8",
+      "label": "Direct Charge API call structure (from provider.ts)",
+      "timestamp": "2026-07-29T08:49:24.680Z",
+      "data": {
+        "createCheckout": "stripe.checkout.sessions.create(params, { stripeAccount: acct_... })",
+        "createRefund": "stripe.refunds.create(params, { stripeAccount: acct_... })",
+        "retrievePayment": "stripe.paymentIntents.retrieve(id, { expand: ['latest_charge'] }, { stripeAccount: acct_... })",
+        "note": "The stripeAccount parameter routes the API call to the Connected Account context",
+        "connectEnrollmentRequired": "Creating Connected Accounts requires Stripe Connect platform enrollment",
+        "enrollmentUrl": "https://dashboard.stripe.com/connect"
+      }
+    },
+    {
+      "stage": "9",
+      "label": "Webhook signature verification",
+      "timestamp": "2026-07-29T08:49:24.680Z",
+      "data": {
+        "webhookSecretPrefix": "whsec_0979a6...",
+        "signatureVerified": true
+      }
+    },
+    {
+      "stage": "10",
+      "label": "Connect platform enrollment check",
+      "timestamp": "2026-07-29T08:49:24.957Z",
+      "data": {
+        "enrolled": false,
+        "error": "You can only create new accounts if you've signed up for Connect, which you can do at https://dashboard.stripe.com/connect.",
+        "action": "Visit https://dashboard.stripe.com/connect to enroll",
+        "impact": "Connected Account creation blocked; Direct Charge with real connected accounts not possible until enrolled"
+      }
+    }
+  ]
+}

@@ -8,7 +8,7 @@
 | Topic | `documentation-governance` |
 | Applies to | `v0.5+` |
 | Owner | Product / Engineering |
-| Last reviewed | 2026-07-27 |
+| Last reviewed | 2026-07-29 |
 | Supersedes | Earlier directory-based navigation |
 | Superseded by | — |
 
@@ -41,6 +41,8 @@ Runory documentation is organized by topic authority and lifecycle rather than b
 - [v0.6–v0.7 External Benchmark Retrospective](releases/v0.6-v0.7-external-benchmark-retrospective-2026-07-27.md) — maps later benchmark language to released evidence and schedules the minimum Payment reconciliation gap forward.
 - [v0.8 Product Maturity and Customer Access Execution Plan](product/v0.8-product-maturity-execution-plan.md) — accepted Product Surface convergence, minimum customer access, merchant-owned Stripe Connect payment, and proportional Workflow visibility scope.
 - [v0.8 Product Maturity and Customer Access Technical Specification](product/v0.8-product-maturity-technical-spec.md) — binding schemas, APIs, authorization, Stripe Connect Direct-Charge, migration, compatibility, and test contract for v0.8 implementation.
+- [v0.9 Repeatable Delivery and Product Convergence Execution Plan](product/v0.9-repeatable-delivery-execution-plan.md) — active real-customer repeatability, PWA notification, reconciliation, upgrade, and contract-freeze plan.
+- [v0.9 Mobile PWA Notification Technical Specification](product/v0.9-pwa-notification-technical-spec.md) — binding Web Push scope for opted-in system and customer-access users, reusing the existing notification, delivery, Outbox, and mobile Service Worker foundations.
 - [Runory UI Surface Technical Decision and Standards](architecture/v0.8-ui-surface-technical-decision.md) — binding Runory-native UI architecture, state, field rendering, responsive, preference, and proportionality rules derived from the Twenty study.
 - [v0.8 Reference Source Study](research/v0.8-reference-source-study-2026-07-27.md) — pinned Twenty, Directus, NocoBase, Frappe, and Windmill source evidence and bounded adoption decisions behind the v0.8 specification.
 - [v0.7 Planning Brief](product/v0.7-planning-brief.md) — historical discovery frame and Pareto selection questions.

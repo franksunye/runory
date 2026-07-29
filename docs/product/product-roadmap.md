@@ -6,7 +6,7 @@
 | Topic | `product` |
 | Applies to | `v0.5–v4.0` |
 | Owner | Product / Engineering |
-| Last reviewed | 2026-07-27 |
+| Last reviewed | 2026-07-29 |
 | Supersedes | Earlier post-v0.5 milestone roadmaps |
 | Superseded by | — |
 
@@ -85,7 +85,7 @@ The Product Track is defined in this roadmap. The Engineering Maturity Track is 
 | v0.6 | Architecture boundaries, Command enforcement, compatibility, observability, and runtime baselines are machine-auditable. |
 | v0.7 | Financial and provider-event execution remains correct under retry, concurrency, replay, partial failure and refund; reconciliation is an explicit forward boundary. |
 | v0.8 | Existing View and Workflow foundations converge into coherent operator/customer surfaces without a parallel framework. |
-| v0.9 | Packs, migrations, provisioning, upgrades, diagnostics, configuration Diff, and support tooling form repeatable delivery infrastructure. |
+| v0.9 | Packs, migrations, provisioning, upgrades, diagnostics, configuration Diff, support tooling, and governed PWA notification delivery form repeatable product infrastructure. |
 | v1.0 | Reliability, security, upgradeability, operability, UX consistency, and supportability meet the documented GA engineering contract. |
 
 External platform research is an input to these gates, not optional background reading. However, research does not create scope directly. Every externally inspired capability must pass the [External Benchmark Adoption Guardrails](./external-benchmark-adoption-guardrails.md), including:
@@ -345,7 +345,20 @@ no customer solution may fork Runory Core
 measure standard product and governed extension coverage
 ```
 
-### v0.9.2 — Minimum Payment Reconciliation
+### v0.9.2 — Mobile PWA Notifications
+
+```text
+standards-based Web Push through the installed mobile PWA
+explicit opt-in and per-device control
+actionable notifications for system and authenticated external users
+safe deep links, tenant/grant authorization, privacy, preferences, audit, retry, and diagnostics
+reuse Notification, Message Delivery, Outbox, and the existing Service Worker
+```
+
+The bounded product and engineering contract is defined in the
+[v0.9 Mobile PWA Notification Technical Specification](v0.9-pwa-notification-technical-spec.md).
+
+### v0.9.3 — Minimum Payment Reconciliation
 
 ```text
 compare Runory Payment/Invoice settlement with one provider snapshot
@@ -358,7 +371,7 @@ exclude bank/accounting/payout/fee/tax/dispute systems
 The bounded acceptance contract is recorded as `V09-FIN-01` in the
 [v0.6–v0.7 External Benchmark Retrospective](../releases/v0.6-v0.7-external-benchmark-retrospective-2026-07-27.md).
 
-### v0.9.3 — Product and Contract Freeze
+### v0.9.4 — Product and Contract Freeze
 
 ```text
 remove duplicate capabilities and inconsistent object models
@@ -368,7 +381,11 @@ publish compatibility, upgrade, deprecation, and known-boundary policies
 upgrade earlier customer solutions without data or behavior loss
 ```
 
-Release outcome: Runory can be delivered repeatedly without customer-specific Core forks. Provisioning, migration, configuration Diff, compatibility, upgrade, diagnostics, and support-tooling evidence must pass.
+Release outcome: Runory can be delivered repeatedly without customer-specific
+Core forks, while the mobile PWA can securely reach opted-in system and
+external users at important points in the canonical journey. Provisioning,
+migration, configuration Diff, compatibility, upgrade, notification delivery,
+diagnostics, and support-tooling evidence must pass.
 
 ## 8. v1.0 — Complete Commercial FSM Milestone
 
