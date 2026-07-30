@@ -1429,6 +1429,35 @@ export default function ObjectDetailPage({
     return keys;
   }, [parentLinks]);
 
+  // Hooks must run in the same order while SWR transitions from loading to
+  // loaded. Keep the derived action hook above all loading/empty early returns
+  // and use an empty action set until the record exists.
+  const businessActions = useMemo(() => {
+    if (!record) return [];
+    const actions = getBusinessCommandActions(objectKey, record);
+    // When a workflow is running with active (non-completed) work items,
+    // those work items provide their own Approve/Reject/Complete buttons in
+    // the RecordWorkflowPanel. Showing the same actions twice is confusing,
+    // so filter out business actions that are already surfaced as work items.
+    const activeWorkItemCommands = new Set<string>();
+    if (workflowData?.instance?.status === "running") {
+      for (const item of workflowData.workItems) {
+        if (item.status === "completed" || item.status === "cancelled") continue;
+        if (item.kind === "approval") {
+          activeWorkItemCommands.add("quote.approve");
+          activeWorkItemCommands.add("quote.reject");
+          activeWorkItemCommands.add("quote.return_for_changes");
+        }
+        if (item.kind === "human_task") {
+          activeWorkItemCommands.add("work_order.complete");
+        }
+      }
+    }
+    return activeWorkItemCommands.size > 0
+      ? actions.filter((a) => !activeWorkItemCommands.has(a.command))
+      : actions;
+  }, [objectKey, record, workflowData]);
+
   const handleUpdate = async (data: Record<string, any>) => {
     setSubmitting(true);
     setError(null);
@@ -1637,30 +1666,6 @@ export default function ObjectDetailPage({
     );
   };
 
-  const businessActions = useMemo(() => {
-    const actions = getBusinessCommandActions(objectKey, record);
-    // When a workflow is running with active (non-completed) work items,
-    // those work items provide their own Approve/Reject/Complete buttons in
-    // the RecordWorkflowPanel.  Showing the same actions twice is confusing,
-    // so filter out business actions that are already surfaced as work items.
-    const activeWorkItemCommands = new Set<string>();
-    if (workflowData?.instance?.status === "running") {
-      for (const item of workflowData.workItems) {
-        if (item.status === "completed" || item.status === "cancelled") continue;
-        if (item.kind === "approval") {
-          activeWorkItemCommands.add("quote.approve");
-          activeWorkItemCommands.add("quote.reject");
-          activeWorkItemCommands.add("quote.return_for_changes");
-        }
-        if (item.kind === "human_task") {
-          activeWorkItemCommands.add("work_order.complete");
-        }
-      }
-    }
-    return activeWorkItemCommands.size > 0
-      ? actions.filter((a) => !activeWorkItemCommands.has(a.command))
-      : actions;
-  }, [objectKey, record, workflowData]);
   const identityAvatarUrl = typeof record.user_id_avatar_url === "string"
     ? record.user_id_avatar_url
     : null;

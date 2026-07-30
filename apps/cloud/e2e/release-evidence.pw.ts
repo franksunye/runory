@@ -64,6 +64,18 @@ async function semanticRecordText(page: Page, objectKey: string, recordId: strin
   return null;
 }
 
+async function formSubmissionEvidenceText(page: Page, submissionId: string) {
+  const response = await page.request.get(
+    `/api/workspaces/${evidence.records.workspaceId}/forms/submissions/${submissionId}`,
+  );
+  expect(response.ok(), `Read fresh Form Submission ${submissionId}`).toBeTruthy();
+  const submission = (await response.json()).data as { answers_json?: string };
+  const answers = JSON.parse(submission.answers_json ?? "{}") as Record<string, unknown>;
+  const workPerformed = answers.work_performed;
+  expect(typeof workPerformed, "Fresh Form Submission has work_performed evidence").toBe("string");
+  return String(workPerformed);
+}
+
 async function assertSurface(
   page: Page,
   path: string,
@@ -83,7 +95,10 @@ async function assertSurface(
   await expect(page.locator("[data-nextjs-dialog], .vite-error-overlay, #webpack-dev-server-client-overlay"))
     .toHaveCount(0);
   if (expectedText) await expect(page.getByText(expectedText, { exact: false }).first()).toBeVisible();
-  expect(await page.locator("a, button, input, select, textarea").count()).toBeGreaterThan(0);
+  await expect(
+    page.locator("a, button, input, select, textarea").first(),
+    `${path} exposes an interactive surface`,
+  ).toBeVisible();
 
   const horizontalOverflow = await page.evaluate(
     () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
@@ -139,14 +154,10 @@ test("technician sees the fresh Visit projection", async ({ page }, testInfo) =>
 
 test("supervisor sees the fresh Form Submission projection", async ({ page }, testInfo) => {
   await switchPersona(page, "persona:supervisor");
-  const expectedText = await semanticRecordText(
-    page,
-    "form_submission",
-    evidence.records.formSubmissionId!,
-  );
+  const expectedText = await formSubmissionEvidenceText(page, evidence.records.formSubmissionId!);
   await assertSurface(
     page,
-    `/w/${evidence.records.workspaceSlug}/form-submissions/${evidence.records.formSubmissionId}`,
+    `/w/${evidence.records.workspaceSlug}/service-visits/${evidence.records.visitId}`,
     expectedText,
     testInfo,
   );
