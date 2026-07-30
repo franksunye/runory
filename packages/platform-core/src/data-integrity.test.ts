@@ -862,8 +862,8 @@ describe("§5 Timestamp Auto-population and Refresh", () => {
   });
 
   it("refreshes updated_at after a command modifies the record", async () => {
-    const beforeRow = await queryOne<{ updated_at: string }>(
-      `SELECT updated_at FROM ${businessTable("quote")} WHERE id = ?`,
+    const beforeRow = await queryOne<{ updated_at: string; created_at: string }>(
+      `SELECT updated_at, created_at FROM ${businessTable("quote")} WHERE id = ?`,
       [quoteId],
     );
 
