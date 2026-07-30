@@ -1110,8 +1110,15 @@ async function scenario4() {
         },
       });
       assert(ok, "form_submission.submit command succeeded");
-      if (json.data?.aggregate?.submissionId) {
-        state.formSubmissionId = json.data.aggregate.submissionId;
+      // The HTTP Command route returns submitForm()'s aggregate directly as
+      // `data`, while older/internal callers may still wrap it in `aggregate`.
+      // Capture either shape, but fail this Scenario immediately if a
+      // successful response cannot be bound to the fresh submission record.
+      const submissionId = json.data?.submissionId
+        ?? json.data?.aggregate?.submissionId;
+      assert(submissionId != null, "Current-run Form Submission ID returned");
+      if (submissionId) {
+        state.formSubmissionId = submissionId;
         console.log(`     Form submission ID: ${state.formSubmissionId}`);
       }
     } else {
