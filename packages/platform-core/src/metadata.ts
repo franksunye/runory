@@ -6,6 +6,7 @@ import { resolveRecordVisibility, type VisibilityScope } from "./visibility";
 import { ConflictError, NotFoundError, InvalidInputError } from "./context";
 import { AsyncLocalStorage } from "node:async_hooks";
 import { generateWorkOrderNumber } from "./fsm-commands";
+import { recalculateQuote } from "./quote-calculation";
 import {
   normalizeLegacyViewConfig,
   parseViewConfig,
@@ -59,6 +60,26 @@ async function fireAutomationTriggers(
     }
   } catch {
     // Automation module load failures should not block record operations
+  }
+}
+
+// ── Quote line recalculation hook ──
+// When a quote_line is created/updated/deleted, automatically recalculate
+// the parent quote's totals (subtotal, discount_total, tax_total, grand_total).
+// This ensures governed amount fields stay in sync with line items without
+// requiring a manual quote.recalculate command.
+async function maybeRecalcQuoteTotals(
+  workspaceId: string,
+  objectKey: string,
+  record: Record<string, unknown> | undefined,
+): Promise<void> {
+  if (objectKey !== "quote_line" || !record) return;
+  const quoteId = record.quote_id;
+  if (typeof quoteId !== "string" || !quoteId) return;
+  try {
+    await recalculateQuote(workspaceId, quoteId);
+  } catch {
+    // Recalculation failures should not block record operations
   }
 }
 
@@ -1180,6 +1201,9 @@ export async function createRecord(workspaceId: string, objectKey: string, data:
   // Fire automation triggers (v0.3.5: wire triggers into record lifecycle)
   await fireAutomationTriggers(workspaceId, "record_created", objectKey, created);
 
+  // Auto-recalculate quote totals when a quote_line is created
+  await maybeRecalcQuoteTotals(workspaceId, objectKey, created);
+
   return created;
 }
 
@@ -1274,6 +1298,9 @@ export async function updateRecord(workspaceId: string, objectKey: string, recor
     await fireAutomationTriggers(workspaceId, "record_updated", objectKey, updated, changedFields);
   }
 
+  // Auto-recalculate quote totals when a quote_line is updated
+  await maybeRecalcQuoteTotals(workspaceId, objectKey, updated);
+
   return updated;
 }
 
@@ -1326,6 +1353,9 @@ export async function deleteRecord(
       );
     }
   }
+
+  // Auto-recalculate quote totals when a quote_line is deleted
+  await maybeRecalcQuoteTotals(workspaceId, objectKey, existing);
 
   return true;
 }

@@ -31,7 +31,7 @@ objects:
         required: true
         default_value: "draft"
         validation:
-          options: ["draft", "in_review", "approved", "rejected", "sent", "accepted", "declined", "expired", "withdrawn", "returned"]
+          options: ["draft", "in_review", "approved", "rejected", "sent", "accepted", "declined", "expired", "withdrawn", "returned", "converted"]
       - key: version
         label: Version
         type: number
@@ -360,7 +360,7 @@ domain:
         - { capability: fsm.create_work_order_from_quote, version: "^1.0.0", scope: linked_work_order, consistency: atomic, cardinality: zero_or_one }
       emits: [quote.converted_to_work_order]
       auditRequired: true
-      postconditions: [linked_work_order.status == new, linked_work_order.source_id == quote.id]
+      postconditions: [quote.status == converted, linked_work_order.status == new, linked_work_order.source_id == quote.id]
     - { key: quote.approve, contractVersion: "1.0.0", aggregate: quote, transition: { from: [in_review], to: approved }, allowedActorTypes: [user, api_key, system], permission: quote.approve, idempotent: true, requiresExpectedVersion: true, requiredEffects: [], emits: [quote.approved], auditRequired: true, postconditions: [quote.status == approved] }
     - { key: quote.reject, contractVersion: "1.0.0", aggregate: quote, transition: { from: [in_review], to: rejected }, allowedActorTypes: [user, api_key, system], permission: quote.reject, idempotent: true, requiresExpectedVersion: true, requiredEffects: [], emits: [quote.rejected], auditRequired: true, postconditions: [quote.status == rejected] }
     - { key: quote.return_for_changes, contractVersion: "1.0.0", aggregate: quote, transition: { from: [in_review], to: draft }, allowedActorTypes: [user, api_key, system], permission: quote.approve, idempotent: true, requiresExpectedVersion: true, requiredEffects: [], emits: [quote.returned_for_changes], auditRequired: true, postconditions: [quote.status == draft] }

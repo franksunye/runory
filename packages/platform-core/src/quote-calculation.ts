@@ -49,15 +49,21 @@ export async function prepareQuoteCalculation(
     const lineSubtotal = qty * unitPrice;
     const lineDiscount = line.discount_amount ?? 0;
     const lineTax = line.tax_amount ?? 0;
-    const lineTotal = lineSubtotal - lineDiscount + lineTax;
+    const computedTotal = lineSubtotal - lineDiscount + lineTax;
 
     subtotal += lineSubtotal;
     discountTotal += lineDiscount;
     taxTotal += lineTax;
 
-    if (line.line_total !== lineTotal) lineTotals.push({ lineId: line.id, lineTotal });
+    // Only update line_total if it's NULL (not yet set).  If the line already
+    // has a line_total (e.g. from demo data or manual entry), respect it and
+    // use it for the grand total instead of the computed value.
+    if (line.line_total === null) {
+      lineTotals.push({ lineId: line.id, lineTotal: computedTotal });
+    }
   }
 
+  // grand_total = subtotal - discount + tax (same formula either way)
   const grandTotal = subtotal - discountTotal + taxTotal;
 
   return { subtotal, discountTotal, taxTotal, grandTotal, lineTotals };

@@ -44,6 +44,8 @@ export interface QuoteRecord {
   contact_id: string | null;
   deal_id: string | null;
   work_order_id: string | null;
+  service_site_id: string | null;
+  asset_id: string | null;
   currency: string;
   subtotal: number | null;
   discount_total: number | null;
@@ -1016,14 +1018,6 @@ export async function convertToWorkOrder(
       const quote = await readQuote(workspaceId, quoteId);
       checkOptimisticLock(quote.aggregate_version, expectedVersion);
 
-      if (quote.status !== "accepted") {
-        throw new BusinessError(
-          ERROR_CODES.INVALID_TRANSITION,
-          `INVALID_TRANSITION: Cannot convert quote in status '${quote.status}'. Only 'accepted' quotes can be converted.`,
-          409
-        );
-      }
-
       // IDEMPOTENCY CHECK: If a work order with source_type='quote' AND source_id=quoteId already exists, return it
       const existingWo = await queryOne<{ id: string }>(
         `SELECT id FROM ${businessTable("work_order")}
@@ -1061,6 +1055,15 @@ export async function convertToWorkOrder(
         } as CommandHandlerResult<QuoteRecord>;
       }
 
+      // No existing work order — validate the quote is in a convertible state
+      if (quote.status !== "accepted") {
+        throw new BusinessError(
+          ERROR_CODES.INVALID_TRANSITION,
+          `INVALID_TRANSITION: Cannot convert quote in status '${quote.status}'. Only 'accepted' quotes can be converted.`,
+          409
+        );
+      }
+
       // Create the work order
       const woId = genId("wo");
       const woNumber = generateWorkOrderNumber(woId);
@@ -1075,16 +1078,16 @@ export async function convertToWorkOrder(
       const snapshotHash = computeSnapshotHash(quote, lines);
 
       const statements: Array<{ sql: string; args?: unknown[] }> = [
-        // Link quote to work order
+        // Transition quote status to "converted" and link work order
         {
           sql: `UPDATE ${businessTable("quote")}
-                SET work_order_id = ?, aggregate_version = ?, updated_at = ?
+                SET status = 'converted', work_order_id = ?, aggregate_version = ?, updated_at = ?
                 WHERE workspace_id = ? AND id = ?`,
           args: [woId, quote.aggregate_version + 1, ts, workspaceId, quoteId],
         },
       ];
 
-      const updatedQuote = { ...quote, work_order_id: woId, aggregate_version: quote.aggregate_version + 1 };
+      const updatedQuote = { ...quote, status: "converted", work_order_id: woId, aggregate_version: quote.aggregate_version + 1 };
 
       return {
         statements,
@@ -1099,7 +1102,7 @@ export async function convertToWorkOrder(
           entityType: "quote",
           entityId: quoteId,
           before: { status: quote.status },
-          after: { status: "accepted", workOrderId: woId, workOrderNumber: woNumber },
+          after: { status: "converted", workOrderId: woId, workOrderNumber: woNumber },
         },
         aggregate: updatedQuote,
         newVersion: quote.aggregate_version + 1,
@@ -1112,6 +1115,7 @@ export async function convertToWorkOrder(
             description: `Converted from quote ${quote.quote_number}`,
             companyId: quote.company_id,
             contactId: quote.contact_id,
+            serviceSiteId: quote.service_site_id,
             snapshotHash,
           },
         },

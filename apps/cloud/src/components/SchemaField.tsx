@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { Loader2 } from "lucide-react";
 import type { FieldDefinition } from "@runory/platform-core";
 import { useI18n } from "@/i18n/locale-provider";
 import { apiFetch } from "@/lib/api-fetch";
@@ -88,6 +89,7 @@ export default function SchemaField({ field, value, displayValue, onChange, work
         return (
           <input
             type="number"
+            step="any"
             className={baseClass}
             value={value ?? ""}
             onChange={(e) =>
@@ -235,6 +237,7 @@ function LookupField({
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState("");
   const [selectedLabel, setSelectedLabel] = useState("");
+  const [resolving, setResolving] = useState(false);
   const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
 
@@ -243,10 +246,21 @@ function LookupField({
     if (!workspaceId || !targetObject) return;
     if (!value) {
       setSelectedLabel("");
+      setResolving(false);
+      return;
+    }
+    // If we already have a display label (from initialLabel or a prior
+    // resolution), keep it rather than flashing the raw record ID.
+    if (initialLabel) {
+      setSelectedLabel(initialLabel);
+    }
+    // Only fetch the display name if we don't already have a non-ID label.
+    if (selectedLabel && selectedLabel !== String(value)) {
+      setResolving(false);
       return;
     }
     let cancelled = false;
-    setSelectedLabel(initialLabel ?? String(value));
+    setResolving(true);
     const isPeopleLookup = targetObject === "__people";
     const selectedUrl = isPeopleLookup
       ? `/api/workspaces/${workspaceId}/people`
@@ -257,8 +271,11 @@ function LookupField({
         ? json.data.find((item) => String(item.id) === String(value))
         : json.data;
       if (selected) setSelectedLabel(toLookupOption(selected).label);
-    }).catch(() => undefined);
+    }).catch(() => undefined).finally(() => {
+      if (!cancelled) setResolving(false);
+    });
     return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [workspaceId, targetObject, value, initialLabel]);
 
   useEffect(() => {
@@ -355,7 +372,12 @@ function LookupField({
           }}
           placeholder={placeholder}
         />
-        {value && (
+        {resolving && !open && (
+          <span className="absolute right-3 top-1/2 -translate-y-1/2">
+            <Loader2 size={14} className="animate-spin text-slate-400" />
+          </span>
+        )}
+        {value && !resolving && (
           <button
             type="button"
             onClick={() => { onChange(null); setSearch(""); setSelectedLabel(""); }}

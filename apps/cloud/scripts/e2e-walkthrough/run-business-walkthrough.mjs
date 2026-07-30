@@ -1223,7 +1223,7 @@ async function scenario5() {
   {
     if (state.quoteId) {
       const { record: quote } = await getRecord(ws, "quote", state.quoteId);
-      assert(quote?.status === "accepted", `Final quote status is 'accepted' (got: ${quote?.status})`);
+      assert(quote?.status === "converted", `Final quote status is 'converted' (got: ${quote?.status})`);
       assert(quote?.accepted_at != null, "Quote has accepted_at timestamp");
       assert(quote?.work_order_id != null, "Quote has linked work_order_id");
       assert(quote?.aggregate_version >= 5, `Quote version >= 5 after lifecycle (got: ${quote?.aggregate_version})`);

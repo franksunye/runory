@@ -149,7 +149,7 @@ export async function issueInvoiceFromWorkOrder(
        WHERE workspace_id = ? AND id = ?`,
       [workspaceId, workOrder.source_id],
     );
-    if (!quote || quote.status !== "accepted") {
+    if (!quote || !["accepted", "converted"].includes(quote.status)) {
       throw invoiceError("INVOICE_SOURCE_INVALID", "The source Quote is missing or is no longer accepted.");
     }
     quoteLines = await queryAll<QuoteLineSource>(

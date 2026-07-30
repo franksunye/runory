@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   ArrowLeft,
+  ArrowRightLeft,
   Ban,
   Calendar,
   Camera,
@@ -44,6 +45,7 @@ import {
   useRelations,
   useWorkspaceAccess,
   useWorkspaceChangeEvent,
+  useRecordWorkflow,
   type WorkspaceRecord,
 } from "@/lib/api-hooks";
 import { notifyWorkspaceDataChanged } from "@/lib/workspace-events";
@@ -957,6 +959,29 @@ interface BusinessCommandAction {
 
 function getBusinessCommandActions(objectKey: string, record: WorkspaceRecord): BusinessCommandAction[] {
   const status = String(record.status ?? "");
+  if (objectKey === "quote") {
+    const actions: BusinessCommandAction[] = [];
+    if (status === "draft") {
+      actions.push({ command: "quote.submit_for_approval", label: "Submit for approval", tone: "primary" });
+    }
+    if (status === "in_review") {
+      actions.push({ command: "quote.approve", label: "Approve", tone: "primary" });
+      actions.push({ command: "quote.reject", label: "Reject", tone: "danger", reasonPrompt: "Reason for rejecting this quote?" });
+      actions.push({ command: "quote.return_for_changes", label: "Return for changes", tone: "secondary", reasonPrompt: "Reason for returning this quote?" });
+    }
+    if (status === "approved") {
+      actions.push({ command: "quote.mark_sent", label: "Mark as sent", tone: "primary" });
+      actions.push({ command: "quote.withdraw", label: "Withdraw", tone: "secondary", reasonPrompt: "Reason for withdrawing this quote?" });
+    }
+    if (status === "sent") {
+      actions.push({ command: "quote.accept", label: "Accept", tone: "primary" });
+      actions.push({ command: "quote.mark_declined", label: "Mark as declined", tone: "danger", reasonPrompt: "Reason for declining this quote?" });
+    }
+    if (status === "accepted") {
+      actions.push({ command: "quote.convert_to_work_order", label: "Convert to Work Order", tone: "primary" });
+    }
+    return actions;
+  }
   if (objectKey === "work_order") {
     const actions: BusinessCommandAction[] = [];
     if (status === "new") {
@@ -1033,6 +1058,23 @@ function buttonClassForTone(tone: BusinessCommandAction["tone"]): string {
 
 function iconForBusinessCommand(command: string): typeof Play {
   switch (command) {
+    case "quote.submit_for_approval":
+      return Send;
+    case "quote.approve":
+      return CheckCircle2;
+    case "quote.reject":
+    case "quote.mark_declined":
+      return XCircle;
+    case "quote.return_for_changes":
+      return RotateCcw;
+    case "quote.mark_sent":
+      return Send;
+    case "quote.withdraw":
+      return Ban;
+    case "quote.accept":
+      return Check;
+    case "quote.convert_to_work_order":
+      return ArrowRightLeft;
     case "work_order.complete":
     case "visit.complete":
       return CheckCircle2;
@@ -1305,6 +1347,7 @@ export default function ObjectDetailPage({
   const { data: record, error: recordError, isLoading: loadingRecord, mutate: mutateRecord } = useRecord(workspaceId, objectKey, recordId);
   const { data: relationsData } = useRelations(workspaceId, objectKey);
   const { data: technicians = [] } = useRecords(workspaceId, "technician", { sortBy: "name", sortOrder: "asc" });
+  const { data: workflowData } = useRecordWorkflow(workspaceId, objectKey, recordId);
 
   useWorkspaceChangeEvent(workspaceId);
 
@@ -1449,7 +1492,7 @@ export default function ObjectDetailPage({
       const json = await apiFetch<{
         success: boolean;
         error?: { message: string };
-        data?: { aggregate?: { id?: string } };
+        data?: { aggregate?: WorkspaceRecord & { id?: string } };
       }>(
         `/api/workspaces/${workspaceId}/commands/${action.command}`,
         {
@@ -1478,7 +1521,14 @@ export default function ObjectDetailPage({
         setError(json.error?.message ?? "Command failed");
         return;
       }
-      await mutateRecord();
+      // Optimistic update: if the command returned the updated aggregate,
+      // populate the SWR cache immediately so action buttons re-render
+      // without waiting for the revalidation round-trip.
+      if (json.data?.aggregate) {
+        await mutateRecord(json.data.aggregate, { revalidate: true });
+      } else {
+        await mutateRecord();
+      }
       notifyWorkspaceDataChanged();
       if (action.command === "invoice.issue_from_work_order" && json.data?.aggregate?.id) {
         router.push(`/w/${workspaceId}/invoices/${json.data.aggregate.id}`);
@@ -1587,7 +1637,30 @@ export default function ObjectDetailPage({
     );
   };
 
-  const businessActions = getBusinessCommandActions(objectKey, record);
+  const businessActions = useMemo(() => {
+    const actions = getBusinessCommandActions(objectKey, record);
+    // When a workflow is running with active (non-completed) work items,
+    // those work items provide their own Approve/Reject/Complete buttons in
+    // the RecordWorkflowPanel.  Showing the same actions twice is confusing,
+    // so filter out business actions that are already surfaced as work items.
+    const activeWorkItemCommands = new Set<string>();
+    if (workflowData?.instance?.status === "running") {
+      for (const item of workflowData.workItems) {
+        if (item.status === "completed" || item.status === "cancelled") continue;
+        if (item.kind === "approval") {
+          activeWorkItemCommands.add("quote.approve");
+          activeWorkItemCommands.add("quote.reject");
+          activeWorkItemCommands.add("quote.return_for_changes");
+        }
+        if (item.kind === "human_task") {
+          activeWorkItemCommands.add("work_order.complete");
+        }
+      }
+    }
+    return activeWorkItemCommands.size > 0
+      ? actions.filter((a) => !activeWorkItemCommands.has(a.command))
+      : actions;
+  }, [objectKey, record, workflowData]);
   const identityAvatarUrl = typeof record.user_id_avatar_url === "string"
     ? record.user_id_avatar_url
     : null;

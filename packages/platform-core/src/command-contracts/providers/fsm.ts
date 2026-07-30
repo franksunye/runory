@@ -262,6 +262,7 @@ interface CreateWorkOrderFromQuoteEffectInput {
   description: string;
   companyId: string | null;
   contactId: string | null;
+  serviceSiteId: string | null;
   snapshotHash: string;
 }
 
@@ -281,7 +282,7 @@ function parseCreateWorkOrderFromQuoteEffectInput(
   ]) {
     if (typeof value[key] !== "string" || value[key] === "") invalid();
   }
-  for (const key of ["companyId", "contactId"]) {
+  for (const key of ["companyId", "contactId", "serviceSiteId"]) {
     if (value[key] !== null && typeof value[key] !== "string") invalid();
   }
   return value as unknown as CreateWorkOrderFromQuoteEffectInput;
@@ -332,13 +333,14 @@ registerCommandEffectProvider({
              work_order_number, aggregate_version,
              requested_at, created_at, updated_at)
             VALUES (?, ?, ?, ?, 'new', 'medium',
-             ?, ?, NULL, NULL,
+             ?, ?, ?, NULL,
              'quote', ?, ?,
              ?, 1,
              ?, ?, ?)`,
       args: [
         input.workOrderId, envelope.workspaceId, input.title, input.description,
-        input.companyId, input.contactId, envelope.aggregateId, input.snapshotHash,
+        input.companyId, input.contactId, input.serviceSiteId,
+        envelope.aggregateId, input.snapshotHash,
         input.workOrderNumber, ts, ts, ts,
       ],
         expectedRowsAffected: 1,
