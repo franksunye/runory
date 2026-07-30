@@ -1070,11 +1070,12 @@ async function seedPackDemoData(workspaceId: string, packId: string): Promise<nu
         }
         const existing = await queryOne<{ id: string }>(
           `SELECT id FROM ${TABLES.workflowInstances}
-           WHERE workspace_id = ? AND workflow_definition_id = ? AND record_id = ? AND status = 'running'`,
+           WHERE workspace_id = ? AND workflow_definition_id = ? AND record_id = ?
+           AND status IN ('running', 'error')`,
           [workspaceId, wfDef.id, recordId]
         );
         if (existing) {
-          continue; // Already started
+          continue; // Already started (including errored instances — don't duplicate)
         }
 
         // Start the workflow

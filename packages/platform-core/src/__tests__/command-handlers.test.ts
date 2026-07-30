@@ -127,12 +127,10 @@ beforeEach(() => {
 
 describe("claimWorkItemHandler", () => {
   it("returns CommandHandlerResult with correct structure", async () => {
-    // queryOne is called twice:
+    // queryOne is called once:
     //   1. SELECT * FROM work_items  →  the work item
-    //   2. SELECT MAX(sequence)       →  last event sequence
-    mockedQueryOne
-      .mockResolvedValueOnce(baseWorkItem)
-      .mockResolvedValueOnce({ max_seq: 0 } as unknown as Record<string, unknown>);
+    // (sequence is now allocated via subquery, no separate MAX query)
+    mockedQueryOne.mockResolvedValueOnce(baseWorkItem);
 
     const result = await claimWorkItemHandler("ws-1", "wi-1", actor, 1);
 
@@ -150,10 +148,11 @@ describe("claimWorkItemHandler", () => {
     // newVersion is expectedVersion + 1
     expect(result.newVersion).toBe(2);
 
-    // statements: UPDATE work item + INSERT workflow event
-    expect(result.statements).toHaveLength(2);
+    // statements: UPDATE work item + INSERT workflow event + UPDATE next_event_sequence
+    expect(result.statements).toHaveLength(3);
     expect(result.statements[0].sql).toMatch(/UPDATE/i);
     expect(result.statements[1].sql).toMatch(/INSERT/i);
+    expect(result.statements[2].sql).toMatch(/UPDATE.*next_event_sequence/is);
 
     // aggregate reflects the claimed state
     expect(result.aggregate).toMatchObject({
@@ -166,9 +165,12 @@ describe("claimWorkItemHandler", () => {
 
 describe("cancelWorkItemHandler", () => {
   it("returns CommandHandlerResult with correct structure", async () => {
+    // queryOne is called twice:
+    //   1. SELECT * FROM work_items         →  the work item
+    //   2. SELECT * FROM workflow_instances →  the instance (for status validation)
     mockedQueryOne
       .mockResolvedValueOnce(baseWorkItem)
-      .mockResolvedValueOnce({ max_seq: 0 } as unknown as Record<string, unknown>);
+      .mockResolvedValueOnce(mockInstance);
 
     const result = await cancelWorkItemHandler(
       "ws-1",
@@ -186,10 +188,12 @@ describe("cancelWorkItemHandler", () => {
     // newVersion is expectedVersion + 1
     expect(result.newVersion).toBe(2);
 
-    // statements: UPDATE work item + INSERT workflow event
-    expect(result.statements).toHaveLength(2);
-    expect(result.statements[0].sql).toMatch(/UPDATE/i);
-    expect(result.statements[1].sql).toMatch(/INSERT/i);
+    // statements: UPDATE work item + UPDATE instance + UPDATE remaining items
+    //           + UPDATE timers + INSERT event + UPDATE next_event_sequence
+    expect(result.statements).toHaveLength(6);
+    expect(result.statements[0].sql).toMatch(/UPDATE.*work_items/is);
+    expect(result.statements[4].sql).toMatch(/INSERT/i);
+    expect(result.statements[5].sql).toMatch(/UPDATE.*next_event_sequence/is);
 
     // aggregate reflects the cancelled state
     expect(result.aggregate).toMatchObject({
@@ -201,16 +205,15 @@ describe("cancelWorkItemHandler", () => {
 
 describe("approvalDecideHandler", () => {
   it("returns CommandHandlerResult with correct structure", async () => {
-    // queryOne is called four times in order:
+    // queryOne is called three times in order:
     //   1. SELECT * FROM work_items            →  approval work item
-    //   2. SELECT * FROM workflow_instances →  instance
+    //   2. SELECT * FROM workflow_instances    →  instance
     //   3. SELECT definition_json ...          →  definition version
-    //   4. SELECT MAX(sequence) ...            →  last event sequence
+    // (sequence is now allocated via subquery, no separate MAX query)
     mockedQueryOne
       .mockResolvedValueOnce(approvalWorkItem)
       .mockResolvedValueOnce(mockInstance)
-      .mockResolvedValueOnce({ definition_json: workflowDefinitionJson } as unknown as Record<string, unknown>)
-      .mockResolvedValueOnce({ max_seq: 0 } as unknown as Record<string, unknown>);
+      .mockResolvedValueOnce({ definition_json: workflowDefinitionJson } as unknown as Record<string, unknown>);
 
     const result = await approvalDecideHandler(
       "ws-1",
@@ -240,16 +243,15 @@ describe("approvalDecideHandler", () => {
 
 describe("returnWorkItemHandler", () => {
   it("creates a new work item (INSERT, not just UPDATE)", async () => {
-    // queryOne is called four times in order:
+    // queryOne is called three times in order:
     //   1. SELECT * FROM work_items            →  work item
-    //   2. SELECT * FROM workflow_instances →  instance
+    //   2. SELECT * FROM workflow_instances    →  instance
     //   3. SELECT * FROM workflow_definition_versions →  definition version
-    //   4. SELECT MAX(sequence) ...            →  last event sequence
+    // (sequence is now allocated via subquery, no separate MAX query)
     mockedQueryOne
       .mockResolvedValueOnce(baseWorkItem)
       .mockResolvedValueOnce(mockInstance)
-      .mockResolvedValueOnce(mockDefVersionRow)
-      .mockResolvedValueOnce({ max_seq: 0 } as unknown as Record<string, unknown>);
+      .mockResolvedValueOnce(mockDefVersionRow);
 
     const result = await returnWorkItemHandler(
       "ws-1",
@@ -272,8 +274,9 @@ describe("returnWorkItemHandler", () => {
     );
     expect(updateStatements.length).toBe(1);
 
-    // Total statements: UPDATE existing + INSERT event + INSERT new work item
-    expect(result.statements).toHaveLength(3);
+    // Total statements: UPDATE existing + INSERT event + UPDATE next_event_sequence
+    //                 + INSERT new work item
+    expect(result.statements).toHaveLength(4);
 
     // workItemIds should contain the new work item ID
     expect(result.workItemIds).toHaveLength(1);
