@@ -90,6 +90,7 @@ export async function GET(
     return successResponse(
       {
         ...instance,
+        workflowKey: definition?.workflowKey ?? null,
         work_items: workItems,
         events,
         definition,

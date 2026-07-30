@@ -302,7 +302,7 @@ async function queryWorkflowEvents(
 
   return rows.map((r) => ({
     id: r.id,
-    event_type: `workflow.${r.event_type}`,
+    event_type: r.event_type,
     occurred_at: r.occurred_at,
     subject_type: r.object_type,
     subject_id: r.record_id,

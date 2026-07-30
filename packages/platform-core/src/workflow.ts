@@ -318,6 +318,19 @@ export async function startWorkflow(
 
   await batch(statements);
 
+  // If the next step is a system_command, execute it automatically.
+  // This mirrors the post-commit advancement in approvalDecide() and
+  // completeWorkItem(). The workflow.start_process effect provider
+  // handles this for command-triggered workflows by skipping the
+  // triggering command's own system_command step; this path covers
+  // manual workflow starts via the workflow.start API.
+  if (nextStepId) {
+    const nextStep = wfDef.steps.find(s => s.id === nextStepId);
+    if (nextStep?.kind === "system_command") {
+      await advanceSystemCommandStep(workspaceId, instanceId, nextStepId);
+    }
+  }
+
   return { instanceId };
 }
 
@@ -563,6 +576,52 @@ export function registerSystemCommandExecutor(
 }
 
 /**
+ * Mark a workflow instance as 'error' due to a system_command execution
+ * failure. Writes a failure event and updates the instance status so it
+ * can be diagnosed and retried without losing prior committed state.
+ *
+ * This is the error-recovery counterpart to advanceSystemCommandStep:
+ * the approval decision (or work item completion) has already been
+ * committed atomically; the system_command executor runs post-commit and
+ * may fail independently. Marking the instance as 'error' makes the
+ * failure visible and actionable rather than silently stuck.
+ */
+async function markInstanceError(
+  workspaceId: string,
+  instanceId: string,
+  stepId: string,
+  command: string,
+  errorMessage: string
+): Promise<void> {
+  const ts = now();
+  const lastEvent = await queryOne<{ max_seq: number }>(
+    `SELECT MAX(sequence) as max_seq FROM ${TABLES.workflowEvents}
+     WHERE instance_id = ?`,
+    [instanceId]
+  );
+  const nextSeq = (lastEvent?.max_seq ?? 0) + 1;
+
+  await batch([
+    // Write failure event
+    {
+      sql: `INSERT INTO ${TABLES.workflowEvents}
+            (id, workspace_id, instance_id, sequence, event_type, step_id,
+             actor_type, actor_id, payload_json, occurred_at)
+            VALUES (?, ?, ?, ?, 'workflow.system_command_failed', ?, 'system', 'system', ?, ?)`,
+      args: [genId("wfe"), workspaceId, instanceId, nextSeq, stepId,
+             JSON.stringify({ command, error: errorMessage, stepId }), ts],
+    },
+    // Mark instance as error
+    {
+      sql: `UPDATE ${TABLES.workflowInstances}
+            SET status = 'error', version = version + 1, updated_at = ?
+            WHERE id = ?`,
+      args: [ts, instanceId],
+    },
+  ]);
+}
+
+/**
  * After a workflow step transition (approval.decide or work_item.complete),
  * check if the new current step is a system_command. If so, execute the bound
  * command automatically and advance the workflow to the next step.
@@ -573,6 +632,11 @@ export function registerSystemCommandExecutor(
  *
  * Handles consecutive system_command steps (e.g., command → command → end)
  * by looping until a non-system_command step is reached.
+ *
+ * Error handling: if the executor fails or no executor is registered, the
+ * instance is marked as 'error' with a workflow.system_command_failed event.
+ * The prior committed state (approval decision, work item completion) is
+ * preserved; the instance can be retried via retryWorkflowSystemCommand().
  */
 async function advanceSystemCommandStep(
   workspaceId: string,
@@ -608,11 +672,28 @@ async function advanceSystemCommandStep(
         `[workflow] No executor registered for system_command "${step.command}". ` +
         `Workflow instance ${instanceId} is stuck at step "${currentStepId}".`
       );
+      // Mark the instance as error so it can be diagnosed and retried.
+      await markInstanceError(workspaceId, instanceId, currentStepId, step.command,
+        `No executor registered for system_command "${step.command}"`);
       break;
     }
 
-    // Execute the bound command with a system actor
-    await executor(workspaceId, instance.record_id);
+    // Execute the bound command with a system actor.
+    // This is a post-commit operation — the executor calls executeCommand()
+    // which runs in its own atomic transaction. If the executor fails, we
+    // mark the workflow instance as 'error' and write a failure event so
+    // the system can diagnose and retry without losing the approval decision.
+    try {
+      await executor(workspaceId, instance.record_id);
+    } catch (err) {
+      const errMsg = err instanceof Error ? err.message : String(err);
+      console.error(
+        `[workflow] system_command "${step.command}" failed for instance ${instanceId} ` +
+        `at step "${currentStepId}": ${errMsg}`
+      );
+      await markInstanceError(workspaceId, instanceId, currentStepId, step.command, errMsg);
+      break;
+    }
 
     // Advance to the next step
     const ts = now();
@@ -701,6 +782,65 @@ async function advanceSystemCommandStep(
     // Continue if the next step is also a system_command
     currentStepId = afterStep?.kind === "system_command" ? afterStepId : null;
   }
+}
+
+/**
+ * Retry a failed system_command step on a workflow instance that was marked
+ * as 'error'. Resets the instance to 'running' and re-invokes
+ * advanceSystemCommandStep from the current step.
+ *
+ * This is the recovery path for post-commit executor failures: the original
+ * approval decision is preserved, and the system_command is re-attempted.
+ * If the executor succeeds this time, the workflow advances normally.
+ */
+export async function retryWorkflowSystemCommand(
+  workspaceId: string,
+  instanceId: string,
+  actor: CommandActor
+): Promise<void> {
+  const instance = await queryOne<WorkflowInstanceRow>(
+    `SELECT * FROM ${TABLES.workflowInstances} WHERE workspace_id = ? AND id = ?`,
+    [workspaceId, instanceId]
+  );
+  if (!instance) {
+    throw new NotFoundError(`Workflow instance not found: ${instanceId}`);
+  }
+  if (instance.status !== "error") {
+    throw new BusinessError(
+      ERROR_CODES.WORK_ITEM_NOT_ACTIONABLE,
+      `WORK_ITEM_NOT_ACTIONABLE: Workflow instance ${instanceId} is in status '${instance.status}', expected 'error'`,
+      409
+    );
+  }
+
+  const ts = now();
+  const lastEvent = await queryOne<{ max_seq: number }>(
+    `SELECT MAX(sequence) as max_seq FROM ${TABLES.workflowEvents}
+     WHERE instance_id = ?`,
+    [instanceId]
+  );
+  const nextSeq = (lastEvent?.max_seq ?? 0) + 1;
+
+  // Reset instance to running and write retry event
+  await batch([
+    {
+      sql: `UPDATE ${TABLES.workflowInstances}
+            SET status = 'running', version = version + 1, updated_at = ?
+            WHERE id = ?`,
+      args: [ts, instanceId],
+    },
+    {
+      sql: `INSERT INTO ${TABLES.workflowEvents}
+            (id, workspace_id, instance_id, sequence, event_type, step_id,
+             actor_type, actor_id, payload_json, occurred_at)
+            VALUES (?, ?, ?, ?, 'workflow.system_command_retry', ?, ?, ?, ?, ?)`,
+      args: [genId("wfe"), workspaceId, instanceId, nextSeq, instance.current_step_id,
+             actor.type, actor.id, JSON.stringify({ stepId: instance.current_step_id }), ts],
+    },
+  ]);
+
+  // Re-attempt system_command execution from the current step
+  await advanceSystemCommandStep(workspaceId, instanceId, instance.current_step_id);
 }
 
 export async function approvalDecide(
@@ -1653,12 +1793,16 @@ export async function completeWorkItemHandler(
     });
   }
 
-  const aggregate: Partial<WorkItemRow> = {
+  const aggregate: Partial<WorkItemRow> & { nextStepId?: string | null; instanceId?: string } = {
     ...workItem,
     status: "completed",
     completed_at: ts,
     version: expectedVersion + 1,
     updated_at: ts,
+    // Include nextStepId and instanceId so the post-commit
+    // advanceSystemCommandStep call doesn't need an extra DB query.
+    nextStepId,
+    instanceId: workItem.instance_id,
   };
 
   return {
@@ -1690,8 +1834,8 @@ export async function completeWorkItem(
   formData?: Record<string, unknown>,
   commandId?: string,
   requestId?: string | null
-): Promise<CommandResult<Partial<WorkItemRow>>> {
-  const result = await executeCommand<Partial<WorkItemRow>>(
+): Promise<CommandResult<Partial<WorkItemRow> & { nextStepId?: string | null; instanceId?: string }>> {
+  const result = await executeCommand<Partial<WorkItemRow> & { nextStepId?: string | null; instanceId?: string }>(
     {
       commandId: commandId ?? genId("cmd"),
       workspaceId,
@@ -1709,19 +1853,14 @@ export async function completeWorkItem(
 
   // Post-commit: if the workflow advanced to a system_command step after
   // completing this work item, execute the bound command automatically.
-  if (result.aggregate?.instance_id) {
-    // Read the workflow instance to get the current step
-    const instance = await queryOne<{ current_step_id: string | null }>(
-      `SELECT current_step_id FROM ${TABLES.workflowInstances} WHERE workspace_id = ? AND id = ?`,
-      [workspaceId, result.aggregate.instance_id]
+  // The handler returns nextStepId and instanceId in the aggregate so we
+  // don't need an extra DB query to read current_step_id.
+  if (result.aggregate?.nextStepId && result.aggregate?.instanceId) {
+    await advanceSystemCommandStep(
+      workspaceId,
+      result.aggregate.instanceId,
+      result.aggregate.nextStepId
     );
-    if (instance?.current_step_id) {
-      await advanceSystemCommandStep(
-        workspaceId,
-        result.aggregate.instance_id,
-        instance.current_step_id
-      );
-    }
   }
 
   return result;

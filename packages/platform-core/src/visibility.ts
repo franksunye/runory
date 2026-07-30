@@ -289,9 +289,22 @@ export async function resolveRecordVisibility(
     const resourceIds = await resolveUserResourceIds(workspaceId, scope.userId);
 
     if (resourceIds.length === 0) {
-      // User has no resource records — they can still see records they're
-      // assigned to directly via work_items, but for operational objects
-      // that means they see nothing.
+      // User has no resource records and no operational team scope.
+      // For work_order specifically, users with work_order.read (a commercial
+      // read permission, not an operational one) can still see work orders
+      // originating from quotes — they have quote.read and can see all quotes,
+      // so quote-originated work orders are a natural extension of their
+      // commercial visibility. This fixes the design defect where Sales
+      // Manager converts a quote to a work order but cannot see the result.
+      if (objectKey === "work_order" && permissions.has("work_order.read")) {
+        return {
+          canRead: true,
+          rowFilterSql: "t.source_type = 'quote'",
+          rowFilterArgs: [],
+        };
+      }
+      // For other operational objects (service_visit, service_report),
+      // users without operational scope or resource assignment see nothing.
       return {
         canRead: true,
         rowFilterSql: "1 = 0", // no rows match

@@ -437,31 +437,19 @@ async function scenario2() {
   step("2.9", "Sales Manager: Approve quote via approval.decide command");
   {
     if (!state.workItemId) {
-      // Fallback: list all workflow instances and find the one for our quote
-      const instances = await listWorkflowInstances(ws, { limit: 50 });
-      const matching = instances.find(
-        (inst) => inst.subjectType === "quote" && inst.subjectId === state.quoteId
-      );
-      if (matching) {
-        const workItems = matching.workItems ?? matching.work_items ?? [];
-        const ready = workItems.find((wi) => wi.status === "ready" || wi.status === "active");
-        if (ready) state.workItemId = ready.id ?? ready.workItemId;
-      }
+      assert(false, "No approval work item found — my-work endpoint should return the approval work item");
+      return;
     }
 
-    if (state.workItemId) {
-      const { ok, json } = await executeCommand(ws, "approval.decide", {
-        aggregateId: state.workItemId,
-        outcome: "approved",
-        comment: "E2E walkthrough: Quote approved for HVAC maintenance plan",
-        expectedVersion: 1,
-      });
-      assert(ok, "approval.decide command succeeded");
-      if (!ok) {
-        console.log(`     Response: ${JSON.stringify(json.error ?? json.data?.slice(0, 200))}`);
-      }
-    } else {
-      assert(false, "Could not find approval work item to decide on");
+    const { ok, json } = await executeCommand(ws, "approval.decide", {
+      aggregateId: state.workItemId,
+      outcome: "approved",
+      comment: "E2E walkthrough: Quote approved for HVAC maintenance plan",
+      expectedVersion: 1,
+    });
+    assert(ok, "approval.decide command succeeded");
+    if (!ok) {
+      console.log(`     Response: ${JSON.stringify(json.error ?? json.data?.slice(0, 200))}`);
     }
   }
 
@@ -563,16 +551,20 @@ async function scenario2() {
     console.log(`     Work Order ID: ${state.workOrderId}`);
   }
 
-  // Switch to Owner to verify the work order record (Sales Manager may lack
-  // work_order.read permission depending on pack configuration)
-  personaHeader(PERSONAS.OWNER, PERSONA_LABELS[PERSONAS.OWNER]);
-  await switchPersona(PERSONAS.OWNER);
+  // Sales Manager has work_order.read permission. Previously, the visibility
+  // layer filtered work_order (an OPERATIONAL_OBJECT) to "1 = 0" for users
+  // without OPERATIONAL_TEAM_SCOPE_PERMISSIONS or resource assignment,
+  // making work_order.read effectively useless for commercial roles.
+  // This was fixed: users with work_order.read can now see quote-originated
+  // work orders (source_type = 'quote'). Verify with the Sales Manager.
+  personaHeader(PERSONAS.SALES_MANAGER, PERSONA_LABELS[PERSONAS.SALES_MANAGER]);
+  await switchPersona(PERSONAS.SALES_MANAGER);
 
-  step("2.14", "Owner: Verify work order record created from quote");
+  step("2.14", "Sales Manager: Verify work order record created from quote");
   {
     if (state.workOrderId) {
       const { record } = await getRecord(ws, "work_order", state.workOrderId);
-      assert(record != null, "Work order record exists in database");
+      assert(record != null, "Work order record visible to Sales Manager");
       assert(
         record?.status === "new",
         `Work order status is 'new' (got: ${record?.status})`
@@ -650,7 +642,6 @@ async function scenario3() {
       console.log(`     New version: ${state.workOrderVersion}`);
     } else {
       console.log(`     Skipping triage — work order already in '${currentWo?.status}' status`);
-      assert(true, "Work order already triaged/planned — triage step skipped");
     }
 
     const { record } = await getRecord(ws, "work_order", state.workOrderId);
@@ -767,7 +758,7 @@ async function scenario3() {
     // rather than creating a separate one.
     if (state.assignmentId) {
       console.log(`     Assignment already created: ${state.assignmentId}`);
-      assert(true, "Assignment ID available from visit record");
+      assert(state.assignmentId != null, "Assignment ID available from visit record");
     } else {
       // Fallback: look up assignments for this visit
       const { records: assignments } = await listRecords(ws, "assignment", { limit: 50 });
@@ -788,7 +779,7 @@ async function scenario3() {
     // fsm.create_dispatched_visit effect provider.
     if (state.scheduleEntryId) {
       console.log(`     Schedule entry already created: ${state.scheduleEntryId}`);
-      assert(true, "Schedule entry ID available from visit record");
+      assert(state.scheduleEntryId != null, "Schedule entry ID available from visit record");
     } else {
       // Fallback: check planning entries
       const entries = await getPlanningEntries(ws, {
@@ -962,13 +953,12 @@ async function scenario4() {
         },
       });
       assert(ok, "form_submission.submit command succeeded");
-      if (json.data?.aggregate?.id) {
-        state.formSubmissionId = json.data.aggregate.id;
+      if (json.data?.aggregate?.submissionId) {
+        state.formSubmissionId = json.data.aggregate.submissionId;
         console.log(`     Form submission ID: ${state.formSubmissionId}`);
       }
     } else {
-      console.log("     SKIP: No form definition available");
-      assert(true, "Form submission step skipped (no form definition)");
+      assert(false, "No form definition available — form submission is required for visit completion");
     }
   }
 
@@ -1036,10 +1026,11 @@ async function scenario4() {
       } else if (wo?.status === "in_progress") {
         console.log(`     Work order already in_progress — skipping start`);
         state.workOrderVersion = woVersion;
-        assert(true, "Work order already in_progress");
       } else {
-        console.log(`     Work order in status '${wo?.status}' — cannot start`);
-        assert(true, `Work order status: ${wo?.status}`);
+        assert(
+          false,
+          `Work order in unexpected status '${wo?.status}' — expected 'planned' or 'in_progress'`
+        );
       }
     } else {
       assert(false, "No work order ID to start");

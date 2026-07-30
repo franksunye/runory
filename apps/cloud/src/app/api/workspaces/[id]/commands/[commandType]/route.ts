@@ -47,6 +47,7 @@ import {
   returnWorkItem,
   cancelWorkItem,
   cancelWorkflow,
+  retryWorkflowSystemCommand,
   startWorkflow,
   triggerPushForCommand,
   type CommandActor,
@@ -77,6 +78,7 @@ const LEGACY_COMMAND_PERMISSIONS: Record<string, string> = {
 
   "workflow.start": "workflow.manage",
   "workflow.cancel": "workflow.manage",
+  "workflow.retry_system_command": "workflow.manage",
 };
 
 // Commands that create a brand-new aggregate and therefore do NOT require an
@@ -89,6 +91,25 @@ const CREATE_COMMANDS = new Set([
   "quote.create_draft",
   "invoice.issue_from_work_order",
   "workflow.start",
+]);
+
+// Commands that don't use optimistic locking (no expectedVersion needed).
+// These commands either create new aggregates, use their own identity-based
+// authorization, or operate on workflow instances (not versioned aggregates).
+const NO_VERSION_COMMANDS = new Set([
+  ...CREATE_COMMANDS,
+  "assignment.assign",
+  "assignment.accept",
+  "assignment.reject",
+  "assignment.reassign",
+  "assignment.release",
+  "schedule.reschedule",
+  "schedule.cancel",
+  "form_submission.return",
+  "form_submission.revise",
+  "form_submission.accept",
+  "workflow.cancel",
+  "workflow.retry_system_command",
 ]);
 
 export async function POST(
@@ -119,6 +140,12 @@ export async function POST(
     }
 
     const idempotencyKey = request.headers.get("idempotency-key") ?? undefined;
+    // Commands that use optimistic locking must supply the current aggregate
+    // version. Defaulting to 1 would silently allow stale writes against
+    // aggregates that have been modified since version 1.
+    if (!NO_VERSION_COMMANDS.has(commandType) && body.expectedVersion === undefined) {
+      return handleError(new Error("expectedVersion is required for this command"), requestId);
+    }
     const expectedVersion = body.expectedVersion ?? 1;
 
     const actor: CommandActor = {
@@ -515,13 +542,24 @@ export async function POST(
         break;
 
       case "workflow.start":
-        result = await startWorkflow(
-          workspaceId,
-          body.workflowKey as string,
-          body.subjectType as string,
-          body.subjectId as string,
-          actor
-        ) as unknown as CommandHandlerResult;
+        {
+          const wfResult = await startWorkflow(
+            workspaceId,
+            body.workflowKey as string,
+            body.subjectType as string,
+            body.subjectId as string,
+            actor
+          );
+          // Wrap in a consistent CommandResult-like shape so the API
+          // response matches other commands (aggregate + status).
+          result = {
+            aggregate: { instanceId: wfResult.instanceId },
+            newVersion: 1,
+            eventIds: [],
+            workItemIds: [],
+            status: "succeeded" as const,
+          };
+        }
         break;
 
       case "workflow.cancel":
@@ -531,6 +569,15 @@ export async function POST(
           actor,
           (body.reason as string) ?? "Cancelled"
         );
+        break;
+
+      case "workflow.retry_system_command":
+        await retryWorkflowSystemCommand(
+          workspaceId,
+          body.aggregateId,
+          actor
+        );
+        result = { status: "succeeded" as const };
         break;
 
       case "work_item.claim":
