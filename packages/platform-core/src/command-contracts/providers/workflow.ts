@@ -112,9 +112,13 @@ registerCommandEffectProvider({
         sql: `INSERT INTO ${TABLES.workflowEvents}
               (id, workspace_id, instance_id, sequence, event_type, step_id,
                actor_type, actor_id, payload_json, occurred_at)
-              VALUES (?, ?, ?, 1, 'workflow.started', ?, ?, ?, ?, ?)`,
+              VALUES (?, ?, ?,
+                (SELECT next_event_sequence FROM ${TABLES.workflowInstances} WHERE id = ?),
+                'workflow.started', ?, ?, ?, ?, ?)`,
         args: [
-          genId("wfe"), envelope.workspaceId, input.instanceId, "start",
+          genId("wfe"), envelope.workspaceId, input.instanceId,
+          input.instanceId, // subquery parameter
+          "start",
           envelope.actor.type, envelope.actor.id,
           JSON.stringify({
             workflowKey: input.workflowKey,
@@ -123,6 +127,13 @@ registerCommandEffectProvider({
           }),
           ts,
         ],
+        expectedRowsAffected: 1,
+        },
+        {
+        sql: `UPDATE ${TABLES.workflowInstances}
+              SET next_event_sequence = next_event_sequence + 1
+              WHERE id = ?`,
+        args: [input.instanceId],
         expectedRowsAffected: 1,
         },
         {

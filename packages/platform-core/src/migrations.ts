@@ -87,6 +87,12 @@ const ACCEPTED_HISTORICAL_CHECKSUMS: Readonly<Record<string, readonly string[]>>
   "0024": ["d58707d86f5b83d02fa8c7f04f2ab21ee2dc6e552b1083eab712a50a4a8ea4cd"],
   "0025": ["096cf6186a4915b53de019485aaa83f7fce9897a6a29e274c5e641b79f500ebc"],
   "0027": ["1d71400071387e34926b69c4fc994943ed829d5dc7794e1492a59495305898e5"],
+  // 0053 was amended after initial application: corrected the backfill WHERE
+  // clause to cover instances with exactly 1 event (sequence = 1), not just
+  // those with events at sequence > 1. The original backfill left
+  // next_event_sequence = 1 for instances with a single event at sequence 1,
+  // causing a UNIQUE(instance_id, sequence) collision on the next append.
+  "0053": ["e5c6694f76f2d0fe0d55419780a71e10556b52ec3df99dc19d33822ff930cb83"],
 };
 
 function checksumMatches(file: MigrationFile, stored: string): boolean {

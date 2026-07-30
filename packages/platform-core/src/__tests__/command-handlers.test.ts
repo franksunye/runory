@@ -84,6 +84,7 @@ const mockInstance: WorkflowInstanceRow = {
   status: "running",
   current_step_id: "step-1",
   version: 1,
+  next_event_sequence: 1,
   started_by: "user-1",
   started_at: "2026-07-08T00:00:00.000Z",
   completed_at: null,

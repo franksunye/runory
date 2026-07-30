@@ -1,4 +1,4 @@
-import { createClient, type Client } from "@libsql/client";
+import { createClient, type Client, type Transaction } from "@libsql/client";
 import { randomUUID } from "node:crypto";
 import { runMigrations } from "./migrations";
 import { PLATFORM_CONFIG, getDbFilename } from "./platform-config";
@@ -156,4 +156,62 @@ export async function batch(statements: BatchStatement[]): Promise<void> {
     statements.map((s) => ({ sql: s.sql, args: (s.args ?? []) as never })),
     "write"
   );
+}
+
+export type { Transaction };
+
+/**
+ * Execute a callback within a write transaction.
+ *
+ * The callback receives a Transaction object that supports `execute()`.
+ * If the callback throws, the transaction is rolled back. If it succeeds,
+ * the transaction is committed. The transaction is always closed.
+ *
+ * Use this when you need to interleave reads and writes atomically
+ * (e.g., checking a dedupe_key before inserting, or reading and
+ * incrementing a sequence counter).
+ */
+export async function runInTransaction<T>(
+  fn: (tx: Transaction) => Promise<T>,
+): Promise<T> {
+  await ensureSchema();
+  const tx = await db.transaction("write");
+  try {
+    const result = await fn(tx);
+    await tx.commit();
+    return result;
+  } catch (error) {
+    await tx.rollback();
+    throw error;
+  } finally {
+    tx.close();
+  }
+}
+
+/**
+ * Execute a BatchStatement[] within a provided transaction.
+ * Useful when statements need to be part of a larger transaction
+ * managed by runInTransaction().
+ */
+export async function executeStatementsInTransaction(
+  tx: Transaction,
+  statements: BatchStatement[],
+): Promise<void> {
+  for (let index = 0; index < statements.length; index++) {
+    const statement = statements[index];
+    const result = await tx.execute({
+      sql: statement.sql,
+      args: (statement.args ?? []) as never,
+    });
+    if (
+      statement.expectedRowsAffected !== undefined
+      && result.rowsAffected !== statement.expectedRowsAffected
+    ) {
+      throw new BatchRowsAffectedError(
+        index,
+        statement.expectedRowsAffected,
+        result.rowsAffected,
+      );
+    }
+  }
 }

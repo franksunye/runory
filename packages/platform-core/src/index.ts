@@ -56,6 +56,7 @@ export * from "./customer-access-session";
 export * from "./customer-access-context";
 export * from "./payment-connect-commands";
 export * from "./workflow-projection";
+export * from "./cron-coordinator";
 export * from "./provisioning";
 export * from "./workspace-health";
 export * from "./diagnostics-package";

@@ -121,6 +121,7 @@ export const TABLES = {
   workItems: `${PREFIXES.runoryRuntime}work_items`,
   approvalDecisions: `${PREFIXES.runoryRuntime}approval_decisions`,
   workflowTimers: `${PREFIXES.runoryRuntime}workflow_timers`,
+  scheduledJobLeases: `${PREFIXES.runoryRuntime}scheduled_job_leases`,
 
   // Forms 2.0.
   formDefinitions: `${PREFIXES.runoryRuntime}form_definitions`,

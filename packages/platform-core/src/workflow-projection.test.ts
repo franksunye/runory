@@ -75,6 +75,7 @@ function makeInstance(overrides: Partial<WorkflowInstanceRow> = {}): WorkflowIns
     status: "running",
     current_step_id: "review",
     version: 1,
+    next_event_sequence: 1,
     started_by: "user_1",
     started_at: "2026-01-01T00:00:00.000Z",
     completed_at: null,
@@ -122,6 +123,7 @@ function makeEvent(overrides: Partial<WorkflowEventRow> = {}): WorkflowEventRow 
     actor_id: "user_1",
     payload_json: "{}",
     occurred_at: "2026-01-01T00:00:00.000Z",
+    dedupe_key: null,
     ...overrides,
   };
 }

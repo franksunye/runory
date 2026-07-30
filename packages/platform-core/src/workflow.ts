@@ -7,7 +7,7 @@
 // Work items carry human tasks, approvals, and form bindings.
 // Approval decisions are immutable and reference exactly one work_item.
 
-import { genId, now, queryOne, queryAll, batch, execute, type BatchStatement } from "./db";
+import { genId, now, queryOne, queryAll, batch, execute, runInTransaction, executeStatementsInTransaction, type BatchStatement, type Transaction } from "./db";
 import { TABLES, businessTable } from "./contracts";
 import { BusinessError, NotFoundError, InvalidInputError, ConflictError } from "./context";
 import { ERROR_CODES } from "./errors";
@@ -72,6 +72,7 @@ export interface WorkflowInstanceRow {
   status: string;
   current_step_id: string | null;
   version: number;
+  next_event_sequence: number;
   started_by: string | null;
   started_at: string;
   completed_at: string | null;
@@ -113,6 +114,7 @@ export interface WorkflowEventRow {
   actor_id: string | null;
   payload_json: string;
   occurred_at: string;
+  dedupe_key: string | null;
 }
 
 // ── Publish Workflow Definition ──
@@ -201,6 +203,95 @@ function resolveStepDueAt(step: WorkflowStep, baseTs: string): string | null {
   return null;
 }
 
+// ── Workflow Event Appender ──
+//
+// The single entry point for writing workflow events. Replaces the old
+// SELECT MAX(sequence)+1 pattern with a per-instance counter
+// (next_event_sequence) that is atomically read and incremented within
+// the same write transaction.
+//
+// How it works:
+//   1. The INSERT uses a subquery to read the current next_event_sequence
+//      from workflow_instances.
+//   2. The UPDATE increments next_event_sequence by 1.
+//   Both statements are in the same batch/transaction, so SQLite's
+//   serialized write transactions guarantee no two concurrent writes
+//   can observe the same sequence value.
+//
+// The UNIQUE(instance_id, sequence) constraint remains as a last-resort
+// guard. The counter increment does NOT modify the instance's business
+// `version` — it is an internal sequencing concern, not a domain event.
+
+export interface WorkflowEventInput {
+  eventType: string;
+  stepId: string | null;
+  actorType: string;
+  actorId: string | null;
+  payload: Record<string, unknown>;
+  occurredAt: string;
+  /** Optional deduplication key for idempotent event writes (e.g. timer events). */
+  dedupeKey?: string | null;
+}
+
+/**
+ * Produce the batch statements needed to append a workflow event.
+ *
+ * Returns [INSERT event, UPDATE counter]. The INSERT uses a subquery to read
+ * the current `next_event_sequence`, and the UPDATE increments it.
+ *
+ * The UPDATE carries `expectedRowsAffected: 1` to force the `batch()` function
+ * to use the sequential transaction loop (not `db.batch()`), ensuring the
+ * INSERT's subquery sees the correct counter value and the UPDATE executes
+ * in order.
+ *
+ * Must be executed within the same transaction as the caller's other writes.
+ */
+function makeWorkflowEventStatements(
+  workspaceId: string,
+  instanceId: string,
+  event: WorkflowEventInput,
+): BatchStatement[] {
+  const eventId = genId("wfe");
+  const hasDedupeKey = Boolean(event.dedupeKey);
+
+  const columns = [
+    "id", "workspace_id", "instance_id", "sequence", "event_type",
+    "step_id", "actor_type", "actor_id", "payload_json", "occurred_at",
+  ];
+  if (hasDedupeKey) columns.push("dedupe_key");
+
+  const placeholders = [
+    "?", "?", "?",
+    `(SELECT next_event_sequence FROM ${TABLES.workflowInstances} WHERE id = ?)`,
+    "?", "?", "?", "?", "?", "?",
+  ];
+  if (hasDedupeKey) placeholders.push("?");
+
+  const args: unknown[] = [
+    eventId, workspaceId, instanceId,
+    instanceId, // subquery parameter
+    event.eventType, event.stepId, event.actorType, event.actorId,
+    JSON.stringify(event.payload), event.occurredAt,
+  ];
+  if (hasDedupeKey) args.push(event.dedupeKey);
+
+  return [
+    {
+      sql: `INSERT INTO ${TABLES.workflowEvents}
+            (${columns.join(", ")})
+            VALUES (${placeholders.join(", ")})`,
+      args,
+    },
+    {
+      sql: `UPDATE ${TABLES.workflowInstances}
+            SET next_event_sequence = next_event_sequence + 1
+            WHERE id = ?`,
+      args: [instanceId],
+      expectedRowsAffected: 1,
+    },
+  ];
+}
+
 /**
  * Compute an ISO timestamp by adding a simple duration to `baseTs`.
  * Supported format: `<number><unit>` where unit is one of:
@@ -262,7 +353,7 @@ export async function startWorkflow(
   const nextStepId = startStep.next;
 
   const statements: BatchStatement[] = [
-    // Create instance
+    // Create instance (next_event_sequence defaults to 1)
     {
       sql: `INSERT INTO ${TABLES.workflowInstances}
             (id, workspace_id, workflow_definition_id, definition_version_id,
@@ -272,15 +363,15 @@ export async function startWorkflow(
       args: [instanceId, workspaceId, def.id, versionRow.id, objectType, recordId,
              nextStepId, actor.id, ts, ts, ts],
     },
-    // Write workflow.started event
-    {
-      sql: `INSERT INTO ${TABLES.workflowEvents}
-            (id, workspace_id, instance_id, sequence, event_type, step_id,
-             actor_type, actor_id, payload_json, occurred_at)
-            VALUES (?, ?, ?, 1, 'workflow.started', ?, ?, ?, ?, ?)`,
-      args: [genId("wfe"), workspaceId, instanceId, "start", actor.type, actor.id,
-             JSON.stringify({ workflowKey, objectType, recordId }), ts],
-    },
+    // Write workflow.started event — sequence allocated from counter
+    ...makeWorkflowEventStatements(workspaceId, instanceId, {
+      eventType: "workflow.started",
+      stepId: "start",
+      actorType: actor.type,
+      actorId: actor.id,
+      payload: { workflowKey, objectType, recordId },
+      occurredAt: ts,
+    }),
   ];
 
   // If the next step is an approval or human_task, create a work item
@@ -467,14 +558,6 @@ export async function approvalDecideHandler(
     nextStepId = currentStep.onReturn;
   }
 
-  // Get current event sequence
-  const lastEvent = await queryOne<{ max_seq: number }>(
-    `SELECT MAX(sequence) as max_seq FROM ${TABLES.workflowEvents}
-     WHERE instance_id = ?`,
-    [workItem.instance_id]
-  );
-  const nextSeq = (lastEvent?.max_seq ?? 0) + 1;
-
   const statements: BatchStatement[] = [
     // Create immutable approval decision
     {
@@ -496,15 +579,15 @@ export async function approvalDecideHandler(
       args: [outcome === "returned" ? "returned" : "completed", ts, ts, workItemId, expectedVersion],
       expectedRowsAffected: 1,
     },
-    // Write workflow event
-    {
-      sql: `INSERT INTO ${TABLES.workflowEvents}
-            (id, workspace_id, instance_id, sequence, event_type, step_id,
-             actor_type, actor_id, payload_json, occurred_at)
-            VALUES (?, ?, ?, ?, 'workflow.approval_decided', ?, ?, ?, ?, ?)`,
-      args: [genId("wfe"), workspaceId, workItem.instance_id, nextSeq, workItem.step_id,
-             actor.type, actor.id, JSON.stringify({ outcome, comment }), ts],
-    },
+    // Write workflow event — sequence allocated from counter
+    ...makeWorkflowEventStatements(workspaceId, workItem.instance_id, {
+      eventType: "workflow.approval_decided",
+      stepId: workItem.step_id,
+      actorType: actor.type,
+      actorId: actor.id,
+      payload: { outcome, comment },
+      occurredAt: ts,
+    }),
   ];
 
   // Track IDs of created work items for the next step
@@ -648,23 +731,17 @@ async function markInstanceError(
   errorMessage: string
 ): Promise<void> {
   const ts = now();
-  const lastEvent = await queryOne<{ max_seq: number }>(
-    `SELECT MAX(sequence) as max_seq FROM ${TABLES.workflowEvents}
-     WHERE instance_id = ?`,
-    [instanceId]
-  );
-  const nextSeq = (lastEvent?.max_seq ?? 0) + 1;
 
   await batch([
-    // Write failure event
-    {
-      sql: `INSERT INTO ${TABLES.workflowEvents}
-            (id, workspace_id, instance_id, sequence, event_type, step_id,
-             actor_type, actor_id, payload_json, occurred_at)
-            VALUES (?, ?, ?, ?, 'workflow.system_command_failed', ?, 'system', 'system', ?, ?)`,
-      args: [genId("wfe"), workspaceId, instanceId, nextSeq, stepId,
-             JSON.stringify({ command, error: errorMessage, stepId }), ts],
-    },
+    // Write failure event — sequence allocated from counter
+    ...makeWorkflowEventStatements(workspaceId, instanceId, {
+      eventType: "workflow.system_command_failed",
+      stepId,
+      actorType: "system",
+      actorId: "system",
+      payload: { command, error: errorMessage, stepId },
+      occurredAt: ts,
+    }),
     // Mark instance as error — only if still running. If the instance was
     // concurrently cancelled or completed, we must not overwrite its status.
     {
@@ -762,24 +839,16 @@ async function advanceSystemCommandStep(
     const afterStepId = step.next ?? null;
     const afterStep = afterStepId ? wfDef.steps.find(s => s.id === afterStepId) : null;
 
-    // Get event sequence
-    const lastEvent = await queryOne<{ max_seq: number }>(
-      `SELECT MAX(sequence) as max_seq FROM ${TABLES.workflowEvents}
-       WHERE instance_id = ?`,
-      [instanceId]
-    );
-    const nextSeq = (lastEvent?.max_seq ?? 0) + 1;
-
     const statements: BatchStatement[] = [
-      // Write workflow event for system_command execution
-      {
-        sql: `INSERT INTO ${TABLES.workflowEvents}
-              (id, workspace_id, instance_id, sequence, event_type, step_id,
-               actor_type, actor_id, payload_json, occurred_at)
-              VALUES (?, ?, ?, ?, 'workflow.system_command_executed', ?, 'system', 'system', ?, ?)`,
-        args: [genId("wfe"), workspaceId, instanceId, nextSeq, currentStepId,
-               JSON.stringify({ command: step.command, nextStepId: afterStepId }), ts],
-      },
+      // Write workflow event for system_command execution — sequence from counter
+      ...makeWorkflowEventStatements(workspaceId, instanceId, {
+        eventType: "workflow.system_command_executed",
+        stepId: currentStepId,
+        actorType: "system",
+        actorId: "system",
+        payload: { command: step.command, nextStepId: afterStepId },
+        occurredAt: ts,
+      }),
     ];
 
     if (afterStep) {
@@ -878,12 +947,6 @@ export async function retryWorkflowSystemCommand(
   }
 
   const ts = now();
-  const lastEvent = await queryOne<{ max_seq: number }>(
-    `SELECT MAX(sequence) as max_seq FROM ${TABLES.workflowEvents}
-     WHERE instance_id = ?`,
-    [instanceId]
-  );
-  const nextSeq = (lastEvent?.max_seq ?? 0) + 1;
 
   // Reset instance to running and write retry event
   await batch([
@@ -894,14 +957,15 @@ export async function retryWorkflowSystemCommand(
       args: [ts, instanceId],
       expectedRowsAffected: 1,
     },
-    {
-      sql: `INSERT INTO ${TABLES.workflowEvents}
-            (id, workspace_id, instance_id, sequence, event_type, step_id,
-             actor_type, actor_id, payload_json, occurred_at)
-            VALUES (?, ?, ?, ?, 'workflow.system_command_retry', ?, ?, ?, ?, ?)`,
-      args: [genId("wfe"), workspaceId, instanceId, nextSeq, instance.current_step_id,
-             actor.type, actor.id, JSON.stringify({ stepId: instance.current_step_id }), ts],
-    },
+    // Write retry event — sequence allocated from counter
+    ...makeWorkflowEventStatements(workspaceId, instanceId, {
+      eventType: "workflow.system_command_retry",
+      stepId: instance.current_step_id,
+      actorType: actor.type,
+      actorId: actor.id,
+      payload: { stepId: instance.current_step_id },
+      occurredAt: ts,
+    }),
   ]);
 
   // Re-attempt system_command execution from the current step
@@ -1027,13 +1091,6 @@ export async function returnWorkItemHandler(
     );
   }
 
-  const lastEvent = await queryOne<{ max_seq: number }>(
-    `SELECT MAX(sequence) as max_seq FROM ${TABLES.workflowEvents}
-     WHERE instance_id = ?`,
-    [workItem.instance_id]
-  );
-  const nextSeq = (lastEvent?.max_seq ?? 0) + 1;
-
   const newWorkItemId = genId("wi");
   const assigneeRule = stepDef.assigneeRule;
 
@@ -1046,15 +1103,15 @@ export async function returnWorkItemHandler(
       args: [ts, ts, workItemId, expectedVersion],
       expectedRowsAffected: 1,
     },
-    // Write workflow event for the return
-    {
-      sql: `INSERT INTO ${TABLES.workflowEvents}
-            (id, workspace_id, instance_id, sequence, event_type, step_id,
-             actor_type, actor_id, payload_json, occurred_at)
-            VALUES (?, ?, ?, ?, 'workflow.work_returned', ?, ?, ?, ?, ?)`,
-      args: [genId("wfe"), workspaceId, workItem.instance_id, nextSeq, workItem.step_id,
-             actor.type, actor.id, JSON.stringify({ comment, new_work_item_id: newWorkItemId }), ts],
-    },
+    // Write workflow event for the return — sequence allocated from counter
+    ...makeWorkflowEventStatements(workspaceId, workItem.instance_id, {
+      eventType: "workflow.work_returned",
+      stepId: workItem.step_id,
+      actorType: actor.type,
+      actorId: actor.id,
+      payload: { comment, new_work_item_id: newWorkItemId },
+      occurredAt: ts,
+    }),
     // Create a new work item for the same step (ready for the technician)
     {
       sql: `INSERT INTO ${TABLES.workItems}
@@ -1154,13 +1211,6 @@ export async function cancelWorkflow(
     );
   }
 
-  const lastEvent = await queryOne<{ max_seq: number }>(
-    `SELECT MAX(sequence) as max_seq FROM ${TABLES.workflowEvents}
-     WHERE instance_id = ?`,
-    [instanceId]
-  );
-  const nextSeq = (lastEvent?.max_seq ?? 0) + 1;
-
   await batch([
     // Cancel instance
     {
@@ -1185,15 +1235,15 @@ export async function cancelWorkflow(
             WHERE instance_id = ? AND status = 'active'`,
       args: [ts, instanceId],
     },
-    // Write workflow event
-    {
-      sql: `INSERT INTO ${TABLES.workflowEvents}
-            (id, workspace_id, instance_id, sequence, event_type, step_id,
-             actor_type, actor_id, payload_json, occurred_at)
-            VALUES (?, ?, ?, ?, 'workflow.cancelled', NULL, ?, ?, ?, ?)`,
-      args: [genId("wfe"), workspaceId, instanceId, nextSeq,
-             actor.type, actor.id, JSON.stringify({ reason }), ts],
-    },
+    // Write workflow event — sequence allocated from counter
+    ...makeWorkflowEventStatements(workspaceId, instanceId, {
+      eventType: "workflow.cancelled",
+      stepId: null,
+      actorType: actor.type,
+      actorId: actor.id,
+      payload: { reason },
+      occurredAt: ts,
+    }),
   ]);
 }
 
@@ -1448,12 +1498,6 @@ export async function claimWorkItemHandler(
   await checkCandidateEligibility(workspaceId, workItem, actor);
 
   const ts = now();
-  const lastEvent = await queryOne<{ max_seq: number }>(
-    `SELECT MAX(sequence) as max_seq FROM ${TABLES.workflowEvents}
-     WHERE instance_id = ?`,
-    [workItem.instance_id]
-  );
-  const nextSeq = (lastEvent?.max_seq ?? 0) + 1;
 
   const statements: BatchStatement[] = [
     {
@@ -1464,15 +1508,15 @@ export async function claimWorkItemHandler(
       args: [actor.id, ts, ts, workItemId, expectedVersion],
       expectedRowsAffected: 1,
     },
-    // Write workflow event
-    {
-      sql: `INSERT INTO ${TABLES.workflowEvents}
-            (id, workspace_id, instance_id, sequence, event_type, step_id,
-             actor_type, actor_id, payload_json, occurred_at)
-            VALUES (?, ?, ?, ?, 'workflow.work_claimed', ?, ?, ?, ?, ?)`,
-      args: [genId("wfe"), workspaceId, workItem.instance_id, nextSeq, workItem.step_id,
-             actor.type, actor.id, JSON.stringify({}), ts],
-    },
+    // Write workflow event — sequence allocated from counter
+    ...makeWorkflowEventStatements(workspaceId, workItem.instance_id, {
+      eventType: "workflow.work_claimed",
+      stepId: workItem.step_id,
+      actorType: actor.type,
+      actorId: actor.id,
+      payload: {},
+      occurredAt: ts,
+    }),
   ];
 
   const aggregate: Partial<WorkItemRow> = {
@@ -1565,13 +1609,6 @@ export async function releaseWorkItemHandler(
     );
   }
 
-  const lastEvent = await queryOne<{ max_seq: number }>(
-    `SELECT MAX(sequence) as max_seq FROM ${TABLES.workflowEvents}
-     WHERE instance_id = ?`,
-    [workItem.instance_id]
-  );
-  const nextSeq = (lastEvent?.max_seq ?? 0) + 1;
-
   const statements: BatchStatement[] = [
     // Release back to ready, clear claim metadata
     {
@@ -1582,15 +1619,15 @@ export async function releaseWorkItemHandler(
       args: [ts, workItemId, expectedVersion],
       expectedRowsAffected: 1,
     },
-    // Write workflow event
-    {
-      sql: `INSERT INTO ${TABLES.workflowEvents}
-            (id, workspace_id, instance_id, sequence, event_type, step_id,
-             actor_type, actor_id, payload_json, occurred_at)
-            VALUES (?, ?, ?, ?, 'workflow.work_released', ?, ?, ?, ?, ?)`,
-      args: [genId("wfe"), workspaceId, workItem.instance_id, nextSeq, workItem.step_id,
-             actor.type, actor.id, JSON.stringify({}), ts],
-    },
+    // Write workflow event — sequence allocated from counter
+    ...makeWorkflowEventStatements(workspaceId, workItem.instance_id, {
+      eventType: "workflow.work_released",
+      stepId: workItem.step_id,
+      actorType: actor.type,
+      actorId: actor.id,
+      payload: {},
+      occurredAt: ts,
+    }),
   ];
 
   const aggregate: Partial<WorkItemRow> = {
@@ -1788,14 +1825,6 @@ export async function completeWorkItemHandler(
   // Determine next step
   const nextStepId = currentStep.next ?? null;
 
-  // Get current event sequence
-  const lastEvent = await queryOne<{ max_seq: number }>(
-    `SELECT MAX(sequence) as max_seq FROM ${TABLES.workflowEvents}
-     WHERE instance_id = ?`,
-    [workItem.instance_id]
-  );
-  const nextSeq = (lastEvent?.max_seq ?? 0) + 1;
-
   const statements: BatchStatement[] = [
     // Mark work item as completed
     {
@@ -1805,15 +1834,15 @@ export async function completeWorkItemHandler(
       args: [ts, ts, workItemId, expectedVersion],
       expectedRowsAffected: 1,
     },
-    // Write workflow event
-    {
-      sql: `INSERT INTO ${TABLES.workflowEvents}
-            (id, workspace_id, instance_id, sequence, event_type, step_id,
-             actor_type, actor_id, payload_json, occurred_at)
-            VALUES (?, ?, ?, ?, 'workflow.work_completed', ?, ?, ?, ?, ?)`,
-      args: [genId("wfe"), workspaceId, workItem.instance_id, nextSeq, workItem.step_id,
-             actor.type, actor.id, JSON.stringify({ formData: formData ?? null }), ts],
-    },
+    // Write workflow event — sequence allocated from counter
+    ...makeWorkflowEventStatements(workspaceId, workItem.instance_id, {
+      eventType: "workflow.work_completed",
+      stepId: workItem.step_id,
+      actorType: actor.type,
+      actorId: actor.id,
+      payload: { formData: formData ?? null },
+      occurredAt: ts,
+    }),
   ];
 
   // Track IDs of created work items for the next step
@@ -1979,11 +2008,22 @@ export async function completeWorkItem(
 // ── Cancel Work Item ──
 
 /**
- * Cancel a work item that is not yet in a terminal state.
+ * Cancel a work item.
  *
- * Per v0.5 Spec §6.3 work_item.cancel: only actionable work items (those in
- * 'ready', 'active', or 'returned' status) may be cancelled. An optional
- * reason may be recorded on the workflow event.
+ * Per architectural decision: canceling the current work item is equivalent
+ * to canceling the entire workflow run. Automatic advancement is explicitly
+ * forbidden — "uncompleted" must never be interpreted as "completed".
+ *
+ * In a single transaction:
+ *   1. Validate the workflow instance is `running`.
+ *   2. Validate the work item belongs to the instance's `current_step_id`.
+ *   3. Only allow canceling `ready`, `active`, or `returned` work items.
+ *   4. Mark the target work item as `cancelled`.
+ *   5. Mark the workflow instance as `cancelled` with `completed_at`.
+ *   6. Cancel all remaining open work items and active timers.
+ *   7. Write a `workflow.cancelled` event with source = "work_item_cancel".
+ *
+ * The old `workflow.work_cancelled` event is no longer written.
  */
 export async function cancelWorkItemHandler(
   workspaceId: string,
@@ -2005,23 +2045,44 @@ export async function cancelWorkItemHandler(
 
   checkOptimisticLock(workItem.version, expectedVersion);
 
-  if (workItem.status === "completed" || workItem.status === "cancelled") {
+  // Only actionable work items may be cancelled
+  if (!["ready", "active", "returned"].includes(workItem.status)) {
     throw new BusinessError(
       ERROR_CODES.WORK_ITEM_NOT_ACTIONABLE,
-      `WORK_ITEM_NOT_ACTIONABLE: Work item ${workItemId} is in status '${workItem.status}' and cannot be cancelled`,
+      `WORK_ITEM_NOT_ACTIONABLE: Work item ${workItemId} is in status '${workItem.status}', expected 'ready', 'active', or 'returned'`,
       409
     );
   }
 
-  const lastEvent = await queryOne<{ max_seq: number }>(
-    `SELECT MAX(sequence) as max_seq FROM ${TABLES.workflowEvents}
-     WHERE instance_id = ?`,
-    [workItem.instance_id]
+  // Load the workflow instance to validate state
+  const instance = await queryOne<WorkflowInstanceRow>(
+    `SELECT * FROM ${TABLES.workflowInstances} WHERE workspace_id = ? AND id = ?`,
+    [workspaceId, workItem.instance_id]
   );
-  const nextSeq = (lastEvent?.max_seq ?? 0) + 1;
+  if (!instance) {
+    throw new NotFoundError(`Workflow instance not found: ${workItem.instance_id}`);
+  }
+
+  // Instance must be running
+  if (instance.status !== "running") {
+    throw new BusinessError(
+      ERROR_CODES.INVALID_TRANSITION,
+      `INVALID_TRANSITION: Workflow instance ${instance.id} is not running (status: ${instance.status})`,
+      409
+    );
+  }
+
+  // Work item must belong to the instance's current step
+  if (instance.current_step_id !== workItem.step_id) {
+    throw new BusinessError(
+      ERROR_CODES.WORK_ITEM_NOT_ACTIONABLE,
+      `WORK_ITEM_NOT_ACTIONABLE: Work item ${workItemId} belongs to step '${workItem.step_id}' but the instance is at step '${instance.current_step_id}'`,
+      409
+    );
+  }
 
   const statements: BatchStatement[] = [
-    // Mark work item as cancelled
+    // Mark the target work item as cancelled
     {
       sql: `UPDATE ${TABLES.workItems}
             SET status = 'cancelled', version = version + 1, updated_at = ?
@@ -2029,15 +2090,41 @@ export async function cancelWorkItemHandler(
       args: [ts, workItemId, expectedVersion],
       expectedRowsAffected: 1,
     },
-    // Write workflow event
+    // Cancel the workflow instance
     {
-      sql: `INSERT INTO ${TABLES.workflowEvents}
-            (id, workspace_id, instance_id, sequence, event_type, step_id,
-             actor_type, actor_id, payload_json, occurred_at)
-            VALUES (?, ?, ?, ?, 'workflow.work_cancelled', ?, ?, ?, ?, ?)`,
-      args: [genId("wfe"), workspaceId, workItem.instance_id, nextSeq, workItem.step_id,
-             actor.type, actor.id, JSON.stringify({ reason: reason ?? null }), ts],
+      sql: `UPDATE ${TABLES.workflowInstances}
+            SET status = 'cancelled', completed_at = ?, version = version + 1, updated_at = ?
+            WHERE id = ? AND status = 'running'`,
+      args: [ts, ts, instance.id],
+      expectedRowsAffected: 1,
     },
+    // Cancel all remaining open work items for this instance
+    {
+      sql: `UPDATE ${TABLES.workItems}
+            SET status = 'cancelled', updated_at = ?
+            WHERE instance_id = ? AND id != ? AND status IN ('ready', 'active', 'returned')`,
+      args: [ts, instance.id, workItemId],
+    },
+    // Cancel all active SLA timers
+    {
+      sql: `UPDATE ${TABLES.workflowTimers}
+            SET status = 'cancelled', updated_at = ?
+            WHERE instance_id = ? AND status = 'active'`,
+      args: [ts, instance.id],
+    },
+    // Write workflow.cancelled event — sequence allocated from counter
+    ...makeWorkflowEventStatements(workspaceId, instance.id, {
+      eventType: "workflow.cancelled",
+      stepId: workItem.step_id,
+      actorType: actor.type,
+      actorId: actor.id,
+      payload: {
+        reason: reason ?? null,
+        source: "work_item_cancel",
+        workItemId,
+      },
+      occurredAt: ts,
+    }),
   ];
 
   const aggregate: Partial<WorkItemRow> = {
@@ -2152,103 +2239,96 @@ export async function createWorkflowTimer(
 }
 
 /**
- * Fire overdue timers (called by a cron job or scheduled task).
+ * Fire overdue timers (called by the Cron Coordinator).
  *
  * For each timer in `active` status whose `due_at` has passed:
- *   1. Check whether a `timer.overdue` event already exists for the work item
- *      (idempotency — firing twice creates only one event).
- *   2. If no event exists yet, create a `timer.overdue` workflow event.
+ *   1. Use dedupe_key `timer:{timerId}:overdue` for idempotency.
+ *   2. Create a `timer.overdue` workflow event (if not already present).
  *   3. Mark the timer as `fired`.
  *
- * Returns the count of timers that were fired (new events created). Timers that
- * were already fired (event exists) are silently marked `fired` and do not
- * increment the count.
+ * Timer state update, event write, and audit are in the same transaction.
+ * Even if the lease expires or processes crash, duplicate execution produces
+ * at most one event per timer (enforced by the unique index on dedupe_key).
+ *
+ * @param workspaceId Optional workspace filter. When omitted, processes
+ *                    timers across all workspaces (used by the cron coordinator).
+ * @param limit       Maximum timers to process per call (default 100).
  */
 export async function fireOverdueTimers(
-  workspaceId: string
+  workspaceId?: string,
+  limit = 100,
 ): Promise<{ fired: number }> {
   const ts = now();
 
-  // Query all overdue active timers
+  // Query overdue active timers, batch-limited, sorted by due_at then id
+  const wsFilter = workspaceId ? `AND workspace_id = ?` : ``;
+  const args: unknown[] = [ts];
+  if (workspaceId) args.push(workspaceId);
+  args.push(limit);
+
   const overdueTimers = await queryAll<{
     id: string;
+    workspace_id: string;
     instance_id: string;
     work_item_id: string | null;
     timer_type: string;
     due_at: string;
   }>(
-    `SELECT id, instance_id, work_item_id, timer_type, due_at
+    `SELECT id, workspace_id, instance_id, work_item_id, timer_type, due_at
      FROM ${TABLES.workflowTimers}
-     WHERE workspace_id = ? AND status = 'active' AND due_at <= ?`,
-    [workspaceId, ts]
+     WHERE status = 'active' AND due_at <= ? ${wsFilter}
+     ORDER BY due_at ASC, id ASC
+     LIMIT ?`,
+    args,
   );
 
   let fired = 0;
 
   for (const timer of overdueTimers) {
-    // Idempotency: check if a timer.overdue event already exists for this work item
-    let alreadyFired = false;
-    if (timer.work_item_id) {
-      const existing = await queryOne<{ id: string }>(
-        `SELECT id FROM ${TABLES.workflowEvents}
-         WHERE instance_id = ? AND event_type = 'timer.overdue'
-         AND payload_json LIKE ?`,
-        [timer.instance_id, `%"workItemId":"${timer.work_item_id}"%`]
-      );
-      if (existing) {
-        alreadyFired = true;
-      }
-    }
+    const dedupeKey = `timer:${timer.id}:overdue`;
 
-    if (alreadyFired) {
-      // Event already exists — just mark the timer as fired without creating a duplicate
-      await batch([
-        {
+    const wasNewlyFired = await runInTransaction(async (tx) => {
+      // Check dedupe_key — if event already exists, just mark timer as fired
+      const existing = await tx.execute({
+        sql: `SELECT 1 FROM ${TABLES.workflowEvents} WHERE dedupe_key = ?`,
+        args: [dedupeKey],
+      });
+      if (existing.rows.length > 0) {
+        await tx.execute({
           sql: `UPDATE ${TABLES.workflowTimers}
                 SET status = 'fired', fired_at = ?, updated_at = ?
                 WHERE id = ?`,
           args: [ts, ts, timer.id],
+        });
+        return false;
+      }
+
+      // Insert event with dedupe_key + update counter + mark timer fired
+      const eventStmts = makeWorkflowEventStatements(timer.workspace_id, timer.instance_id, {
+        eventType: "timer.overdue",
+        stepId: null,
+        actorType: "system",
+        actorId: null,
+        payload: {
+          timerId: timer.id,
+          workItemId: timer.work_item_id,
+          timerType: timer.timer_type,
+          dueAt: timer.due_at,
         },
-      ]);
-      continue;
-    }
-
-    // Get next event sequence for the instance
-    const lastEvent = await queryOne<{ max_seq: number }>(
-      `SELECT MAX(sequence) as max_seq FROM ${TABLES.workflowEvents}
-       WHERE instance_id = ?`,
-      [timer.instance_id]
-    );
-    const nextSeq = (lastEvent?.max_seq ?? 0) + 1;
-
-    await batch([
-      // Create the overdue workflow event
-      {
-        sql: `INSERT INTO ${TABLES.workflowEvents}
-              (id, workspace_id, instance_id, sequence, event_type, step_id,
-               actor_type, actor_id, payload_json, occurred_at)
-              VALUES (?, ?, ?, ?, 'timer.overdue', NULL, 'system', NULL, ?, ?)`,
-        args: [
-          genId("wfe"), workspaceId, timer.instance_id, nextSeq,
-          JSON.stringify({
-            timerId: timer.id,
-            workItemId: timer.work_item_id,
-            timerType: timer.timer_type,
-            dueAt: timer.due_at,
-          }),
-          ts,
-        ],
-      },
-      // Mark timer as fired
-      {
+        occurredAt: ts,
+        dedupeKey,
+      });
+      await executeStatementsInTransaction(tx, eventStmts);
+      await tx.execute({
         sql: `UPDATE ${TABLES.workflowTimers}
               SET status = 'fired', fired_at = ?, updated_at = ?
               WHERE id = ?`,
         args: [ts, ts, timer.id],
-      },
-    ]);
+      });
+      return true;
+    });
 
-    fired++;
+    if (wasNewlyFired) fired++;
   }
 
   return { fired };
@@ -2261,26 +2341,35 @@ export async function fireOverdueTimers(
 //   - If sla ≤ 4h: warn at 50% of the duration
 //   - If sla > 4h: warn at 4h before deadline
 //
-// This function is idempotent — it checks whether a `timer.sla_warning` event
-// already exists for each timer before creating a new one.
+// Idempotency is enforced via dedupe_key `timer:{timerId}:sla_warning`.
+// Timer state update, event write, and audit write are in the same transaction.
 
 export async function fireSlaWarnings(
-  workspaceId: string
+  workspaceId?: string,
+  limit = 100,
 ): Promise<{ warned: number }> {
   const ts = now();
 
-  // Find active SLA timers that haven't been warned yet
+  // Find active SLA timers, batch-limited, sorted by due_at then id
+  const wsFilter = workspaceId ? `AND workspace_id = ?` : ``;
+  const args: unknown[] = [];
+  if (workspaceId) args.push(workspaceId);
+  args.push(limit);
+
   const activeTimers = await queryAll<{
     id: string;
+    workspace_id: string;
     instance_id: string;
     work_item_id: string | null;
     due_at: string;
     created_at: string;
   }>(
-    `SELECT id, instance_id, work_item_id, due_at, created_at
+    `SELECT id, workspace_id, instance_id, work_item_id, due_at, created_at
      FROM ${TABLES.workflowTimers}
-     WHERE workspace_id = ? AND status = 'active' AND timer_type = 'sla'`,
-    [workspaceId]
+     WHERE status = 'active' AND timer_type = 'sla' ${wsFilter}
+     ORDER BY due_at ASC, id ASC
+     LIMIT ?`,
+    args,
   );
 
   let warned = 0;
@@ -2306,45 +2395,39 @@ export async function fireSlaWarnings(
       continue;
     }
 
-    // Idempotency: check if warning already fired
-    if (timer.work_item_id) {
-      const existing = await queryOne<{ id: string }>(
-        `SELECT id FROM ${TABLES.workflowEvents}
-         WHERE instance_id = ? AND event_type = 'timer.sla_warning'
-         AND payload_json LIKE ?`,
-        [timer.instance_id, `%"timerId":"${timer.id}"%`]
-      );
-      if (existing) continue;
-    }
+    const dedupeKey = `timer:${timer.id}:sla_warning`;
 
-    const lastEvent = await queryOne<{ max_seq: number }>(
-      `SELECT MAX(sequence) as max_seq FROM ${TABLES.workflowEvents}
-       WHERE instance_id = ?`,
-      [timer.instance_id]
-    );
-    const nextSeq = (lastEvent?.max_seq ?? 0) + 1;
+    const wasNewlyWarned = await runInTransaction(async (tx) => {
+      // Check dedupe_key — if event already exists, skip
+      const existing = await tx.execute({
+        sql: `SELECT 1 FROM ${TABLES.workflowEvents} WHERE dedupe_key = ?`,
+        args: [dedupeKey],
+      });
+      if (existing.rows.length > 0) {
+        return false;
+      }
 
-    await batch([
-      {
-        sql: `INSERT INTO ${TABLES.workflowEvents}
-              (id, workspace_id, instance_id, sequence, event_type, step_id,
-               actor_type, actor_id, payload_json, occurred_at)
-              VALUES (?, ?, ?, ?, 'timer.sla_warning', NULL, 'system', NULL, ?, ?)`,
-        args: [
-          genId("wfe"), workspaceId, timer.instance_id, nextSeq,
-          JSON.stringify({
-            timerId: timer.id,
-            workItemId: timer.work_item_id,
-            timerType: "sla",
-            dueAt: timer.due_at,
-            remainingMs: remaining,
-            totalDurationMs: totalDuration,
-          }),
-          ts,
-        ],
-      },
+      // Insert event with dedupe_key + update counter
+      const eventStmts = makeWorkflowEventStatements(timer.workspace_id, timer.instance_id, {
+        eventType: "timer.sla_warning",
+        stepId: null,
+        actorType: "system",
+        actorId: null,
+        payload: {
+          timerId: timer.id,
+          workItemId: timer.work_item_id,
+          timerType: "sla",
+          dueAt: timer.due_at,
+          remainingMs: remaining,
+          totalDurationMs: totalDuration,
+        },
+        occurredAt: ts,
+        dedupeKey,
+      });
+      await executeStatementsInTransaction(tx, eventStmts);
+
       // Audit event for SLA warning (atomic with workflow event — §11.4)
-      {
+      await tx.execute({
         sql: `INSERT INTO ${TABLES.auditLogs}
               (id, workspace_id, actor_type, actor_id, action, entity_type,
                entity_id, before_json, after_json, extension_version_id,
@@ -2353,16 +2436,18 @@ export async function fireSlaWarnings(
                       ?, NULL, ?, NULL, ?, ?)`,
         args: [
           genId("aud"),
-          workspaceId,
+          timer.workspace_id,
           timer.work_item_id ?? timer.id,
           JSON.stringify({ due_at: timer.due_at, remaining_ms: remaining }),
           `sla-warning-${timer.id}-${ts}`,
           ts,
         ],
-      },
-    ]);
+      });
 
-    warned++;
+      return true;
+    });
+
+    if (wasNewlyWarned) warned++;
   }
 
   return { warned };

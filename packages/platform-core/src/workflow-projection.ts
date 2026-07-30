@@ -139,7 +139,7 @@ function resolveProjectionStatus(
  * Only called for steps in "completed" state. Looks for the latest
  * terminal event in the current completion cycle:
  *   - workflow.approval_decided → "approved" or "rejected" (from payload)
- *   - workflow.work_cancelled → "cancelled"
+ *   - workflow.cancelled → "cancelled" (when source = "work_item_cancel")
  *
  * Note: workflow.work_returned is NOT an outcome for completed steps —
  * a returned step is "current" (re-active), not "completed".
@@ -174,8 +174,12 @@ function resolveStepOutcome(
         return { outcome, occurredAt: evt.occurred_at };
       }
     }
-    if (evt.event_type === "workflow.work_cancelled") {
-      return { outcome: "cancelled", occurredAt: evt.occurred_at };
+    if (evt.event_type === "workflow.cancelled") {
+      // Only treat as step outcome when the cancellation originated from
+      // a work item cancel (not a generic workflow.cancelled event).
+      if (payload.source === "work_item_cancel") {
+        return { outcome: "cancelled", occurredAt: evt.occurred_at };
+      }
     }
   }
 
