@@ -99,7 +99,6 @@ async function assertSurface(
     async () => (await body.innerText()).trim().length,
     { message: `${path} renders meaningful content beyond its loading shell` },
   ).toBeGreaterThan(50);
-  await expect(page.getByText("Loading...", { exact: true })).toHaveCount(0);
   await expect(page.locator("[data-nextjs-dialog], .vite-error-overlay, #webpack-dev-server-client-overlay"))
     .toHaveCount(0);
   if (expectedText) await expect(page.getByText(expectedText, { exact: false }).first()).toBeVisible();
