@@ -206,7 +206,7 @@ export default function WidgetRenderer({
     if (batchLoading && !batchData) return <WidgetSkeleton widget={widget} />;
     if (!batchData) return null;
     return (
-      <div className="relative">
+      <div className="relative min-w-0">
         {editMode && <EditModeOverlay widget={widget} />}
         {batchError && (
           <div className="absolute right-2 top-2 z-10 rounded bg-red-50 px-2 py-0.5 text-[10px] font-medium text-red-600">
@@ -224,7 +224,7 @@ export default function WidgetRenderer({
   if (!data) return null;
 
   return (
-    <div className="relative">
+    <div className="relative min-w-0">
       {editMode && <EditModeOverlay widget={widget} />}
       <WidgetContent widget={widget} data={data} workspaceId={workspaceId} onRefresh={handleRefresh} />
       <FreshnessIndicator lastUpdated={lastUpdated} onRefresh={handleRefresh} />
