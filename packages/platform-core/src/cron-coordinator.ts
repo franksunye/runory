@@ -50,8 +50,10 @@ export interface CronResult {
  *
  * The atomicity is guaranteed by SQLite's row-level locking on the
  * PRIMARY KEY (job_key) conflict resolution.
+ *
+ * @internal Exported for concurrency testing.
  */
-async function acquireLease(): Promise<string | null> {
+export async function acquireLease(): Promise<string | null> {
   const ownerId = genId("cron");
   const ts = now();
   const leaseUntil = new Date(Date.now() + LEASE_DURATION_MS).toISOString();
@@ -102,8 +104,10 @@ async function renewLease(ownerId: string): Promise<boolean> {
  *
  * Deletes the lease row so the next cron tick can acquire it immediately
  * without waiting for expiry.
+ *
+ * @internal Exported for concurrency testing.
  */
-async function releaseLease(ownerId: string): Promise<void> {
+export async function releaseLease(ownerId: string): Promise<void> {
   await query(
     `DELETE FROM ${TABLES.scheduledJobLeases}
      WHERE job_key = ? AND owner_id = ?`,
