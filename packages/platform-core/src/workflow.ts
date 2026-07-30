@@ -7,7 +7,7 @@
 // Work items carry human tasks, approvals, and form bindings.
 // Approval decisions are immutable and reference exactly one work_item.
 
-import { genId, now, queryOne, queryAll, batch, execute } from "./db";
+import { genId, now, queryOne, queryAll, batch, execute, type BatchStatement } from "./db";
 import { TABLES, businessTable } from "./contracts";
 import { BusinessError, NotFoundError, InvalidInputError, ConflictError } from "./context";
 import { ERROR_CODES } from "./errors";
@@ -32,6 +32,9 @@ export interface WorkflowStep {
   formBindingId?: string;
   onApprove?: string;
   onReject?: string;
+  /** Step to return to when an approval is "returned". If absent, the
+   *  approval cannot be returned — the caller must use outcome "rejected". */
+  onReturn?: string;
   policy?: { allowSelfApproval?: boolean };
   /** SLA duration for this step (e.g. "24h", "2d"). Triggers a workflow timer. */
   sla?: string;
@@ -157,7 +160,7 @@ export async function publishWorkflowDefinition(
   // Create the immutable version
   const versionId = genId("wfv");
 
-  const statements: Array<{ sql: string; args?: unknown[] }> = [
+  const statements: BatchStatement[] = [
     {
       sql: `INSERT INTO ${TABLES.workflowDefinitionVersions}
             (id, workspace_id, workflow_definition_id, version_number, definition_json, schema_version, published_by, published_at, created_at)
@@ -258,7 +261,7 @@ export async function startWorkflow(
   const ts = now();
   const nextStepId = startStep.next;
 
-  const statements: Array<{ sql: string; args?: unknown[] }> = [
+  const statements: BatchStatement[] = [
     // Create instance
     {
       sql: `INSERT INTO ${TABLES.workflowInstances}
@@ -309,8 +312,9 @@ export async function startWorkflow(
           sql: `INSERT INTO ${TABLES.workflowTimers}
                 (id, workspace_id, instance_id, work_item_id, timer_type,
                  due_at, status, payload_json, created_at, updated_at)
-                VALUES (?, ?, ?, ?, 'sla', ?, 'active', NULL, ?, ?)`,
-          args: [genId("wft"), workspaceId, instanceId, workItemId, stepDueAt, ts, ts],
+                VALUES (?, ?, ?, ?, 'sla', ?, 'active', ?, ?, ?)`,
+          args: [genId("wft"), workspaceId, instanceId, workItemId, stepDueAt,
+                 JSON.stringify({ stepId: nextStepId, sla: nextStep.sla ?? null }), ts, ts],
         });
       }
     }
@@ -324,10 +328,23 @@ export async function startWorkflow(
   // handles this for command-triggered workflows by skipping the
   // triggering command's own system_command step; this path covers
   // manual workflow starts via the workflow.start API.
+  //
+  // Post-commit errors (e.g., DB failure in advanceSystemCommandStep's
+  // batch) are caught and logged — the instance is already committed,
+  // and advanceSystemCommandStep has its own error marking for executor
+  // failures. Propagating the error would make the API caller think the
+  // workflow start failed when it actually succeeded.
   if (nextStepId) {
     const nextStep = wfDef.steps.find(s => s.id === nextStepId);
     if (nextStep?.kind === "system_command") {
-      await advanceSystemCommandStep(workspaceId, instanceId, nextStepId);
+      try {
+        await advanceSystemCommandStep(workspaceId, instanceId, nextStepId);
+      } catch (err) {
+        console.error(
+          `[workflow] startWorkflow: post-commit advanceSystemCommandStep failed for instance ${instanceId}: ` +
+          `${err instanceof Error ? err.message : String(err)}`
+        );
+      }
     }
   }
 
@@ -433,7 +450,21 @@ export async function approvalDecideHandler(
   } else if (outcome === "rejected" && currentStep.onReject) {
     nextStepId = currentStep.onReject;
   } else if (outcome === "returned") {
-    nextStepId = null; // Return to previous step (will be handled by returnWorkItem)
+    // "Returned" means the approver sends the work back to a prior step.
+    // The return target is defined by `onReturn` on the step definition.
+    // Without onReturn, "returned" is not valid — the caller should use
+    // "rejected" instead. This was previously broken: the work item was
+    // marked as `completed` (not `returned`), nextStepId was null, and no
+    // new work item was created — leaving the workflow stuck with no
+    // actionable items.
+    if (!currentStep.onReturn) {
+      throw new BusinessError(
+        ERROR_CODES.INVALID_TRANSITION,
+        `INVALID_TRANSITION: Step '${workItem.step_id}' does not define an onReturn target; cannot use outcome 'returned'. Use 'rejected' instead.`,
+        409
+      );
+    }
+    nextStepId = currentStep.onReturn;
   }
 
   // Get current event sequence
@@ -444,7 +475,7 @@ export async function approvalDecideHandler(
   );
   const nextSeq = (lastEvent?.max_seq ?? 0) + 1;
 
-  const statements: Array<{ sql: string; args?: unknown[] }> = [
+  const statements: BatchStatement[] = [
     // Create immutable approval decision
     {
       sql: `INSERT INTO ${TABLES.approvalDecisions}
@@ -454,12 +485,16 @@ export async function approvalDecideHandler(
       args: [genId("apd"), workspaceId, workItemId, outcome, actor.id, comment,
              workItem.input_snapshot_hash ?? "", ts, ts],
     },
-    // Update work item to completed
+    // Update work item status based on outcome.
+    // "approved" and "rejected" are terminal → completed.
+    // "returned" is non-terminal → returned (a new work item will be
+    // created for the onReturn target step).
     {
       sql: `UPDATE ${TABLES.workItems}
-            SET status = 'completed', completed_at = ?, version = version + 1, updated_at = ?
+            SET status = ?, completed_at = ?, version = version + 1, updated_at = ?
             WHERE id = ? AND version = ?`,
-      args: [ts, ts, workItemId, expectedVersion],
+      args: [outcome === "returned" ? "returned" : "completed", ts, ts, workItemId, expectedVersion],
+      expectedRowsAffected: 1,
     },
     // Write workflow event
     {
@@ -478,12 +513,18 @@ export async function approvalDecideHandler(
   // If there's a next step, update instance and create work item for it
   if (nextStepId) {
     const nextStep = wfDef.steps.find(s => s.id === nextStepId);
-    if (nextStep) {
+    if (!nextStep) {
+      console.warn(
+        `[workflow] approvalDecide: next step "${nextStepId}" not found in definition. ` +
+        `Instance ${workItem.instance_id} may be stuck.`
+      );
+    } else {
       statements.push({
         sql: `UPDATE ${TABLES.workflowInstances}
               SET current_step_id = ?, version = version + 1, updated_at = ?
-              WHERE id = ?`,
+              WHERE id = ? AND status = 'running'`,
         args: [nextStepId, ts, instance.id],
+        expectedRowsAffected: 1,
       });
 
       // Create work item for next step if it's an approval or human_task
@@ -491,20 +532,32 @@ export async function approvalDecideHandler(
         const newWorkItemId = genId("wi");
         workItemIds.push(newWorkItemId);
         const assigneeRule = nextStep.assigneeRule;
+        const stepDueAt = resolveStepDueAt(nextStep, ts);
         statements.push({
           sql: `INSERT INTO ${TABLES.workItems}
                 (id, workspace_id, instance_id, step_id, kind, status,
                  subject_type, subject_id, assignee_type, assignee_id,
-                 candidate_rule_json, form_binding_id, version, created_at, updated_at)
-                VALUES (?, ?, ?, ?, ?, 'ready', ?, ?, ?, ?, ?, ?, 1, ?, ?)`,
+                 candidate_rule_json, form_binding_id, due_at, version, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, 'ready', ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`,
           args: [newWorkItemId, workspaceId, workItem.instance_id, nextStepId, nextStep.kind,
                  workItem.subject_type, workItem.subject_id,
                  assigneeRule?.permissionGroup ? "permission_group" : (assigneeRule?.userId ? "user" : null),
                  assigneeRule?.permissionGroup ?? assigneeRule?.userId ?? null,
                  assigneeRule ? JSON.stringify(assigneeRule) : null,
                  nextStep.formBindingId ?? null,
-                 ts, ts],
+                 stepDueAt, ts, ts],
         });
+
+        if (stepDueAt) {
+          statements.push({
+            sql: `INSERT INTO ${TABLES.workflowTimers}
+                  (id, workspace_id, instance_id, work_item_id, timer_type,
+                   due_at, status, payload_json, created_at, updated_at)
+                  VALUES (?, ?, ?, ?, 'sla', ?, 'active', ?, ?, ?)`,
+            args: [genId("wft"), workspaceId, workItem.instance_id, newWorkItemId, stepDueAt,
+                   JSON.stringify({ stepId: nextStepId, sla: nextStep.sla ?? null }), ts, ts],
+          });
+        }
       }
 
       // If next step is 'end', complete the instance
@@ -512,8 +565,9 @@ export async function approvalDecideHandler(
         statements.push({
           sql: `UPDATE ${TABLES.workflowInstances}
                 SET status = 'completed', completed_at = ?, version = version + 1, updated_at = ?
-                WHERE id = ?`,
+                WHERE id = ? AND status = 'running'`,
           args: [ts, ts, instance.id],
+          expectedRowsAffected: 1,
         });
       }
     }
@@ -611,11 +665,12 @@ async function markInstanceError(
       args: [genId("wfe"), workspaceId, instanceId, nextSeq, stepId,
              JSON.stringify({ command, error: errorMessage, stepId }), ts],
     },
-    // Mark instance as error
+    // Mark instance as error — only if still running. If the instance was
+    // concurrently cancelled or completed, we must not overwrite its status.
     {
       sql: `UPDATE ${TABLES.workflowInstances}
             SET status = 'error', version = version + 1, updated_at = ?
-            WHERE id = ?`,
+            WHERE id = ? AND status = 'running'`,
       args: [ts, instanceId],
     },
   ]);
@@ -664,7 +719,14 @@ async function advanceSystemCommandStep(
 
   while (currentStepId) {
     const step = wfDef.steps.find(s => s.id === currentStepId);
-    if (!step || step.kind !== "system_command" || !step.command) break;
+    if (!step) {
+      console.warn(
+        `[workflow] advanceSystemCommandStep: step "${currentStepId}" not found in definition. ` +
+        `Workflow instance ${instanceId} may be stuck.`
+      );
+      break;
+    }
+    if (step.kind !== "system_command" || !step.command) break;
 
     const executor = systemCommandExecutors.get(step.command);
     if (!executor) {
@@ -708,7 +770,7 @@ async function advanceSystemCommandStep(
     );
     const nextSeq = (lastEvent?.max_seq ?? 0) + 1;
 
-    const statements: Array<{ sql: string; args?: unknown[] }> = [
+    const statements: BatchStatement[] = [
       // Write workflow event for system_command execution
       {
         sql: `INSERT INTO ${TABLES.workflowEvents}
@@ -721,11 +783,12 @@ async function advanceSystemCommandStep(
     ];
 
     if (afterStep) {
-      // Update current_step_id
+      // Update current_step_id — guard with status='running' to prevent
+      // advancing a concurrently cancelled/completed instance.
       statements.push({
         sql: `UPDATE ${TABLES.workflowInstances}
               SET current_step_id = ?, version = version + 1, updated_at = ?
-              WHERE id = ?`,
+              WHERE id = ? AND status = 'running'`,
         args: [afterStepId, ts, instanceId],
       });
 
@@ -734,7 +797,7 @@ async function advanceSystemCommandStep(
         statements.push({
           sql: `UPDATE ${TABLES.workflowInstances}
                 SET status = 'completed', completed_at = ?, version = version + 1, updated_at = ?
-                WHERE id = ?`,
+                WHERE id = ? AND status = 'running'`,
           args: [ts, ts, instanceId],
         });
       } else if (afterStep.kind === "approval" || afterStep.kind === "human_task") {
@@ -762,8 +825,9 @@ async function advanceSystemCommandStep(
             sql: `INSERT INTO ${TABLES.workflowTimers}
                   (id, workspace_id, instance_id, work_item_id, timer_type,
                    due_at, status, payload_json, created_at, updated_at)
-                  VALUES (?, ?, ?, ?, 'sla', ?, 'active', NULL, ?, ?)`,
-            args: [genId("wft"), workspaceId, instanceId, newWorkItemId, stepDueAt, ts, ts],
+                  VALUES (?, ?, ?, ?, 'sla', ?, 'active', ?, ?, ?)`,
+            args: [genId("wft"), workspaceId, instanceId, newWorkItemId, stepDueAt,
+                   JSON.stringify({ stepId: afterStepId, sla: afterStep.sla ?? null }), ts, ts],
           });
         }
       }
@@ -772,7 +836,7 @@ async function advanceSystemCommandStep(
       statements.push({
         sql: `UPDATE ${TABLES.workflowInstances}
               SET status = 'completed', completed_at = ?, version = version + 1, updated_at = ?
-              WHERE id = ?`,
+              WHERE id = ? AND status = 'running'`,
         args: [ts, ts, instanceId],
       });
     }
@@ -826,8 +890,9 @@ export async function retryWorkflowSystemCommand(
     {
       sql: `UPDATE ${TABLES.workflowInstances}
             SET status = 'running', version = version + 1, updated_at = ?
-            WHERE id = ?`,
+            WHERE id = ? AND status = 'error'`,
       args: [ts, instanceId],
+      expectedRowsAffected: 1,
     },
     {
       sql: `INSERT INTO ${TABLES.workflowEvents}
@@ -872,12 +937,25 @@ export async function approvalDecide(
   // Post-commit: if the workflow advanced to a system_command step (e.g.,
   // quote.approve after approval.decide), execute the bound command
   // automatically and advance the workflow to the next step.
+  //
+  // Errors are caught and logged — the approval decision is already
+  // committed atomically. advanceSystemCommandStep has its own error
+  // marking (markInstanceError) for executor failures; this catch covers
+  // DB-level failures in markInstanceError itself or in the step
+  // advancement batch.
   if (result.aggregate?.nextStepId) {
-    await advanceSystemCommandStep(
-      workspaceId,
-      result.aggregate.instanceId,
-      result.aggregate.nextStepId
-    );
+    try {
+      await advanceSystemCommandStep(
+        workspaceId,
+        result.aggregate.instanceId,
+        result.aggregate.nextStepId
+      );
+    } catch (err) {
+      console.error(
+        `[workflow] approvalDecide: post-commit advanceSystemCommandStep failed for instance ${result.aggregate.instanceId}: ` +
+        `${err instanceof Error ? err.message : String(err)}`
+      );
+    }
   }
 
   return result;
@@ -959,13 +1037,14 @@ export async function returnWorkItemHandler(
   const newWorkItemId = genId("wi");
   const assigneeRule = stepDef.assigneeRule;
 
-  const statements: Array<{ sql: string; args?: unknown[] }> = [
+  const statements: BatchStatement[] = [
     // Mark current work item as returned
     {
       sql: `UPDATE ${TABLES.workItems}
             SET status = 'returned', completed_at = ?, version = version + 1, updated_at = ?
             WHERE id = ? AND version = ?`,
       args: [ts, ts, workItemId, expectedVersion],
+      expectedRowsAffected: 1,
     },
     // Write workflow event for the return
     {
@@ -1069,8 +1148,8 @@ export async function cancelWorkflow(
 
   if (instance.status !== "running") {
     throw new BusinessError(
-      ERROR_CODES.WORK_ITEM_NOT_ACTIONABLE,
-      `Workflow instance ${instanceId} is not running (status: ${instance.status})`,
+      ERROR_CODES.INVALID_TRANSITION,
+      `INVALID_TRANSITION: Workflow instance ${instanceId} is not running (status: ${instance.status})`,
       409
     );
   }
@@ -1087,14 +1166,23 @@ export async function cancelWorkflow(
     {
       sql: `UPDATE ${TABLES.workflowInstances}
             SET status = 'cancelled', completed_at = ?, version = version + 1, updated_at = ?
-            WHERE id = ?`,
+            WHERE id = ? AND status = 'running'`,
       args: [ts, ts, instanceId],
+      expectedRowsAffected: 1,
     },
     // Cancel all open work items
     {
       sql: `UPDATE ${TABLES.workItems}
             SET status = 'cancelled', updated_at = ?
             WHERE instance_id = ? AND status IN ('ready', 'active')`,
+      args: [ts, instanceId],
+    },
+    // Cancel all active SLA timers — without this, fireOverdueTimers and
+    // fireSlaWarnings would continue firing events for a cancelled workflow.
+    {
+      sql: `UPDATE ${TABLES.workflowTimers}
+            SET status = 'cancelled', updated_at = ?
+            WHERE instance_id = ? AND status = 'active'`,
       args: [ts, instanceId],
     },
     // Write workflow event
@@ -1367,13 +1455,14 @@ export async function claimWorkItemHandler(
   );
   const nextSeq = (lastEvent?.max_seq ?? 0) + 1;
 
-  const statements: Array<{ sql: string; args?: unknown[] }> = [
+  const statements: BatchStatement[] = [
     {
       sql: `UPDATE ${TABLES.workItems}
             SET status = 'active', claimed_by = ?, claimed_at = ?,
                 version = version + 1, updated_at = ?
             WHERE id = ? AND version = ? AND status = 'ready'`,
       args: [actor.id, ts, ts, workItemId, expectedVersion],
+      expectedRowsAffected: 1,
     },
     // Write workflow event
     {
@@ -1483,7 +1572,7 @@ export async function releaseWorkItemHandler(
   );
   const nextSeq = (lastEvent?.max_seq ?? 0) + 1;
 
-  const statements: Array<{ sql: string; args?: unknown[] }> = [
+  const statements: BatchStatement[] = [
     // Release back to ready, clear claim metadata
     {
       sql: `UPDATE ${TABLES.workItems}
@@ -1491,6 +1580,7 @@ export async function releaseWorkItemHandler(
                 version = version + 1, updated_at = ?
             WHERE id = ? AND version = ?`,
       args: [ts, workItemId, expectedVersion],
+      expectedRowsAffected: 1,
     },
     // Write workflow event
     {
@@ -1706,13 +1796,14 @@ export async function completeWorkItemHandler(
   );
   const nextSeq = (lastEvent?.max_seq ?? 0) + 1;
 
-  const statements: Array<{ sql: string; args?: unknown[] }> = [
+  const statements: BatchStatement[] = [
     // Mark work item as completed
     {
       sql: `UPDATE ${TABLES.workItems}
             SET status = 'completed', completed_at = ?, version = version + 1, updated_at = ?
             WHERE id = ? AND version = ?`,
       args: [ts, ts, workItemId, expectedVersion],
+      expectedRowsAffected: 1,
     },
     // Write workflow event
     {
@@ -1731,12 +1822,18 @@ export async function completeWorkItemHandler(
   // Advance the workflow to the next step
   if (nextStepId) {
     const nextStep = wfDef.steps.find(s => s.id === nextStepId);
-    if (nextStep) {
+    if (!nextStep) {
+      console.warn(
+        `[workflow] completeWorkItem: next step "${nextStepId}" not found in definition. ` +
+        `Instance ${workItem.instance_id} may be stuck.`
+      );
+    } else {
       statements.push({
         sql: `UPDATE ${TABLES.workflowInstances}
               SET current_step_id = ?, version = version + 1, updated_at = ?
-              WHERE id = ?`,
+              WHERE id = ? AND status = 'running'`,
         args: [nextStepId, ts, instance.id],
+        expectedRowsAffected: 1,
       });
 
       // Create work item for next step if it's an approval or human_task
@@ -1767,8 +1864,9 @@ export async function completeWorkItemHandler(
             sql: `INSERT INTO ${TABLES.workflowTimers}
                   (id, workspace_id, instance_id, work_item_id, timer_type,
                    due_at, status, payload_json, created_at, updated_at)
-                  VALUES (?, ?, ?, ?, 'sla', ?, 'active', NULL, ?, ?)`,
-            args: [genId("wft"), workspaceId, workItem.instance_id, newWorkItemId, stepDueAt, ts, ts],
+                  VALUES (?, ?, ?, ?, 'sla', ?, 'active', ?, ?, ?)`,
+            args: [genId("wft"), workspaceId, workItem.instance_id, newWorkItemId, stepDueAt,
+                   JSON.stringify({ stepId: nextStepId, sla: nextStep.sla ?? null }), ts, ts],
           });
         }
       }
@@ -1778,8 +1876,9 @@ export async function completeWorkItemHandler(
         statements.push({
           sql: `UPDATE ${TABLES.workflowInstances}
                 SET status = 'completed', completed_at = ?, version = version + 1, updated_at = ?
-                WHERE id = ?`,
+                WHERE id = ? AND status = 'running'`,
           args: [ts, ts, instance.id],
+          expectedRowsAffected: 1,
         });
       }
     }
@@ -1788,8 +1887,9 @@ export async function completeWorkItemHandler(
     statements.push({
       sql: `UPDATE ${TABLES.workflowInstances}
             SET status = 'completed', completed_at = ?, version = version + 1, updated_at = ?
-            WHERE id = ?`,
+            WHERE id = ? AND status = 'running'`,
       args: [ts, ts, instance.id],
+      expectedRowsAffected: 1,
     });
   }
 
@@ -1855,12 +1955,22 @@ export async function completeWorkItem(
   // completing this work item, execute the bound command automatically.
   // The handler returns nextStepId and instanceId in the aggregate so we
   // don't need an extra DB query to read current_step_id.
+  //
+  // Errors are caught and logged — the work item completion is already
+  // committed atomically. See approvalDecide for the same pattern.
   if (result.aggregate?.nextStepId && result.aggregate?.instanceId) {
-    await advanceSystemCommandStep(
-      workspaceId,
-      result.aggregate.instanceId,
-      result.aggregate.nextStepId
-    );
+    try {
+      await advanceSystemCommandStep(
+        workspaceId,
+        result.aggregate.instanceId,
+        result.aggregate.nextStepId
+      );
+    } catch (err) {
+      console.error(
+        `[workflow] completeWorkItem: post-commit advanceSystemCommandStep failed for instance ${result.aggregate.instanceId}: ` +
+        `${err instanceof Error ? err.message : String(err)}`
+      );
+    }
   }
 
   return result;
@@ -1910,13 +2020,14 @@ export async function cancelWorkItemHandler(
   );
   const nextSeq = (lastEvent?.max_seq ?? 0) + 1;
 
-  const statements: Array<{ sql: string; args?: unknown[] }> = [
+  const statements: BatchStatement[] = [
     // Mark work item as cancelled
     {
       sql: `UPDATE ${TABLES.workItems}
             SET status = 'cancelled', version = version + 1, updated_at = ?
             WHERE id = ? AND version = ?`,
       args: [ts, workItemId, expectedVersion],
+      expectedRowsAffected: 1,
     },
     // Write workflow event
     {
