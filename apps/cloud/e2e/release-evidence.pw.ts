@@ -41,8 +41,15 @@ test.beforeAll(() => {
 });
 
 async function switchPersona(page: Page, personaId: string) {
-  const response = await page.request.post("/api/dev/persona", { data: { personaId } });
-  expect(response.ok(), `Switch to ${personaId}`).toBeTruthy();
+  const response = await page.request.post("/api/dev/persona", {
+    data: { personaId },
+    headers: { "X-Requested-With": "XMLHttpRequest" },
+  });
+  if (!response.ok()) {
+    throw new Error(
+      `Switch to ${personaId} failed with HTTP ${response.status()}: ${await response.text()}`,
+    );
+  }
 }
 
 async function semanticRecordText(page: Page, objectKey: string, recordId: string) {
