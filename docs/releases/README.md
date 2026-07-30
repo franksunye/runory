@@ -29,6 +29,10 @@ This directory contains point-in-time acceptance, test, drill, migration, and pe
 - [v0.7.0 Commercial Completion Acceptance — 2026-07-20](v0.7.0-commercial-completion-acceptance-2026-07-20.md)
 - [v0.6–v0.7 External Benchmark Retrospective — 2026-07-27](v0.6-v0.7-external-benchmark-retrospective-2026-07-27.md) — non-retroactive mapping and the bounded `V09-FIN-01` forward gap.
 
+## v0.9
+
+- [v0.9 Engineering and E2E Convergence Review — 2026-07-30](v0.9-engineering-and-e2e-review-2026-07-30.md) — engineering conformance findings, E2E release-gate design, and required closure sequence.
+
 ## FSM
 
 - [FSM Owner E2E Run — 2026-07-14](fsm-owner-e2e-run-2026-07-14.md)
