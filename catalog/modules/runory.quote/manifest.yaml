@@ -320,6 +320,10 @@ domain:
       emits: [quote.recalculated]
       auditRequired: true
       postconditions: [quote.totals == calculated_line_totals]
+    - { key: quote.add_line, contractVersion: "1.0.0", aggregate: quote, operation: action, allowedActorTypes: [user, api_key, system], permission: quote_line.create, idempotent: true, requiresExpectedVersion: true, requiredEffects: [], emits: [quote.line_added], auditRequired: true, postconditions: [quote.status == draft, quote.totals == calculated_line_totals] }
+    - { key: quote.update_line, contractVersion: "1.0.0", aggregate: quote, operation: action, allowedActorTypes: [user, api_key, system], permission: quote_line.update, idempotent: true, requiresExpectedVersion: true, requiredEffects: [], emits: [quote.line_updated], auditRequired: true, postconditions: [quote.status == draft, quote.totals == calculated_line_totals] }
+    - { key: quote.remove_line, contractVersion: "1.0.0", aggregate: quote, operation: action, allowedActorTypes: [user, api_key, system], permission: quote_line.delete, idempotent: true, requiresExpectedVersion: true, requiredEffects: [], emits: [quote.line_removed], auditRequired: true, postconditions: [quote.status == draft, quote.totals == calculated_line_totals] }
+    - { key: quote.restore_line, contractVersion: "1.0.0", aggregate: quote, operation: action, allowedActorTypes: [user, api_key, system], permission: quote_line.create, idempotent: true, requiresExpectedVersion: true, requiredEffects: [], emits: [quote.line_restored], auditRequired: true, postconditions: [quote.status == draft, quote.totals == calculated_line_totals] }
     - key: quote.create_revision
       contractVersion: "1.0.0"
       aggregate: quote

@@ -1,0 +1,146 @@
+import { execFileSync } from "node:child_process";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+import { expect, test, type Page, type TestInfo } from "@playwright/test";
+
+interface ApiEvidence {
+  finalDecision: "PASS" | "FAIL";
+  commit: string;
+  workingTreeDirty: boolean;
+  records: {
+    workspaceId: string | null;
+    workspaceSlug: string | null;
+    quoteId: string | null;
+    workOrderId: string | null;
+    visitId: string | null;
+    formSubmissionId: string | null;
+  };
+}
+
+let evidence: ApiEvidence;
+
+test.beforeAll(() => {
+  const resultPath = process.env.RUNORY_E2E_RESULT_PATH;
+  expect(resultPath, "RUNORY_E2E_RESULT_PATH must point to a validated API walkthrough artifact").toBeTruthy();
+  evidence = JSON.parse(readFileSync(resolve(resultPath!), "utf8")) as ApiEvidence;
+
+  const currentCommit = execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim();
+  const dirty = execFileSync(
+    "git",
+    ["status", "--porcelain", "--untracked-files=no"],
+    { encoding: "utf8" },
+  ).trim().length > 0;
+
+  expect(evidence.finalDecision).toBe("PASS");
+  expect(evidence.commit).toBe(currentCommit);
+  expect(evidence.workingTreeDirty).toBe(false);
+  expect(dirty, "Browser evidence is binding only for a clean working tree").toBe(false);
+  for (const [key, value] of Object.entries(evidence.records)) {
+    expect(value, `API evidence records.${key} is required`).toBeTruthy();
+  }
+});
+
+async function switchPersona(page: Page, personaId: string) {
+  const response = await page.request.post("/api/dev/persona", { data: { personaId } });
+  expect(response.ok(), `Switch to ${personaId}`).toBeTruthy();
+}
+
+async function semanticRecordText(page: Page, objectKey: string, recordId: string) {
+  const response = await page.request.get(
+    `/api/workspaces/${evidence.records.workspaceId}/objects/${objectKey}/records/${recordId}`,
+  );
+  expect(response.ok(), `Read fresh ${objectKey} ${recordId}`).toBeTruthy();
+  const record = (await response.json()).data as Record<string, unknown>;
+  for (const key of ["quote_number", "work_order_number", "visit_number", "submission_number", "title", "name"]) {
+    if (typeof record?.[key] === "string" && record[key]) return String(record[key]);
+  }
+  return null;
+}
+
+async function assertSurface(
+  page: Page,
+  path: string,
+  expectedText: string | null,
+  testInfo: TestInfo,
+) {
+  const consoleErrors: string[] = [];
+  const pageErrors: string[] = [];
+  page.on("console", (message) => {
+    if (message.type() === "error") consoleErrors.push(message.text());
+  });
+  page.on("pageerror", (error) => pageErrors.push(String(error)));
+
+  const response = await page.goto(path, { waitUntil: "domcontentloaded" });
+  expect(response?.ok(), `${path} returns a successful document`).toBeTruthy();
+  await expect(page.locator("body")).not.toHaveText("");
+  await expect(page.locator("[data-nextjs-dialog], .vite-error-overlay, #webpack-dev-server-client-overlay"))
+    .toHaveCount(0);
+  if (expectedText) await expect(page.getByText(expectedText, { exact: false }).first()).toBeVisible();
+  expect(await page.locator("a, button, input, select, textarea").count()).toBeGreaterThan(0);
+
+  const horizontalOverflow = await page.evaluate(
+    () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+  );
+  expect(horizontalOverflow, `${path} must not overflow the viewport horizontally`).toBeLessThanOrEqual(2);
+  expect(consoleErrors, `${path} console errors`).toEqual([]);
+  expect(pageErrors, `${path} page errors`).toEqual([]);
+  const surfaceName = path.replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "");
+  await page.screenshot({
+    path: testInfo.outputPath(`${testInfo.project.name}-${surfaceName}.png`),
+    fullPage: true,
+  });
+}
+
+test("owner dashboard renders without browser errors", async ({ page }, testInfo) => {
+  await switchPersona(page, "dev-local-owner");
+  await assertSurface(page, `/w/${evidence.records.workspaceSlug}/dashboard`, null, testInfo);
+});
+
+test("sales representative sees the fresh Quote projection", async ({ page }, testInfo) => {
+  await switchPersona(page, "persona:sales-rep");
+  const expectedText = await semanticRecordText(page, "quote", evidence.records.quoteId!);
+  await assertSurface(
+    page,
+    `/w/${evidence.records.workspaceSlug}/quotes/${evidence.records.quoteId}`,
+    expectedText,
+    testInfo,
+  );
+});
+
+test("dispatcher sees the fresh Work Order and planning surface", async ({ page }, testInfo) => {
+  await switchPersona(page, "persona:dispatcher");
+  const expectedText = await semanticRecordText(page, "work_order", evidence.records.workOrderId!);
+  await assertSurface(
+    page,
+    `/w/${evidence.records.workspaceSlug}/work-orders/${evidence.records.workOrderId}`,
+    expectedText,
+    testInfo,
+  );
+  await assertSurface(page, `/w/${evidence.records.workspaceSlug}/planning`, null, testInfo);
+});
+
+test("technician sees the fresh Visit projection", async ({ page }, testInfo) => {
+  await switchPersona(page, "persona:technician");
+  const expectedText = await semanticRecordText(page, "service_visit", evidence.records.visitId!);
+  await assertSurface(
+    page,
+    `/w/${evidence.records.workspaceSlug}/service-visits/${evidence.records.visitId}`,
+    expectedText,
+    testInfo,
+  );
+});
+
+test("supervisor sees the fresh Form Submission projection", async ({ page }, testInfo) => {
+  await switchPersona(page, "persona:supervisor");
+  const expectedText = await semanticRecordText(
+    page,
+    "form_submission",
+    evidence.records.formSubmissionId!,
+  );
+  await assertSurface(
+    page,
+    `/w/${evidence.records.workspaceSlug}/form-submissions/${evidence.records.formSubmissionId}`,
+    expectedText,
+    testInfo,
+  );
+});

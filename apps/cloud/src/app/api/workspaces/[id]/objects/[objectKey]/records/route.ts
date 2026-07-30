@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
-import { getRecords, createRecord, canCreateRecord, writeAuditEvent, enforceQuota, requireBusinessPermission, listGovernedPaymentRecords, recalculateQuote, type GovernedPaymentObjectKey, type GetRecordsOptions, type VisibilityScope, ERROR_CODES } from "@runory/platform-core";
+import { getRecords, getRecord, createRecord, canCreateRecord, writeAuditEvent, enforceQuota, requireBusinessPermission, listGovernedPaymentRecords, addQuoteLine, type CommandActor, type QuoteLineWriteInput, type GovernedPaymentObjectKey, type GetRecordsOptions, type VisibilityScope, ERROR_CODES } from "@runory/platform-core";
 import { requireWorkspaceContext } from "@/lib/auth";
-import { successResponse, handleError, invalidInput, errorResponse, getOrCreateRequestId } from "@/lib/http";
+import { successResponse, handleError, invalidInput, notFound, errorResponse, getOrCreateRequestId } from "@/lib/http";
 import { enrichUserReferences, listUserReferenceFieldKeys } from "@/lib/identity";
 
 export const dynamic = "force-dynamic";
@@ -21,6 +21,20 @@ function parsePositiveInt(value: string | null): number | undefined {
   if (value === null) return undefined;
   const n = parseInt(value, 10);
   return Number.isFinite(n) && n > 0 ? n : undefined;
+}
+
+function quoteLineInput(data: Record<string, unknown>): QuoteLineWriteInput {
+  return {
+    product_service_id: data.product_service_id as string | null | undefined,
+    description: data.description as string | undefined,
+    quantity: data.quantity as number | undefined,
+    unit: data.unit as string | null | undefined,
+    unit_price: data.unit_price as number | undefined,
+    discount_amount: data.discount_amount as number | null | undefined,
+    tax_amount: data.tax_amount as number | null | undefined,
+    sort_order: data.sort_order as number | undefined,
+    line_total: data.line_total as number | null | undefined,
+  };
 }
 
 export async function GET(
@@ -125,13 +139,34 @@ export async function POST(
       return invalidInput("Record data must be an object", ctx.requestId);
     }
     if (ctx.organizationId) await enforceQuota(ctx.organizationId, "records");
-    const record = await createRecord(workspaceId, objectKey, data);
 
-    // Quote line totals are governed and must stay in sync with line items.
-    // After creating a quote_line, recalculate the parent quote's totals.
-    if (objectKey === "quote_line" && typeof record.quote_id === "string" && record.quote_id) {
-      await recalculateQuote(workspaceId, record.quote_id);
+    if (objectKey === "quote_line") {
+      const quoteId = data.quote_id;
+      if (typeof quoteId !== "string" || !quoteId) {
+        return invalidInput("quote_id is required for a Quote Line", ctx.requestId);
+      }
+      const quote = await getRecord(workspaceId, "quote", quoteId);
+      if (!quote) return notFound(`Quote ${quoteId} not found`, ctx.requestId);
+      const expectedVersion = quote.aggregate_version;
+      if (typeof expectedVersion !== "number") {
+        return invalidInput(`Quote ${quoteId} has no aggregate_version`, ctx.requestId);
+      }
+      const actor: CommandActor = {
+        id: ctx.principal?.userId ?? "unknown",
+        type: ctx.principal?.authMethod === "api_key" ? "api_key" : "user",
+      };
+      const result = await addQuoteLine(
+        workspaceId,
+        quoteId,
+        actor,
+        expectedVersion,
+        quoteLineInput(data),
+        request.headers.get("idempotency-key") ?? requestId,
+      );
+      return successResponse(result.aggregate.line, 201, ctx.requestId);
     }
+
+    const record = await createRecord(workspaceId, objectKey, data);
 
     writeAuditEvent({
       workspaceId,

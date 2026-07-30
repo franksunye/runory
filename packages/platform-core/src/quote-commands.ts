@@ -12,7 +12,7 @@
 //   - Diagnostics (command_executions table)
 
 import { createHash } from "node:crypto";
-import { genId, now, queryOne, queryAll, batch } from "./db";
+import { genId, now, queryOne, queryAll, batch, type BatchStatement } from "./db";
 import { TABLES, businessTable } from "./contracts";
 import { BusinessError, NotFoundError, InvalidInputError } from "./context";
 import { ERROR_CODES } from "./errors";
@@ -82,6 +82,406 @@ async function readQuote(workspaceId: string, quoteId: string): Promise<QuoteRec
   return row;
 }
 
+export interface QuoteLineRecord {
+  [key: string]: unknown;
+  id: string;
+  workspace_id: string;
+  quote_id: string;
+  product_service_id: string | null;
+  description: string;
+  quantity: number;
+  unit: string | null;
+  unit_price: number;
+  discount_amount: number | null;
+  tax_amount: number | null;
+  line_total: number;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+  deleted_at: string | null;
+  deleted_by: string | null;
+}
+
+export interface QuoteLineWriteInput {
+  product_service_id?: string | null;
+  description?: string;
+  quantity?: number;
+  unit?: string | null;
+  unit_price?: number;
+  discount_amount?: number | null;
+  tax_amount?: number | null;
+  sort_order?: number;
+  /** Accepted for compatibility but never trusted or persisted as supplied. */
+  line_total?: number | null;
+}
+
+interface NormalizedQuoteLineFields {
+  product_service_id: string | null;
+  description: string;
+  quantity: number;
+  unit: string | null;
+  unit_price: number;
+  discount_amount: number;
+  tax_amount: number;
+  line_total: number;
+  sort_order: number;
+}
+
+export type QuoteLineCommandAggregate = QuoteRecord & { line: QuoteLineRecord | null };
+
+const QUOTE_LINE_MUTABLE_FIELDS = new Set([
+  "product_service_id",
+  "description",
+  "quantity",
+  "unit",
+  "unit_price",
+  "discount_amount",
+  "tax_amount",
+  "sort_order",
+  "line_total",
+]);
+
+function assertSupportedQuoteLineInput(input: Record<string, unknown>): void {
+  const unsupported = Object.keys(input).filter((key) => !QUOTE_LINE_MUTABLE_FIELDS.has(key));
+  if (unsupported.length > 0) {
+    throw new InvalidInputError(`Unsupported Quote Line field(s): ${unsupported.join(", ")}`);
+  }
+}
+
+function finiteNumber(value: unknown, label: string, minimum: number): number {
+  if (typeof value !== "number" || !Number.isFinite(value) || value < minimum) {
+    throw new InvalidInputError(`${label} must be a finite number >= ${minimum}`);
+  }
+  return value;
+}
+
+function normalizeQuoteLine(
+  input: QuoteLineWriteInput,
+  existing?: QuoteLineRecord,
+): NormalizedQuoteLineFields {
+  assertSupportedQuoteLineInput(input as Record<string, unknown>);
+  const description = input.description ?? existing?.description;
+  if (typeof description !== "string" || description.trim() === "") {
+    throw new InvalidInputError("Quote Line description is required");
+  }
+  const quantity = finiteNumber(input.quantity ?? existing?.quantity, "Quote Line quantity", 0);
+  if (quantity === 0) {
+    throw new InvalidInputError("Quote Line quantity must be greater than 0");
+  }
+  const unitPrice = finiteNumber(input.unit_price ?? existing?.unit_price, "Quote Line unit_price", 0);
+  const discountAmount = finiteNumber(input.discount_amount ?? existing?.discount_amount ?? 0, "Quote Line discount_amount", 0);
+  const taxAmount = finiteNumber(input.tax_amount ?? existing?.tax_amount ?? 0, "Quote Line tax_amount", 0);
+  const sortOrder = finiteNumber(input.sort_order ?? existing?.sort_order ?? 0, "Quote Line sort_order", 0);
+  const lineTotal = quantity * unitPrice - discountAmount + taxAmount;
+  return {
+    product_service_id: input.product_service_id !== undefined
+      ? input.product_service_id
+      : existing?.product_service_id ?? null,
+    description: description.trim(),
+    quantity,
+    unit: input.unit !== undefined ? input.unit : existing?.unit ?? null,
+    unit_price: unitPrice,
+    discount_amount: discountAmount,
+    tax_amount: taxAmount,
+    line_total: lineTotal,
+    sort_order: sortOrder,
+  };
+}
+
+async function readQuoteLine(
+  workspaceId: string,
+  quoteId: string,
+  lineId: string,
+  includeDeleted = false,
+): Promise<QuoteLineRecord> {
+  const line = await queryOne<QuoteLineRecord>(
+    `SELECT * FROM ${businessTable("quote_line")}
+     WHERE workspace_id = ? AND quote_id = ? AND id = ?
+     ${includeDeleted ? "" : "AND deleted_at IS NULL"}`,
+    [workspaceId, quoteId, lineId],
+  );
+  if (!line) throw new NotFoundError(`Quote Line not found: ${lineId}`);
+  return line;
+}
+
+async function readActiveQuoteLines(workspaceId: string, quoteId: string): Promise<QuoteLineRecord[]> {
+  return queryAll<QuoteLineRecord>(
+    `SELECT * FROM ${businessTable("quote_line")}
+     WHERE workspace_id = ? AND quote_id = ? AND deleted_at IS NULL
+     ORDER BY sort_order ASC, created_at ASC, id ASC`,
+    [workspaceId, quoteId],
+  );
+}
+
+function assertEditableQuote(quote: QuoteRecord): void {
+  if (quote.status !== "draft") {
+    throw new BusinessError(
+      ERROR_CODES.INVALID_TRANSITION,
+      `INVALID_TRANSITION: Quote Lines can only be changed while Quote is draft (current: '${quote.status}').`,
+      409,
+    );
+  }
+}
+
+function quoteCalculationStatements(
+  workspaceId: string,
+  quote: QuoteRecord,
+  calculation: import("./quote-calculation").PreparedQuoteCalculation,
+  occurredAt: string,
+  excludedLineIds: Set<string> = new Set(),
+): BatchStatement[] {
+  const newVersion = quote.aggregate_version + 1;
+  return [
+    ...calculation.lineTotals
+      .filter((line) => !excludedLineIds.has(line.lineId))
+      .map((line) => ({
+        sql: `UPDATE ${businessTable("quote_line")}
+              SET line_total = ?, updated_at = ?
+              WHERE workspace_id = ? AND quote_id = ? AND id = ? AND deleted_at IS NULL`,
+        args: [line.lineTotal, occurredAt, workspaceId, quote.id, line.lineId],
+        expectedRowsAffected: 1,
+      })),
+    {
+      sql: `UPDATE ${businessTable("quote")}
+            SET subtotal = ?, discount_total = ?, tax_total = ?, grand_total = ?,
+                aggregate_version = ?, updated_at = ?
+            WHERE workspace_id = ? AND id = ? AND aggregate_version = ?`,
+      args: [
+        calculation.subtotal,
+        calculation.discountTotal,
+        calculation.taxTotal,
+        calculation.grandTotal,
+        newVersion,
+        occurredAt,
+        workspaceId,
+        quote.id,
+        quote.aggregate_version,
+      ],
+      expectedRowsAffected: 1,
+    },
+  ];
+}
+
+function quoteWithCalculation(
+  quote: QuoteRecord,
+  calculation: import("./quote-calculation").PreparedQuoteCalculation,
+  line: QuoteLineRecord | null,
+  occurredAt: string,
+): QuoteLineCommandAggregate {
+  return {
+    ...quote,
+    subtotal: calculation.subtotal,
+    discount_total: calculation.discountTotal,
+    tax_total: calculation.taxTotal,
+    grand_total: calculation.grandTotal,
+    aggregate_version: quote.aggregate_version + 1,
+    updated_at: occurredAt,
+    line,
+  };
+}
+
+/** Add a Quote Line and recalculate its Quote in one Command transaction. */
+export async function addQuoteLine(
+  workspaceId: string,
+  quoteId: string,
+  actor: CommandActor,
+  expectedVersion: number,
+  input: QuoteLineWriteInput,
+  commandId?: string,
+) {
+  return executeCommand<QuoteLineCommandAggregate>({
+    commandId: commandId ?? genId("cmd"),
+    workspaceId,
+    commandType: "quote.add_line",
+    aggregateType: "quote",
+    aggregateId: quoteId,
+    expectedVersion,
+    actor,
+    input: { quoteId, ...input, line_total: undefined },
+    occurredAt: now(),
+  }, async (envelope) => {
+    const quote = await readQuote(workspaceId, quoteId);
+    checkOptimisticLock(quote.aggregate_version, expectedVersion);
+    assertEditableQuote(quote);
+    const values = normalizeQuoteLine(input);
+    const lineId = genId("qln");
+    const activeLines = await readActiveQuoteLines(workspaceId, quoteId);
+    const { calculateQuoteLines } = await import("./quote-calculation");
+    const calculation = calculateQuoteLines([...activeLines, { id: lineId, ...values }]);
+    const ts = envelope.occurredAt;
+    const line: QuoteLineRecord = {
+      id: lineId,
+      workspace_id: workspaceId,
+      quote_id: quoteId,
+      ...values,
+      created_at: ts,
+      updated_at: ts,
+      deleted_at: null,
+      deleted_by: null,
+    };
+    return {
+      statements: [{
+        sql: `INSERT INTO ${businessTable("quote_line")}
+              (id, workspace_id, quote_id, product_service_id, description, quantity, unit,
+               unit_price, discount_amount, tax_amount, line_total, sort_order,
+               created_at, updated_at, deleted_at, deleted_by)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL)`,
+        args: [line.id, workspaceId, quoteId, line.product_service_id, line.description,
+          line.quantity, line.unit, line.unit_price, line.discount_amount, line.tax_amount,
+          line.line_total, line.sort_order, ts, ts],
+        expectedRowsAffected: 1,
+      }, ...quoteCalculationStatements(workspaceId, quote, calculation, ts, new Set([lineId]))],
+      events: [{ aggregateType: "quote", aggregateId: quoteId, eventType: "quote.line_added", payload: { quoteId, lineId } }],
+      audit: { action: "quote.add_line", entityType: "quote_line", entityId: lineId, before: null, after: line },
+      aggregate: quoteWithCalculation(quote, calculation, line, ts),
+      newVersion: quote.aggregate_version + 1,
+    };
+  });
+}
+
+/** Update a Quote Line and recalculate its Quote in one Command transaction. */
+export async function updateQuoteLine(
+  workspaceId: string,
+  quoteId: string,
+  lineId: string,
+  actor: CommandActor,
+  expectedVersion: number,
+  input: QuoteLineWriteInput,
+  commandId?: string,
+) {
+  if (typeof lineId !== "string" || lineId.trim() === "") {
+    throw new InvalidInputError("Quote Line lineId is required");
+  }
+  return executeCommand<QuoteLineCommandAggregate>({
+    commandId: commandId ?? genId("cmd"), workspaceId, commandType: "quote.update_line",
+    aggregateType: "quote", aggregateId: quoteId, expectedVersion, actor,
+    input: { quoteId, lineId, ...input, line_total: undefined }, occurredAt: now(),
+  }, async (envelope) => {
+    const quote = await readQuote(workspaceId, quoteId);
+    checkOptimisticLock(quote.aggregate_version, expectedVersion);
+    assertEditableQuote(quote);
+    const before = await readQuoteLine(workspaceId, quoteId, lineId);
+    const values = normalizeQuoteLine(input, before);
+    const activeLines = await readActiveQuoteLines(workspaceId, quoteId);
+    const prospective = activeLines.map((line) => line.id === lineId ? { ...line, ...values } : line);
+    const { calculateQuoteLines } = await import("./quote-calculation");
+    const calculation = calculateQuoteLines(prospective);
+    const ts = envelope.occurredAt;
+    const line: QuoteLineRecord = { ...before, ...values, updated_at: ts };
+    return {
+      statements: [{
+        sql: `UPDATE ${businessTable("quote_line")}
+              SET product_service_id = ?, description = ?, quantity = ?, unit = ?, unit_price = ?,
+                  discount_amount = ?, tax_amount = ?, line_total = ?, sort_order = ?, updated_at = ?
+              WHERE workspace_id = ? AND quote_id = ? AND id = ? AND deleted_at IS NULL`,
+        args: [line.product_service_id, line.description, line.quantity, line.unit, line.unit_price,
+          line.discount_amount, line.tax_amount, line.line_total, line.sort_order, ts,
+          workspaceId, quoteId, lineId],
+        expectedRowsAffected: 1,
+      }, ...quoteCalculationStatements(workspaceId, quote, calculation, ts, new Set([lineId]))],
+      events: [{ aggregateType: "quote", aggregateId: quoteId, eventType: "quote.line_updated", payload: { quoteId, lineId } }],
+      audit: { action: "quote.update_line", entityType: "quote_line", entityId: lineId, before, after: line },
+      aggregate: quoteWithCalculation(quote, calculation, line, ts),
+      newVersion: quote.aggregate_version + 1,
+    };
+  });
+}
+
+/** Soft-delete (or explicitly hard-delete) a Quote Line atomically with Quote totals. */
+export async function removeQuoteLine(
+  workspaceId: string,
+  quoteId: string,
+  lineId: string,
+  actor: CommandActor,
+  expectedVersion: number,
+  options: { hard?: boolean } = {},
+  commandId?: string,
+) {
+  if (typeof lineId !== "string" || lineId.trim() === "") {
+    throw new InvalidInputError("Quote Line lineId is required");
+  }
+  return executeCommand<QuoteLineCommandAggregate>({
+    commandId: commandId ?? genId("cmd"), workspaceId, commandType: "quote.remove_line",
+    aggregateType: "quote", aggregateId: quoteId, expectedVersion, actor,
+    input: { quoteId, lineId, hard: options.hard === true }, occurredAt: now(),
+  }, async (envelope) => {
+    const quote = await readQuote(workspaceId, quoteId);
+    checkOptimisticLock(quote.aggregate_version, expectedVersion);
+    assertEditableQuote(quote);
+    const before = await readQuoteLine(workspaceId, quoteId, lineId);
+    const remaining = (await readActiveQuoteLines(workspaceId, quoteId)).filter((line) => line.id !== lineId);
+    const { calculateQuoteLines } = await import("./quote-calculation");
+    const calculation = calculateQuoteLines(remaining);
+    const ts = envelope.occurredAt;
+    const line = options.hard ? null : { ...before, deleted_at: ts, deleted_by: actor.id, updated_at: ts };
+    const mutation: BatchStatement[] = options.hard ? [{
+      sql: `DELETE FROM ${TABLES.extensionFieldValues}
+            WHERE workspace_id = ? AND object_key = 'quote_line' AND record_id = ?`,
+      args: [workspaceId, lineId],
+    }, {
+      sql: `DELETE FROM ${businessTable("quote_line")}
+            WHERE workspace_id = ? AND quote_id = ? AND id = ? AND deleted_at IS NULL`,
+      args: [workspaceId, quoteId, lineId], expectedRowsAffected: 1,
+    }] : [{
+      sql: `UPDATE ${businessTable("quote_line")}
+            SET deleted_at = ?, deleted_by = ?, updated_at = ?
+            WHERE workspace_id = ? AND quote_id = ? AND id = ? AND deleted_at IS NULL`,
+      args: [ts, actor.id, ts, workspaceId, quoteId, lineId], expectedRowsAffected: 1,
+    }];
+    return {
+      statements: [...mutation, ...quoteCalculationStatements(workspaceId, quote, calculation, ts)],
+      events: [{ aggregateType: "quote", aggregateId: quoteId, eventType: "quote.line_removed", payload: { quoteId, lineId, hard: options.hard === true } }],
+      audit: { action: "quote.remove_line", entityType: "quote_line", entityId: lineId, before, after: line },
+      aggregate: quoteWithCalculation(quote, calculation, line, ts),
+      newVersion: quote.aggregate_version + 1,
+    };
+  });
+}
+
+/** Restore a soft-deleted Quote Line atomically with Quote totals. */
+export async function restoreQuoteLine(
+  workspaceId: string,
+  quoteId: string,
+  lineId: string,
+  actor: CommandActor,
+  expectedVersion: number,
+  commandId?: string,
+) {
+  if (typeof lineId !== "string" || lineId.trim() === "") {
+    throw new InvalidInputError("Quote Line lineId is required");
+  }
+  return executeCommand<QuoteLineCommandAggregate>({
+    commandId: commandId ?? genId("cmd"), workspaceId, commandType: "quote.restore_line",
+    aggregateType: "quote", aggregateId: quoteId, expectedVersion, actor,
+    input: { quoteId, lineId }, occurredAt: now(),
+  }, async (envelope) => {
+    const quote = await readQuote(workspaceId, quoteId);
+    checkOptimisticLock(quote.aggregate_version, expectedVersion);
+    assertEditableQuote(quote);
+    const before = await readQuoteLine(workspaceId, quoteId, lineId, true);
+    if (!before.deleted_at) throw new InvalidInputError(`Quote Line ${lineId} is not deleted`);
+    const activeLines = await readActiveQuoteLines(workspaceId, quoteId);
+    const restored = { ...before, deleted_at: null, deleted_by: null, updated_at: envelope.occurredAt };
+    const { calculateQuoteLines } = await import("./quote-calculation");
+    const calculation = calculateQuoteLines([...activeLines, restored]);
+    const restoredTotal = calculation.lineTotals.find((entry) => entry.lineId === lineId)?.lineTotal ?? restored.line_total;
+    const line = { ...restored, line_total: restoredTotal };
+    const ts = envelope.occurredAt;
+    return {
+      statements: [{
+        sql: `UPDATE ${businessTable("quote_line")}
+              SET deleted_at = NULL, deleted_by = NULL, line_total = ?, updated_at = ?
+              WHERE workspace_id = ? AND quote_id = ? AND id = ? AND deleted_at IS NOT NULL`,
+        args: [line.line_total, ts, workspaceId, quoteId, lineId], expectedRowsAffected: 1,
+      }, ...quoteCalculationStatements(workspaceId, quote, calculation, ts, new Set([lineId]))],
+      events: [{ aggregateType: "quote", aggregateId: quoteId, eventType: "quote.line_restored", payload: { quoteId, lineId } }],
+      audit: { action: "quote.restore_line", entityType: "quote_line", entityId: lineId, before, after: line },
+      aggregate: quoteWithCalculation(quote, calculation, line, ts),
+      newVersion: quote.aggregate_version + 1,
+    };
+  });
+}
+
 // ── Helper: Compute Snapshot Hash ──
 
 function computeSnapshotHash(quote: QuoteRecord, lines: Array<Record<string, unknown>>): string {
@@ -141,7 +541,8 @@ export async function submitForApproval(
 
       // Compute snapshot hash for integrity check
       const lines = await queryAll<Record<string, unknown>>(
-        `SELECT * FROM ${businessTable("quote_line")} WHERE workspace_id = ? AND quote_id = ?`,
+        `SELECT * FROM ${businessTable("quote_line")}
+         WHERE workspace_id = ? AND quote_id = ? AND deleted_at IS NULL`,
         [workspaceId, quoteId]
       );
       const snapshotHash = computeSnapshotHash(quote, lines);
@@ -926,7 +1327,7 @@ export async function createRevision(
       // Clone quote lines to the new revision
       const lines = await queryAll<{ id: string }>(
         `SELECT id FROM ${businessTable("quote_line")}
-         WHERE workspace_id = ? AND quote_id = ?`,
+         WHERE workspace_id = ? AND quote_id = ? AND deleted_at IS NULL`,
         [workspaceId, quoteId]
       );
 
@@ -1072,7 +1473,7 @@ export async function convertToWorkOrder(
       // Compute snapshot hash for provenance
       const lines = await queryAll<Record<string, unknown>>(
         `SELECT * FROM ${businessTable("quote_line")}
-         WHERE workspace_id = ? AND quote_id = ?`,
+         WHERE workspace_id = ? AND quote_id = ? AND deleted_at IS NULL`,
         [workspaceId, quoteId]
       );
       const snapshotHash = computeSnapshotHash(quote, lines);

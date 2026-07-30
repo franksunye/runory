@@ -29,6 +29,7 @@ const COMMAND_SOURCE_FIXTURE = {
   ],
   "module:runory.quote@1.1.0": [
     "quote.accept",
+    "quote.add_line",
     "quote.approve",
     "quote.convert_to_work_order",
     "quote.create_draft",
@@ -38,8 +39,11 @@ const COMMAND_SOURCE_FIXTURE = {
     "quote.mark_sent",
     "quote.recalculate",
     "quote.reject",
+    "quote.remove_line",
+    "quote.restore_line",
     "quote.return_for_changes",
     "quote.submit_for_approval",
+    "quote.update_line",
     "quote.withdraw",
   ],
   "module:runory.service-visit@1.1.0": [
@@ -86,7 +90,7 @@ describe("Command architecture inventory", () => {
 
     expect(inventory.issues).toEqual([]);
     expect(inventory.summary).toMatchObject({
-      commandCount: 54,
+      commandCount: 58,
       sourceCount: 8,
       moduleSourceCount: 5,
       platformServiceSourceCount: 3,

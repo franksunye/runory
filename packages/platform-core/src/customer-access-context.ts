@@ -280,7 +280,7 @@ export async function resolveCustomerAccessContext(
         const lines = await queryAll<QuoteLineRow>(
           `SELECT id, description, quantity, unit_price, line_total
            FROM ${businessTable("quote_line")}
-           WHERE workspace_id = ? AND quote_id = ?
+           WHERE workspace_id = ? AND quote_id = ? AND deleted_at IS NULL
            ORDER BY sort_order ASC`,
           [grant.workspace_id, quote.id],
         );

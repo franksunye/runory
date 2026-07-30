@@ -635,7 +635,7 @@ export async function GET(
 
     // ── Load quote line items (related records, objectKey="quote_line") ──
     const lines = await queryAll<Record<string, unknown>>(
-      `SELECT * FROM ${businessTable("quote_line")} WHERE workspace_id = ? AND quote_id = ? ORDER BY sort_order ASC, created_at ASC`,
+      `SELECT * FROM ${businessTable("quote_line")} WHERE workspace_id = ? AND quote_id = ? AND deleted_at IS NULL ORDER BY sort_order ASC, created_at ASC`,
       [workspaceId, quoteId]
     );
 

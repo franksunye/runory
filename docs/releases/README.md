@@ -32,6 +32,7 @@ This directory contains point-in-time acceptance, test, drill, migration, and pe
 ## v0.9
 
 - [v0.9 Engineering and E2E Convergence Review — 2026-07-30](v0.9-engineering-and-e2e-review-2026-07-30.md) — engineering conformance findings, E2E release-gate design, and required closure sequence.
+- [v0.9.1 Engineering and E2E Remediation Re-review — 2026-07-30](v0.9.1-engineering-and-e2e-remediation-review-2026-07-30.md) — verifies the v0.9.1 repair, records finding disposition, and identifies the remaining architecture and E2E release blockers.
 
 ## FSM
 

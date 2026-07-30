@@ -110,7 +110,9 @@ describe("Command Contract module boundaries", () => {
 
   it("keeps physical business-table writes inside their owning command context", () => {
     const boundaries: Record<string, string[]> = {
-      "quote-commands.ts": ["quote"],
+      // Quote Line is a child entity of the Quote aggregate; Quote Commands must
+      // be able to persist both sides of the aggregate atomically.
+      "quote-commands.ts": ["quote", "quote_line"],
       "fsm-commands.ts": ["work_order", "service_visit"],
       "payment-commands.ts": [
         "payment",

@@ -188,6 +188,23 @@ describe("Workflow Atomicity & Concurrency Guarantees", () => {
     await setupWorkflowDefinition();
   });
 
+  it("does not fire a stale timer owned by a returned Work Item", async () => {
+    const instanceId = await createInstance();
+    const workItemId = genId("wi");
+    const ts = now();
+    await execute(
+      `INSERT INTO ${TABLES.workItems}
+       (id, workspace_id, instance_id, step_id, kind, status, version, created_at, updated_at)
+       VALUES (?, ?, ?, 'task', 'human_task', 'returned', 2, ?, ?)`,
+      [workItemId, workspaceId, instanceId, ts, ts],
+    );
+    await createOverdueTimer(instanceId, workItemId);
+
+    await expect(fireOverdueTimers(workspaceId, 100)).resolves.toEqual({ fired: 0 });
+    const events = await getEvents(instanceId);
+    expect(events.map((event) => event.event_type)).toEqual(["workflow.started"]);
+  });
+
   // ────────────────────────────────────────────────────────────
   // §1 Event Sequence Allocator
   //

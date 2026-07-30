@@ -153,7 +153,7 @@ registerCommandEffectProvider({
               SELECT ?, workspace_id, ?, product_service_id, description, quantity, unit,
                unit_price, discount_amount, tax_amount, line_total, sort_order, ?, ?
               FROM ${businessTable("quote_line")}
-              WHERE workspace_id = ? AND quote_id = ? AND id = ?`,
+              WHERE workspace_id = ? AND quote_id = ? AND id = ? AND deleted_at IS NULL`,
         args: [
           line.newLineId, input.newQuoteId, ts, ts, envelope.workspaceId,
           envelope.aggregateId, line.sourceLineId,

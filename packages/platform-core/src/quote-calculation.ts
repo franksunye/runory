@@ -18,26 +18,17 @@ export interface PreparedQuoteCalculation {
   lineTotals: Array<{ lineId: string; lineTotal: number }>;
 }
 
-// Calculate quote and line totals without persisting. Command handlers use
-// this read-only preparation step and delegate all writes to an atomic effect.
-export async function prepareQuoteCalculation(
-  workspaceId: string,
-  quoteId: string
-): Promise<PreparedQuoteCalculation> {
-  const lines = await queryAll<{
-    id: string;
-    quantity: number | null;
-    unit_price: number | null;
-    discount_amount: number | null;
-    tax_amount: number | null;
-    line_total: number | null;
-  }>(
-    `SELECT id, quantity, unit_price, discount_amount, tax_amount, line_total
-     FROM ${businessTable("quote_line")}
-     WHERE workspace_id = ? AND quote_id = ?`,
-    [workspaceId, quoteId]
-  );
+export interface QuoteCalculationLine {
+  id: string;
+  quantity: number | null;
+  unit_price: number | null;
+  discount_amount: number | null;
+  tax_amount: number | null;
+  line_total: number | null;
+}
 
+/** Pure calculation shared by quote Commands and the persisted recalculation path. */
+export function calculateQuoteLines(lines: QuoteCalculationLine[]): PreparedQuoteCalculation {
   let subtotal = 0;
   let discountTotal = 0;
   let taxTotal = 0;
@@ -55,16 +46,33 @@ export async function prepareQuoteCalculation(
     discountTotal += lineDiscount;
     taxTotal += lineTax;
 
-    // Always derive and overwrite line_total from authoritative inputs.
-    // A caller-supplied or stale line_total must never be trusted.
     if (line.line_total !== computedTotal) {
       lineTotals.push({ lineId: line.id, lineTotal: computedTotal });
     }
   }
 
-  const grandTotal = subtotal - discountTotal + taxTotal;
+  return {
+    subtotal,
+    discountTotal,
+    taxTotal,
+    grandTotal: subtotal - discountTotal + taxTotal,
+    lineTotals,
+  };
+}
 
-  return { subtotal, discountTotal, taxTotal, grandTotal, lineTotals };
+// Calculate quote and line totals without persisting. Command handlers use
+// this read-only preparation step and delegate all writes to an atomic effect.
+export async function prepareQuoteCalculation(
+  workspaceId: string,
+  quoteId: string
+): Promise<PreparedQuoteCalculation> {
+  const lines = await queryAll<QuoteCalculationLine>(
+    `SELECT id, quantity, unit_price, discount_amount, tax_amount, line_total
+     FROM ${businessTable("quote_line")}
+     WHERE workspace_id = ? AND quote_id = ? AND deleted_at IS NULL`,
+    [workspaceId, quoteId]
+  );
+  return calculateQuoteLines(lines);
 }
 
 export async function computeQuoteTotals(
@@ -125,7 +133,7 @@ export async function validateQuoteCompleteness(
   }>(
     `SELECT quantity, unit_price, description
      FROM ${businessTable("quote_line")}
-     WHERE workspace_id = ? AND quote_id = ?`,
+     WHERE workspace_id = ? AND quote_id = ? AND deleted_at IS NULL`,
     [workspaceId, quoteId]
   );
 

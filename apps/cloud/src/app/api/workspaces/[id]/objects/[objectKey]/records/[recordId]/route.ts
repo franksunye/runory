@@ -10,13 +10,17 @@ import {
   now,
   isManagedField,
   getManagedFieldCommand,
-  recalculateQuote,
+  updateQuoteLine,
+  removeQuoteLine,
+  restoreQuoteLine,
   ERROR_CODES,
+  type CommandActor,
+  type QuoteLineWriteInput,
   type VisibilityScope,
   type GovernedPaymentObjectKey,
 } from "@runory/platform-core";
 import { requireWorkspaceContext } from "@/lib/auth";
-import { successResponse, handleError, notFound, errorResponse, getOrCreateRequestId } from "@/lib/http";
+import { successResponse, handleError, invalidInput, notFound, errorResponse, getOrCreateRequestId } from "@/lib/http";
 import { enrichUserReferences, listUserReferenceFieldKeys } from "@/lib/identity";
 
 export const dynamic = "force-dynamic";
@@ -36,6 +40,27 @@ function visibilityScopeFor(ctx: { principal: { userId: string } | null; workspa
   return ctx.principal
     ? { userId: ctx.principal.userId, role: ctx.workspaceRole, organizationRole: ctx.organizationRole }
     : undefined;
+}
+
+function quoteLineInput(data: Record<string, unknown>): QuoteLineWriteInput {
+  return {
+    product_service_id: data.product_service_id as string | null | undefined,
+    description: data.description as string | undefined,
+    quantity: data.quantity as number | undefined,
+    unit: data.unit as string | null | undefined,
+    unit_price: data.unit_price as number | undefined,
+    discount_amount: data.discount_amount as number | null | undefined,
+    tax_amount: data.tax_amount as number | null | undefined,
+    sort_order: data.sort_order as number | undefined,
+    line_total: data.line_total as number | null | undefined,
+  };
+}
+
+function commandActorFor(ctx: { principal: { userId: string; authMethod: string } | null }): CommandActor {
+  return {
+    id: ctx.principal?.userId ?? "unknown",
+    type: ctx.principal?.authMethod === "api_key" ? "api_key" : "user",
+  };
 }
 
 export async function GET(
@@ -127,18 +152,35 @@ export async function PUT(
 
     const before = await getRecord(workspaceId, objectKey, recordId, { visibilityScope: visibilityScopeFor(ctx) });
     if (!before) return notFound(`Record ${recordId} not found`, ctx.requestId);
+
+    if (objectKey === "quote_line") {
+      const quoteId = before.quote_id;
+      if (typeof quoteId !== "string" || !quoteId) {
+        return invalidInput(`Quote Line ${recordId} has no quote_id`, ctx.requestId);
+      }
+      if (data.quote_id !== undefined && data.quote_id !== quoteId) {
+        return invalidInput("Moving a Quote Line between Quotes is not supported; remove and add it atomically instead.", ctx.requestId);
+      }
+      const quote = await getRecord(workspaceId, "quote", quoteId);
+      if (!quote) return notFound(`Quote ${quoteId} not found`, ctx.requestId);
+      if (typeof quote.aggregate_version !== "number") {
+        return invalidInput(`Quote ${quoteId} has no aggregate_version`, ctx.requestId);
+      }
+      const result = await updateQuoteLine(
+        workspaceId,
+        quoteId,
+        recordId,
+        commandActorFor(ctx),
+        quote.aggregate_version,
+        quoteLineInput(data),
+        request.headers.get("idempotency-key") ?? requestId,
+      );
+      return successResponse(result.aggregate.line, 200, ctx.requestId);
+    }
+
     const record = await updateRecord(workspaceId, objectKey, recordId, data);
     if (!record) {
       return notFound(`Record ${recordId} not found`, ctx.requestId);
-    }
-
-    // Quote line totals are governed and must stay in sync with line items.
-    // After updating a quote_line, recalculate the parent quote's totals.
-    if (objectKey === "quote_line") {
-      const quoteId = (record.quote_id ?? before?.quote_id) as string | undefined;
-      if (quoteId) {
-        await recalculateQuote(workspaceId, quoteId);
-      }
     }
 
     writeAuditEvent({
@@ -183,21 +225,35 @@ export async function DELETE(
       visibilityScope: visibilityScopeFor(ctx),
     });
     if (!before) return notFound(`Record ${recordId} not found`, ctx.requestId);
+
+    if (objectKey === "quote_line") {
+      const quoteId = before.quote_id;
+      if (typeof quoteId !== "string" || !quoteId) {
+        return invalidInput(`Quote Line ${recordId} has no quote_id`, ctx.requestId);
+      }
+      const quote = await getRecord(workspaceId, "quote", quoteId);
+      if (!quote) return notFound(`Quote ${quoteId} not found`, ctx.requestId);
+      if (typeof quote.aggregate_version !== "number") {
+        return invalidInput(`Quote ${quoteId} has no aggregate_version`, ctx.requestId);
+      }
+      await removeQuoteLine(
+        workspaceId,
+        quoteId,
+        recordId,
+        commandActorFor(ctx),
+        quote.aggregate_version,
+        { hard },
+        request.headers.get("idempotency-key") ?? requestId,
+      );
+      return successResponse({ deleted: true, hard }, 200, ctx.requestId);
+    }
+
     const deleted = await deleteRecord(workspaceId, objectKey, recordId, {
       hard,
       deletedBy: ctx.principal?.userId ?? "unknown",
     });
     if (!deleted) {
       return notFound(`Record ${recordId} not found`, ctx.requestId);
-    }
-
-    // Quote line totals are governed and must stay in sync with line items.
-    // After deleting a quote_line, recalculate the parent quote's totals.
-    if (objectKey === "quote_line") {
-      const quoteId = before?.quote_id as string | undefined;
-      if (quoteId) {
-        await recalculateQuote(workspaceId, quoteId);
-      }
     }
 
     writeAuditEvent({
@@ -245,6 +301,28 @@ export async function PATCH(
         visibilityScope: visibilityScopeFor(ctx),
       });
       if (!before) return notFound(`Record ${recordId} not found`, ctx.requestId);
+
+      if (objectKey === "quote_line") {
+        const quoteId = before.quote_id;
+        if (typeof quoteId !== "string" || !quoteId) {
+          return invalidInput(`Quote Line ${recordId} has no quote_id`, ctx.requestId);
+        }
+        const quote = await getRecord(workspaceId, "quote", quoteId);
+        if (!quote) return notFound(`Quote ${quoteId} not found`, ctx.requestId);
+        if (typeof quote.aggregate_version !== "number") {
+          return invalidInput(`Quote ${quoteId} has no aggregate_version`, ctx.requestId);
+        }
+        await restoreQuoteLine(
+          workspaceId,
+          quoteId,
+          recordId,
+          commandActorFor(ctx),
+          quote.aggregate_version,
+          request.headers.get("idempotency-key") ?? requestId,
+        );
+        return successResponse({ restored: true }, 200, ctx.requestId);
+      }
+
       const restored = await restoreRecord(workspaceId, objectKey, recordId);
       if (!restored) {
         return notFound(`Record ${recordId} not found or not deleted`, ctx.requestId);

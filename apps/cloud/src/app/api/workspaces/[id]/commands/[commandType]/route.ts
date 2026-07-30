@@ -13,6 +13,10 @@ import {
   createRevision,
   convertToWorkOrder,
   createQuoteDraft,
+  addQuoteLine,
+  updateQuoteLine,
+  removeQuoteLine,
+  restoreQuoteLine,
   triageWorkOrder,
   createVisit,
   startWorkOrder,
@@ -209,6 +213,61 @@ export async function POST(
         break;
       case "quote.recalculate":
         result = await recalculateQuoteCommand(workspaceId, body.aggregateId, actor, expectedVersion, idempotencyKey);
+        break;
+      case "quote.add_line":
+        result = await addQuoteLine(workspaceId, body.aggregateId, actor, expectedVersion, {
+          product_service_id: body.product_service_id as string | null | undefined,
+          description: body.description as string | undefined,
+          quantity: body.quantity as number | undefined,
+          unit: body.unit as string | null | undefined,
+          unit_price: body.unit_price as number | undefined,
+          discount_amount: body.discount_amount as number | null | undefined,
+          tax_amount: body.tax_amount as number | null | undefined,
+          sort_order: body.sort_order as number | undefined,
+          line_total: body.line_total as number | null | undefined,
+        }, idempotencyKey);
+        break;
+      case "quote.update_line":
+        result = await updateQuoteLine(
+          workspaceId,
+          body.aggregateId,
+          body.lineId as string,
+          actor,
+          expectedVersion,
+          {
+            product_service_id: body.product_service_id as string | null | undefined,
+            description: body.description as string | undefined,
+            quantity: body.quantity as number | undefined,
+            unit: body.unit as string | null | undefined,
+            unit_price: body.unit_price as number | undefined,
+            discount_amount: body.discount_amount as number | null | undefined,
+            tax_amount: body.tax_amount as number | null | undefined,
+            sort_order: body.sort_order as number | undefined,
+            line_total: body.line_total as number | null | undefined,
+          },
+          idempotencyKey,
+        );
+        break;
+      case "quote.remove_line":
+        result = await removeQuoteLine(
+          workspaceId,
+          body.aggregateId,
+          body.lineId as string,
+          actor,
+          expectedVersion,
+          { hard: body.hard === true },
+          idempotencyKey,
+        );
+        break;
+      case "quote.restore_line":
+        result = await restoreQuoteLine(
+          workspaceId,
+          body.aggregateId,
+          body.lineId as string,
+          actor,
+          expectedVersion,
+          idempotencyKey,
+        );
         break;
       case "quote.create_revision":
         result = await createRevision(workspaceId, body.aggregateId, actor, expectedVersion, idempotencyKey);

@@ -1047,13 +1047,13 @@ async function seedPackDemoData(workspaceId: string, packId: string): Promise<nu
   // instances for records that should have an active approval/workflow process.
   // Idempotent: skips records that already have a running instance.
   if (demo.workflowInstances && demo.workflowInstances.length > 0) {
+    const workflowSeedErrors: string[] = [];
     for (const wi of demo.workflowInstances) {
       try {
         // Resolve record ID from alias
         const alias = aliases.get(wi.recordAlias);
         if (!alias) {
-          console.warn(`[installer] Workflow instance skipped: alias "${wi.recordAlias}" not found`);
-          continue;
+          throw new Error(`alias "${wi.recordAlias}" not found`);
         }
         const recordId = alias.id as string;
 
@@ -1065,17 +1065,19 @@ async function seedPackDemoData(workspaceId: string, packId: string): Promise<nu
           [workspaceId, wi.workflowKey]
         );
         if (!wfDef) {
-          console.warn(`[installer] Workflow instance skipped: definition "${wi.workflowKey}" not found`);
-          continue;
+          throw new Error(`definition "${wi.workflowKey}" not found`);
         }
-        const existing = await queryOne<{ id: string }>(
-          `SELECT id FROM ${TABLES.workflowInstances}
+        const existing = await queryOne<{ id: string; status: string }>(
+          `SELECT id, status FROM ${TABLES.workflowInstances}
            WHERE workspace_id = ? AND workflow_definition_id = ? AND record_id = ?
            AND status IN ('running', 'error')`,
           [workspaceId, wfDef.id, recordId]
         );
         if (existing) {
-          continue; // Already started (including errored instances — don't duplicate)
+          if (existing.status === "error") {
+            throw new Error(`existing Workflow instance ${existing.id} is in error state`);
+          }
+          continue;
         }
 
         // Start the workflow.
@@ -1114,8 +1116,13 @@ async function seedPackDemoData(workspaceId: string, packId: string): Promise<nu
         console.log(`[installer] Started workflow ${wi.workflowKey} for ${wi.recordAlias} → ${result.instanceId}`);
         created++;
       } catch (e) {
-        console.warn(`[installer] Failed to seed workflow instance ${wi.workflowKey}: ${e instanceof Error ? e.message : String(e)}`);
+        const message = `${wi.workflowKey}/${wi.recordAlias}: ${e instanceof Error ? e.message : String(e)}`;
+        workflowSeedErrors.push(message);
+        console.warn(`[installer] Failed to seed workflow instance ${message}`);
       }
+    }
+    if (workflowSeedErrors.length > 0) {
+      throw new Error(`WORKFLOW_DEMO_SEED_FAILED: ${workflowSeedErrors.join("; ")}`);
     }
   }
 
@@ -1133,9 +1140,15 @@ export async function loadPackDemoData(
   packId: string
 ): Promise<{ recordsCreated: number }> {
   await updatePackDemoDataStatus(workspaceId, packId, "loading");
-  const created = await seedPackDemoData(workspaceId, packId);
-  await updatePackDemoDataStatus(workspaceId, packId, "loaded");
-  return { recordsCreated: created };
+  try {
+    const created = await seedPackDemoData(workspaceId, packId);
+    await updatePackDemoDataStatus(workspaceId, packId, "loaded");
+    return { recordsCreated: created };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    await updatePackDemoDataStatus(workspaceId, packId, "error", message);
+    throw error;
+  }
 }
 
 /**

@@ -24,6 +24,10 @@
  * Excludes: Retell/phone integrations, payment/billing flows
  */
 
+import { execFileSync } from "node:child_process";
+import { mkdirSync, writeFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+
 import {
   BASE_URL,
   assert,
@@ -35,6 +39,7 @@ import {
   printGrandSummary,
   getPassCount,
   getFailCount,
+  getFailures,
   checkServer,
   checkDevMode,
   switchPersona,
@@ -68,6 +73,33 @@ import {
 // aggregate (quote → work order → visit → form submission) must trace back to
 // a record created by this run, never to seeded/demo data (V09-REV-E2E-01).
 const RUN_ID = `e2e-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+const RUN_STARTED_AT = new Date().toISOString();
+
+function resolveCommit() {
+  if (process.env.RUNORY_COMMIT_SHA) return process.env.RUNORY_COMMIT_SHA;
+  if (process.env.GITHUB_SHA) return process.env.GITHUB_SHA;
+  try {
+    return execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim();
+  } catch {
+    return "unknown";
+  }
+}
+
+const COMMIT_SHA = resolveCommit();
+
+function resolveWorkingTreeDirty() {
+  try {
+    return execFileSync(
+      "git",
+      ["status", "--porcelain", "--untracked-files=no"],
+      { encoding: "utf8" },
+    ).trim().length > 0;
+  } catch {
+    return true;
+  }
+}
+
+const WORKING_TREE_DIRTY = resolveWorkingTreeDirty();
 
 // ── Shared state across scenarios ──
 const state = {
@@ -100,6 +132,13 @@ const state = {
 };
 
 const scenarioResults = [];
+const REQUIRED_SCENARIOS = [
+  "Owner Workspace Verification",
+  "Quote Lifecycle",
+  "Dispatch Flow",
+  "Field Execution",
+  "Cross-Surface Consistency",
+];
 
 // Register a scenario result with an explicit status. Every scenario MUST
 // call this from a `finally` block so its result is recorded even when the
@@ -107,15 +146,71 @@ const scenarioResults = [];
 // prerequisite was missing (SKIPPED/BLOCKED); otherwise the status is derived
 // from the failure counter. Per V09-REV-E2E-01, a non-PASS status (including
 // SKIPPED/BLOCKED) must never let the process exit 0.
-function registerScenarioResult(name, forcedStatus = null) {
+function registerScenarioResult(name, forcedStatus = null, startedAt = null) {
   const pass = getPassCount();
   const fail = getFailCount();
   let status = forcedStatus;
   if (!status) {
     status = fail > 0 ? "FAIL" : "PASS";
   }
-  scenarioResults.push({ name, status, pass, fail });
+  scenarioResults.push({
+    name,
+    status,
+    pass,
+    fail,
+    failures: [...getFailures()],
+    durationMs: startedAt === null ? null : Date.now() - startedAt,
+  });
   return status;
+}
+
+function writeRunArtifact(finalDecision, fatalError = null) {
+  const artifactScenarios = REQUIRED_SCENARIOS.map((name) =>
+    scenarioResults.find((scenario) => scenario.name === name) ?? {
+      name,
+      status: "BLOCKED",
+      pass: 0,
+      fail: 1,
+      failures: [fatalError ?? "Scenario did not complete"],
+      durationMs: null,
+    }
+  );
+  const artifact = {
+    schemaVersion: "runory.e2e-result/v1",
+    runId: RUN_ID,
+    commit: COMMIT_SHA,
+    workingTreeDirty: WORKING_TREE_DIRTY,
+    environment: process.env.RUNORY_E2E_ENVIRONMENT ?? "dev",
+    evidenceLayer: "api_business_walkthrough",
+    browser: null,
+    viewport: null,
+    baseUrl: BASE_URL,
+    startedAt: RUN_STARTED_AT,
+    completedAt: new Date().toISOString(),
+    principals: Object.entries(PERSONA_LABELS).map(([id, label]) => ({ id, label })),
+    records: {
+      workspaceId: state.workspaceId,
+      workspaceSlug: state.workspaceSlug,
+      quoteId: state.quoteId,
+      workOrderId: state.workOrderId,
+      visitId: state.visitId,
+      formSubmissionId: state.formSubmissionId,
+    },
+    scenarios: artifactScenarios,
+    artifacts: { screenshots: [], traces: [], console: [], network: [] },
+    fatalError,
+    finalDecision,
+  };
+  const defaultPath = resolve(
+    import.meta.dirname,
+    `../../test-results/e2e/business-walkthrough-${RUN_ID}.json`,
+  );
+  const artifactPath = resolve(process.env.RUNORY_E2E_RESULT_PATH ?? defaultPath);
+  mkdirSync(dirname(artifactPath), { recursive: true });
+  writeFileSync(artifactPath, `${JSON.stringify(artifact, null, 2)}\n`, "utf8");
+  console.log(`  Machine result: ${artifactPath}`);
+  console.log(`RUNORY_E2E_RESULT=${JSON.stringify(artifact)}`);
+  return artifactPath;
 }
 
 // ── Preflight checks ──
@@ -127,16 +222,14 @@ async function preflight() {
   const serverOk = await checkServer();
   assert(serverOk, `Dev server reachable at ${BASE_URL}`);
   if (!serverOk) {
-    console.error("\nFATAL: Server not running. Start with: pnpm reset");
-    process.exit(1);
+    throw new Error("Server not running. Start with: pnpm reset");
   }
 
   step(2, "Check dev mode (persona switching)");
   const devMode = await checkDevMode();
   assert(devMode, "PLATFORM_DEV_BOOTSTRAP is enabled (persona API accessible)");
   if (!devMode) {
-    console.error("\nFATAL: Dev mode not active. Set PLATFORM_DEV_BOOTSTRAP=true in .env.local");
-    process.exit(1);
+    throw new Error("Dev mode not active. Set PLATFORM_DEV_BOOTSTRAP=true in .env.local");
   }
 
   step(3, "Switch to Owner persona and discover workspace");
@@ -152,6 +245,7 @@ async function preflight() {
 // ── Scenario 1: Owner Workspace Verification ──
 
 async function scenario1() {
+  const scenarioStartedAt = Date.now();
   section("SCENARIO 1 — Owner: Workspace Setup & Demo Data Verification");
   personaHeader(PERSONAS.OWNER, PERSONA_LABELS[PERSONAS.OWNER]);
   resetCounters();
@@ -295,13 +389,14 @@ async function scenario1() {
     forcedStatus = forcedStatus ?? "BLOCKED";
   } finally {
     printSummary("Scenario 1: Owner Workspace Verification");
-    registerScenarioResult("Owner Workspace Verification", forcedStatus);
+    registerScenarioResult("Owner Workspace Verification", forcedStatus, scenarioStartedAt);
   }
 }
 
 // ── Scenario 2: Quote Lifecycle (Sales Rep → Sales Manager → Sales Rep) ──
 
 async function scenario2() {
+  const scenarioStartedAt = Date.now();
   section("SCENARIO 2 — Quote Lifecycle: Sales Rep → Sales Manager → Sales Rep");
   resetCounters();
   let forcedStatus = null;
@@ -386,6 +481,11 @@ async function scenario2() {
 
   step("2.4", "Sales Rep: Recalculate quote totals via command");
   {
+    // Quote Line mutation is an atomic Quote Command and advances the Quote
+    // aggregate version. Refresh before the explicit recalculation command so
+    // the optimistic lock observes the current aggregate state.
+    const { record: currentQuote } = await getRecord(ws, "quote", state.quoteId);
+    if (currentQuote?.aggregate_version) state.quoteVersion = currentQuote.aggregate_version;
     const { ok, json } = await executeCommand(ws, "quote.recalculate", {
       aggregateId: state.quoteId,
       expectedVersion: state.quoteVersion,
@@ -627,13 +727,14 @@ async function scenario2() {
     forcedStatus = forcedStatus ?? "BLOCKED";
   } finally {
     printSummary("Scenario 2: Quote Lifecycle");
-    registerScenarioResult("Quote Lifecycle", forcedStatus);
+    registerScenarioResult("Quote Lifecycle", forcedStatus, scenarioStartedAt);
   }
 }
 
 // ── Scenario 3: Dispatch Flow (Dispatcher → Technician) ──
 
 async function scenario3() {
+  const scenarioStartedAt = Date.now();
   section("SCENARIO 3 — Dispatch Flow: Dispatcher triages, creates visit, assigns, schedules");
   resetCounters();
   let forcedStatus = null;
@@ -913,13 +1014,14 @@ async function scenario3() {
     forcedStatus = forcedStatus ?? "BLOCKED";
   } finally {
     printSummary("Scenario 3: Dispatch Flow");
-    registerScenarioResult("Dispatch Flow", forcedStatus);
+    registerScenarioResult("Dispatch Flow", forcedStatus, scenarioStartedAt);
   }
 }
 
 // ── Scenario 4: Field Execution (Technician → Supervisor) ──
 
 async function scenario4() {
+  const scenarioStartedAt = Date.now();
   section("SCENARIO 4 — Field Execution: Technician executes visit, Supervisor completes");
   resetCounters();
   let forcedStatus = null;
@@ -1122,13 +1224,14 @@ async function scenario4() {
     forcedStatus = forcedStatus ?? "BLOCKED";
   } finally {
     printSummary("Scenario 4: Field Execution");
-    registerScenarioResult("Field Execution", forcedStatus);
+    registerScenarioResult("Field Execution", forcedStatus, scenarioStartedAt);
   }
 }
 
 // ── Scenario 5: Cross-Surface Consistency & Audit ──
 
 async function scenario5() {
+  const scenarioStartedAt = Date.now();
   section("SCENARIO 5 — Cross-Surface Consistency: Timeline, Audit, Planning, Forms");
   resetCounters();
   let forcedStatus = null;
@@ -1211,6 +1314,9 @@ async function scenario5() {
         (e) => e.subjectId === state.visitId || e.subject_id === state.visitId
       );
       console.log(`     Entries matching our visit: ${matching.length}`);
+      assert(matching.length >= 1, `Current-run Visit appears in planning (got ${matching.length})`);
+    } else {
+      assert(false, "No current-run Visit for planning consistency check");
     }
   }
 
@@ -1226,10 +1332,7 @@ async function scenario5() {
       const ours = submissions.find((s) => s.id === state.formSubmissionId);
       assert(ours != null, "E2E form submission found in list");
     } else {
-      // Verify existing demo form submissions
-      const allSubmissions = await listFormSubmissions(ws, { limit: 20 });
-      assert(allSubmissions.length >= 1, `Form submissions exist in workspace (got ${allSubmissions.length})`);
-      console.log(`     Total form submissions: ${allSubmissions.length}`);
+      assert(false, "No current-run Form Submission for consistency check");
     }
   }
 
@@ -1309,7 +1412,7 @@ async function scenario5() {
     forcedStatus = forcedStatus ?? "BLOCKED";
   } finally {
     printSummary("Scenario 5: Cross-Surface Consistency");
-    registerScenarioResult("Cross-Surface Consistency", forcedStatus);
+    registerScenarioResult("Cross-Surface Consistency", forcedStatus, scenarioStartedAt);
   }
 }
 
@@ -1330,7 +1433,9 @@ async function main() {
     await preflight();
   } catch (e) {
     console.error("\nFATAL: Preflight failed:", e.message);
-    process.exit(1);
+    writeRunArtifact("FAIL", e?.message ?? String(e));
+    process.exitCode = 1;
+    return;
   }
 
   // Run all scenarios
@@ -1367,10 +1472,13 @@ async function main() {
   console.log(`  Visit ID:      ${state.visitId ?? "N/A"}`);
   console.log(`${"=".repeat(70)}\n`);
 
-  process.exit(totalFail === 0 && !hasNonPassScenario && allScenariosRegistered ? 0 : 1);
+  const passed = totalFail === 0 && !hasNonPassScenario && allScenariosRegistered;
+  writeRunArtifact(passed ? "PASS" : "FAIL");
+  process.exitCode = passed ? 0 : 1;
 }
 
 main().catch((e) => {
   console.error("\nWalkthrough crashed:", e);
-  process.exit(1);
+  writeRunArtifact("FAIL", e?.message ?? String(e));
+  process.exitCode = 1;
 });

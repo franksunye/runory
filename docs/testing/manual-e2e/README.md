@@ -137,6 +137,34 @@ N/A      explicitly outside this Scenario's binding scope
 `SKIPPED` is not a passing result for a required stage. Conditional PASS is
 not an allowed final release decision.
 
+Automated runs must also emit a JSON artifact conforming to
+[`e2e-result.schema.json`](./e2e-result.schema.json). Validate an artifact with:
+
+```bash
+pnpm e2e:validate-result -- <path-to-result.json>
+```
+
+The API business walkthrough writes its artifact under
+`apps/cloud/test-results/e2e/` by default, or to `RUNORY_E2E_RESULT_PATH` when
+set. A `PASS` that is binding for this evidence layer requires an exact
+40-character commit SHA, a clean working tree, only declared result values,
+every required Scenario passing, and fresh IDs for the complete Quote → Work
+Order → Visit → Form Submission trace. It does not replace the browser,
+device/provider, or real-customer evidence layers required for release sign-off.
+
+The automated browser layer consumes that validated, clean-commit API artifact
+and reopens the same fresh Quote, Work Order, Visit, Form Submission, dashboard,
+and planning surfaces as the relevant personas at desktop and mobile viewports:
+
+```bash
+pnpm --filter @runory/cloud exec playwright install chromium
+RUNORY_E2E_RESULT_PATH=<api-result.json> pnpm e2e:browser
+```
+
+The suite refuses stale, failed, dirty-tree, or commit-mismatched API evidence.
+It emits a JSON report, HTML report, screenshots, video-on-failure, and traces
+under `apps/cloud/test-results/e2e/` and `apps/cloud/playwright-report/`.
+
 ## 6. Test data convention
 
 Create fresh records for every run. Do not reuse seeded records — a

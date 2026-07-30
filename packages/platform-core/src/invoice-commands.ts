@@ -155,7 +155,7 @@ export async function issueInvoiceFromWorkOrder(
     quoteLines = await queryAll<QuoteLineSource>(
       `SELECT id, description, quantity, unit, unit_price, line_total, sort_order
        FROM ${businessTable("quote_line")}
-       WHERE workspace_id = ? AND quote_id = ?
+       WHERE workspace_id = ? AND quote_id = ? AND deleted_at IS NULL
        ORDER BY sort_order ASC, created_at ASC`,
       [workspaceId, quote.id],
     );

@@ -19,6 +19,8 @@
     "benchmark:v06:foundation": "pnpm --filter @runory/cloud exec tsx ../../scripts/benchmark-v06-foundation.ts",
     "validate:command-contracts": "pnpm --filter @runory/platform-core exec vitest run src/catalog-control-plane.test.ts src/architecture-inventory.test.ts src/command-contracts.test.ts src/command-contract-boundaries.test.ts --no-file-parallelism",
     "docs:check": "node scripts/check-doc-governance.mjs",
+    "e2e:validate-result": "node scripts/validate-e2e-result.mjs",
+    "e2e:browser": "pnpm --filter @runory/cloud test:e2e:browser",
     "test:voice-intake:http": "node --env-file=apps/cloud/.env.local scripts/smoke-retell.mjs",
     "mcp": "pnpm --filter @runory/mcp start"
   },

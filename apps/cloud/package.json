@@ -12,6 +12,7 @@
     "clean": "rm -rf .next .next-dev",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "test:e2e:browser": "playwright test",
     "db:status": "node scripts/db-status.mjs",
     "db:reset": "node scripts/db-reset.mjs",
     "contracts:repair": "tsx scripts/repair-command-contracts.mjs",
@@ -39,6 +40,7 @@
   "devDependencies": {
     "@dicebear/core": "9.4.2",
     "@dicebear/notionists-neutral": "9.4.2",
+    "@playwright/test": "^1.62.0",
     "@tailwindcss/postcss": "^4.1.11",
     "@types/node": "^24.10.1",
     "@types/react": "^19.1.0",

@@ -39,6 +39,7 @@ import {
   returnForChanges,
   markSent,
   acceptQuote,
+  addQuoteLine,
   recalculateQuoteCommand,
   createRevision,
   convertToWorkOrder,
@@ -292,7 +293,7 @@ describe("v0.5 Commercial FSM Journey", () => {
        WHERE workspace_id = ?`,
       [workspaceId],
     );
-    expect(registered?.count).toBe(54);
+    expect(registered?.count).toBe(58);
     expect((await resolveWorkspaceCommandPlan(workspaceId, "visit.start_travel"))?.effects)
       .toHaveLength(1);
     expect((await resolveWorkspaceCommandPlan(workspaceId, "work_order.cancel"))?.effects)
@@ -301,7 +302,7 @@ describe("v0.5 Commercial FSM Journey", () => {
       .toHaveLength(0);
 
     const inventory = await getWorkspaceCommandContractInventory(workspaceId);
-    expect(inventory).toHaveLength(54);
+    expect(inventory).toHaveLength(58);
     expect(inventory.find((entry) => entry.commandKey === "visit.complete")).toMatchObject({
       sourceKind: "module",
       sourceId: "runory.service-visit",
@@ -362,8 +363,7 @@ describe("v0.5 Commercial FSM Journey", () => {
 
     // Create two quote lines
     // Line 1: qty=4, unit_price=1000, discount=400, tax=560 → line_total=4160
-    await createRecord(workspaceId, "quote_line", {
-      quote_id: quoteId,
+    const firstLine = await addQuoteLine(workspaceId, quoteId, salesRep, quoteVersion, {
       description: "HVAC inspection service",
       quantity: 4,
       unit: "each",
@@ -372,11 +372,11 @@ describe("v0.5 Commercial FSM Journey", () => {
       tax_amount: 560,
       line_total: 4160,
       sort_order: 1,
-    });
+    }, "v05-add-line-1");
+    quoteVersion = firstLine.newVersion;
 
-    // Line 2 starts with a stale total so recalculate must persist the derived 4080.
-    await createRecord(workspaceId, "quote_line", {
-      quote_id: quoteId,
+    // The client-supplied total is ignored; the Command persists the derived 4080.
+    const secondLine = await addQuoteLine(workspaceId, quoteId, salesRep, quoteVersion, {
       description: "Compressor replacement",
       quantity: 2,
       unit: "each",
@@ -385,7 +385,8 @@ describe("v0.5 Commercial FSM Journey", () => {
       tax_amount: 280,
       line_total: 0,
       sort_order: 2,
-    });
+    }, "v05-add-line-2");
+    quoteVersion = secondLine.newVersion;
 
     // Verify quote and lines exist
     const quoteRow = await queryOne<{ id: string; status: string }>(
@@ -414,7 +415,7 @@ describe("v0.5 Commercial FSM Journey", () => {
       quoteVersion,
     );
     quoteVersion = result.newVersion;
-    expect(quoteVersion).toBe(2);
+    expect(quoteVersion).toBe(4);
 
     const updatedQuote = await queryOne<{
       subtotal: number | null;
@@ -448,7 +449,7 @@ describe("v0.5 Commercial FSM Journey", () => {
       quoteVersion,
     );
     quoteVersion = result.newVersion;
-    expect(quoteVersion).toBe(3);
+    expect(quoteVersion).toBe(5);
     expect(result.aggregate.status).toBe("in_review");
     expect(result.workItemIds).toHaveLength(1);
 
@@ -477,7 +478,7 @@ describe("v0.5 Commercial FSM Journey", () => {
       "Please revise pricing",
     );
     quoteVersion = result.newVersion;
-    expect(quoteVersion).toBe(4);
+    expect(quoteVersion).toBe(6);
     expect(result.aggregate.status).toBe("draft");
   });
 
@@ -490,7 +491,7 @@ describe("v0.5 Commercial FSM Journey", () => {
       quoteVersion,
     );
     quoteVersion = submitResult.newVersion;
-    expect(quoteVersion).toBe(5);
+    expect(quoteVersion).toBe(7);
     expect(submitResult.aggregate.status).toBe("in_review");
 
     const approveResult = await approveQuote(
@@ -500,7 +501,7 @@ describe("v0.5 Commercial FSM Journey", () => {
       quoteVersion,
     );
     quoteVersion = approveResult.newVersion;
-    expect(quoteVersion).toBe(6);
+    expect(quoteVersion).toBe(8);
     expect(approveResult.aggregate.status).toBe("approved");
   });
 
@@ -513,7 +514,7 @@ describe("v0.5 Commercial FSM Journey", () => {
       quoteVersion,
     );
     quoteVersion = result.newVersion;
-    expect(quoteVersion).toBe(7);
+    expect(quoteVersion).toBe(9);
     expect(result.aggregate.status).toBe("sent");
   });
 
@@ -526,7 +527,7 @@ describe("v0.5 Commercial FSM Journey", () => {
       quoteVersion,
     );
     quoteVersion = result.newVersion;
-    expect(quoteVersion).toBe(8);
+    expect(quoteVersion).toBe(10);
     expect(result.aggregate.status).toBe("accepted");
   });
 
@@ -539,7 +540,7 @@ describe("v0.5 Commercial FSM Journey", () => {
       quoteVersion,
     );
     quoteVersion = result.newVersion;
-    expect(quoteVersion).toBe(9);
+    expect(quoteVersion).toBe(11);
     workOrderId = result.aggregate.work_order_id!;
     expect(workOrderId).toBeDefined();
 

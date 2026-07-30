@@ -175,6 +175,23 @@ describe("demo data status tracking (v0.3.4)", () => {
     expect(await getRecords(workspaceId, "company")).toHaveLength(6);
   });
 
+  it("fails closed and records an error when a configured demo Workflow cannot start", async () => {
+    await installPack(workspaceId, "sales-quote-pack");
+    await execute(
+      `DELETE FROM ${TABLES.workflowDefinitions}
+       WHERE workspace_id = ? AND workflow_id = 'quote-approval'`,
+      [workspaceId],
+    );
+
+    await expect(loadPackDemoData(workspaceId, "sales-quote-pack"))
+      .rejects.toThrow(/WORKFLOW_DEMO_SEED_FAILED/);
+
+    const salesQuote = (await getInstalledPacks(workspaceId))
+      .find((pack) => pack.packId === "sales-quote-pack");
+    expect(salesQuote?.demoDataStatus).toBe("error");
+    expect(salesQuote?.demoDataErrorMessage).toMatch(/definition "quote-approval" not found/);
+  });
+
   it("hasPackDemoData correctly detects demo data availability", async () => {
     expect(hasPackDemoData("crm-lite-pack")).toBe(true);
     expect(hasPackDemoData("fsm-pack")).toBe(true);

@@ -118,6 +118,10 @@ registerGovernedFields("quote", [
 registerAggregateCommands("quote", [
   "quote.create_draft",
   "quote.recalculate",
+  "quote.add_line",
+  "quote.update_line",
+  "quote.remove_line",
+  "quote.restore_line",
   "quote.submit_for_approval",
   "quote.approve",
   "quote.reject",

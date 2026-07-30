@@ -1,0 +1,97 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://runory.example/schemas/e2e-result-v1.json",
+  "title": "Runory E2E Result v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "runId",
+    "commit",
+    "workingTreeDirty",
+    "environment",
+    "evidenceLayer",
+    "baseUrl",
+    "startedAt",
+    "completedAt",
+    "principals",
+    "records",
+    "scenarios",
+    "artifacts",
+    "fatalError",
+    "finalDecision"
+  ],
+  "properties": {
+    "schemaVersion": { "const": "runory.e2e-result/v1" },
+    "runId": { "type": "string", "minLength": 1 },
+    "commit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "workingTreeDirty": { "type": "boolean" },
+    "environment": { "enum": ["dev", "staging", "production"] },
+    "evidenceLayer": {
+      "enum": [
+        "contract_integration",
+        "api_business_walkthrough",
+        "automated_browser_e2e",
+        "manual_device_provider",
+        "real_customer_release"
+      ]
+    },
+    "browser": { "type": ["string", "null"] },
+    "viewport": { "type": ["string", "null"] },
+    "baseUrl": { "type": "string", "format": "uri" },
+    "startedAt": { "type": "string", "format": "date-time" },
+    "completedAt": { "type": "string", "format": "date-time" },
+    "principals": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "label"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "label": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "records": {
+      "type": "object",
+      "required": ["workspaceId", "workspaceSlug", "quoteId", "workOrderId", "visitId", "formSubmissionId"],
+      "additionalProperties": false,
+      "properties": {
+        "workspaceId": { "type": ["string", "null"] },
+        "workspaceSlug": { "type": ["string", "null"] },
+        "quoteId": { "type": ["string", "null"] },
+        "workOrderId": { "type": ["string", "null"] },
+        "visitId": { "type": ["string", "null"] },
+        "formSubmissionId": { "type": ["string", "null"] }
+      }
+    },
+    "scenarios": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "status", "pass", "fail", "failures", "durationMs"],
+        "properties": {
+          "name": { "type": "string", "minLength": 1 },
+          "status": { "enum": ["PASS", "FAIL", "BLOCKED", "N/A"] },
+          "pass": { "type": "integer", "minimum": 0 },
+          "fail": { "type": "integer", "minimum": 0 },
+          "failures": { "type": "array", "items": { "type": "string" } },
+          "durationMs": { "type": ["integer", "null"], "minimum": 0 }
+        }
+      }
+    },
+    "artifacts": {
+      "type": "object",
+      "required": ["screenshots", "traces", "console", "network"],
+      "properties": {
+        "screenshots": { "type": "array", "items": { "type": "string" } },
+        "traces": { "type": "array", "items": { "type": "string" } },
+        "console": { "type": "array", "items": { "type": "string" } },
+        "network": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "fatalError": { "type": ["string", "null"] },
+    "finalDecision": { "enum": ["PASS", "FAIL"] }
+  }
+}

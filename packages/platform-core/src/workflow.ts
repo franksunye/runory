@@ -2344,7 +2344,7 @@ export async function fireOverdueTimers(
      LEFT JOIN ${TABLES.workItems} w ON t.work_item_id = w.id
      WHERE t.status = 'active' AND t.due_at <= ?
      AND i.status = 'running'
-     AND (w.id IS NULL OR w.status IN ('ready', 'active', 'returned'))
+     AND (w.id IS NULL OR w.status IN ('ready', 'active'))
      ${wsFilter}
      ORDER BY t.due_at ASC, t.id ASC
      LIMIT ?`,
@@ -2441,7 +2441,7 @@ export async function fireSlaWarnings(
      LEFT JOIN ${TABLES.workItems} w ON t.work_item_id = w.id
      WHERE t.status = 'active' AND t.timer_type = 'sla'
      AND i.status = 'running'
-     AND (w.id IS NULL OR w.status IN ('ready', 'active', 'returned'))
+     AND (w.id IS NULL OR w.status IN ('ready', 'active'))
      ${wsFilter}
      ORDER BY t.due_at ASC, t.id ASC
      LIMIT ?`,

@@ -2,11 +2,12 @@
 
 - Date/time: 2026-07-30 18:00–18:11 (UTC+8)
 - Reviewer: Automated E2E (dev persona switching)
-- Branch/commit: main (post eb4c6db7)
+- Branch/commit: `eb4c6db7` baseline; exact post-run SHA was not captured
 - Workspace slug/id: demo-workspace-7343c5763a
 - Environment: dev
 - Browser: Chrome (headless automation)
-- Evidence layer: API business walkthrough
+- Evidence layer: automated browser E2E
+- Binding release evidence: NO — historical discovery run with incomplete commit provenance
 - Roles used: Sales Rep (Sarah Chen), Sales Manager (Michael Torres), Owner
 - Quote 1 id (approved): rec_31b664fb-05ce-4ca3-8c39-0d3c8ee4e5ea
 - Quote 2 id (returned): N/A (not tested)
@@ -18,19 +19,19 @@
 | Stage | Result | Evidence | Finding |
 | --- | --- | --- | --- |
 | 0. Role identities | PASS | Persona switching confirmed via /api/dev/persona; Sarah Chen and Michael Torres avatars visible | — |
-| 1. Rep creates Quote | PASS (with findings) | Quote rec_31b664fb created, status=draft, subtotal=250, discount=10, total=260 | F1, F2, F5, F6 |
-| 2. Rep edits draft | SKIPPED | No line items section available to edit | F1 |
+| 1. Rep creates Quote | FAIL | Quote rec_31b664fb created, but P1 creation/amount defects remained | F1, F2, F5, F6 |
+| 2. Rep edits draft | BLOCKED | No line items section available to edit | F1 |
 | 3. Rep submits | PASS | status changed draft→in_review, aggregate_version=2, quote.submit_for_approval cmd succeeded | — |
 | 4. Rep cannot approve | PASS | No Approve button visible for Sales Rep role | — |
 | 5. Manager approves | PASS | status changed in_review→approved, aggregate_version=3, actor=Sales Manager | F8 |
-| 6. Manager returns | NOT TESTED | — | — |
-| 7. Rep resubmits | NOT TESTED | — | — |
-| 8. Owner sends/accepts | PASS (with findings) | status: approved→sent→accepted, aggregate_version=5, accepted_at set | F3 |
-| 9. Convert to Work Order | PASS (with findings) | WO created (wo_a24657c3), work_order_count=1, source linked | F4, F7 |
-| 10. Withdrawal | NOT TESTED | — | — |
-| Cross-surface consistency | PASS (with findings) | DB spot-checks confirm state transitions and command audit chain | F5, F6 |
+| 6. Manager returns | BLOCKED | Required stage was not executed | — |
+| 7. Rep resubmits | BLOCKED | Required stage was not executed | — |
+| 8. Owner sends/accepts | FAIL | Lifecycle changed, but the next action required a manual refresh | F3 |
+| 9. Convert to Work Order | FAIL | Work Order was created, but Quote lifecycle and inherited context were incorrect | F4, F7 |
+| 10. Withdrawal | BLOCKED | Required stage was not executed | — |
+| Cross-surface consistency | FAIL | DB checks found persistence and presentation disagreement | F5, F6 |
 
-Final decision: FAIL — Core lifecycle verified but suite contract not met: 1 required stage SKIPPED (Stage 2), 3 required stages NOT TESTED (Stages 6, 7, 10), and 4 unresolved P1 findings (F1–F4). Per E2E README §4, PASS requires every required stage to pass and zero P0/P1 findings. This record is retained as discovery evidence, not release-acceptance evidence.
+Final decision: FAIL — Core lifecycle was partially exercised, but four required stages were blocked and four P1 findings (F1–F4) remained. Per E2E README §4, PASS requires every required stage to pass and zero P0/P1 findings. This record is retained as non-binding discovery evidence, not release-acceptance evidence.
 
 ## Findings
 
