@@ -93,7 +93,13 @@ async function assertSurface(
 
   const response = await page.goto(path, { waitUntil: "domcontentloaded" });
   expect(response?.ok(), `${path} returns a successful document`).toBeTruthy();
-  await expect(page.locator("body")).not.toHaveText("");
+  const body = page.locator("body");
+  await expect(body).not.toHaveText("");
+  await expect.poll(
+    async () => (await body.innerText()).trim().length,
+    { message: `${path} renders meaningful content beyond its loading shell` },
+  ).toBeGreaterThan(50);
+  await expect(page.getByText("Loading...", { exact: true })).toHaveCount(0);
   await expect(page.locator("[data-nextjs-dialog], .vite-error-overlay, #webpack-dev-server-client-overlay"))
     .toHaveCount(0);
   if (expectedText) await expect(page.getByText(expectedText, { exact: false }).first()).toBeVisible();
