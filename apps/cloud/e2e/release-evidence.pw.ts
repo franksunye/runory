@@ -83,6 +83,7 @@ async function assertSurface(
   path: string,
   expectedText: string | null,
   testInfo: TestInfo,
+  ready?: (page: Page) => Promise<void>,
 ) {
   const consoleErrors: string[] = [];
   const pageErrors: string[] = [];
@@ -99,6 +100,7 @@ async function assertSurface(
     async () => (await body.innerText()).trim().length,
     { message: `${path} renders meaningful content beyond its loading shell` },
   ).toBeGreaterThan(50);
+  if (ready) await ready(page);
   await expect(page.locator("[data-nextjs-dialog], .vite-error-overlay, #webpack-dev-server-client-overlay"))
     .toHaveCount(0);
   if (expectedText) await expect(page.getByText(expectedText, { exact: false }).first()).toBeVisible();
@@ -107,10 +109,12 @@ async function assertSurface(
     `${path} exposes an interactive surface`,
   ).toBeVisible();
 
-  const horizontalOverflow = await page.evaluate(
-    () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
-  );
-  expect(horizontalOverflow, `${path} must not overflow the viewport horizontally`).toBeLessThanOrEqual(2);
+  await expect.poll(
+    () => page.evaluate(
+      () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    ),
+    { message: `${path} must settle without horizontal viewport overflow` },
+  ).toBeLessThanOrEqual(2);
   expect(consoleErrors, `${path} console errors`).toEqual([]);
   expect(pageErrors, `${path} page errors`).toEqual([]);
   const surfaceName = path.replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "");
@@ -122,7 +126,18 @@ async function assertSurface(
 
 test("owner dashboard renders without browser errors", async ({ page }, testInfo) => {
   await switchPersona(page, "dev-local-owner");
-  await assertSurface(page, `/w/${evidence.records.workspaceSlug}/dashboard`, null, testInfo);
+  await assertSurface(
+    page,
+    `/w/${evidence.records.workspaceSlug}/dashboard`,
+    null,
+    testInfo,
+    async (dashboardPage) => {
+      await expect(
+        dashboardPage.locator("main .animate-pulse"),
+        "Dashboard evidence must contain loaded widgets rather than skeletons",
+      ).toHaveCount(0);
+    },
+  );
 });
 
 test("sales representative sees the fresh Quote projection", async ({ page }, testInfo) => {
