@@ -10,6 +10,7 @@ import {
   now,
   isManagedField,
   getManagedFieldCommand,
+  recalculateQuote,
   ERROR_CODES,
   type VisibilityScope,
   type GovernedPaymentObjectKey,
@@ -130,6 +131,16 @@ export async function PUT(
     if (!record) {
       return notFound(`Record ${recordId} not found`, ctx.requestId);
     }
+
+    // Quote line totals are governed and must stay in sync with line items.
+    // After updating a quote_line, recalculate the parent quote's totals.
+    if (objectKey === "quote_line") {
+      const quoteId = (record.quote_id ?? before?.quote_id) as string | undefined;
+      if (quoteId) {
+        await recalculateQuote(workspaceId, quoteId);
+      }
+    }
+
     writeAuditEvent({
       workspaceId,
       actorType: ctx.principal?.authMethod === "api_key" ? "api_key" : "user",
@@ -179,6 +190,16 @@ export async function DELETE(
     if (!deleted) {
       return notFound(`Record ${recordId} not found`, ctx.requestId);
     }
+
+    // Quote line totals are governed and must stay in sync with line items.
+    // After deleting a quote_line, recalculate the parent quote's totals.
+    if (objectKey === "quote_line") {
+      const quoteId = before?.quote_id as string | undefined;
+      if (quoteId) {
+        await recalculateQuote(workspaceId, quoteId);
+      }
+    }
+
     writeAuditEvent({
       workspaceId,
       actorType: ctx.principal?.authMethod === "api_key" ? "api_key" : "user",

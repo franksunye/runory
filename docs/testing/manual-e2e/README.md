@@ -85,22 +85,30 @@ A test case **passes** only when:
 ## 5. Run record convention
 
 Each test case file includes a run record template at the end. Copy it for
-every execution and store the result in `docs/releases/manual-e2e-runs/`.
+every execution and store the result in `docs/testing/manual-e2e/run-records/`.
+
+The filename must follow the pattern `<NN>-<test-case-slug>-<YYYYMMDD>.md`.
+
+Each run record must include the following evidence metadata at the top:
 
 ```markdown
-### <Test Case Name> — <Run ID>
-
 - Date/time:
 - Reviewer:
 - Branch/commit:
 - Workspace slug/id:
+- Environment: (dev / staging / prod)
 - Browser:
 - Roles used:
 - Key record IDs:
+- Evidence layer: (see §8 Evidence hierarchy)
+```
+
+```markdown
+### <Test Case Name> — <Run ID>
 
 | Stage | Result | Evidence | Finding |
 | --- | --- | --- | --- |
-| ... | PASS / FAIL | | |
+| ... | PASS / FAIL / BLOCKED / N/A | | |
 
 Final decision: PASS / FAIL
 
@@ -116,6 +124,18 @@ Run integrity:
 - No identity switching beyond documented role changes: YES / NO
 - No database reset during run: YES / NO
 ```
+
+Allowed stage results:
+
+```text
+PASS     all required assertions and evidence are present
+FAIL     behavior or invariant is wrong
+BLOCKED  external prerequisite unavailable; never release-passing
+N/A      explicitly outside this Scenario's binding scope
+```
+
+`SKIPPED` is not a passing result for a required stage. Conditional PASS is
+not an allowed final release decision.
 
 ## 6. Test data convention
 
@@ -135,8 +155,33 @@ reasons so results are traceable across surfaces.
 
 ## 7. Related documents
 
-- [FSM Owner Single-Role E2E Acceptance Runbook](../product/fsm-owner-single-role-e2e-acceptance-runbook.md) — predecessor of test case 01
-- [v0.5.1 Local Commercial Acceptance Checklist](../product/v0.5.1-local-commercial-acceptance-checklist.md) — automated gate context
-- [Stripe Local Development Guide](../operations/stripe-local-development.md) — payment environment setup
-- [v0.9 Repeatable Delivery Execution Plan](../product/v0.9-repeatable-delivery-execution-plan.md) — delivery infrastructure scope
-- [Product Roadmap](../product/product-roadmap.md) — version scope and primary questions
+- [FSM Owner Single-Role E2E Acceptance Runbook](../../product/fsm-owner-single-role-e2e-acceptance-runbook.md) — predecessor of test case 01
+- [v0.5.1 Local Commercial Acceptance Checklist](../../product/v0.5.1-local-commercial-acceptance-checklist.md) — automated gate context
+- [Stripe Local Development Guide](../../operations/stripe-local-development.md) — payment environment setup
+- [v0.9 Repeatable Delivery Execution Plan](../../product/v0.9-repeatable-delivery-execution-plan.md) — delivery infrastructure scope
+- [Product Roadmap](../../product/product-roadmap.md) — version scope and primary questions
+
+## 8. Evidence hierarchy
+
+No lower layer may be reported as satisfying a higher layer. Each run record
+must declare its evidence layer.
+
+```text
+contract/integration test       unit and integration tests (e.g., v05-journey.test.ts)
+API business walkthrough         automated multi-role API journey (run-business-walkthrough.mjs)
+automated browser E2E            real UI actions through a browser automation tool
+manual device/provider acceptance  manual testing on real devices with real providers
+real-customer release evidence   production customer cohort data and metrics
+```
+
+Layer relationships:
+
+- Contract/integration tests prove code correctness but not UI or interaction.
+- API walkthrough proves API-level business flows but not UI discoverability,
+  visual feedback, or Service Worker behavior.
+- Automated browser E2E proves UI interaction but may not cover real provider
+  delivery (Stripe, Web Push) or real device behavior.
+- Manual device/provider acceptance proves real-world delivery but is not
+- repeatable on every PR.
+- Real-customer release evidence proves production repeatability and is the
+  binding gate for v0.9 completion.

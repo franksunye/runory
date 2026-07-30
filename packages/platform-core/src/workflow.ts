@@ -318,7 +318,8 @@ export async function startWorkflow(
   workflowKey: string,
   objectType: string,
   recordId: string,
-  actor: CommandActor
+  actor: CommandActor,
+  options?: { skipFirstSystemCommand?: boolean }
 ): Promise<{ instanceId: string }> {
   // Get the active version
   const def = await queryOne<{ id: string; definition_json: string }>(
@@ -348,9 +349,21 @@ export async function startWorkflow(
     throw new InvalidInputError(`Workflow definition has no start step`);
   }
 
+  // Determine the initial actionable step.
+  // When skipFirstSystemCommand is true (e.g., demo data where the triggering
+  // command has already been applied), skip the system_command step that
+  // follows start and land directly at the next actionable step — mirroring
+  // the workflow.start_process effect provider's semantics.
+  let nextStepId = startStep.next;
+  if (nextStepId && options?.skipFirstSystemCommand) {
+    const firstStep = wfDef.steps.find(s => s.id === nextStepId);
+    if (firstStep?.kind === "system_command" && firstStep.next) {
+      nextStepId = firstStep.next;
+    }
+  }
+
   const instanceId = genId("wfi");
   const ts = now();
-  const nextStepId = startStep.next;
 
   const statements: BatchStatement[] = [
     // Create instance (next_event_sequence defaults to 1)
@@ -578,6 +591,15 @@ export async function approvalDecideHandler(
             WHERE id = ? AND version = ?`,
       args: [outcome === "returned" ? "returned" : "completed", ts, ts, workItemId, expectedVersion],
       expectedRowsAffected: 1,
+    },
+    // Cancel the SLA timer for this work item — it is no longer actionable.
+    // Without this, the cron coordinator would continue firing SLA warnings
+    // and overdue events for a completed/returned work item.
+    {
+      sql: `UPDATE ${TABLES.workflowTimers}
+            SET status = 'cancelled', updated_at = ?
+            WHERE work_item_id = ? AND status = 'active'`,
+      args: [ts, workItemId],
     },
     // Write workflow event — sequence allocated from counter
     ...makeWorkflowEventStatements(workspaceId, workItem.instance_id, {
@@ -1093,6 +1115,7 @@ export async function returnWorkItemHandler(
 
   const newWorkItemId = genId("wi");
   const assigneeRule = stepDef.assigneeRule;
+  const stepDueAt = resolveStepDueAt(stepDef, ts);
 
   const statements: BatchStatement[] = [
     // Mark current work item as returned
@@ -1102,6 +1125,14 @@ export async function returnWorkItemHandler(
             WHERE id = ? AND version = ?`,
       args: [ts, ts, workItemId, expectedVersion],
       expectedRowsAffected: 1,
+    },
+    // Cancel the SLA timer for the returned work item — it is no longer
+    // actionable. A new timer will be created for the replacement work item.
+    {
+      sql: `UPDATE ${TABLES.workflowTimers}
+            SET status = 'cancelled', updated_at = ?
+            WHERE work_item_id = ? AND status = 'active'`,
+      args: [ts, workItemId],
     },
     // Write workflow event for the return — sequence allocated from counter
     ...makeWorkflowEventStatements(workspaceId, workItem.instance_id, {
@@ -1117,17 +1148,30 @@ export async function returnWorkItemHandler(
       sql: `INSERT INTO ${TABLES.workItems}
             (id, workspace_id, instance_id, step_id, kind, status,
              subject_type, subject_id, assignee_type, assignee_id,
-             candidate_rule_json, form_binding_id, version, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, 'ready', ?, ?, ?, ?, ?, ?, 1, ?, ?)`,
+             candidate_rule_json, form_binding_id, due_at, version, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, 'ready', ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`,
       args: [newWorkItemId, workspaceId, workItem.instance_id, workItem.step_id, workItem.kind,
              workItem.subject_type, workItem.subject_id,
              assigneeRule?.permissionGroup ? "permission_group" : (assigneeRule?.userId ? "user" : null),
              assigneeRule?.permissionGroup ?? assigneeRule?.userId ?? null,
              assigneeRule ? JSON.stringify(assigneeRule) : workItem.candidate_rule_json,
              workItem.form_binding_id,
+             stepDueAt,
              ts, ts],
     },
   ];
+
+  // Create a new SLA timer for the replacement work item if the step has a due_at
+  if (stepDueAt) {
+    statements.push({
+      sql: `INSERT INTO ${TABLES.workflowTimers}
+            (id, workspace_id, instance_id, work_item_id, timer_type,
+             due_at, status, payload_json, created_at, updated_at)
+            VALUES (?, ?, ?, ?, 'sla', ?, 'active', ?, ?, ?)`,
+      args: [genId("wft"), workspaceId, workItem.instance_id, newWorkItemId, stepDueAt,
+             JSON.stringify({ stepId: workItem.step_id, sla: stepDef.sla ?? null, replacement: true }), ts, ts],
+    });
+  }
 
   const aggregate: Partial<WorkItemRow> = {
     ...workItem,
@@ -1777,6 +1821,13 @@ export async function completeWorkItemHandler(
                 WHERE workspace_id = ? AND id = ? AND version = ?`,
           args: [ts, completedVersion, ts, workspaceId, workItemId, workItem.version],
         },
+        // Cancel any active SLA timer for this work item
+        {
+          sql: `UPDATE ${TABLES.workflowTimers}
+                SET status = 'cancelled', updated_at = ?
+                WHERE work_item_id = ? AND status = 'active'`,
+          args: [ts, workItemId],
+        },
       ],
       events: [{
         aggregateType: "work_item",
@@ -1833,6 +1884,15 @@ export async function completeWorkItemHandler(
             WHERE id = ? AND version = ?`,
       args: [ts, ts, workItemId, expectedVersion],
       expectedRowsAffected: 1,
+    },
+    // Cancel the SLA timer for this work item — it is no longer actionable.
+    // Without this, the cron coordinator would continue firing SLA warnings
+    // and overdue events for a completed work item.
+    {
+      sql: `UPDATE ${TABLES.workflowTimers}
+            SET status = 'cancelled', updated_at = ?
+            WHERE work_item_id = ? AND status = 'active'`,
+      args: [ts, workItemId],
     },
     // Write workflow event — sequence allocated from counter
     ...makeWorkflowEventStatements(workspaceId, workItem.instance_id, {
@@ -2260,8 +2320,12 @@ export async function fireOverdueTimers(
 ): Promise<{ fired: number }> {
   const ts = now();
 
-  // Query overdue active timers, batch-limited, sorted by due_at then id
-  const wsFilter = workspaceId ? `AND workspace_id = ?` : ``;
+  // Query overdue active timers, batch-limited, sorted by due_at then id.
+  // Defense-in-depth: only fire timers whose work item is still actionable
+  // and whose workflow instance is still running. This prevents stale timers
+  // (e.g., from a work item that was completed but whose timer was not
+  // cancelled in the same transaction) from emitting false events.
+  const wsFilter = workspaceId ? `AND t.workspace_id = ?` : ``;
   const args: unknown[] = [ts];
   if (workspaceId) args.push(workspaceId);
   args.push(limit);
@@ -2274,10 +2338,15 @@ export async function fireOverdueTimers(
     timer_type: string;
     due_at: string;
   }>(
-    `SELECT id, workspace_id, instance_id, work_item_id, timer_type, due_at
-     FROM ${TABLES.workflowTimers}
-     WHERE status = 'active' AND due_at <= ? ${wsFilter}
-     ORDER BY due_at ASC, id ASC
+    `SELECT t.id, t.workspace_id, t.instance_id, t.work_item_id, t.timer_type, t.due_at
+     FROM ${TABLES.workflowTimers} t
+     INNER JOIN ${TABLES.workflowInstances} i ON t.instance_id = i.id
+     LEFT JOIN ${TABLES.workItems} w ON t.work_item_id = w.id
+     WHERE t.status = 'active' AND t.due_at <= ?
+     AND i.status = 'running'
+     AND (w.id IS NULL OR w.status IN ('ready', 'active', 'returned'))
+     ${wsFilter}
+     ORDER BY t.due_at ASC, t.id ASC
      LIMIT ?`,
     args,
   );
@@ -2350,8 +2419,10 @@ export async function fireSlaWarnings(
 ): Promise<{ warned: number }> {
   const ts = now();
 
-  // Find active SLA timers, batch-limited, sorted by due_at then id
-  const wsFilter = workspaceId ? `AND workspace_id = ?` : ``;
+  // Find active SLA timers, batch-limited, sorted by due_at then id.
+  // Defense-in-depth: only process timers whose work item is still actionable
+  // and whose workflow instance is still running.
+  const wsFilter = workspaceId ? `AND t.workspace_id = ?` : ``;
   const args: unknown[] = [];
   if (workspaceId) args.push(workspaceId);
   args.push(limit);
@@ -2364,10 +2435,15 @@ export async function fireSlaWarnings(
     due_at: string;
     created_at: string;
   }>(
-    `SELECT id, workspace_id, instance_id, work_item_id, due_at, created_at
-     FROM ${TABLES.workflowTimers}
-     WHERE status = 'active' AND timer_type = 'sla' ${wsFilter}
-     ORDER BY due_at ASC, id ASC
+    `SELECT t.id, t.workspace_id, t.instance_id, t.work_item_id, t.due_at, t.created_at
+     FROM ${TABLES.workflowTimers} t
+     INNER JOIN ${TABLES.workflowInstances} i ON t.instance_id = i.id
+     LEFT JOIN ${TABLES.workItems} w ON t.work_item_id = w.id
+     WHERE t.status = 'active' AND t.timer_type = 'sla'
+     AND i.status = 'running'
+     AND (w.id IS NULL OR w.status IN ('ready', 'active', 'returned'))
+     ${wsFilter}
+     ORDER BY t.due_at ASC, t.id ASC
      LIMIT ?`,
     args,
   );

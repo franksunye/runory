@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { getRecords, createRecord, canCreateRecord, writeAuditEvent, enforceQuota, requireBusinessPermission, listGovernedPaymentRecords, type GovernedPaymentObjectKey, type GetRecordsOptions, type VisibilityScope, ERROR_CODES } from "@runory/platform-core";
+import { getRecords, createRecord, canCreateRecord, writeAuditEvent, enforceQuota, requireBusinessPermission, listGovernedPaymentRecords, recalculateQuote, type GovernedPaymentObjectKey, type GetRecordsOptions, type VisibilityScope, ERROR_CODES } from "@runory/platform-core";
 import { requireWorkspaceContext } from "@/lib/auth";
 import { successResponse, handleError, invalidInput, errorResponse, getOrCreateRequestId } from "@/lib/http";
 import { enrichUserReferences, listUserReferenceFieldKeys } from "@/lib/identity";
@@ -126,6 +126,13 @@ export async function POST(
     }
     if (ctx.organizationId) await enforceQuota(ctx.organizationId, "records");
     const record = await createRecord(workspaceId, objectKey, data);
+
+    // Quote line totals are governed and must stay in sync with line items.
+    // After creating a quote_line, recalculate the parent quote's totals.
+    if (objectKey === "quote_line" && typeof record.quote_id === "string" && record.quote_id) {
+      await recalculateQuote(workspaceId, record.quote_id);
+    }
+
     writeAuditEvent({
       workspaceId,
       actorType: ctx.principal?.authMethod === "api_key" ? "api_key" : "user",

@@ -6,24 +6,13 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 /**
- * POST /api/platform/cron/workflow-timers
+ * Shared cron handler — invoked by both GET (Vercel Cron) and POST (operator).
  *
- * Internal cron entry point for the workflow timer coordinator.
- *
- * Processes overdue SLA timers and SLA warnings using a distributed
- * lease mechanism to ensure only one instance runs at a time.
- *
- * Authentication (one of):
- *   - `x-cron-secret` header matching PLATFORM_CRON_SECRET env var.
- *   - Vercel Cron's `Authorization: Bearer <CRON_SECRET>` header.
- *   - In dev bootstrap mode (PLATFORM_DEV_BOOTSTRAP=true), the secret check
- *     is relaxed for local development convenience.
- *
- * This endpoint is NOT accessible by regular users. It should be invoked
- * by an external scheduler (e.g., Vercel Cron, systemd timer, or k8s
- * CronJob) once per minute.
+ * Vercel Cron sends HTTP GET to the configured path. Operators and local
+ * development may use POST with the same authentication. Both methods
+ * delegate to this single implementation.
  */
-export async function POST(request: NextRequest) {
+async function handleCronRequest(request: NextRequest) {
   try {
     // ── Server-side key authentication ──
     const isDevBootstrap = process.env.PLATFORM_DEV_BOOTSTRAP === "true";
@@ -59,4 +48,24 @@ export async function POST(request: NextRequest) {
   } catch (e) {
     return handleError(e);
   }
+}
+
+/**
+ * GET /api/platform/cron/workflow-timers
+ *
+ * Vercel Cron sends GET requests to the configured path. This handler
+ * ensures the endpoint is invocable by Vercel's managed Cron scheduler.
+ */
+export async function GET(request: NextRequest) {
+  return handleCronRequest(request);
+}
+
+/**
+ * POST /api/platform/cron/workflow-timers
+ *
+ * Operator / local development entry point. Uses the same authentication
+ * and processing logic as GET.
+ */
+export async function POST(request: NextRequest) {
+  return handleCronRequest(request);
 }

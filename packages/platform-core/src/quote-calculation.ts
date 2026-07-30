@@ -55,15 +55,13 @@ export async function prepareQuoteCalculation(
     discountTotal += lineDiscount;
     taxTotal += lineTax;
 
-    // Only update line_total if it's NULL (not yet set).  If the line already
-    // has a line_total (e.g. from demo data or manual entry), respect it and
-    // use it for the grand total instead of the computed value.
-    if (line.line_total === null) {
+    // Always derive and overwrite line_total from authoritative inputs.
+    // A caller-supplied or stale line_total must never be trusted.
+    if (line.line_total !== computedTotal) {
       lineTotals.push({ lineId: line.id, lineTotal: computedTotal });
     }
   }
 
-  // grand_total = subtotal - discount + tax (same formula either way)
   const grandTotal = subtotal - discountTotal + taxTotal;
 
   return { subtotal, discountTotal, taxTotal, grandTotal, lineTotals };

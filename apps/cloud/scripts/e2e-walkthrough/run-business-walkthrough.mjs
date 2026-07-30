@@ -63,8 +63,15 @@ import {
   isoOffset,
 } from "./_helpers.mjs";
 
+// ── Run identity ──
+// One Run ID is generated per walkthrough execution. Every downstream
+// aggregate (quote → work order → visit → form submission) must trace back to
+// a record created by this run, never to seeded/demo data (V09-REV-E2E-01).
+const RUN_ID = `e2e-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
 // ── Shared state across scenarios ──
 const state = {
+  runId: RUN_ID,
   workspaceId: null,
   workspaceSlug: null,
   // Scenario 2: Quote lifecycle
@@ -93,6 +100,23 @@ const state = {
 };
 
 const scenarioResults = [];
+
+// Register a scenario result with an explicit status. Every scenario MUST
+// call this from a `finally` block so its result is recorded even when the
+// scenario returns early or throws. `forcedStatus` is set when a required
+// prerequisite was missing (SKIPPED/BLOCKED); otherwise the status is derived
+// from the failure counter. Per V09-REV-E2E-01, a non-PASS status (including
+// SKIPPED/BLOCKED) must never let the process exit 0.
+function registerScenarioResult(name, forcedStatus = null) {
+  const pass = getPassCount();
+  const fail = getFailCount();
+  let status = forcedStatus;
+  if (!status) {
+    status = fail > 0 ? "FAIL" : "PASS";
+  }
+  scenarioResults.push({ name, status, pass, fail });
+  return status;
+}
 
 // ── Preflight checks ──
 
@@ -131,7 +155,8 @@ async function scenario1() {
   section("SCENARIO 1 — Owner: Workspace Setup & Demo Data Verification");
   personaHeader(PERSONAS.OWNER, PERSONA_LABELS[PERSONAS.OWNER]);
   resetCounters();
-
+  let forcedStatus = null;
+  try {
   const ws = state.workspaceId;
 
   // 1.1 Verify packs installed
@@ -264,8 +289,14 @@ async function scenario1() {
     }
   }
 
-  const f = printSummary("Scenario 1: Owner Workspace Verification");
-  scenarioResults.push({ name: "Owner Workspace Verification", pass: getPassCount(), fail: f });
+  } catch (e) {
+    console.error(`\n  SCENARIO ERROR: ${e?.message ?? e}`);
+    assert(false, `Scenario 1 terminated by exception: ${e?.message ?? e}`);
+    forcedStatus = forcedStatus ?? "BLOCKED";
+  } finally {
+    printSummary("Scenario 1: Owner Workspace Verification");
+    registerScenarioResult("Owner Workspace Verification", forcedStatus);
+  }
 }
 
 // ── Scenario 2: Quote Lifecycle (Sales Rep → Sales Manager → Sales Rep) ──
@@ -273,7 +304,8 @@ async function scenario1() {
 async function scenario2() {
   section("SCENARIO 2 — Quote Lifecycle: Sales Rep → Sales Manager → Sales Rep");
   resetCounters();
-
+  let forcedStatus = null;
+  try {
   const ws = state.workspaceId;
 
   // ── Phase 1: Sales Rep creates a new quote ──
@@ -283,7 +315,7 @@ async function scenario2() {
   step("2.1", "Sales Rep: Create a new draft quote via command");
   {
     const { ok, json } = await executeCommand(ws, "quote.create_draft", {
-      title: "E2E Walkthrough Quote — HVAC Maintenance Plan",
+      title: `E2E Walkthrough Quote [${RUN_ID}] — HVAC Maintenance Plan`,
       companyId: state.companyId,
       contactId: state.contactId,
       currency: "CNY",
@@ -437,7 +469,12 @@ async function scenario2() {
   step("2.9", "Sales Manager: Approve quote via approval.decide command");
   {
     if (!state.workItemId) {
+      // Required prerequisite (approval Work Item) is absent. Record a
+      // failure, mark the scenario BLOCKED, and exit the scenario body.
+      // The `finally` block below still registers the result so the grand
+      // summary can never silently drop this scenario.
       assert(false, "No approval work item found — my-work endpoint should return the approval work item");
+      forcedStatus = "BLOCKED";
       return;
     }
 
@@ -540,14 +577,17 @@ async function scenario2() {
     if (woId) {
       state.workOrderId = woId;
     } else {
-      // Fallback: list work orders and find one linked to this quote
+      // The command response did not surface the work order id. Resolve it
+      // by tracing to the quote created by THIS run (source_id === quoteId).
+      // This is NOT a seeded-record fallback: any work order used here must
+      // be the one created from the current run's quote (V09-REV-E2E-01).
       const { records } = await listRecords(ws, "work_order", { limit: 50 });
       const linked = records.find(
         (r) => r.source_type === "quote" && r.source_id === state.quoteId
       );
       if (linked) state.workOrderId = linked.id;
     }
-    assert(state.workOrderId != null, `Work order created from quote (ID: ${state.workOrderId})`);
+    assert(state.workOrderId != null, `Work order created from quote (Run ${RUN_ID}, ID: ${state.workOrderId})`);
     console.log(`     Work Order ID: ${state.workOrderId}`);
   }
 
@@ -581,8 +621,14 @@ async function scenario2() {
     );
   }
 
-  const f = printSummary("Scenario 2: Quote Lifecycle");
-  scenarioResults.push({ name: "Quote Lifecycle", pass: getPassCount(), fail: f });
+  } catch (e) {
+    console.error(`\n  SCENARIO ERROR: ${e?.message ?? e}`);
+    assert(false, `Scenario 2 terminated by exception: ${e?.message ?? e}`);
+    forcedStatus = forcedStatus ?? "BLOCKED";
+  } finally {
+    printSummary("Scenario 2: Quote Lifecycle");
+    registerScenarioResult("Quote Lifecycle", forcedStatus);
+  }
 }
 
 // ── Scenario 3: Dispatch Flow (Dispatcher → Technician) ──
@@ -590,25 +636,20 @@ async function scenario2() {
 async function scenario3() {
   section("SCENARIO 3 — Dispatch Flow: Dispatcher triages, creates visit, assigns, schedules");
   resetCounters();
-
+  let forcedStatus = null;
+  try {
   const ws = state.workspaceId;
 
-  // Fallback: if no work order from scenario 2, find an existing 'new' work order
+  // No seeded-record fallback. The dispatch flow may only operate on the
+  // Work Order created from the current run's Quote (Scenario 2). If that
+  // prerequisite is absent, the scenario is BLOCKED and must record a failure
+  // — it must never silently pass with { pass: 0, fail: 0 } (V09-REV-E2E-01).
   if (!state.workOrderId) {
-    personaHeader(PERSONAS.OWNER, "Fallback: Finding existing work order");
-    await switchPersona(PERSONAS.OWNER);
-    const { records } = await listRecords(ws, "work_order", { limit: 50 });
-    const newWo = records.find((r) => r.status === "new" || r.status === "triaged" || r.status === "planned");
-    if (newWo) {
-      state.workOrderId = newWo.id;
-      state.workOrderVersion = newWo.aggregate_version ?? 1;
-      console.log(`     Using existing work order: ${newWo.title} (${newWo.id})`);
-    }
-  }
-
-  if (!state.workOrderId) {
-    console.log("\n  SKIP: No work order available for dispatch flow");
-    scenarioResults.push({ name: "Dispatch Flow", pass: 0, fail: 0 });
+    assert(
+      false,
+      `No Work Order from Scenario 2 (Run ${RUN_ID}) — Quote-to-Work-Order conversion did not produce a traceable Work Order; dispatch flow cannot proceed`
+    );
+    forcedStatus = "BLOCKED";
     return;
   }
 
@@ -866,8 +907,14 @@ async function scenario3() {
     assert(matching.length >= 1, `Visit appears in technician's my-work (got ${matching.length} matches)`);
   }
 
-  const f = printSummary("Scenario 3: Dispatch Flow");
-  scenarioResults.push({ name: "Dispatch Flow", pass: getPassCount(), fail: f });
+  } catch (e) {
+    console.error(`\n  SCENARIO ERROR: ${e?.message ?? e}`);
+    assert(false, `Scenario 3 terminated by exception: ${e?.message ?? e}`);
+    forcedStatus = forcedStatus ?? "BLOCKED";
+  } finally {
+    printSummary("Scenario 3: Dispatch Flow");
+    registerScenarioResult("Dispatch Flow", forcedStatus);
+  }
 }
 
 // ── Scenario 4: Field Execution (Technician → Supervisor) ──
@@ -875,12 +922,20 @@ async function scenario3() {
 async function scenario4() {
   section("SCENARIO 4 — Field Execution: Technician executes visit, Supervisor completes");
   resetCounters();
-
+  let forcedStatus = null;
+  try {
   const ws = state.workspaceId;
 
+  // No seeded-record fallback. Field execution may only operate on the
+  // Visit created from the current run's Work Order (Scenario 3). If that
+  // prerequisite is absent, the scenario is BLOCKED and must record a failure
+  // — it must never silently pass with { pass: 0, fail: 0 } (V09-REV-E2E-01).
   if (!state.visitId) {
-    console.log("\n  SKIP: No visit available for field execution");
-    scenarioResults.push({ name: "Field Execution", pass: 0, fail: 0 });
+    assert(
+      false,
+      `No Visit from Scenario 3 (Run ${RUN_ID}) — dispatch flow did not produce a traceable Visit; field execution cannot proceed`
+    );
+    forcedStatus = "BLOCKED";
     return;
   }
 
@@ -1061,8 +1116,14 @@ async function scenario4() {
     }
   }
 
-  const f = printSummary("Scenario 4: Field Execution");
-  scenarioResults.push({ name: "Field Execution", pass: getPassCount(), fail: f });
+  } catch (e) {
+    console.error(`\n  SCENARIO ERROR: ${e?.message ?? e}`);
+    assert(false, `Scenario 4 terminated by exception: ${e?.message ?? e}`);
+    forcedStatus = forcedStatus ?? "BLOCKED";
+  } finally {
+    printSummary("Scenario 4: Field Execution");
+    registerScenarioResult("Field Execution", forcedStatus);
+  }
 }
 
 // ── Scenario 5: Cross-Surface Consistency & Audit ──
@@ -1070,7 +1131,8 @@ async function scenario4() {
 async function scenario5() {
   section("SCENARIO 5 — Cross-Surface Consistency: Timeline, Audit, Planning, Forms");
   resetCounters();
-
+  let forcedStatus = null;
+  try {
   const ws = state.workspaceId;
 
   // Switch to owner for broad visibility
@@ -1241,8 +1303,14 @@ async function scenario5() {
     }
   }
 
-  const f = printSummary("Scenario 5: Cross-Surface Consistency");
-  scenarioResults.push({ name: "Cross-Surface Consistency", pass: getPassCount(), fail: f });
+  } catch (e) {
+    console.error(`\n  SCENARIO ERROR: ${e?.message ?? e}`);
+    assert(false, `Scenario 5 terminated by exception: ${e?.message ?? e}`);
+    forcedStatus = forcedStatus ?? "BLOCKED";
+  } finally {
+    printSummary("Scenario 5: Cross-Surface Consistency");
+    registerScenarioResult("Cross-Surface Consistency", forcedStatus);
+  }
 }
 
 // ── Main ──
@@ -1255,6 +1323,7 @@ async function main() {
   console.log("=".repeat(70));
   console.log(`  Target: ${BASE_URL}`);
   console.log(`  Date:   ${new Date().toISOString()}`);
+  console.log(`  Run ID: ${RUN_ID}`);
   console.log(`  Excludes: Retell/phone integrations, payment/billing flows`);
 
   try {
@@ -1271,17 +1340,34 @@ async function main() {
   await scenario4();
   await scenario5();
 
-  // Grand summary
+  // Grand summary — counts ALL scenarios (each registers its result in a
+  // `finally` block, so a scenario that returned early or threw is still
+  // included). V09-REV-E2E-01.
   const totalFail = printGrandSummary(scenarioResults);
 
+  // Any required scenario that did not PASS (FAIL/SKIPPED/BLOCKED) must force
+  // a non-zero process exit. A missing scenario result (defensive: should not
+  // happen with `finally` registration) is also a hard failure.
+  const EXPECTED_SCENARIO_COUNT = 5;
+  const hasNonPassScenario = scenarioResults.some(
+    (s) => s.status && s.status !== "PASS"
+  );
+  const allScenariosRegistered = scenarioResults.length >= EXPECTED_SCENARIO_COUNT;
+  if (!allScenariosRegistered) {
+    console.error(
+      `\n  FATAL: Only ${scenarioResults.length}/${EXPECTED_SCENARIO_COUNT} scenarios registered a result.`
+    );
+  }
+
   console.log(`\n${"=".repeat(70)}`);
-  console.log(`  Workspace: ${BASE_URL}/w/${state.workspaceSlug}`);
-  console.log(`  Quote ID:  ${state.quoteId ?? "N/A"}`);
+  console.log(`  Run ID:        ${RUN_ID}`);
+  console.log(`  Workspace:     ${BASE_URL}/w/${state.workspaceSlug}`);
+  console.log(`  Quote ID:      ${state.quoteId ?? "N/A"}`);
   console.log(`  Work Order ID: ${state.workOrderId ?? "N/A"}`);
-  console.log(`  Visit ID:  ${state.visitId ?? "N/A"}`);
+  console.log(`  Visit ID:      ${state.visitId ?? "N/A"}`);
   console.log(`${"=".repeat(70)}\n`);
 
-  process.exit(totalFail === 0 ? 0 : 1);
+  process.exit(totalFail === 0 && !hasNonPassScenario && allScenariosRegistered ? 0 : 1);
 }
 
 main().catch((e) => {

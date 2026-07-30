@@ -274,9 +274,16 @@ describe("returnWorkItemHandler", () => {
     );
     expect(updateStatements.length).toBe(1);
 
-    // Total statements: UPDATE existing + INSERT event + UPDATE next_event_sequence
+    // Total statements: UPDATE existing work item + UPDATE cancel SLA timer
+    //                 + INSERT event + UPDATE next_event_sequence
     //                 + INSERT new work item
-    expect(result.statements).toHaveLength(4);
+    expect(result.statements).toHaveLength(5);
+
+    // Verify the SLA timer cancellation statement is present
+    const timerStatements = result.statements.filter(
+      (s) => s.sql.includes("UPDATE") && s.sql.includes("workflow_timers") && s.sql.includes("cancelled"),
+    );
+    expect(timerStatements.length).toBe(1);
 
     // workItemIds should contain the new work item ID
     expect(result.workItemIds).toHaveLength(1);

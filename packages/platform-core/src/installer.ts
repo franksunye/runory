@@ -1078,15 +1078,39 @@ async function seedPackDemoData(workspaceId: string, packId: string): Promise<nu
           continue; // Already started (including errored instances — don't duplicate)
         }
 
-        // Start the workflow
+        // Start the workflow.
+        // Demo data already has records in the state the triggering command
+        // would produce (e.g., quotes already in_review). Using
+        // skipFirstSystemCommand mirrors the workflow.start_process provider
+        // semantics: skip the triggering command's system_command step and
+        // land directly at the actionable approval/human_task step.
+        // Without this, the instance starts at the system_command step,
+        // advanceSystemCommandStep tries to execute the triggering command
+        // (e.g., quote.submit_for_approval) for which no executor is
+        // registered, and the instance is marked error.
         const actor: CommandActor = { type: "system", id: wi.actorId ?? "demo-seed" };
         const result = await startWorkflow(
           workspaceId,
           wi.workflowKey,
           alias.objectKey as string,
           recordId,
-          actor
+          actor,
+          { skipFirstSystemCommand: true }
         );
+
+        // Verify the instance is not in error state after start.
+        // Demo data must not produce errored Workflow instances.
+        const instanceState = await queryOne<{ status: string }>(
+          `SELECT status FROM ${TABLES.workflowInstances}
+           WHERE workspace_id = ? AND id = ?`,
+          [workspaceId, result.instanceId]
+        );
+        if (instanceState?.status === "error") {
+          throw new Error(
+            `Workflow instance ${result.instanceId} for ${wi.recordAlias} started in error state`
+          );
+        }
+
         console.log(`[installer] Started workflow ${wi.workflowKey} for ${wi.recordAlias} → ${result.instanceId}`);
         created++;
       } catch (e) {

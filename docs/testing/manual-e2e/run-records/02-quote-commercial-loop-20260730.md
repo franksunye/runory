@@ -4,7 +4,9 @@
 - Reviewer: Automated E2E (dev persona switching)
 - Branch/commit: main (post eb4c6db7)
 - Workspace slug/id: demo-workspace-7343c5763a
+- Environment: dev
 - Browser: Chrome (headless automation)
+- Evidence layer: API business walkthrough
 - Roles used: Sales Rep (Sarah Chen), Sales Manager (Michael Torres), Owner
 - Quote 1 id (approved): rec_31b664fb-05ce-4ca3-8c39-0d3c8ee4e5ea
 - Quote 2 id (returned): N/A (not tested)
@@ -28,7 +30,7 @@
 | 10. Withdrawal | NOT TESTED | — | — |
 | Cross-surface consistency | PASS (with findings) | DB spot-checks confirm state transitions and command audit chain | F5, F6 |
 
-Final decision: PASS (conditional) — Core lifecycle verified; 8 findings require remediation.
+Final decision: FAIL — Core lifecycle verified but suite contract not met: 1 required stage SKIPPED (Stage 2), 3 required stages NOT TESTED (Stages 6, 7, 10), and 4 unresolved P1 findings (F1–F4). Per E2E README §4, PASS requires every required stage to pass and zero P0/P1 findings. This record is retained as discovery evidence, not release-acceptance evidence.
 
 ## Findings
 

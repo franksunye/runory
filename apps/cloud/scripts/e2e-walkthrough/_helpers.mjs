@@ -85,13 +85,34 @@ export function printGrandSummary(scenarios) {
   console.log(`${"=".repeat(70)}`);
   let totalPass = 0;
   let totalFail = 0;
+  let skippedBlocked = 0;
   for (const s of scenarios) {
-    const mark = s.fail === 0 ? "\x1b[32m PASS \x1b[0m" : "\x1b[31m FAIL \x1b[0m";
-    console.log(`  ${mark}  ${s.name} (${s.pass} passed, ${s.fail} failed)`);
+    // Derive status when a caller only supplied pass/fail counts (backward
+    // compatible). Explicit status (PASS/FAIL/SKIPPED/BLOCKED) takes priority.
+    const status = s.status ?? (s.fail > 0 ? "FAIL" : "PASS");
+    const isPass = status === "PASS";
+    if (status === "SKIPPED" || status === "BLOCKED") skippedBlocked += 1;
+    let mark;
+    if (isPass) {
+      mark = "\x1b[32m PASS \x1b[0m";
+    } else if (status === "SKIPPED" || status === "BLOCKED") {
+      mark = `\x1b[33m ${status} \x1b[0m`;
+    } else {
+      mark = "\x1b[31m FAIL \x1b[0m";
+    }
+    console.log(`  ${mark}  ${s.name} (${s.pass} passed, ${s.fail} failed, ${status})`);
     totalPass += s.pass;
     totalFail += s.fail;
+    // A required scenario that did not PASS (SKIPPED/BLOCKED/FAIL) must never
+    // allow the process to exit 0. If it recorded zero failures (e.g. a
+    // missing prerequisite that was not asserted), force at least one so the
+    // grand total can never be zero for a non-PASS scenario.
+    if (!isPass && s.fail === 0) {
+      totalFail += 1;
+    }
   }
-  console.log(`\n  Total: ${totalPass} passed, ${totalFail} failed`);
+  const note = skippedBlocked > 0 ? ` (${skippedBlocked} skipped/blocked)` : "";
+  console.log(`\n  Total: ${totalPass} passed, ${totalFail} failed${note}`);
   console.log(`  Overall: ${totalFail === 0 ? "\x1b[32mALL PASSED\x1b[0m" : "\x1b[31mHAS FAILURES\x1b[0m"}`);
   return totalFail;
 }
