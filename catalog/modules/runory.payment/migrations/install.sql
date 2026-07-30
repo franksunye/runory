@@ -68,8 +68,21 @@ CREATE TABLE IF NOT EXISTS {{BUSINESS_TABLE_PREFIX}}payment_provider_account (
   provider_account_ref TEXT NOT NULL,
   status TEXT NOT NULL DEFAULT 'configured',
   capabilities_json TEXT,
+  -- Stripe Connect lifecycle fields (migration 0048)
+  account_configuration_version TEXT,
+  onboarding_status TEXT NOT NULL DEFAULT 'not_started',
+  details_submitted INTEGER NOT NULL DEFAULT 0,
+  charges_enabled INTEGER NOT NULL DEFAULT 0,
+  payouts_enabled INTEGER NOT NULL DEFAULT 0,
+  requirements_status TEXT NOT NULL DEFAULT 'clear',
+  requirements_json TEXT,
+  last_synced_at TEXT,
+  disconnected_at TEXT,
+  aggregate_version INTEGER NOT NULL DEFAULT 1,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL,
+  deleted_at TEXT,
+  deleted_by TEXT,
   UNIQUE(workspace_id, provider, mode, provider_account_ref)
 );
 
