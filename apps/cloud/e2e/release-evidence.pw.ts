@@ -58,7 +58,9 @@ async function semanticRecordText(page: Page, objectKey: string, recordId: strin
   );
   expect(response.ok(), `Read fresh ${objectKey} ${recordId}`).toBeTruthy();
   const record = (await response.json()).data as Record<string, unknown>;
-  for (const key of ["quote_number", "work_order_number", "visit_number", "submission_number", "title", "name"]) {
+  // Prefer the business-facing title/name because dynamic detail views may
+  // intentionally omit internal or secondary reference-number fields.
+  for (const key of ["title", "name", "quote_number", "work_order_number", "visit_number", "submission_number"]) {
     if (typeof record?.[key] === "string" && record[key]) return String(record[key]);
   }
   return null;
