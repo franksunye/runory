@@ -482,6 +482,21 @@ interface EventsSectionProps {
   labelForStep: (stepId: string | null | undefined) => string;
 }
 
+/**
+ * An event trail names the person or stays silent: an unresolved actor id is
+ * not an answer a reader can use.
+ */
+function actorLabel(
+  event: WorkflowEvent,
+  t: (key: MessageKey) => string
+): string {
+  if (event.actorDisplay) return `${event.actorDisplay} · `;
+  if (!event.actorId || event.actorType === "system" || event.actorType === "api_key") {
+    return `${t("workflow.actorSystem")} · `;
+  }
+  return "";
+}
+
 function EventsSection({ events, labelForStep }: EventsSectionProps) {
   const { t } = useI18n();
   const [expanded, setExpanded] = useState(false);
@@ -527,7 +542,7 @@ function EventsSection({ events, labelForStep }: EventsSectionProps) {
                     <span className="text-slate-400"> · {labelForStep(event.stepId)}</span>
                   )}
                   <span className="block text-slate-400">
-                    {event.actorId ?? "system"} · {formatWorkDate(event.occurredAt)}
+                    {actorLabel(event, t)}{formatWorkDate(event.occurredAt)}
                   </span>
                 </div>
               </li>

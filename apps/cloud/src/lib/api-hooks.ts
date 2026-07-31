@@ -331,6 +331,7 @@ function mapEventRow(row: WorkflowEventRow): WorkflowEvent {
     stepId: row.step_id,
     actorType: row.actor_type,
     actorId: row.actor_id,
+    actorDisplay: row.actor_display ?? null,
     payloadJson: row.payload_json,
     occurredAt: row.occurred_at,
   };
@@ -651,6 +652,7 @@ export interface WorkflowEventRow {
   step_id: string | null;
   actor_type: string | null;
   actor_id: string | null;
+  actor_display?: string | null;
   payload_json: string;
   occurred_at: string;
 }

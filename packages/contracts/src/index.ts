@@ -1564,6 +1564,8 @@ export interface WorkflowEvent {
   stepId: string | null;
   actorType: string | null;
   actorId: string | null;
+  /** Resolved person name; null when the actor is not a nameable user. */
+  actorDisplay: string | null;
   payloadJson: string;
   occurredAt: string;
 }

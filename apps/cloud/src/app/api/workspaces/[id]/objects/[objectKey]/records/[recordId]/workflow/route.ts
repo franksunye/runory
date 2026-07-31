@@ -6,6 +6,7 @@ import {
   resolveWorkflowRunProjection,
   enrichWorkItemSubjects,
   lookupSubjectEnrichment,
+  resolveActorDisplays,
   type WorkflowInstanceRow,
   type WorkItemRow,
   type WorkflowEventRow,
@@ -89,13 +90,23 @@ export async function GET(
       ? resolveWorkflowRunProjection(definition, instance, workItems, events)
       : null;
 
-    const subjectEnrichment = await enrichWorkItemSubjects(
-      workspaceId,
-      workItems.map((item) => ({
-        subject_type: item.subject_type,
-        subject_id: item.subject_id,
-      }))
-    );
+    const [subjectEnrichment, actorDisplays] = await Promise.all([
+      enrichWorkItemSubjects(
+        workspaceId,
+        workItems.map((item) => ({
+          subject_type: item.subject_type,
+          subject_id: item.subject_id,
+        }))
+      ),
+      resolveActorDisplays(events.map((event) => event.actor_id)),
+    ]);
+
+    // Event trails name the person or say nothing; a raw actor id is never a
+    // usable answer to "who did this".
+    const enrichedEvents = events.map((event) => ({
+      ...event,
+      actor_display: event.actor_id ? actorDisplays.get(event.actor_id)?.displayName ?? null : null,
+    }));
 
     const enrichedWorkItems = workItems.map((item) => {
       const enrichment = lookupSubjectEnrichment(
@@ -119,7 +130,7 @@ export async function GET(
         ...instance,
         workflowKey: definition?.workflowKey ?? null,
         work_items: enrichedWorkItems,
-        events,
+        events: enrichedEvents,
         definition,
         runProjection,
       },

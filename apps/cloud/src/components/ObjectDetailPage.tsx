@@ -36,6 +36,7 @@ import SchemaTable from "./SchemaTable";
 import UserAvatar from "./UserAvatar";
 import RecordWorkflowPanel from "./RecordWorkflowPanel";
 import RecordTimelineSection, { isValidTimelineSubject } from "./RecordTimelineSection";
+import { RecordLifecycleBar } from "./RecordLifecycleBar";
 import type { FieldDefinition } from "@runory/platform-core";
 import type { FormBlock } from "@runory/contracts";
 import {
@@ -56,6 +57,7 @@ import { objectKeyToRouteSegment } from "@/lib/dynamic-object";
 import type { MessageKey } from "@/i18n/messages";
 import { apiFetch, apiDelete, apiPost } from "@/lib/api-fetch";
 import { formatMinorAmount, majorToMinor, minorToMajor, recordDisplayName } from "@/lib/money";
+import { recordStatusBadge, type RecordStatusTone } from "@/lib/record-lifecycle";
 import { LoadingState, ErrorState, EmptyState } from "@/components/states";
 import { FieldDisplay } from "@/components/fields";
 import { Card, CardContent, SectionHeader } from "@/components/layout";
@@ -957,6 +959,13 @@ interface BusinessCommandAction {
   tone?: "primary" | "secondary" | "danger";
   reasonPromptKey?: MessageKey;
   body?: Record<string, unknown>;
+  /**
+   * Administrative escape hatches available at almost any state (block, cancel,
+   * void). They belong in the overflow menu so they never read as the expected
+   * next step. State-specific decisions — including declining a quote — stay
+   * visible even when destructive.
+   */
+  overflow?: boolean;
 }
 
 function getBusinessCommandActions(objectKey: string, record: WorkspaceRecord): BusinessCommandAction[] {
@@ -988,6 +997,7 @@ function getBusinessCommandActions(objectKey: string, record: WorkspaceRecord): 
         labelKey: "workspace.command.quote.withdraw",
         tone: "secondary",
         reasonPromptKey: "workspace.command.reason.quote.withdraw",
+        overflow: true,
       });
     }
     if (status === "sent") {
@@ -1034,12 +1044,14 @@ function getBusinessCommandActions(objectKey: string, record: WorkspaceRecord): 
         labelKey: "workspace.command.work_order.block",
         tone: "secondary",
         reasonPromptKey: "workspace.command.reason.work_order.block",
+        overflow: true,
       });
       actions.push({
         command: "work_order.cancel",
         labelKey: "workspace.command.work_order.cancel",
         tone: "danger",
         reasonPromptKey: "workspace.command.reason.work_order.cancel",
+        overflow: true,
       });
     }
     if (status === "completed" || status === "cancelled") {
@@ -1048,6 +1060,7 @@ function getBusinessCommandActions(objectKey: string, record: WorkspaceRecord): 
         labelKey: "workspace.command.work_order.reopen",
         tone: "secondary",
         reasonPromptKey: "workspace.command.reason.work_order.reopen",
+        overflow: true,
       });
     }
     if (status === "completed" && record.source_type === "quote") {
@@ -1079,6 +1092,7 @@ function getBusinessCommandActions(objectKey: string, record: WorkspaceRecord): 
         labelKey: "workspace.command.visit.cancel",
         tone: "danger",
         reasonPromptKey: "workspace.command.reason.visit.cancel",
+        overflow: true,
       });
     }
     return actions;
@@ -1090,10 +1104,18 @@ function getBusinessCommandActions(objectKey: string, record: WorkspaceRecord): 
       labelKey: "workspace.command.invoice.void",
       tone: "danger",
       reasonPromptKey: "workspace.command.reason.invoice.void",
+      overflow: true,
     }];
   }
 
   return [];
+}
+
+function statusBadgeClass(tone: RecordStatusTone): string {
+  if (tone === "done") return "bg-emerald-50 text-emerald-700";
+  if (tone === "warn") return "bg-amber-50 text-amber-800";
+  if (tone === "ended") return "bg-slate-100 text-slate-600";
+  return "bg-indigo-50 text-indigo-700";
 }
 
 function buttonClassForTone(tone: BusinessCommandAction["tone"]): string {
@@ -1682,6 +1704,21 @@ export default function ObjectDetailPage({
       : actions;
   }, [objectKey, record, workflowData]);
 
+  // Commands live in the header toolbar: state-specific outcomes stay visible,
+  // always-available escape hatches sit behind the overflow menu.
+  const advanceActions = useMemo(
+    () => businessActions.filter((action) => !action.overflow),
+    [businessActions]
+  );
+  const overflowActions = useMemo(
+    () => businessActions.filter((action) => action.overflow),
+    [businessActions]
+  );
+  const statusBadge = useMemo(
+    () => (record ? recordStatusBadge(objectKey, String(record.status ?? "")) : null),
+    [objectKey, record]
+  );
+
   const handleUpdate = async (data: Record<string, any>) => {
     setSubmitting(true);
     setError(null);
@@ -1929,7 +1966,11 @@ export default function ObjectDetailPage({
 
   return (
     <div className="space-y-6 page-enter">
-      <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+      {/* Pinned on desktop so identity, status and commands stay reachable in
+          long records; left in flow on phones, where the shell header plus a
+          pinned bar would eat most of the first screen. The negative margins
+          let the band span the content gutters. */}
+      <header className="z-20 -mx-4 flex flex-col gap-4 border-b border-slate-200/70 bg-white/95 px-4 pb-4 pt-3 backdrop-blur-xl sm:-mx-7 sm:flex-row sm:items-start sm:justify-between sm:px-7 md:sticky md:top-0 lg:-mx-10 lg:px-10">
         <div className="flex items-start gap-3">
           {identityAvatarUrl && (
             <UserAvatar
@@ -1946,36 +1987,88 @@ export default function ObjectDetailPage({
             >
               <ArrowLeft size={14} />{backLabel ?? t("workspace.backToList", { title })}
             </Link>
-            <p className="app-eyebrow mt-3">{title}</p>
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <p className="app-eyebrow">{title}</p>
+              {statusBadge && (
+                <span className={`app-badge ${statusBadgeClass(statusBadge.tone)}`}>{t(statusBadge.labelKey)}</span>
+              )}
+            </div>
             <h1 className="mt-1 truncate text-3xl font-bold tracking-[-.03em] text-slate-950">
               {identityName}
             </h1>
           </div>
         </div>
-        {!editing && !FINANCIAL_OBJECTS.has(objectKey) && (
-          <div className="flex gap-2 self-start">
-            <button
-              type="button"
-              onClick={() => setEditing(true)}
-              className="app-button-secondary"
-            >
-              <Pencil size={15} />{t("workspace.edit")}
-            </button>
-            <details className="group/detail-actions relative">
-              <summary className="app-button-secondary flex cursor-pointer list-none px-3" aria-label={t("workspace.delete")}>
-                <MoreHorizontal size={18} />
-              </summary>
-              <div className="absolute right-0 top-full z-40 mt-1 min-w-[190px] rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl">
+        {!editing && (
+          <div className="flex flex-wrap items-center gap-2 self-start">
+            {advanceActions.map((action) => {
+              const ActionIcon = iconForBusinessCommand(action.command);
+              return (
                 <button
+                  key={`${action.command}:${action.labelKey}`}
                   type="button"
-                  onClick={handleDelete}
-                  disabled={deleting}
-                  className="flex min-h-9 w-full items-center gap-2 rounded-lg px-3 text-left text-sm font-semibold text-red-600 hover:bg-red-50 disabled:opacity-50"
+                  onClick={() => void executeBusinessCommand(action)}
+                  disabled={runningCommand !== null}
+                  className={buttonClassForTone(action.tone)}
                 >
-                  <Trash2 size={15} />{deleting ? t("workspace.deleting") : t("workspace.delete")}
+                  {runningCommand === action.command ? (
+                    <Loader2 size={15} className="animate-spin" />
+                  ) : (
+                    <ActionIcon size={15} />
+                  )}
+                  {t(action.labelKey)}
                 </button>
-              </div>
-            </details>
+              );
+            })}
+            {!FINANCIAL_OBJECTS.has(objectKey) && (
+              <button
+                type="button"
+                onClick={() => setEditing(true)}
+                className="app-button-secondary"
+              >
+                <Pencil size={15} />{t("workspace.edit")}
+              </button>
+            )}
+            {(overflowActions.length > 0 || !FINANCIAL_OBJECTS.has(objectKey)) && (
+              <details className="group/detail-actions relative">
+                <summary className="app-button-secondary flex cursor-pointer list-none px-3" aria-label={t("workspace.moreActions")}>
+                  <MoreHorizontal size={18} />
+                </summary>
+                <div className="absolute right-0 top-full z-40 mt-1 min-w-[220px] rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl">
+                  {overflowActions.map((action) => {
+                    const ActionIcon = iconForBusinessCommand(action.command);
+                    const menuTone = action.tone === "danger"
+                      ? "text-red-600 hover:bg-red-50"
+                      : "text-slate-700 hover:bg-slate-100";
+                    return (
+                      <button
+                        key={`${action.command}:${action.labelKey}`}
+                        type="button"
+                        onClick={() => void executeBusinessCommand(action)}
+                        disabled={runningCommand !== null}
+                        className={`flex min-h-9 w-full items-center gap-2 rounded-lg px-3 text-left text-sm font-semibold disabled:opacity-50 ${menuTone}`}
+                      >
+                        {runningCommand === action.command ? (
+                          <Loader2 size={15} className="animate-spin" />
+                        ) : (
+                          <ActionIcon size={15} />
+                        )}
+                        {t(action.labelKey)}
+                      </button>
+                    );
+                  })}
+                  {!FINANCIAL_OBJECTS.has(objectKey) && (
+                    <button
+                      type="button"
+                      onClick={handleDelete}
+                      disabled={deleting}
+                      className="flex min-h-9 w-full items-center gap-2 rounded-lg px-3 text-left text-sm font-semibold text-red-600 hover:bg-red-50 disabled:opacity-50"
+                    >
+                      <Trash2 size={15} />{deleting ? t("workspace.deleting") : t("workspace.delete")}
+                    </button>
+                  )}
+                </div>
+              </details>
+            )}
           </div>
         )}
       </header>
@@ -1995,6 +2088,13 @@ export default function ObjectDetailPage({
         />
       ) : (
         <div className="space-y-6">
+          <RecordLifecycleBar
+            workspaceId={workspaceId}
+            objectKey={objectKey}
+            recordId={recordId}
+            record={record}
+          />
+
           {(objectKey === "quote" || objectKey === "work_order" || objectKey === "invoice") && (
             <SourcePaymentPanel
               workspaceId={workspaceId}
@@ -2009,36 +2109,6 @@ export default function ObjectDetailPage({
               payment={record}
               onChanged={() => mutateRecord()}
             />
-          )}
-
-          {businessActions.length > 0 && (
-            <div className="app-card flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t("workspace.nextActions.title")}</p>
-                <p className="mt-1 text-sm text-slate-600">{t("workspace.nextActions.help")}</p>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {businessActions.map((action) => {
-                  const ActionIcon = iconForBusinessCommand(action.command);
-                  return (
-                    <button
-                      key={`${action.command}:${action.labelKey}`}
-                      type="button"
-                      onClick={() => void executeBusinessCommand(action)}
-                      disabled={runningCommand !== null}
-                      className={buttonClassForTone(action.tone)}
-                    >
-                      {runningCommand === action.command ? (
-                        <Loader2 size={15} className="animate-spin" />
-                      ) : (
-                        <ActionIcon size={15} />
-                      )}
-                      {t(action.labelKey)}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
           )}
 
           {dispatchOpen && objectKey === "work_order" && (
