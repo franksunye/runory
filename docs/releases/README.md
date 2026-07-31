@@ -36,6 +36,7 @@ This directory contains point-in-time acceptance, test, drill, migration, and pe
 - [v0.9.1 Engineering and E2E Remediation Re-review — 2026-07-30](v0.9.1-engineering-and-e2e-remediation-review-2026-07-30.md) — verifies the v0.9.1 repair, records finding disposition, and identifies the remaining architecture and E2E release blockers.
 - [v0.9 G1/G2 Binding Evidence — 2026-07-30](v0.9-g1-g2-binding-evidence-2026-07-30.md) — clean-SHA PASS for API walkthrough and browser **projection subset** on `6627fd5e`; full G2 closed later via S0–S5 on `ae169811`.
 - [v0.9 G3 Experience Sample Evidence — 2026-07-31](v0.9-g3-experience-sample-2026-07-31.md) — Agent browser critical-path feel sample PASS on `ae169811`.
+- [v0.9 G3 UX Findings Catalog — 2026-07-31](v0.9-g3-ux-findings-2026-07-31.md) — experience debt from G3 (layout/copy/trust/findability).
 - [G1 API artifact](v0.9-g1-api-walkthrough-6627fd5e.json) / [G2 browser summary](v0.9-g2-browser-projection-6627fd5e.json) — machine-readable evidence for the binding record above.
 
 ## FSM
