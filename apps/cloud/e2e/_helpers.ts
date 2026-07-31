@@ -183,6 +183,35 @@ export async function clickAndAwaitPost(
   return body;
 }
 
+/** Click a business action and assert the command fails without advancing state. */
+export async function expectCommandDeniedFromUi(
+  page: Page,
+  buttonName: RegExp,
+  urlIncludes: string | RegExp,
+) {
+  const matchesUrl = (url: string) =>
+    typeof urlIncludes === "string" ? url.includes(urlIncludes) : urlIncludes.test(url);
+  const button = page.getByRole("button", { name: buttonName }).first();
+  if (!(await button.isVisible().catch(() => false))) {
+    // Fail-closed by omission is also acceptable for smoke.
+    return { omitted: true as const };
+  }
+  const responsePromise = page.waitForResponse((response) => {
+    return response.request().method() === "POST"
+      && matchesUrl(response.url())
+      && response.status() < 500;
+  }, { timeout: 30_000 });
+  await button.click();
+  const response = await responsePromise;
+  const body = await response.json().catch(() => ({} as { success?: boolean; error?: { message?: string } }));
+  expect(
+    response.ok() === false || body.success === false,
+    `${String(urlIncludes)} must fail closed: ${body.error?.message ?? response.status()}`,
+  ).toBeTruthy();
+  return { omitted: false as const, body };
+}
+
+
 export async function approveInReviewQuote(
   page: Page,
   workspaceSlug: string,
