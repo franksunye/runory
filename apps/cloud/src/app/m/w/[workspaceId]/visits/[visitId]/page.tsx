@@ -517,8 +517,15 @@ function MobileVisitDetailPage() {
   );
   const actualStart = visit ? str(visit.actual_start) : "";
 
-  // Determine which lifecycle buttons to show based on current status
-  const lifecycleButtons: { command: string; labelKey: MessageKey; icon: typeof Truck; style: string }[] = [];
+  // Determine which lifecycle buttons to show based on current status.
+  // One primary CTA by status; Cancel is demoted to a quieter secondary control.
+  const lifecycleButtons: {
+    command: string;
+    labelKey: MessageKey;
+    icon: typeof Truck;
+    style: string;
+    primary: boolean;
+  }[] = [];
   if (visit) {
     if (status === "scheduled") {
       lifecycleButtons.push({
@@ -526,6 +533,7 @@ function MobileVisitDetailPage() {
         labelKey: "mobile.visitStartTravel",
         icon: Truck,
         style: "bg-amber-600 text-white active:bg-amber-700",
+        primary: true,
       });
     }
     if (status === "en_route") {
@@ -534,6 +542,7 @@ function MobileVisitDetailPage() {
         labelKey: "mobile.visitArrive",
         icon: Navigation,
         style: "bg-green-600 text-white active:bg-green-700",
+        primary: true,
       });
     }
     if (status === "on_site") {
@@ -542,6 +551,7 @@ function MobileVisitDetailPage() {
         labelKey: "mobile.visitComplete",
         icon: CheckCircle2,
         style: "bg-indigo-600 text-white active:bg-indigo-700",
+        primary: true,
       });
     }
     if (status !== "completed" && status !== "cancelled") {
@@ -549,7 +559,8 @@ function MobileVisitDetailPage() {
         command: "visit.cancel",
         labelKey: "mobile.visitCancel",
         icon: AlertCircle,
-        style: "border border-red-200 bg-white text-red-600 active:bg-red-50",
+        style: "border border-slate-200 bg-white text-slate-500 active:bg-slate-50",
+        primary: false,
       });
     }
   }
@@ -784,7 +795,9 @@ function MobileVisitDetailPage() {
             {/* Visit lifecycle command buttons (v0.5.1 Spec §4.2) */}
             {lifecycleButtons.length > 0 && (
               <div className="space-y-2">
-                {lifecycleButtons.map((btn) => {
+                {lifecycleButtons
+                  .filter((btn) => btn.primary)
+                  .map((btn) => {
                   const Icon = btn.icon;
                   const isExecuting = lifecycleExecuting === btn.command;
                   return (
@@ -798,6 +811,27 @@ function MobileVisitDetailPage() {
                         <Loader2 size={18} className="animate-spin" />
                       ) : (
                         <Icon size={18} />
+                      )}
+                      {t(btn.labelKey)}
+                    </button>
+                  );
+                })}
+                {lifecycleButtons
+                  .filter((btn) => !btn.primary)
+                  .map((btn) => {
+                  const Icon = btn.icon;
+                  const isExecuting = lifecycleExecuting === btn.command;
+                  return (
+                    <button
+                      key={btn.command}
+                      onClick={() => void executeVisitCommand(btn.command)}
+                      disabled={!!lifecycleExecuting}
+                      className={`flex min-h-[40px] w-full items-center justify-center gap-2 rounded-lg px-3 py-2 text-xs font-medium transition active:scale-[0.98] disabled:opacity-50 ${btn.style}`}
+                    >
+                      {isExecuting ? (
+                        <Loader2 size={14} className="animate-spin" />
+                      ) : (
+                        <Icon size={14} />
                       )}
                       {t(btn.labelKey)}
                     </button>

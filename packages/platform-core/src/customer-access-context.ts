@@ -82,6 +82,20 @@ interface WorkOrderRow {
   completed_at: string | null;
   company_id: string | null;
   contact_id: string | null;
+  service_site_id: string | null;
+}
+
+interface VisitScheduleRow {
+  scheduled_start: string | null;
+  scheduled_end: string | null;
+}
+
+interface SiteAddressRow {
+  name: string | null;
+  address: string | null;
+  city: string | null;
+  region: string | null;
+  postal_code: string | null;
 }
 
 interface ServiceReportRow {
@@ -156,7 +170,22 @@ function buildQuoteDto(quote: QuoteRow, lines: QuoteLineRow[]): CustomerQuoteDto
   };
 }
 
-function buildWorkOrderDto(wo: WorkOrderRow): CustomerWorkOrderStatusDto {
+function formatSiteAddress(site: SiteAddressRow | null): string | null {
+  if (!site) return null;
+  const parts = [site.address, site.city, site.region, site.postal_code]
+    .map((p) => (typeof p === "string" ? p.trim() : ""))
+    .filter(Boolean);
+  return parts.length > 0 ? parts.join(", ") : null;
+}
+
+function buildWorkOrderDto(
+  wo: WorkOrderRow,
+  visit: VisitScheduleRow | null,
+  site: SiteAddressRow | null,
+): CustomerWorkOrderStatusDto {
+  // Prefer Visit projection for the customer-visible window when WO fields are empty.
+  const scheduledStart = wo.scheduled_start ?? visit?.scheduled_start ?? null;
+  const scheduledEnd = wo.scheduled_end ?? visit?.scheduled_end ?? null;
   return {
     id: wo.id,
     // Never expose the raw record ID to the customer. If work_order_number is
@@ -165,9 +194,11 @@ function buildWorkOrderDto(wo: WorkOrderRow): CustomerWorkOrderStatusDto {
     number: wo.work_order_number ?? generateWorkOrderNumber(wo.id),
     title: wo.title,
     status: wo.status,
-    scheduledStart: wo.scheduled_start,
-    scheduledEnd: wo.scheduled_end,
+    scheduledStart,
+    scheduledEnd,
     completedAt: wo.completed_at,
+    siteName: site?.name?.trim() || null,
+    siteAddress: formatSiteAddress(site),
   };
 }
 
@@ -301,13 +332,31 @@ export async function resolveCustomerAccessContext(
   if (workOrderId && has("work_order.view_status")) {
     const wo = await queryOne<WorkOrderRow>(
       `SELECT id, work_order_number, title, status, scheduled_start,
-              scheduled_end, completed_at, company_id, contact_id
+              scheduled_end, completed_at, company_id, contact_id, service_site_id
        FROM ${businessTable("work_order")}
        WHERE workspace_id = ? AND id = ?`,
       [grant.workspace_id, workOrderId],
     );
     if (wo && subjectMatches(grant, wo)) {
-      workOrderDto = buildWorkOrderDto(wo);
+      // Prefer earliest non-cancelled visit window when WO schedule is empty.
+      const visit = await queryOne<VisitScheduleRow>(
+        `SELECT scheduled_start, scheduled_end
+         FROM ${businessTable("service_visit")}
+         WHERE workspace_id = ? AND work_order_id = ?
+           AND status NOT IN ('cancelled', 'canceled')
+         ORDER BY scheduled_start ASC
+         LIMIT 1`,
+        [grant.workspace_id, wo.id],
+      );
+      const site = wo.service_site_id
+        ? await queryOne<SiteAddressRow>(
+            `SELECT name, address, city, region, postal_code
+             FROM ${businessTable("service_site")}
+             WHERE workspace_id = ? AND id = ?`,
+            [grant.workspace_id, wo.service_site_id],
+          )
+        : null;
+      workOrderDto = buildWorkOrderDto(wo, visit ?? null, site ?? null);
     }
   }
 

@@ -219,9 +219,9 @@ export async function approveInReviewQuote(
   quoteId: string,
 ) {
   await page.goto(`/w/${workspaceSlug}/quotes/${quoteId}`, { waitUntil: "domcontentloaded" });
-  const claim = page.getByRole("button", { name: /^(Claim|认领)$/ }).first();
+  const claim = page.getByRole("button", { name: /^(Claim to own|Claim|认领以负责|认领)$/ }).first();
   if (await claim.isVisible().catch(() => false)) {
-    await clickAndAwaitPost(page, /^(Claim|认领)$/, /\/work-items\/[^/]+\/claim/);
+    await clickAndAwaitPost(page, /^(Claim to own|Claim|认领以负责|认领)$/, /\/work-items\/[^/]+\/claim/);
     await page.goto(`/w/${workspaceSlug}/quotes/${quoteId}`, { waitUntil: "domcontentloaded" });
   }
 

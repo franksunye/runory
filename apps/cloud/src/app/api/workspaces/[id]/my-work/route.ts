@@ -1,8 +1,10 @@
 import { NextRequest } from "next/server";
 import {
   businessTable,
+  enrichWorkItemSubjects,
   getMyWork,
   hasOperationalTeamAccess,
+  lookupSubjectEnrichment,
   queryAll,
   TABLES,
 } from "@runory/platform-core";
@@ -38,6 +40,11 @@ interface OperationalWorkItem {
   resource_name: string | null;
   assignee_display: string | null;
   assignee_avatar_url: string | null;
+  company_name: string | null;
+  site_name: string | null;
+  quote_number: string | null;
+  amount_minor: number | null;
+  currency: string | null;
   operational_source: "visit_execution";
 }
 
@@ -52,7 +59,10 @@ interface VisitExecutionRow {
   resource_name: string;
   resource_avatar_url: string | null;
   visit_title: string | null;
+  wo_title: string | null;
   scheduled_start: string;
+  company_name: string | null;
+  site_name: string | null;
 }
 
 async function getOperationalWork(
@@ -116,13 +126,22 @@ async function getOperationalWork(
        r.display_name AS resource_name,
        u.avatar_url AS resource_avatar_url,
        visit.title AS visit_title,
-       visit.scheduled_start
+       wo.title AS wo_title,
+       visit.scheduled_start,
+       c.name AS company_name,
+       s.name AS site_name
      FROM ${TABLES.visitExecutionItems} execution
      JOIN ${TABLES.resources} r
        ON r.workspace_id = execution.workspace_id AND r.id = execution.resource_id
      LEFT JOIN ${TABLES.users} u ON u.id = r.user_id
      JOIN ${businessTable("service_visit")} visit
        ON visit.workspace_id = execution.workspace_id AND visit.id = execution.visit_id
+     LEFT JOIN ${businessTable("work_order")} wo
+       ON wo.workspace_id = visit.workspace_id AND wo.id = visit.work_order_id
+     LEFT JOIN ${businessTable("company")} c
+       ON c.workspace_id = wo.workspace_id AND c.id = wo.company_id
+     LEFT JOIN ${businessTable("service_site")} s
+       ON s.workspace_id = wo.workspace_id AND s.id = wo.service_site_id
      WHERE ${conditions.join(" AND ")}
      ORDER BY visit.scheduled_start ASC, execution.id ASC
      LIMIT ?`,
@@ -155,9 +174,14 @@ async function getOperationalWork(
     version: 1,
     created_at: row.created_at,
     updated_at: row.updated_at,
-    title: row.visit_title ?? "Service visit",
+    title: row.visit_title?.trim() || row.wo_title?.trim() || "Service visit",
     description: `${row.resource_name} · ${row.scheduled_start}`,
     resource_name: row.resource_name,
+    company_name: row.company_name,
+    site_name: row.site_name,
+    quote_number: null,
+    amount_minor: null,
+    currency: null,
     operational_source: "visit_execution",
   }));
 }
@@ -198,6 +222,7 @@ export async function GET(
       : false;
     const operationalItems = await getOperationalWork(workspaceId, actorId, includeTeam, filters);
 
+    // Batch-enrich assignee display names, form binding names, and subject titles.
     const userAssigneeIds = [...new Set(result.items
       .filter((item) => item.assignee_type === "user" && item.assignee_id)
       .map((item) => item.assignee_id as string))];
@@ -210,23 +235,23 @@ export async function GET(
     const userPlaceholders = userAssigneeIds.map(() => "?").join(",");
     const groupPlaceholders = permissionGroupIds.map(() => "?").join(",");
     const bindingPlaceholders = formBindingIds.map(() => "?").join(",");
-    const [assigneeUsers, assigneeGroups, formBindings] = await Promise.all([
+    const [assigneeUsers, assigneeGroups, formBindings, subjectEnrichment] = await Promise.all([
       userAssigneeIds.length === 0
-        ? []
+        ? Promise.resolve([])
         : queryAll<{ id: string; external_id: string; display_name: string; avatar_url: string | null }>(
             `SELECT id, external_id, display_name, avatar_url FROM ${TABLES.users}
              WHERE id IN (${userPlaceholders}) OR external_id IN (${userPlaceholders})`,
             [...userAssigneeIds, ...userAssigneeIds]
           ),
       permissionGroupIds.length === 0
-        ? []
+        ? Promise.resolve([])
         : queryAll<{ id: string; group_key: string; label: string }>(
             `SELECT id, group_key, label FROM ${TABLES.packPermissionGroups}
              WHERE workspace_id = ? AND (id IN (${groupPlaceholders}) OR group_key IN (${groupPlaceholders}))`,
             [workspaceId, ...permissionGroupIds, ...permissionGroupIds]
           ),
       formBindingIds.length === 0
-        ? []
+        ? Promise.resolve([])
         : queryAll<{ id: string; form_name: string }>(
             `SELECT binding.id,
                     COALESCE(binding.label_override, definition.name) AS form_name
@@ -237,6 +262,16 @@ export async function GET(
              WHERE binding.workspace_id = ? AND binding.id IN (${bindingPlaceholders})`,
             [workspaceId, ...formBindingIds]
           ),
+      enrichWorkItemSubjects(workspaceId, [
+        ...result.items.map((item) => ({
+          subject_type: item.subject_type,
+          subject_id: item.subject_id,
+        })),
+        ...operationalItems.map((item) => ({
+          subject_type: item.subject_type,
+          subject_id: item.subject_id,
+        })),
+      ]),
     ]);
     const assigneeLabels = new Map<string, string>();
     const assigneeAvatars = new Map<string, string>();
@@ -253,17 +288,47 @@ export async function GET(
       assigneeLabels.set(group.group_key, group.label);
     }
     const formNames = new Map(formBindings.map((binding) => [binding.id, binding.form_name]));
-    const workflowItems = result.items.map((item) => ({
-      ...item,
-      assignee_display: item.assignee_id ? assigneeLabels.get(item.assignee_id) ?? null : null,
-      assignee_avatar_url: item.assignee_id ? assigneeAvatars.get(item.assignee_id) ?? null : null,
-      form_name: item.form_binding_id ? formNames.get(item.form_binding_id) ?? null : null,
-    }));
+    const workflowItems = result.items.map((item) => {
+      const enrichment = lookupSubjectEnrichment(
+        subjectEnrichment,
+        item.subject_type,
+        item.subject_id
+      );
+      return {
+        ...item,
+        assignee_display: item.assignee_id ? assigneeLabels.get(item.assignee_id) ?? null : null,
+        assignee_avatar_url: item.assignee_id ? assigneeAvatars.get(item.assignee_id) ?? null : null,
+        form_name: item.form_binding_id ? formNames.get(item.form_binding_id) ?? null : null,
+        title: enrichment?.title ?? null,
+        company_name: enrichment?.company_name ?? null,
+        site_name: enrichment?.site_name ?? null,
+        quote_number: enrichment?.quote_number ?? null,
+        amount_minor: enrichment?.amount_minor ?? null,
+        currency: enrichment?.currency ?? null,
+      };
+    });
+
+    const enrichedOperational = operationalItems.map((item) => {
+      const enrichment = lookupSubjectEnrichment(
+        subjectEnrichment,
+        item.subject_type,
+        item.subject_id
+      );
+      return {
+        ...item,
+        title: enrichment?.title ?? item.title,
+        company_name: enrichment?.company_name ?? item.company_name,
+        site_name: enrichment?.site_name ?? item.site_name,
+        quote_number: enrichment?.quote_number ?? null,
+        amount_minor: enrichment?.amount_minor ?? null,
+        currency: enrichment?.currency ?? null,
+      };
+    });
 
     return successResponse(
       {
-        items: [...workflowItems, ...operationalItems],
-        total: result.total + operationalItems.length,
+        items: [...workflowItems, ...enrichedOperational],
+        total: result.total + enrichedOperational.length,
         nextCursor: result.nextCursor,
       },
       200,

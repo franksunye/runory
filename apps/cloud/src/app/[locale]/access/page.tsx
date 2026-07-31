@@ -58,6 +58,7 @@ const translations = {
     "brand": "Runory",
     "page.title": "Customer Portal",
     "page.secured": "Secured customer access",
+    "page.poweredBy": "Powered by Runory",
     "page.subtitle": "Review your quote, track your job, and complete payment.",
 
     "loading.default": "Loading…",
@@ -115,6 +116,8 @@ const translations = {
     "workOrder.scheduled": "Scheduled",
     "workOrder.completed": "Completed",
     "workOrder.notScheduled": "Not yet scheduled",
+    "workOrder.schedulingInProgress": "Scheduling in progress",
+    "workOrder.site": "Service location",
     "workOrder.status.scheduled": "Scheduled",
     "workOrder.status.in_progress": "In progress",
     "workOrder.status.completed": "Completed",
@@ -166,6 +169,7 @@ const translations = {
     "brand": "Runory",
     "page.title": "客户门户",
     "page.secured": "安全的客户访问",
+    "page.poweredBy": "由 Runory 提供技术支持",
     "page.subtitle": "查看您的报价、跟踪工单进度并完成付款。",
 
     "loading.default": "加载中…",
@@ -222,6 +226,8 @@ const translations = {
     "workOrder.scheduled": "计划时间",
     "workOrder.completed": "完成时间",
     "workOrder.notScheduled": "尚未排期",
+    "workOrder.schedulingInProgress": "正在安排上门时间",
+    "workOrder.site": "服务地点",
     "workOrder.status.scheduled": "已排期",
     "workOrder.status.in_progress": "进行中",
     "workOrder.status.completed": "已完成",
@@ -327,6 +333,8 @@ interface CustomerAccessContext {
     scheduledStart: string | null;
     scheduledEnd: string | null;
     completedAt: string | null;
+    siteAddress?: string | null;
+    siteName?: string | null;
   };
   serviceReports: Array<{
     id: string;
@@ -903,8 +911,10 @@ function WorkOrderCard({
 }) {
   const wo = context.workOrder!;
   const isCompleted = wo.status === "completed";
+  const isCancelled = wo.status === "cancelled" || wo.status === "canceled";
+  const isTerminal = isCompleted || isCancelled;
 
-  const tone = isCompleted ? "emerald" : wo.status === "cancelled" || wo.status === "canceled" ? "red" : "indigo";
+  const tone = isCompleted ? "emerald" : isCancelled ? "red" : "indigo";
 
   return (
     <SectionCard
@@ -926,8 +936,13 @@ function WorkOrderCard({
               {wo.scheduledEnd ? ` — ${formatDateTime(locale, wo.scheduledEnd)}` : ""}
             </DetailRow>
           )}
-          {!wo.scheduledStart && !isCompleted && (
-            <DetailRow label={t("workOrder.scheduled")}>{t("workOrder.notScheduled")}</DetailRow>
+          {!wo.scheduledStart && !isTerminal && (
+            <DetailRow label={t("workOrder.scheduled")}>{t("workOrder.schedulingInProgress")}</DetailRow>
+          )}
+          {(wo.siteName || wo.siteAddress) && (
+            <DetailRow label={t("workOrder.site")}>
+              {[wo.siteName, wo.siteAddress].filter(Boolean).join(" · ")}
+            </DetailRow>
           )}
           {wo.completedAt && (
             <DetailRow label={t("workOrder.completed")}>{formatDateTime(locale, wo.completedAt)}</DetailRow>
@@ -1296,9 +1311,16 @@ export default function CustomerAccessPage() {
       {/* Top bar */}
       <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/90 backdrop-blur">
         <div className="mx-auto flex h-16 max-w-3xl items-center justify-between px-4 sm:px-6">
-          <div className="flex items-center gap-2.5">
-            <div className="grid size-8 place-items-center rounded-lg bg-slate-950 font-bold text-white">R</div>
-            <span className="text-base font-bold tracking-tight text-slate-950">{t("brand")}</span>
+          <div className="flex min-w-0 items-center gap-2.5">
+            <div className="grid size-8 shrink-0 place-items-center rounded-lg bg-slate-950 text-xs font-bold text-white">
+              {(context.workspace.name.trim().charAt(0) || "S").toUpperCase()}
+            </div>
+            <div className="min-w-0">
+              <span className="block truncate text-base font-bold tracking-tight text-slate-950">
+                {context.workspace.name}
+              </span>
+              <span className="block text-[11px] font-medium text-slate-400">{t("page.poweredBy")}</span>
+            </div>
           </div>
           <button
             type="button"
@@ -1325,8 +1347,7 @@ export default function CustomerAccessPage() {
                 : t("greeting.fallback")}
             </h1>
             <p className="mt-0.5 text-sm text-slate-600">
-              <span className="font-medium text-slate-500">{t("provider.label")}:</span>{" "}
-              <span className="font-semibold text-slate-700">{context.workspace.name}</span>
+              {t("page.subtitle")}
             </p>
           </div>
         </div>
@@ -1379,9 +1400,11 @@ export default function CustomerAccessPage() {
         </div>
 
         {/* Session footer */}
-        <p className="mt-8 flex items-center justify-center gap-1.5 text-xs text-slate-400">
+        <p className="mt-8 flex flex-wrap items-center justify-center gap-1.5 text-xs text-slate-400">
           <ShieldCheck className="size-3.5" aria-hidden />
           {t("page.secured")}
+          <span className="mx-0.5">·</span>
+          {t("page.poweredBy")}
           {context.grant.expiresAt && (
             <>
               <span className="mx-1">·</span>

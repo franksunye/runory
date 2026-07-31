@@ -662,11 +662,24 @@ function MobileFormPage() {
               </p>
             </div>
             <button
-              onClick={() => router.push(`/m/w/${workspaceId}`)}
+              onClick={() => {
+                if (
+                  workItem?.subject_type === "service_visit" &&
+                  workItem.subject_id
+                ) {
+                  router.push(
+                    `/m/w/${workspaceId}/visits/${workItem.subject_id}`
+                  );
+                  return;
+                }
+                router.push(`/m/w/${workspaceId}`);
+              }}
               className="flex min-h-[48px] w-full max-w-xs items-center justify-center gap-2 rounded-xl bg-indigo-600 px-6 text-sm font-bold text-white shadow-lg shadow-indigo-600/20 active:bg-indigo-700"
             >
               <FileText size={16} />
-              Back to My Work
+              {workItem?.subject_type === "service_visit"
+                ? t("mobile.backToVisit")
+                : t("mobile.backToMyWork")}
             </button>
           </div>
         )}

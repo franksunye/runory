@@ -11,6 +11,8 @@ import type { MessageKey } from "@/i18n/messages";
 import { notifyWorkspaceDataChanged } from "@/lib/workspace-events";
 import { useRecordWorkflow } from "@/lib/api-hooks";
 import { apiPost } from "@/lib/api-fetch";
+import { workItemPrimaryTitle, workItemSecondaryTitle } from "@/lib/work-item-display";
+import { formatMinorAmount } from "@/lib/money";
 
 interface RecordWorkflowPanelProps {
   workspaceId: string;
@@ -322,14 +324,41 @@ function WorkItemsSection({ workspaceId, workItems, onRefresh }: WorkItemsSectio
                         </span>
                       )}
                     </div>
+                    {(() => {
+                      const display = {
+                        title: item.title,
+                        company_name: item.companyName,
+                        site_name: item.siteName,
+                        quote_number: item.quoteNumber,
+                        subject_type: item.subjectType,
+                        kind: item.kind,
+                      };
+                      const secondary = workItemSecondaryTitle(display);
+                      return (
+                        <>
+                          <p className="mt-2 text-sm font-semibold text-slate-900">
+                            {workItemPrimaryTitle(display)}
+                          </p>
+                          {secondary && (
+                            <p className="mt-0.5 text-xs text-slate-500">{secondary}</p>
+                          )}
+                        </>
+                      );
+                    })()}
+                    {item.kind === "approval" && item.amountMinor != null && item.currency && (
+                      <p className="mt-1 text-sm font-medium text-slate-800">
+                        {formatMinorAmount(item.amountMinor, item.currency)}
+                      </p>
+                    )}
                     <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500">
                       {item.assigneeId ? (
                         <span className="flex items-center gap-1">
                           <User size={12} />
                           {t("workflow.assignee")}:{" "}
-                          {item.assigneeType === "permission_group"
-                            ? item.assigneeId.replace(/_/g, " ")
-                            : item.assigneeId}
+                          {item.assigneeDisplay
+                            ?? (item.assigneeType === "permission_group"
+                              ? item.assigneeId.replace(/_/g, " ")
+                              : item.assigneeId)}
                         </span>
                       ) : null}
                       <span className={`flex items-center gap-1 ${overdue ? "font-semibold text-red-600" : ""}`}>
@@ -342,23 +371,7 @@ function WorkItemsSection({ workspaceId, workItems, onRefresh }: WorkItemsSectio
 
                   {/* Right: actions */}
                   <div className="flex shrink-0 flex-wrap items-center gap-2">
-                    {/* Claim: available for items in ready status */}
-                    {item.status === "ready" && (
-                      <button
-                        type="button"
-                        onClick={() => void handleClaim(item)}
-                        disabled={executing === `claim-${item.id}`}
-                        className="app-button-secondary px-3 py-1 text-xs"
-                      >
-                        {executing === `claim-${item.id}` ? (
-                          <Loader2 size={12} className="animate-spin" />
-                        ) : (
-                          <User size={12} />
-                        )}
-                        {t("myWork.actionClaim")}
-                      </button>
-                    )}
-                    {/* Approve/Reject: for approval items not yet completed */}
+                    {/* Approve/Return first (primary); Claim is optional ownership for group queues */}
                     {item.kind === "approval" && item.status !== "completed" && (
                       <>
                         <button
@@ -380,9 +393,25 @@ function WorkItemsSection({ workspaceId, workItems, onRefresh }: WorkItemsSectio
                           disabled={executing === `decide-${item.id}`}
                           className="app-button-secondary px-3 py-1 text-xs"
                         >
-                          {t("myWork.actionReject")}
+                          {t("myWork.actionReturnForChanges")}
                         </button>
                       </>
+                    )}
+                    {/* Claim: optional for permission-group queues only (not named-user assignees) */}
+                    {item.status === "ready"
+                      && item.assigneeType === "permission_group"
+                      && (
+                      <button
+                        type="button"
+                        onClick={() => void handleClaim(item)}
+                        disabled={executing === `claim-${item.id}`}
+                        className="px-2 py-1 text-xs font-medium text-slate-500 underline-offset-2 hover:text-slate-800 hover:underline disabled:opacity-50"
+                      >
+                        {executing === `claim-${item.id}` ? (
+                          <Loader2 size={12} className="inline animate-spin" />
+                        ) : null}
+                        {t("myWork.actionClaimToOwn")}
+                      </button>
                     )}
                     {/* Complete: for human_task items not yet completed */}
                     {item.kind === "human_task" && item.status !== "completed" && (

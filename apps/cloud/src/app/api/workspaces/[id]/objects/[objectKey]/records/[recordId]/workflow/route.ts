@@ -4,6 +4,8 @@ import {
   queryOne,
   queryAll,
   resolveWorkflowRunProjection,
+  enrichWorkItemSubjects,
+  lookupSubjectEnrichment,
   type WorkflowInstanceRow,
   type WorkItemRow,
   type WorkflowEventRow,
@@ -87,11 +89,36 @@ export async function GET(
       ? resolveWorkflowRunProjection(definition, instance, workItems, events)
       : null;
 
+    const subjectEnrichment = await enrichWorkItemSubjects(
+      workspaceId,
+      workItems.map((item) => ({
+        subject_type: item.subject_type,
+        subject_id: item.subject_id,
+      }))
+    );
+
+    const enrichedWorkItems = workItems.map((item) => {
+      const enrichment = lookupSubjectEnrichment(
+        subjectEnrichment,
+        item.subject_type,
+        item.subject_id
+      );
+      return {
+        ...item,
+        title: enrichment?.title ?? null,
+        company_name: enrichment?.company_name ?? null,
+        site_name: enrichment?.site_name ?? null,
+        quote_number: enrichment?.quote_number ?? null,
+        amount_minor: enrichment?.amount_minor ?? null,
+        currency: enrichment?.currency ?? null,
+      };
+    });
+
     return successResponse(
       {
         ...instance,
         workflowKey: definition?.workflowKey ?? null,
-        work_items: workItems,
+        work_items: enrichedWorkItems,
         events,
         definition,
         runProjection,

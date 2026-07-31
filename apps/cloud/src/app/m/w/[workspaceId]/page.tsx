@@ -10,6 +10,7 @@ import { useI18n } from "@/i18n/locale-provider";
 import type { MessageKey } from "@/i18n/messages";
 import type { MyWorkItem } from "@/lib/api-hooks";
 import { apiFetch } from "@/lib/api-fetch";
+import { workItemPrimaryTitle, workItemSecondaryTitle } from "@/lib/work-item-display";
 
 export const dynamic = "force-dynamic";
 
@@ -270,11 +271,22 @@ function MobileTodayPage() {
                       )}
                     </div>
 
-                    {item.title && (
-                      <p className="mt-2 line-clamp-2 text-sm font-semibold text-slate-900">
-                        {item.title}
-                      </p>
-                    )}
+                    {(() => {
+                      const primary = workItemPrimaryTitle(item);
+                      const secondary = workItemSecondaryTitle(item);
+                      return (
+                        <>
+                          <p className="mt-2 line-clamp-2 text-sm font-semibold text-slate-900">
+                            {primary}
+                          </p>
+                          {secondary && (
+                            <p className="mt-0.5 line-clamp-1 text-xs text-slate-500">
+                              {secondary}
+                            </p>
+                          )}
+                        </>
+                      );
+                    })()}
 
                     <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500">
                       {item.due_at && (

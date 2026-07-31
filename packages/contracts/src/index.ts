@@ -716,6 +716,9 @@ export const customerWorkOrderStatusDtoSchema = z.object({
   scheduledStart: z.string().nullable(),
   scheduledEnd: z.string().nullable(),
   completedAt: z.string().nullable(),
+  /** Optional site address when resolved from the related service site / visit. */
+  siteAddress: z.string().nullable().optional(),
+  siteName: z.string().nullable().optional(),
 });
 export type CustomerWorkOrderStatusDto = z.infer<typeof customerWorkOrderStatusDtoSchema>;
 
@@ -1543,6 +1546,14 @@ export interface WorkItem {
   version: number;
   createdAt: string;
   updatedAt: string;
+  /** Display enrichment (optional; filled by list/detail APIs). */
+  title?: string | null;
+  companyName?: string | null;
+  siteName?: string | null;
+  quoteNumber?: string | null;
+  amountMinor?: number | null;
+  currency?: string | null;
+  assigneeDisplay?: string | null;
 }
 
 export interface WorkflowEvent {

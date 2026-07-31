@@ -8,6 +8,8 @@ import {
 } from "lucide-react";
 import { useI18n } from "@/i18n/locale-provider";
 import type { MyWorkItem } from "@/lib/api-hooks";
+import { workItemPrimaryTitle, workItemSecondaryTitle } from "@/lib/work-item-display";
+import { formatMinorAmount } from "@/lib/money";
 import { apiFetch, apiPost } from "@/lib/api-fetch";
 import UserAvatar from "@/components/UserAvatar";
 
@@ -162,7 +164,7 @@ function MyWorkPage() {
         }
       );
       if (!json.success) throw new Error(json.error?.message ?? "Decision failed");
-      showToast("success", decisionOutcome === "approved" ? "Approved" : "Rejected");
+      showToast("success", decisionOutcome === "approved" ? "Approved" : "Returned for changes");
       setDecisionFor(null);
       setDecisionComment("");
       await load();
@@ -321,9 +323,17 @@ function MyWorkPage() {
                         )}
                       </div>
                       <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500">
-                        {item.title && (
-                          <span className="w-full text-sm font-semibold text-slate-900">
-                            {item.title}
+                        <span className="w-full text-sm font-semibold text-slate-900">
+                          {workItemPrimaryTitle(item)}
+                        </span>
+                        {workItemSecondaryTitle(item) && (
+                          <span className="w-full text-xs text-slate-500">
+                            {workItemSecondaryTitle(item)}
+                          </span>
+                        )}
+                        {item.kind === "approval" && item.amount_minor != null && item.currency && (
+                          <span className="w-full text-sm font-medium text-slate-800">
+                            {formatMinorAmount(item.amount_minor, item.currency)}
                           </span>
                         )}
                         {item.due_at && (
@@ -355,7 +365,7 @@ function MyWorkPage() {
                   </div>
 
                   {/* Right: Actions */}
-                  <div className="flex shrink-0 items-center gap-2">
+                  <div className="flex shrink-0 flex-wrap items-center gap-2">
                     {isOperational && item.subject_type && item.subject_id && (
                       <button
                         onClick={() => navigateToSubject(item)}
@@ -363,18 +373,6 @@ function MyWorkPage() {
                       >
                         Open
                         <ArrowRight size={14} />
-                      </button>
-                    )}
-                    {!isOperational && item.status === "ready" && (
-                      <button
-                        onClick={() => void handleClaim(item)}
-                        disabled={executing === `claim-${item.id}`}
-                        className="app-button-secondary text-xs"
-                      >
-                        {executing === `claim-${item.id}` ? (
-                          <Loader2 size={14} className="animate-spin" />
-                        ) : null}
-                        {t("myWork.actionClaim")}
                       </button>
                     )}
                     {!isOperational && item.kind === "approval" && item.status !== "completed" && (
@@ -397,11 +395,25 @@ function MyWorkPage() {
                             setDecisionComment("");
                           }}
                           disabled={executing === `decide-${item.id}`}
-                          className="app-button-danger text-xs"
+                          className="app-button-secondary text-xs"
                         >
-                          {t("myWork.actionReject")}
+                          {t("myWork.actionReturnForChanges")}
                         </button>
                       </>
+                    )}
+                    {!isOperational
+                      && item.status === "ready"
+                      && item.assignee_type === "permission_group" && (
+                      <button
+                        onClick={() => void handleClaim(item)}
+                        disabled={executing === `claim-${item.id}`}
+                        className="px-2 py-1 text-xs font-medium text-slate-500 underline-offset-2 hover:text-slate-800 hover:underline disabled:opacity-50"
+                      >
+                        {executing === `claim-${item.id}` ? (
+                          <Loader2 size={14} className="inline animate-spin" />
+                        ) : null}
+                        {t("myWork.actionClaimToOwn")}
+                      </button>
                     )}
                     {!isOperational && item.kind === "human_task" && item.status !== "completed" && (
                       <button
@@ -443,10 +455,10 @@ function MyWorkPage() {
             onClick={(e) => e.stopPropagation()}
           >
             <h3 className="text-lg font-bold text-slate-900">
-              {decisionOutcome === "approved" ? t("myWork.actionApprove") : t("myWork.actionReject")}
+              {decisionOutcome === "approved" ? t("myWork.actionApprove") : t("myWork.actionReturnForChanges")}
             </h3>
             <p className="mt-1 text-sm text-slate-500">
-              {decisionFor.subject_type ?? "Work item"}
+              {workItemPrimaryTitle(decisionFor)}
             </p>
             <textarea
               value={decisionComment}
@@ -464,12 +476,12 @@ function MyWorkPage() {
               <button
                 onClick={() => void handleDecision()}
                 disabled={executing === `decide-${decisionFor.id}`}
-                className={decisionOutcome === "approved" ? "app-button-primary" : "app-button-danger"}
+                className={decisionOutcome === "approved" ? "app-button-primary" : "app-button-secondary"}
               >
                 {executing === `decide-${decisionFor.id}` ? (
                   <Loader2 size={16} className="animate-spin" />
                 ) : null}
-                {decisionOutcome === "approved" ? t("myWork.actionApprove") : t("myWork.actionReject")}
+                {decisionOutcome === "approved" ? t("myWork.actionApprove") : t("myWork.actionReturnForChanges")}
               </button>
             </div>
           </div>

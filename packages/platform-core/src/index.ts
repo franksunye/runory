@@ -54,6 +54,7 @@ export * from "./invoice-commands";
 export * from "./customer-access-commands";
 export * from "./customer-access-session";
 export * from "./customer-access-context";
+export * from "./work-item-subject-enrichment";
 export * from "./payment-connect-commands";
 export * from "./workflow-projection";
 export * from "./cron-coordinator";

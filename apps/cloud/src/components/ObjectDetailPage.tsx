@@ -976,7 +976,11 @@ function getBusinessCommandActions(objectKey: string, record: WorkspaceRecord): 
       actions.push({ command: "quote.withdraw", label: "Withdraw", tone: "secondary", reasonPrompt: "Reason for withdrawing this quote?" });
     }
     if (status === "sent") {
-      actions.push({ command: "quote.accept", label: "Accept", tone: "primary" });
+      actions.push({
+        command: "quote.accept",
+        label: "Record customer acceptance",
+        tone: "secondary",
+      });
       actions.push({ command: "quote.mark_declined", label: "Mark as declined", tone: "danger", reasonPrompt: "Reason for declining this quote?" });
     }
     if (status === "accepted") {

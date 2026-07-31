@@ -312,6 +312,13 @@ function mapWorkItemRow(row: MyWorkItem): WorkItem {
     version: row.version,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+    title: row.title ?? null,
+    companyName: row.company_name ?? null,
+    siteName: row.site_name ?? null,
+    quoteNumber: row.quote_number ?? null,
+    amountMinor: row.amount_minor ?? null,
+    currency: row.currency ?? null,
+    assigneeDisplay: row.assignee_display ?? null,
   };
 }
 
@@ -384,9 +391,14 @@ export interface MyWorkItem {
   version: number;
   created_at: string;
   updated_at: string;
-  title?: string;
+  title?: string | null;
   description?: string;
   resource_name?: string | null;
+  company_name?: string | null;
+  site_name?: string | null;
+  quote_number?: string | null;
+  amount_minor?: number | null;
+  currency?: string | null;
   operational_source?: string;
 }
 
