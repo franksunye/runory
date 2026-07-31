@@ -1258,6 +1258,7 @@ export default function CustomerAccessPage() {
     try {
       const json = await apiPost<ApiResponse<{ checkoutUrl: string }>>(
         `/api/customer-access/invoices/${context.invoice.id}/checkout`,
+        { locale },
       );
       const checkoutUrl = json.data?.checkoutUrl;
       if (!checkoutUrl) {
@@ -1272,7 +1273,7 @@ export default function CustomerAccessPage() {
       setRequesting(false);
       setPayError(t("payment.pay.error"));
     }
-  }, [context, t]);
+  }, [context, locale, t]);
 
   const handleLogout = useCallback(async () => {
     setLoggingOut(true);

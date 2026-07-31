@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -1140,14 +1140,75 @@ function SourcePaymentPanel({
   const eligible = (objectKey === "quote" && record.status === "accepted")
     || (objectKey === "work_order" && record.status === "completed")
     || (objectKey === "invoice" && ["issued", "partially_paid"].includes(String(record.status)));
-  const defaultAmountMinor = objectKey === "quote" && Number(record.grand_total) > 0
-    ? Math.round(Number(record.grand_total) * 100)
-    : objectKey === "invoice"
-      ? Number(record.balance_due_minor ?? 0)
-      : 0;
-  const [amountMajor, setAmountMajor] = useState(
-    defaultAmountMinor > 0 ? minorToMajor(defaultAmountMinor) : 0,
+
+  // WO: prefer linked open invoice balance, else source quote total.
+  const woInvoiceKey = objectKey === "work_order"
+    ? `/api/workspaces/${workspaceId}/objects/invoice/records?filter.work_order_id=${encodeURIComponent(recordId)}&limit=20`
+    : null;
+  const { data: woInvoices, isLoading: loadingWoInvoices } = useSWR<WorkspaceRecord[]>(woInvoiceKey);
+  const sourceQuoteId = objectKey === "work_order"
+    && String(record.source_type ?? "") === "quote"
+    && record.source_id
+    ? String(record.source_id)
+    : null;
+  const sourceQuoteKey = sourceQuoteId
+    ? `/api/workspaces/${workspaceId}/objects/quote/records/${encodeURIComponent(sourceQuoteId)}`
+    : null;
+  const { data: sourceQuote, isLoading: loadingSourceQuote } = useSWR<WorkspaceRecord>(sourceQuoteKey);
+
+  const amountSuggestion = useMemo(() => {
+    if (objectKey === "invoice") {
+      const balance = Number(record.balance_due_minor ?? 0);
+      return balance > 0
+        ? { amountMinor: balance, currency: String(record.currency ?? "USD").toUpperCase(), source: "invoice" as const }
+        : null;
+    }
+    if (objectKey === "quote") {
+      const grand = Number(record.grand_total ?? 0);
+      if (!(grand > 0)) return null;
+      return {
+        amountMinor: majorToMinor(grand),
+        currency: String(record.currency ?? "USD").toUpperCase(),
+        source: "quote" as const,
+      };
+    }
+    // work_order
+    const openInvoice = (woInvoices ?? []).find((invoice) => {
+      const status = String(invoice.status ?? "");
+      const balance = Number(invoice.balance_due_minor ?? 0);
+      return (status === "issued" || status === "partially_paid") && balance > 0;
+    });
+    if (openInvoice) {
+      return {
+        amountMinor: Number(openInvoice.balance_due_minor),
+        currency: String(openInvoice.currency ?? record.currency ?? "USD").toUpperCase(),
+        source: "invoice" as const,
+      };
+    }
+    if (sourceQuote) {
+      const grand = Number(sourceQuote.grand_total ?? 0);
+      if (grand > 0) {
+        return {
+          amountMinor: majorToMinor(grand),
+          currency: String(sourceQuote.currency ?? record.currency ?? "USD").toUpperCase(),
+          source: "quote" as const,
+        };
+      }
+    }
+    return null;
+  }, [objectKey, record, woInvoices, sourceQuote]);
+
+  const suggestionReady = objectKey !== "work_order"
+    || (!loadingWoInvoices && (!sourceQuoteId || !loadingSourceQuote));
+
+  const [amountMajor, setAmountMajor] = useState<number>(
+    objectKey === "invoice" && Number(record.balance_due_minor ?? 0) > 0
+      ? minorToMajor(Number(record.balance_due_minor))
+      : objectKey === "quote" && Number(record.grand_total ?? 0) > 0
+        ? Number(record.grand_total)
+        : 0,
   );
+  const [amountTouched, setAmountTouched] = useState(false);
   const [currency, setCurrency] = useState(String(record.currency ?? "USD").toUpperCase());
   const [purpose, setPurpose] = useState<"deposit" | "final" | "general">(
     objectKey === "quote" ? "deposit" : "final",
@@ -1157,7 +1218,19 @@ function SourcePaymentPanel({
   const [createdCheckoutUrl, setCreatedCheckoutUrl] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
+  useEffect(() => {
+    if (amountTouched || !amountSuggestion) return;
+    setAmountMajor(minorToMajor(amountSuggestion.amountMinor));
+    setCurrency(amountSuggestion.currency);
+  }, [amountSuggestion, amountTouched]);
+
   const amountMinor = majorToMinor(amountMajor);
+  const missingCommercialContext = objectKey === "work_order"
+    && eligible
+    && suggestionReady
+    && !amountSuggestion
+    && !amountTouched
+    && amountMinor <= 0;
 
   const copyCheckoutUrl = async (url: string) => {
     try {
@@ -1285,34 +1358,43 @@ function SourcePaymentPanel({
       )}
 
       {eligible && (
-        <div className="mt-4 grid gap-3 border-t border-slate-100 pt-4 sm:grid-cols-[1fr_1fr_1fr_auto] sm:items-end">
-          <label className="text-xs font-semibold text-slate-600">
-            {t("workspace.payment.purpose")}
-            <select value={purpose} onChange={(event) => setPurpose(event.target.value as typeof purpose)} className="app-input mt-1">
-              <option value="deposit">{t("workspace.payment.purposeDeposit")}</option>
-              <option value="final">{t("workspace.payment.purposeFinal")}</option>
-              <option value="general">{t("workspace.payment.purposeGeneral")}</option>
-            </select>
-          </label>
-          <label className="text-xs font-semibold text-slate-600">
-            {t("workspace.payment.amount")}
-            <input
-              type="number"
-              min={0.01}
-              step={0.01}
-              value={amountMajor || ""}
-              onChange={(event) => setAmountMajor(Number(event.target.value))}
-              className="app-input mt-1"
-            />
-          </label>
-          <label className="text-xs font-semibold text-slate-600">
-            {t("workspace.payment.currency")}
-            <input value={currency} maxLength={3} onChange={(event) => setCurrency(event.target.value.toUpperCase())} className="app-input mt-1 uppercase" />
-          </label>
-          <button type="button" disabled={submitting || amountMinor <= 0 || currency.length !== 3} onClick={() => void createCheckout()} className="app-button-primary">
-            {submitting ? <Loader2 size={15} className="animate-spin" /> : <CreditCard size={15} />}
-            {t("workspace.payment.request")}
-          </button>
+        <div className="mt-4 space-y-2 border-t border-slate-100 pt-4">
+          <div className="grid gap-3 sm:grid-cols-[1fr_1fr_1fr_auto] sm:items-end">
+            <label className="text-xs font-semibold text-slate-600">
+              {t("workspace.payment.purpose")}
+              <select value={purpose} onChange={(event) => setPurpose(event.target.value as typeof purpose)} className="app-input mt-1">
+                <option value="deposit">{t("workspace.payment.purposeDeposit")}</option>
+                <option value="final">{t("workspace.payment.purposeFinal")}</option>
+                <option value="general">{t("workspace.payment.purposeGeneral")}</option>
+              </select>
+            </label>
+            <label className="text-xs font-semibold text-slate-600">
+              {t("workspace.payment.amount")}
+              <input
+                type="number"
+                min={0.01}
+                step={0.01}
+                value={amountMajor > 0 ? amountMajor : ""}
+                onChange={(event) => {
+                  setAmountTouched(true);
+                  setAmountMajor(Number(event.target.value));
+                }}
+                placeholder={missingCommercialContext ? t("workspace.payment.amountPlaceholder") : undefined}
+                className="app-input mt-1"
+              />
+            </label>
+            <label className="text-xs font-semibold text-slate-600">
+              {t("workspace.payment.currency")}
+              <input value={currency} maxLength={3} onChange={(event) => setCurrency(event.target.value.toUpperCase())} className="app-input mt-1 uppercase" />
+            </label>
+            <button type="button" disabled={submitting || amountMinor <= 0 || currency.length !== 3} onClick={() => void createCheckout()} className="app-button-primary">
+              {submitting ? <Loader2 size={15} className="animate-spin" /> : <CreditCard size={15} />}
+              {t("workspace.payment.request")}
+            </button>
+          </div>
+          {missingCommercialContext && (
+            <p className="text-xs text-amber-700">{t("workspace.payment.noCommercialAmount")}</p>
+          )}
         </div>
       )}
       {createdCheckoutUrl && (

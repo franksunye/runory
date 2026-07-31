@@ -134,6 +134,17 @@ export async function POST(
 
     const origin = process.env.NEXT_PUBLIC_APP_URL ?? new URL(request.url).origin;
 
+    // Locale is presentation chrome (not a business amount). Allowlist only.
+    let locale = "en";
+    const headerLocale = request.headers.get("x-runory-locale")?.trim().toLowerCase();
+    if (headerLocale === "zh" || headerLocale === "en") {
+      locale = headerLocale;
+    } else {
+      const body = (await request.json().catch(() => null)) as { locale?: unknown } | null;
+      const requested = typeof body?.locale === "string" ? body.locale.trim().toLowerCase() : "";
+      if (requested === "zh" || requested === "en") locale = requested;
+    }
+
     // Idempotency key includes balance — changed balance produces a new key
     // only after the prior request is no longer open (Tech Spec §7.3).
     const idempotencyKey =
@@ -151,8 +162,8 @@ export async function POST(
         providerAccountId: providerAccount.id,
         customerContactId,
         customerEmail,
-        successUrl: `${origin}/access?checkout=returned`,
-        cancelUrl: `${origin}/access?checkout=cancelled`,
+        successUrl: `${origin}/${locale}/access?checkout=returned`,
+        cancelUrl: `${origin}/${locale}/access?checkout=cancelled`,
       },
       { type: "customer", id: grant.id },
       idempotencyKey,

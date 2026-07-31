@@ -618,7 +618,7 @@ function MobileFormPage() {
         {state === "loading" && (
           <div className="flex flex-col items-center justify-center py-20">
             <Loader2 size={28} className="animate-spin text-slate-400" />
-            <p className="mt-3 text-xs text-slate-400">Loading form…</p>
+            <p className="mt-3 text-xs text-slate-400">{t("mobile.formLoading")}</p>
           </div>
         )}
 
@@ -626,14 +626,14 @@ function MobileFormPage() {
           <div className="flex flex-col items-center justify-center gap-3 px-6 py-20">
             <AlertCircle size={28} className="text-red-400" />
             <p className="text-center text-sm text-red-600">
-              {errorMessage ?? "Failed to load form"}
+              {errorMessage ?? t("mobile.formLoadFailed")}
             </p>
             <div className="flex gap-3">
               <button
                 onClick={() => void load()}
                 className="flex min-h-[44px] items-center rounded-lg border border-slate-200 px-5 py-3 text-sm font-semibold text-slate-700 active:bg-slate-100"
               >
-                Retry
+                {t("mobile.formRetry")}
               </button>
               <button
                 onClick={() =>
@@ -641,7 +641,7 @@ function MobileFormPage() {
                 }
                 className="flex min-h-[44px] items-center rounded-lg border border-slate-200 px-5 py-3 text-sm font-semibold text-slate-700 active:bg-slate-100"
               >
-                Back to Work Item
+                {t("mobile.formBackToWorkItem")}
               </button>
             </div>
           </div>
@@ -654,11 +654,10 @@ function MobileFormPage() {
             </div>
             <div className="text-center">
               <h2 className="text-lg font-bold text-slate-900">
-                Form Submitted
+                {t("mobile.formSubmitted")}
               </h2>
               <p className="mt-1 text-sm text-slate-500">
-                Your form has been submitted and the work item is marked
-                complete.
+                {t("mobile.formSubmittedHelp")}
               </p>
             </div>
             <button

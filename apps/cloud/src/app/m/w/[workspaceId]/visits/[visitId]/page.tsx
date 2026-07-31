@@ -566,8 +566,6 @@ function MobileVisitDetailPage() {
   }
   const actualEnd = visit ? str(visit.actual_end) : "";
   const notes = visit ? str(visit.notes) : "";
-  const workOrderId = visit ? str(visit.work_order_id) : "";
-  const technicianId = visit ? str(visit.technician_id) : "";
   const outcome = visit ? str(visit.outcome) : "";
 
   // Customer / site / asset context — these may be denormalized onto the visit
@@ -592,8 +590,18 @@ function MobileVisitDetailPage() {
       : ""
   );
   const assetName = pickFirst(visit?.asset_name, visitContext.asset?.name);
-  const technicianName = pickFirst(visit?.technician_name, visitContext.technician?.name, technicianId);
-  const workOrderTitle = pickFirst(visitContext.workOrder?.title, workOrderId);
+  const technicianName = pickFirst(
+    visit?.technician_name,
+    visitContext.technician?.name,
+    visitContext.technician?.display_name,
+    visitContext.technician?.full_name,
+  );
+  const workOrderLabel = pickFirst(
+    visitContext.workOrder?.title,
+    visitContext.workOrder?.work_order_number,
+    visit?.work_order_title,
+    visit?.work_order_number,
+  );
   const instructions = pickFirst(
     visit?.instructions,
     notes,
@@ -719,8 +727,8 @@ function MobileVisitDetailPage() {
                   </div>
                 )}
 
-                {/* Technician */}
-                {technicianId && (
+                {/* Technician — never print raw resource/user IDs */}
+                {technicianName && (
                   <div className="flex items-start gap-3">
                     <dt className="flex w-28 shrink-0 items-center gap-1.5 text-xs text-slate-400">
                       <User size={12} />
@@ -732,15 +740,15 @@ function MobileVisitDetailPage() {
                   </div>
                 )}
 
-                {/* Related work order */}
-                {workOrderId && (
+                {/* Related work order — title or number only, never raw id */}
+                {workOrderLabel && (
                   <div className="flex items-start gap-3">
                     <dt className="flex w-28 shrink-0 items-center gap-1.5 text-xs text-slate-400">
                       <ClipboardList size={12} />
                       {t("mobile.visitWorkOrder")}
                     </dt>
                     <dd className="min-w-0 flex-1 text-sm font-medium text-slate-800">
-                      {workOrderTitle}
+                      {workOrderLabel}
                     </dd>
                   </div>
                 )}
@@ -765,10 +773,10 @@ function MobileVisitDetailPage() {
               <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
                 <div className="flex items-center gap-2">
                   <FileText size={17} className="text-indigo-600" />
-                  <h2 className="text-sm font-bold text-slate-900">Required delivery evidence</h2>
+                  <h2 className="text-sm font-bold text-slate-900">{t("mobile.visitRequiredEvidence")}</h2>
                 </div>
                 <p className="mt-1 text-xs leading-relaxed text-slate-500">
-                  Complete every checklist and attach the required evidence before closing this visit.
+                  {t("mobile.visitRequiredEvidenceHelp")}
                 </p>
                 <div className="mt-3 space-y-2">
                   {requirements.map((requirement) => {
@@ -784,7 +792,7 @@ function MobileVisitDetailPage() {
                       </Link>
                     ) : (
                       <div key={requirement.id} className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
-                        {requirement.label}: execution form is unavailable. Refresh or contact dispatch.
+                        {t("mobile.visitFormUnavailable", { label: requirement.label })}
                       </div>
                     );
                   })}
