@@ -305,6 +305,17 @@ domain:
     - key: quote
       stateField: status
       versionField: aggregate_version
+      lifecycle:
+        spine: [draft, in_review, approved, sent, accepted, converted]
+        aliases: { returned: draft }
+        terminals: [rejected, declined, expired, withdrawn]
+        evidence:
+          draft: { events: [quote.draft_created] }
+          in_review: { events: [quote.submitted_for_approval] }
+          approved: { events: [quote.approved] }
+          sent: { events: [quote.marked_sent] }
+          accepted: { events: [quote.accepted] }
+          converted: { events: [quote.converted_to_work_order] }
   commands:
     - { key: quote.create_draft, contractVersion: "1.0.0", aggregate: quote, operation: create, allowedActorTypes: [user, api_key, system], permission: quote.create, idempotent: true, requiresExpectedVersion: false, requiredEffects: [], emits: [quote.draft_created], auditRequired: true, resultAssertions: [{ field: status, operator: equals, value: draft }, { field: aggregate_version, operator: equals, value: 1 }], postconditions: [A new quote is created as an editable draft.] }
     - key: quote.recalculate
@@ -341,6 +352,8 @@ domain:
       contractVersion: "1.0.0"
       aggregate: quote
       transition: { from: [draft], to: in_review }
+      intent: advance
+      icon: send
       allowedActorTypes: [user, api_key, system]
       permission: quote.submit
       idempotent: true
@@ -354,6 +367,12 @@ domain:
       contractVersion: "1.0.0"
       aggregate: quote
       operation: action
+      # An action command carries no transition, so its surface condition has to
+      # be declared explicitly.
+      intent: advance
+      icon: arrow-right-left
+      availableWhen:
+        - { field: status, operator: equals, value: accepted }
       allowedActorTypes: [user, api_key, system]
       permission: quote.convert
       idempotent: true
@@ -365,13 +384,13 @@ domain:
       emits: [quote.converted_to_work_order]
       auditRequired: true
       postconditions: [quote.status == converted, linked_work_order.status == new, linked_work_order.source_id == quote.id]
-    - { key: quote.approve, contractVersion: "1.0.0", aggregate: quote, transition: { from: [in_review], to: approved }, allowedActorTypes: [user, api_key, system], permission: quote.approve, idempotent: true, requiresExpectedVersion: true, requiredEffects: [], emits: [quote.approved], auditRequired: true, postconditions: [quote.status == approved] }
-    - { key: quote.reject, contractVersion: "1.0.0", aggregate: quote, transition: { from: [in_review], to: rejected }, allowedActorTypes: [user, api_key, system], permission: quote.reject, idempotent: true, requiresExpectedVersion: true, requiredEffects: [], emits: [quote.rejected], auditRequired: true, postconditions: [quote.status == rejected] }
-    - { key: quote.return_for_changes, contractVersion: "1.0.0", aggregate: quote, transition: { from: [in_review], to: draft }, allowedActorTypes: [user, api_key, system], permission: quote.approve, idempotent: true, requiresExpectedVersion: true, requiredEffects: [], emits: [quote.returned_for_changes], auditRequired: true, postconditions: [quote.status == draft] }
-    - { key: quote.withdraw, contractVersion: "1.0.0", aggregate: quote, transition: { from: [draft, in_review, approved, sent], to: withdrawn }, allowedActorTypes: [user, api_key, system], permission: quote.submit, idempotent: true, requiresExpectedVersion: true, requiredEffects: [], emits: [quote.withdrawn], auditRequired: true, postconditions: [quote.status == withdrawn] }
-    - { key: quote.mark_sent, contractVersion: "1.0.0", aggregate: quote, transition: { from: [approved], to: sent }, allowedActorTypes: [user, api_key, system], permission: quote.submit, idempotent: true, requiresExpectedVersion: true, requiredEffects: [], emits: [quote.marked_sent], auditRequired: true, postconditions: [quote.status == sent] }
-    - { key: quote.accept, contractVersion: "1.0.0", aggregate: quote, transition: { from: [sent], to: accepted }, allowedActorTypes: [user, api_key, system, customer], permission: quote.accept, idempotent: true, requiresExpectedVersion: true, requiredEffects: [], emits: [quote.accepted], auditRequired: true, postconditions: [quote.status == accepted] }
-    - { key: quote.mark_declined, contractVersion: "1.0.0", aggregate: quote, transition: { from: [sent], to: declined }, allowedActorTypes: [user, api_key, system], permission: quote.submit, idempotent: true, requiresExpectedVersion: true, requiredEffects: [], emits: [quote.declined], auditRequired: true, postconditions: [quote.status == declined] }
+    - { key: quote.approve, contractVersion: "1.0.0", aggregate: quote, transition: { from: [in_review], to: approved }, intent: advance, icon: check-circle, allowedActorTypes: [user, api_key, system], permission: quote.approve, idempotent: true, requiresExpectedVersion: true, requiredEffects: [], emits: [quote.approved], auditRequired: true, postconditions: [quote.status == approved] }
+    - { key: quote.reject, contractVersion: "1.0.0", aggregate: quote, transition: { from: [in_review], to: rejected }, intent: decide, icon: x-circle, requiresReason: true, allowedActorTypes: [user, api_key, system], permission: quote.reject, idempotent: true, requiresExpectedVersion: true, requiredEffects: [], emits: [quote.rejected], auditRequired: true, postconditions: [quote.status == rejected] }
+    - { key: quote.return_for_changes, contractVersion: "1.0.0", aggregate: quote, transition: { from: [in_review], to: draft }, intent: decide, icon: rotate-ccw, requiresReason: true, allowedActorTypes: [user, api_key, system], permission: quote.approve, idempotent: true, requiresExpectedVersion: true, requiredEffects: [], emits: [quote.returned_for_changes], auditRequired: true, postconditions: [quote.status == draft] }
+    - { key: quote.withdraw, contractVersion: "1.0.0", aggregate: quote, transition: { from: [draft, in_review, approved, sent], to: withdrawn }, intent: escape_hatch, icon: ban, requiresReason: true, allowedActorTypes: [user, api_key, system], permission: quote.submit, idempotent: true, requiresExpectedVersion: true, requiredEffects: [], emits: [quote.withdrawn], auditRequired: true, postconditions: [quote.status == withdrawn] }
+    - { key: quote.mark_sent, contractVersion: "1.0.0", aggregate: quote, transition: { from: [approved], to: sent }, intent: advance, icon: send, allowedActorTypes: [user, api_key, system], permission: quote.submit, idempotent: true, requiresExpectedVersion: true, requiredEffects: [], emits: [quote.marked_sent], auditRequired: true, postconditions: [quote.status == sent] }
+    - { key: quote.accept, contractVersion: "1.0.0", aggregate: quote, transition: { from: [sent], to: accepted }, intent: decide, icon: check, allowedActorTypes: [user, api_key, system, customer], permission: quote.accept, idempotent: true, requiresExpectedVersion: true, requiredEffects: [], emits: [quote.accepted], auditRequired: true, postconditions: [quote.status == accepted] }
+    - { key: quote.mark_declined, contractVersion: "1.0.0", aggregate: quote, transition: { from: [sent], to: declined }, intent: decide, icon: x-circle, requiresReason: true, allowedActorTypes: [user, api_key, system], permission: quote.submit, idempotent: true, requiresExpectedVersion: true, requiredEffects: [], emits: [quote.declined], auditRequired: true, postconditions: [quote.status == declined] }
     - { key: quote.expire, contractVersion: "1.0.0", aggregate: quote, transition: { from: [draft, in_review, approved, sent], to: expired }, allowedActorTypes: [user, api_key, system], permission: quote.submit, idempotent: true, requiresExpectedVersion: true, requiredEffects: [], emits: [quote.expired], auditRequired: true, postconditions: [quote.status == expired] }
 
 permissions:

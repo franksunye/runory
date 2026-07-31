@@ -476,6 +476,116 @@ describe("Contract-driven command planning", () => {
     );
   });
 
+  // ── Aggregate lifecycle (single source of truth for record progress) ──
+  //
+  // The point of declaring the lifecycle in the manifest is that a state can no
+  // longer be added without deciding what it means for progress. These lock the
+  // gate so surfaces never have to keep their own copy of the answer.
+
+  const LIFECYCLE_MODULES = [
+    ["runory.work-order", "work_order"],
+    ["runory.quote", "quote"],
+    ["runory.service-visit", "service_visit"],
+    ["runory.invoice", "invoice"],
+  ] as const;
+
+  it.each(LIFECYCLE_MODULES)(
+    "%s partitions every declared state of '%s' exactly once",
+    (moduleId, aggregateKey) => {
+      const manifest = loadModuleManifest(moduleId);
+      const aggregate = manifest.domain!.aggregates.find((entry) => entry.key === aggregateKey)!;
+      const lifecycle = aggregate.lifecycle!;
+      const stateField = manifest.objects
+        .find((object) => object.key === aggregateKey)!.fields
+        .find((field) => field.key === aggregate.stateField)!;
+
+      const classified = [
+        ...lifecycle.spine,
+        ...Object.keys(lifecycle.aliases),
+        ...lifecycle.interrupts,
+        ...lifecycle.terminals,
+      ];
+
+      expect(new Set(classified).size).toBe(classified.length);
+      expect([...classified].sort()).toEqual(
+        [...(stateField.validation!.options as string[])].sort(),
+      );
+      expect(validateModuleCommandContracts(manifest)).toEqual([]);
+    },
+  );
+
+  it("rejects a state added to the field without a lifecycle classification", () => {
+    const manifest = structuredClone(loadModuleManifest("runory.work-order")) as ModuleManifest;
+    const status = manifest.objects
+      .find((object) => object.key === "work_order")!.fields
+      .find((field) => field.key === "status")!;
+    (status.validation!.options as string[]).push("awaiting_parts");
+
+    expect(validateModuleCommandContracts(manifest)).toContain(
+      "aggregate 'work_order' state 'awaiting_parts' is not classified by the "
+      + "lifecycle (spine, aliases, interrupts or terminals)",
+    );
+  });
+
+  it("rejects a lifecycle that classifies a state twice", () => {
+    const manifest = structuredClone(loadModuleManifest("runory.work-order")) as ModuleManifest;
+    manifest.domain!.aggregates[0].lifecycle!.terminals.push("blocked");
+
+    expect(validateModuleCommandContracts(manifest)).toContain(
+      "aggregate 'work_order' lifecycle classifies state 'blocked' as both interrupts and terminals",
+    );
+  });
+
+  it("rejects an alias that does not land on the spine", () => {
+    const manifest = structuredClone(loadModuleManifest("runory.quote")) as ModuleManifest;
+    manifest.domain!.aggregates[0].lifecycle!.aliases.returned = "rejected";
+
+    expect(validateModuleCommandContracts(manifest)).toContain(
+      "aggregate 'quote' lifecycle alias 'returned' points at 'rejected', which is not on the spine",
+    );
+  });
+
+  it("rejects an advance command that ends the record off-spine", () => {
+    const manifest = structuredClone(loadModuleManifest("runory.work-order")) as ModuleManifest;
+    manifest.domain!.commands.find((command) => command.key === "work_order.cancel")!
+      .intent = "advance";
+
+    expect(validateModuleCommandContracts(manifest)).toContain(
+      "command 'work_order.cancel' is declared as intent 'advance' but targets "
+      + "off-spine state 'cancelled'; use 'decide' or 'escape_hatch'",
+    );
+  });
+
+  it("rejects a surfaced action command that declares no availability condition", () => {
+    const manifest = structuredClone(loadModuleManifest("runory.quote")) as ModuleManifest;
+    manifest.domain!.commands.find((command) => command.key === "quote.convert_to_work_order")!
+      .availableWhen = [];
+
+    expect(validateModuleCommandContracts(manifest)).toContain(
+      "command 'quote.convert_to_work_order' is an action on the record command surface, "
+      + "so it must declare availableWhen; a transition would otherwise be implied",
+    );
+  });
+
+  it("rejects availability predicates that read undeclared fields", () => {
+    const manifest = structuredClone(loadModuleManifest("runory.invoice")) as ModuleManifest;
+    manifest.domain!.commands.find((command) => command.key === "invoice.void")!
+      .availableWhen = [{ field: "settled_minor", operator: "equals", value: 0 }];
+
+    expect(validateModuleCommandContracts(manifest)).toContain(
+      "command 'invoice.void' availableWhen reads undeclared field 'invoice.settled_minor'",
+    );
+  });
+
+  it("rejects lifecycle evidence that reads an undeclared timestamp column", () => {
+    const manifest = structuredClone(loadModuleManifest("runory.work-order")) as ModuleManifest;
+    manifest.domain!.aggregates[0].lifecycle!.evidence.completed.timestampField = "closed_at";
+
+    expect(validateModuleCommandContracts(manifest)).toContain(
+      "aggregate 'work_order' lifecycle evidence for 'completed' reads undeclared field 'closed_at'",
+    );
+  });
+
   it.each([
     ["runory.workflow", 6],
     ["runory.forms", 5],

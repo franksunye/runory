@@ -12,25 +12,11 @@ import {
   X,
 } from "lucide-react";
 import { useI18n } from "@/i18n/locale-provider";
-import type { WorkspaceRecord } from "@/lib/api-hooks";
+import { useFields, type WorkspaceRecord } from "@/lib/api-hooks";
+import { recordStatusPresentation } from "@/lib/record-lifecycle";
 import { apiFetch } from "@/lib/api-fetch";
 
 export const dynamic = "force-dynamic";
-
-const STATUS_BADGE: Record<string, string> = {
-  draft: "bg-slate-100 text-slate-600",
-  review: "bg-amber-50 text-amber-700",
-  approved: "bg-green-50 text-green-700",
-  sent: "bg-blue-50 text-blue-700",
-  accepted: "bg-green-50 text-green-700",
-  returned: "bg-purple-50 text-purple-700",
-  rejected: "bg-red-50 text-red-600",
-  expired: "bg-slate-100 text-slate-500",
-};
-
-function titleize(value: string): string {
-  return value.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
-}
 
 function formatMoney(value: unknown): string {
   const n = Number(value);
@@ -59,6 +45,7 @@ export default function MobileQuotesPageWrapper() {
 function MobileQuotesPage() {
   const workspaceId = useParams().workspaceId as string;
   const { t } = useI18n();
+  const { data: objectDetail } = useFields(workspaceId, "quote");
 
   const [records, setRecords] = useState<WorkspaceRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -173,8 +160,13 @@ function MobileQuotesPage() {
             {records.map((record) => {
               const id = String(record.id ?? record._id ?? "");
               const title = String(record.title ?? record.name ?? record.quote_number ?? "—");
-              const status = String(record.status ?? "draft");
-              const statusBadge = STATUS_BADGE[status] ?? "bg-slate-100 text-slate-600";
+              const status = String(record.status ?? "");
+              const statusPresentation = recordStatusPresentation(
+                "quote",
+                objectDetail?.lifecycle,
+                status,
+                t
+              );
               const total = formatMoney(record.total_amount ?? record.amount ?? record.grand_total);
               const validUntil = String(record.valid_until ?? record.expires_at ?? "");
 
@@ -187,8 +179,8 @@ function MobileQuotesPage() {
                     <div className="min-w-0 flex-1">
                       <h3 className="line-clamp-2 text-sm font-bold text-slate-900">{title}</h3>
                       <div className="mt-2 flex flex-wrap items-center gap-2">
-                        <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${statusBadge}`}>
-                          {titleize(status)}
+                        <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${statusPresentation.badgeClass}`}>
+                          {statusPresentation.label}
                         </span>
                         {total && <span className="text-xs font-semibold text-slate-700">{total}</span>}
                       </div>

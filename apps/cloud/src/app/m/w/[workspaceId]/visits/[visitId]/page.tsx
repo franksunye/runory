@@ -11,20 +11,23 @@
 //   - Timeline:      /api/workspaces/{workspaceId}/timeline?subjectType=service_visit&subjectId={visitId}
 //   - My Work items:  /api/workspaces/{workspaceId}/my-work  (to find a linked work item)
 
-import { Suspense, useEffect, useState, useCallback } from "react";
+import { Suspense, useEffect, useState, useCallback, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   ArrowLeft, Loader2, AlertTriangle, AlertCircle, RefreshCw,
   Clock, MapPin, User, Wrench, FileText, ClipboardList,
   ChevronRight, Calendar, Phone, Mail, Building2, History, PlayCircle,
-  CheckCircle2, Navigation, MapPin as MapPinArrive, Truck,
+  CheckCircle2,
 } from "lucide-react";
 import { useI18n } from "@/i18n/locale-provider";
-import type { MessageKey } from "@/i18n/messages";
-import type { MyWorkItem } from "@/lib/api-hooks";
+import { useFields, useRecordCommands, type MyWorkItem } from "@/lib/api-hooks";
+import { commandLabel, commandPlacement, commandTone } from "@/lib/record-commands";
+import { resolveCommandIcon } from "@/lib/command-icons";
+import { recordStatusPresentation } from "@/lib/record-lifecycle";
 import { notifyWorkspaceDataChanged } from "@/lib/workspace-events";
 import { apiFetch, apiPost } from "@/lib/api-fetch";
+import type { RecordCommandOption } from "@runory/platform-core";
 
 export const dynamic = "force-dynamic";
 
@@ -65,65 +68,6 @@ interface VisitContext {
   asset: VisitRecord | null;
   scheduleEntry: VisitRecord | null;
   serviceReports: VisitRecord[];
-}
-
-// ── Status styling ──
-
-type VisitStatus =
-  | "unplanned"
-  | "scheduled"
-  | "en_route"
-  | "on_site"
-  | "completed"
-  | "cancelled";
-
-interface StatusStyle {
-  badge: string;
-  dot: string;
-  labelKey: MessageKey;
-}
-
-const STATUS_STYLE: Record<VisitStatus, StatusStyle> = {
-  unplanned: {
-    badge: "bg-slate-100 text-slate-600",
-    dot: "bg-slate-400",
-    labelKey: "mobile.visitStatusUnplanned",
-  },
-  scheduled: {
-    badge: "bg-blue-50 text-blue-700",
-    dot: "bg-blue-500",
-    labelKey: "mobile.visitStatusScheduled",
-  },
-  en_route: {
-    badge: "bg-amber-50 text-amber-700",
-    dot: "bg-amber-500",
-    labelKey: "mobile.visitStatusEnRoute",
-  },
-  on_site: {
-    badge: "bg-green-50 text-green-700",
-    dot: "bg-green-500",
-    labelKey: "mobile.visitStatusOnSite",
-  },
-  completed: {
-    badge: "bg-slate-100 text-slate-500",
-    dot: "bg-slate-400",
-    labelKey: "mobile.visitStatusCompleted",
-  },
-  cancelled: {
-    badge: "bg-red-50 text-red-600",
-    dot: "bg-red-500",
-    labelKey: "mobile.visitStatusCancelled",
-  },
-};
-
-function getStatusStyle(status: string): StatusStyle {
-  return (
-    STATUS_STYLE[status as VisitStatus] ?? {
-      badge: "bg-slate-100 text-slate-600",
-      dot: "bg-slate-400",
-      labelKey: "mobile.visitStatusUnplanned",
-    }
-  );
 }
 
 // ── Helpers ──
@@ -330,6 +274,12 @@ function MobileVisitDetailPage() {
   const visitId = params.visitId as string;
   const router = useRouter();
   const { t } = useI18n();
+  const { data: objectDetail } = useFields(workspaceId, "service_visit");
+  const { data: recordCommands, mutate: mutateCommands } = useRecordCommands(
+    workspaceId,
+    "service_visit",
+    visitId
+  );
 
   const [visit, setVisit] = useState<VisitRecord | null>(null);
   const [visitContext, setVisitContext] = useState<VisitContext>({
@@ -454,13 +404,13 @@ function MobileVisitDetailPage() {
   const [lifecycleToast, setLifecycleToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
   const executeVisitCommand = useCallback(
-    async (commandType: string) => {
+    async (option: RecordCommandOption) => {
       if (!visit) return;
-      setLifecycleExecuting(commandType);
+      setLifecycleExecuting(option.key);
       setLifecycleToast(null);
       try {
         const json = await apiPost<{ success: boolean; error?: { message: string } }>(
-          `/api/workspaces/${workspaceId}/commands/${commandType}`,
+          `/api/workspaces/${workspaceId}/commands/${option.key}`,
           {
             aggregateId: visitId,
             expectedVersion: visit.aggregate_version ?? 1,
@@ -471,7 +421,7 @@ function MobileVisitDetailPage() {
         }
         notifyWorkspaceDataChanged();
         setLifecycleToast({ type: "success", message: t("mobile.actionSuccess") });
-        await load();
+        await Promise.all([load(), mutateCommands()]);
       } catch (e) {
         setLifecycleToast({
           type: "error",
@@ -481,14 +431,19 @@ function MobileVisitDetailPage() {
         setLifecycleExecuting(null);
       }
     },
-    [visit, workspaceId, visitId, load, t]
+    [visit, workspaceId, visitId, load, mutateCommands, t]
   );
 
   // ── Derived display values ──
 
   const title = visit ? str(visit.title) || t("mobile.visitTitleDefault") : "";
   const status = visit ? str(visit.status) || "unplanned" : "unplanned";
-  const statusStyle = getStatusStyle(status);
+  const statusPresentation = recordStatusPresentation(
+    "service_visit",
+    objectDetail?.lifecycle,
+    status,
+    t
+  );
 
   // Prefer the schedule-backed My Work appointment when present. Demo visit
   // records may carry historical scheduled_* fields, while v0.5.1 Planning/My
@@ -517,53 +472,28 @@ function MobileVisitDetailPage() {
   );
   const actualStart = visit ? str(visit.actual_start) : "";
 
-  // Determine which lifecycle buttons to show based on current status.
-  // One primary CTA by status; Cancel is demoted to a quieter secondary control.
-  const lifecycleButtons: {
-    command: string;
-    labelKey: MessageKey;
-    icon: typeof Truck;
-    style: string;
-    primary: boolean;
-  }[] = [];
-  if (visit) {
-    if (status === "scheduled") {
-      lifecycleButtons.push({
-        command: "visit.start_travel",
-        labelKey: "mobile.visitStartTravel",
-        icon: Truck,
-        style: "bg-amber-600 text-white active:bg-amber-700",
-        primary: true,
-      });
-    }
-    if (status === "en_route") {
-      lifecycleButtons.push({
-        command: "visit.arrive",
-        labelKey: "mobile.visitArrive",
-        icon: Navigation,
-        style: "bg-green-600 text-white active:bg-green-700",
-        primary: true,
-      });
-    }
-    if (status === "on_site") {
-      lifecycleButtons.push({
-        command: "visit.complete",
-        labelKey: "mobile.visitComplete",
-        icon: CheckCircle2,
-        style: "bg-indigo-600 text-white active:bg-indigo-700",
-        primary: true,
-      });
-    }
-    if (status !== "completed" && status !== "cancelled") {
-      lifecycleButtons.push({
-        command: "visit.cancel",
-        labelKey: "mobile.visitCancel",
-        icon: AlertCircle,
-        style: "border border-slate-200 bg-white text-slate-500 active:bg-slate-50",
-        primary: false,
-      });
-    }
-  }
+  // Availability comes from the Workspace Command Contracts; weight and glyph
+  // follow the declared intent / icon token, so a new visit command needs no
+  // change here.
+  const lifecycleButtons = useMemo(() => {
+    if (!visit) return [];
+    return recordCommands.map((option) => {
+      const primary = commandPlacement(option) === "inline"
+        && commandTone(option) !== "danger"
+        && option.advancesSpine;
+      const tone = commandTone(option);
+      return {
+        option,
+        primary,
+        icon: resolveCommandIcon(option),
+        style: primary
+          ? (tone === "primary"
+            ? "bg-indigo-600 text-white active:bg-indigo-700"
+            : "bg-slate-900 text-white active:bg-slate-800")
+          : "border border-slate-200 bg-white text-slate-500 active:bg-slate-50",
+      };
+    });
+  }, [visit, recordCommands]);
   const actualEnd = visit ? str(visit.actual_end) : "";
   const notes = visit ? str(visit.notes) : "";
   const outcome = visit ? str(visit.outcome) : "";
@@ -683,11 +613,11 @@ function MobileVisitDetailPage() {
             {/* Status & appointment card */}
             <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
               <div className="flex items-center gap-2">
-                <span className={`h-2.5 w-2.5 rounded-full ${statusStyle.dot}`} />
+                <span className={`h-2.5 w-2.5 rounded-full ${statusPresentation.dotClass}`} />
                 <span
-                  className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${statusStyle.badge}`}
+                  className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${statusPresentation.badgeClass}`}
                 >
-                  {t(statusStyle.labelKey)}
+                  {statusPresentation.label}
                 </span>
               </div>
 
@@ -807,11 +737,11 @@ function MobileVisitDetailPage() {
                   .filter((btn) => btn.primary)
                   .map((btn) => {
                   const Icon = btn.icon;
-                  const isExecuting = lifecycleExecuting === btn.command;
+                  const isExecuting = lifecycleExecuting === btn.option.key;
                   return (
                     <button
-                      key={btn.command}
-                      onClick={() => void executeVisitCommand(btn.command)}
+                      key={btn.option.key}
+                      onClick={() => void executeVisitCommand(btn.option)}
                       disabled={!!lifecycleExecuting}
                       className={`flex min-h-[48px] w-full items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold shadow-sm transition active:scale-[0.98] disabled:opacity-50 ${btn.style}`}
                     >
@@ -820,7 +750,7 @@ function MobileVisitDetailPage() {
                       ) : (
                         <Icon size={18} />
                       )}
-                      {t(btn.labelKey)}
+                      {commandLabel(btn.option, t)}
                     </button>
                   );
                 })}
@@ -828,11 +758,11 @@ function MobileVisitDetailPage() {
                   .filter((btn) => !btn.primary)
                   .map((btn) => {
                   const Icon = btn.icon;
-                  const isExecuting = lifecycleExecuting === btn.command;
+                  const isExecuting = lifecycleExecuting === btn.option.key;
                   return (
                     <button
-                      key={btn.command}
-                      onClick={() => void executeVisitCommand(btn.command)}
+                      key={btn.option.key}
+                      onClick={() => void executeVisitCommand(btn.option)}
                       disabled={!!lifecycleExecuting}
                       className={`flex min-h-[40px] w-full items-center justify-center gap-2 rounded-lg px-3 py-2 text-xs font-medium transition active:scale-[0.98] disabled:opacity-50 ${btn.style}`}
                     >
@@ -841,7 +771,7 @@ function MobileVisitDetailPage() {
                       ) : (
                         <Icon size={14} />
                       )}
-                      {t(btn.labelKey)}
+                      {commandLabel(btn.option, t)}
                     </button>
                   );
                 })}

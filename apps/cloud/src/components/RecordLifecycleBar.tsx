@@ -1,11 +1,11 @@
 "use client";
 
 import useSWR from "swr";
+import type { AggregateLifecycle } from "@runory/contracts";
 import { AlertTriangle, Check, Info } from "lucide-react";
 import { useI18n } from "@/i18n/locale-provider";
 import { formatRelativeTime } from "./SchemaTable";
 import {
-  hasRecordLifecycle,
   resolveRecordLifecycle,
   type LifecycleEventFact,
   type LifecycleStageState,
@@ -14,9 +14,11 @@ import {
 
 // The stage bar answers "what happened before, and how much is left" for
 // records advanced by governed commands rather than by a workflow definition.
-// Reached stages are dated from the governed domain events on the timeline, so
-// a stage with no event and no timestamp column stays undated instead of being
-// inferred from the current status.
+// The stages come from the aggregate lifecycle declared in the Module manifest,
+// so any governed object gets a progress bar without a change here. Reached
+// stages are dated from the governed domain events on the timeline, so a stage
+// with no event and no timestamp column stays undated instead of being inferred
+// from the current status.
 
 interface TimelineEntry {
   event_type: string;
@@ -31,26 +33,28 @@ export function RecordLifecycleBar({
   objectKey,
   recordId,
   record,
+  spine,
 }: {
   workspaceId: string;
   objectKey: string;
   recordId: string;
   record: Record<string, unknown>;
+  /** Declared by the Module and served with the object metadata. */
+  spine: AggregateLifecycle | null;
 }) {
   const { t } = useI18n();
-  const enabled = hasRecordLifecycle(objectKey);
-  const timelineUrl = enabled
+  const timelineUrl = spine
     ? `/api/workspaces/${workspaceId}/timeline?subjectType=${encodeURIComponent(objectKey)}&subjectId=${encodeURIComponent(recordId)}&limit=${EVENT_PAGE_SIZE}`
     : null;
   const { data } = useSWR<{ entries: TimelineEntry[] }>(timelineUrl);
 
-  if (!enabled) return null;
+  if (!spine) return null;
 
   const events: LifecycleEventFact[] = (data?.entries ?? [])
     .filter((entry) => entry.metadata?.source === "command")
     .map((entry) => ({ event_type: entry.event_type, occurred_at: entry.occurred_at }));
 
-  const lifecycle = resolveRecordLifecycle(objectKey, record, events);
+  const lifecycle = resolveRecordLifecycle(objectKey, spine, record, events, t);
   if (!lifecycle) return null;
 
   const interrupted = lifecycle.step !== null && lifecycle.banner !== null;
@@ -77,7 +81,7 @@ export function RecordLifecycleBar({
             <div className={`h-1.5 rounded-full ${trackClass(stage.state, settled, interrupted, ended)}`} />
             <span className={`flex items-center gap-1 text-xs leading-tight ${labelClass(stage.state)}`}>
               {settled && !ended && <Check size={12} className="shrink-0 text-emerald-600" />}
-              <span className="min-w-0">{t(stage.labelKey)}</span>
+              <span className="min-w-0">{stage.label}</span>
             </span>
             <span className="text-[11px] leading-tight text-slate-400">
               {stage.reachedAt ? formatRelativeTime(stage.reachedAt, t) : "\u00A0"}
@@ -104,7 +108,7 @@ function LifecycleBanner({ lifecycle, ended }: { lifecycle: ResolvedLifecycle; e
     <div className={`mt-3 flex items-start gap-2 rounded-lg border px-3 py-2 text-sm ${tone}`}>
       <Icon size={15} className="mt-0.5 shrink-0" />
       <p>
-        <span className="font-semibold">{t(banner.labelKey)}</span>
+        <span className="font-semibold">{banner.label}</span>
         <span className="ml-1.5">{t(banner.noteKey)}</span>
       </p>
     </div>

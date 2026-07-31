@@ -106,7 +106,15 @@ views:
 
 domain:
   aggregates:
-    - { key: invoice, stateField: status, versionField: aggregate_version }
+    - key: invoice
+      stateField: status
+      versionField: aggregate_version
+      lifecycle:
+        spine: [issued, partially_paid, paid]
+        terminals: [void]
+        evidence:
+          issued: { events: [invoice.issued], timestampField: issued_at }
+          paid: { timestampField: paid_at }
   capabilities:
     provides:
       - { capability: invoice.apply_payment, version: "1.0.0", consistency: atomic }
@@ -116,6 +124,15 @@ domain:
       contractVersion: "1.0.0"
       aggregate: invoice
       operation: create
+      intent: advance
+      icon: file-text
+      # Issued from the Work Order record, so the condition is on that aggregate.
+      initiatedFrom:
+        aggregate: work_order
+        idField: workOrderId
+        when:
+          - { field: status, operator: equals, value: completed }
+          - { field: source_type, operator: equals, value: quote }
       allowedActorTypes: [user, api_key, system, agent]
       permission: invoice.issue
       idempotent: true
@@ -131,6 +148,12 @@ domain:
       contractVersion: "1.0.0"
       aggregate: invoice
       transition: { from: [issued], to: void }
+      intent: escape_hatch
+      icon: ban
+      requiresReason: true
+      # An Invoice that has taken money can no longer be voided.
+      availableWhen:
+        - { field: amount_paid_minor, operator: equals, value: 0 }
       allowedActorTypes: [user, api_key, system, agent]
       permission: invoice.void
       idempotent: true

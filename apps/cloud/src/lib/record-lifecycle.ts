@@ -1,182 +1,31 @@
-import type { MessageKey } from "@/i18n/messages";
+import type { AggregateLifecycle } from "@runory/contracts";
+import { messages, type MessageKey } from "@/i18n/messages";
 
-// ── Declared record lifecycles ──
+// ── Record lifecycle presentation ──
 //
-// Business records advance through governed commands, so the statuses and the
-// legal transitions already live in the module manifests (see each command's
-// `transition` / `postconditions`). What the manifests do not declare is which
-// of those statuses form the expected path a document travels — the spine an
-// operator needs in order to answer "where is this, and how much is left".
+// The lifecycle itself is declared once, on the aggregate in the Module manifest,
+// and served with the object metadata. This module owns only the presentation
+// half of it: turning the declared partition plus governed event facts into
+// "where is this, and how much is left", and resolving copy.
 //
-// A raw FSM graph cannot answer that question: `blocked`, `reopened` and
-// `cancelled` are legal but off-spine. So the spine is declared explicitly here
-// and everything else is classified as an interrupt (paused on the spine), an
-// alias (sits at an earlier spine position) or a terminal (ended off-spine).
-//
-// This declaration is intentionally colocated with `getBusinessCommandActions`
-// in ObjectDetailPage: both derive from the same manifests, and keeping them in
-// sight of each other makes drift visible. The longer-term home is
-// `objects[].lifecycle` in the catalog manifest, served by the API so that the
-// mobile app and the customer portal can reuse one spine.
-
-export interface LifecycleStage {
-  key: string;
-  labelKey: MessageKey;
-  /** Record column carrying the authoritative timestamp for this stage. */
-  timestampField?: string;
-  /** Governed domain events that prove this stage was reached. */
-  events?: string[];
-}
-
-/** A status that sits at an earlier spine position than it was reached from. */
-interface LifecycleAlias {
-  stageKey: string;
-  labelKey: MessageKey;
-}
-
-interface LifecycleInterrupt {
-  labelKey: MessageKey;
-  noteKey: MessageKey;
-}
-
-interface LifecycleTerminal {
-  labelKey: MessageKey;
-}
-
-export interface RecordLifecycleSpine {
-  stages: LifecycleStage[];
-  aliases?: Record<string, LifecycleAlias>;
-  interrupts?: Record<string, LifecycleInterrupt>;
-  terminals?: Record<string, LifecycleTerminal>;
-}
-
-const LIFECYCLE_SPINES: Record<string, RecordLifecycleSpine> = {
-  work_order: {
-    stages: [
-      { key: "new", labelKey: "workspace.lifecycle.stage.work_order.new" },
-      { key: "triaged", labelKey: "workspace.lifecycle.stage.work_order.triaged", events: ["work_order.triaged"] },
-      { key: "planned", labelKey: "workspace.lifecycle.stage.work_order.planned", events: ["work_order.visit_created"] },
-      { key: "in_progress", labelKey: "workspace.lifecycle.stage.work_order.in_progress", events: ["work_order.started"] },
-      {
-        key: "completed",
-        labelKey: "workspace.lifecycle.stage.work_order.completed",
-        timestampField: "completed_at",
-        events: ["work_order.completed"],
-      },
-    ],
-    aliases: {
-      reopened: { stageKey: "planned", labelKey: "workspace.lifecycle.status.work_order.reopened" },
-    },
-    interrupts: {
-      blocked: {
-        labelKey: "workspace.lifecycle.status.work_order.blocked",
-        noteKey: "workspace.lifecycle.interruptHelp",
-      },
-    },
-    terminals: {
-      cancelled: { labelKey: "workspace.lifecycle.status.work_order.cancelled" },
-    },
-  },
-  quote: {
-    stages: [
-      { key: "draft", labelKey: "workspace.lifecycle.stage.quote.draft", events: ["quote.draft_created"] },
-      { key: "in_review", labelKey: "workspace.lifecycle.stage.quote.in_review", events: ["quote.submitted_for_approval"] },
-      { key: "approved", labelKey: "workspace.lifecycle.stage.quote.approved", events: ["quote.approved"] },
-      { key: "sent", labelKey: "workspace.lifecycle.stage.quote.sent", events: ["quote.marked_sent"] },
-      { key: "accepted", labelKey: "workspace.lifecycle.stage.quote.accepted", events: ["quote.accepted"] },
-      { key: "converted", labelKey: "workspace.lifecycle.stage.quote.converted", events: ["quote.converted_to_work_order"] },
-    ],
-    aliases: {
-      returned: { stageKey: "draft", labelKey: "workspace.lifecycle.status.quote.returned" },
-    },
-    terminals: {
-      rejected: { labelKey: "workspace.lifecycle.status.quote.rejected" },
-      declined: { labelKey: "workspace.lifecycle.status.quote.declined" },
-      expired: { labelKey: "workspace.lifecycle.status.quote.expired" },
-      withdrawn: { labelKey: "workspace.lifecycle.status.quote.withdrawn" },
-    },
-  },
-  service_visit: {
-    stages: [
-      { key: "unplanned", labelKey: "workspace.lifecycle.stage.service_visit.unplanned" },
-      { key: "scheduled", labelKey: "workspace.lifecycle.stage.service_visit.scheduled" },
-      { key: "en_route", labelKey: "workspace.lifecycle.stage.service_visit.en_route", events: ["visit.travel_started"] },
-      { key: "on_site", labelKey: "workspace.lifecycle.stage.service_visit.on_site", events: ["visit.arrived_on_site"] },
-      {
-        key: "completed",
-        labelKey: "workspace.lifecycle.stage.service_visit.completed",
-        timestampField: "actual_end",
-        events: ["visit.completed"],
-      },
-    ],
-    terminals: {
-      cancelled: { labelKey: "workspace.lifecycle.status.service_visit.cancelled" },
-    },
-  },
-  invoice: {
-    stages: [
-      {
-        key: "issued",
-        labelKey: "workspace.lifecycle.stage.invoice.issued",
-        timestampField: "issued_at",
-        events: ["invoice.issued"],
-      },
-      { key: "partially_paid", labelKey: "workspace.lifecycle.stage.invoice.partially_paid" },
-      { key: "paid", labelKey: "workspace.lifecycle.stage.invoice.paid", timestampField: "paid_at" },
-    ],
-    terminals: {
-      void: { labelKey: "workspace.lifecycle.status.invoice.void" },
-    },
-  },
-};
-
-export function hasRecordLifecycle(objectKey: string): boolean {
-  return objectKey in LIFECYCLE_SPINES;
-}
-
-// ── Header status badge ──
-//
-// The badge reuses the lifecycle vocabulary so the header, the stage bar and
-// the record fields never disagree about what a status is called.
+// Labels follow a convention rather than travelling in the manifest, so a
+// manifest never carries UI copy: `workspace.lifecycle.stage.{object}.{state}`
+// for spine states and `workspace.lifecycle.status.{object}.{state}` for the
+// states off it. A state with no translation falls back to a humanized form,
+// which is what lets a third-party Module render without shipping into our
+// message catalog.
 
 export type RecordStatusTone = "active" | "done" | "warn" | "ended";
-
-export function recordStatusBadge(
-  objectKey: string,
-  status: string
-): { labelKey: MessageKey; tone: RecordStatusTone } | null {
-  const spine = LIFECYCLE_SPINES[objectKey];
-  if (!spine || !status) return null;
-
-  const terminal = spine.terminals?.[status];
-  if (terminal) return { labelKey: terminal.labelKey, tone: "ended" };
-
-  const interrupt = spine.interrupts?.[status];
-  if (interrupt) return { labelKey: interrupt.labelKey, tone: "warn" };
-
-  const alias = spine.aliases?.[status];
-  if (alias) return { labelKey: alias.labelKey, tone: "warn" };
-
-  const index = spine.stages.findIndex((stage) => stage.key === status);
-  if (index < 0) return null;
-  return {
-    labelKey: spine.stages[index].labelKey,
-    tone: index === spine.stages.length - 1 ? "done" : "active",
-  };
-}
-
-// ── Resolution ──
+export type LifecycleStageState = "done" | "current" | "upcoming";
 
 export interface LifecycleEventFact {
   event_type: string;
   occurred_at: string;
 }
 
-export type LifecycleStageState = "done" | "current" | "upcoming";
-
 export interface ResolvedLifecycleStage {
   key: string;
-  labelKey: MessageKey;
+  label: string;
   state: LifecycleStageState;
   /** Null when no event or column proves when this stage was reached. */
   reachedAt: string | null;
@@ -187,81 +36,165 @@ export interface ResolvedLifecycle {
   /** 1-based position on the spine, null when the record left the spine. */
   step: number | null;
   total: number;
-  /** Short label for the current status, whether on the spine or not. */
-  statusLabelKey: MessageKey;
-  banner: { labelKey: MessageKey; noteKey: MessageKey } | null;
+  statusLabel: string;
+  banner: { label: string; noteKey: MessageKey } | null;
+}
+
+function humanizeState(state: string): string {
+  const spaced = state.replace(/[_-]+/g, " ").trim();
+  return spaced ? spaced.charAt(0).toUpperCase() + spaced.slice(1) : state;
+}
+
+/**
+ * Resolve declared copy for a state, falling back to a humanized form.
+ *
+ * `translate` is the caller's `t`, which returns the key itself for a missing
+ * entry — so candidates are checked against the catalog before use.
+ */
+export function lifecycleStateLabel(
+  objectKey: string,
+  state: string,
+  translate: (key: MessageKey) => string
+): string {
+  for (const namespace of ["stage", "status"] as const) {
+    const candidate = `workspace.lifecycle.${namespace}.${objectKey}.${state}`;
+    if (candidate in messages.en) return translate(candidate as MessageKey);
+  }
+  return humanizeState(state);
+}
+
+export function statusTone(lifecycle: AggregateLifecycle, status: string): RecordStatusTone | null {
+  if (lifecycle.terminals.includes(status)) return "ended";
+  if (lifecycle.interrupts.includes(status)) return "warn";
+  if (status in lifecycle.aliases) return "warn";
+  const index = lifecycle.spine.indexOf(status);
+  if (index < 0) return null;
+  return index === lifecycle.spine.length - 1 ? "done" : "active";
+}
+
+/**
+ * Design-system mapping from lifecycle tone → badge / dot classes.
+ *
+ * Surfaces must not keep per-status Tailwind tables: a new Module state inherits
+ * colour from its classification (spine / interrupt / terminal / alias), and a
+ * Workspace that has not loaded the lifecycle yet still gets a neutral badge.
+ */
+export function statusBadgeClass(tone: RecordStatusTone | null): string {
+  if (tone === "done") return "bg-emerald-50 text-emerald-700";
+  if (tone === "warn") return "bg-amber-50 text-amber-800";
+  if (tone === "ended") return "bg-slate-100 text-slate-600";
+  if (tone === "active") return "bg-indigo-50 text-indigo-700";
+  return "bg-slate-100 text-slate-600";
+}
+
+export function statusDotClass(tone: RecordStatusTone | null): string {
+  if (tone === "done") return "bg-emerald-500";
+  if (tone === "warn") return "bg-amber-500";
+  if (tone === "ended") return "bg-slate-400";
+  if (tone === "active") return "bg-indigo-500";
+  return "bg-slate-400";
+}
+
+export interface RecordStatusPresentation {
+  label: string;
+  tone: RecordStatusTone | null;
+  badgeClass: string;
+  dotClass: string;
+}
+
+/** Label + tone classes for a record status, driven by the declared lifecycle. */
+export function recordStatusPresentation(
+  objectKey: string,
+  lifecycle: AggregateLifecycle | null | undefined,
+  status: string,
+  translate: (key: MessageKey) => string
+): RecordStatusPresentation {
+  if (!status) {
+    return {
+      label: "—",
+      tone: null,
+      badgeClass: statusBadgeClass(null),
+      dotClass: statusDotClass(null),
+    };
+  }
+  const tone = lifecycle ? statusTone(lifecycle, status) : null;
+  return {
+    label: lifecycleStateLabel(objectKey, status, translate),
+    tone,
+    badgeClass: statusBadgeClass(tone),
+    dotClass: statusDotClass(tone),
+  };
 }
 
 export function resolveRecordLifecycle(
   objectKey: string,
+  lifecycle: AggregateLifecycle,
   record: Record<string, unknown>,
-  events: LifecycleEventFact[]
+  events: LifecycleEventFact[],
+  translate: (key: MessageKey) => string
 ): ResolvedLifecycle | null {
-  const spine = LIFECYCLE_SPINES[objectKey];
-  if (!spine) return null;
-
   const status = String(record.status ?? "");
   if (!status) return null;
 
+  const label = (state: string) => lifecycleStateLabel(objectKey, state, translate);
   const earliestByType = earliestEventTimes(events);
-  const reachedAt = spine.stages.map((stage, index) =>
-    resolveStageTimestamp(stage, record, earliestByType, index === 0)
+  const reachedAt = lifecycle.spine.map((state, index) =>
+    resolveStageTimestamp(lifecycle, state, record, earliestByType, index === 0)
   );
+  const total = lifecycle.spine.length;
 
-  const terminal = spine.terminals?.[status];
-  if (terminal) {
+  if (lifecycle.terminals.includes(status)) {
     return {
-      stages: spine.stages.map((stage, index) => ({
-        key: stage.key,
-        labelKey: stage.labelKey,
+      stages: lifecycle.spine.map((state, index) => ({
+        key: state,
+        label: label(state),
         state: reachedAt[index] ? "done" : "upcoming",
         reachedAt: reachedAt[index],
       })),
       step: null,
-      total: spine.stages.length,
-      statusLabelKey: terminal.labelKey,
-      banner: { labelKey: terminal.labelKey, noteKey: "workspace.lifecycle.terminalHelp" },
+      total,
+      statusLabel: label(status),
+      banner: { label: label(status), noteKey: "workspace.lifecycle.terminalHelp" },
     };
   }
 
-  const interrupt = spine.interrupts?.[status];
-  if (interrupt) {
-    // The pre-interrupt status is not stored on the record, so the furthest
-    // stage with evidence is the honest position to hold.
+  if (lifecycle.interrupts.includes(status)) {
+    // The pre-interrupt state is not stored on the record, so the furthest stage
+    // with evidence is the honest position to hold.
     const index = Math.max(0, lastReachedIndex(reachedAt));
     return {
-      stages: buildStages(spine.stages, reachedAt, index),
+      stages: buildStages(lifecycle.spine, reachedAt, index, label),
       step: index + 1,
-      total: spine.stages.length,
-      statusLabelKey: interrupt.labelKey,
-      banner: { labelKey: interrupt.labelKey, noteKey: interrupt.noteKey },
+      total,
+      statusLabel: label(status),
+      banner: { label: label(status), noteKey: "workspace.lifecycle.interruptHelp" },
     };
   }
 
-  const alias = spine.aliases?.[status];
-  const stageKey = alias ? alias.stageKey : status;
-  const index = spine.stages.findIndex((stage) => stage.key === stageKey);
+  const alias = lifecycle.aliases[status];
+  const index = lifecycle.spine.indexOf(alias ?? status);
   if (index < 0) return null;
 
   return {
-    stages: buildStages(spine.stages, reachedAt, index),
+    stages: buildStages(lifecycle.spine, reachedAt, index, label),
     step: index + 1,
-    total: spine.stages.length,
-    statusLabelKey: alias ? alias.labelKey : spine.stages[index].labelKey,
+    total,
+    statusLabel: label(status),
     banner: alias
-      ? { labelKey: alias.labelKey, noteKey: "workspace.lifecycle.regressedHelp" }
+      ? { label: label(status), noteKey: "workspace.lifecycle.regressedHelp" }
       : null,
   };
 }
 
 function buildStages(
-  stages: LifecycleStage[],
+  spine: string[],
   reachedAt: (string | null)[],
-  currentIndex: number
+  currentIndex: number,
+  label: (state: string) => string
 ): ResolvedLifecycleStage[] {
-  return stages.map((stage, index) => ({
-    key: stage.key,
-    labelKey: stage.labelKey,
+  return spine.map((state, index) => ({
+    key: state,
+    label: label(state),
     state: index < currentIndex ? "done" : index === currentIndex ? "current" : "upcoming",
     reachedAt: index <= currentIndex ? reachedAt[index] : null,
   }));
@@ -275,17 +208,19 @@ function lastReachedIndex(reachedAt: (string | null)[]): number {
 }
 
 function resolveStageTimestamp(
-  stage: LifecycleStage,
+  lifecycle: AggregateLifecycle,
+  state: string,
   record: Record<string, unknown>,
   earliestByType: Map<string, string>,
   isFirstStage: boolean
 ): string | null {
-  if (stage.timestampField) {
-    const value = record[stage.timestampField];
+  const evidence = lifecycle.evidence[state];
+  if (evidence?.timestampField) {
+    const value = record[evidence.timestampField];
     if (typeof value === "string" && value !== "") return value;
   }
   let earliest: string | null = null;
-  for (const eventType of stage.events ?? []) {
+  for (const eventType of evidence?.events ?? []) {
     const occurredAt = earliestByType.get(eventType);
     if (!occurredAt) continue;
     if (!earliest || occurredAt < earliest) earliest = occurredAt;

@@ -5,8 +5,6 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   ArrowLeft,
-  ArrowRightLeft,
-  Ban,
   Calendar,
   Camera,
   Check,
@@ -17,16 +15,12 @@ import {
   FileQuestion,
   FileText,
   Loader2,
-  MapPin,
   Minus,
   MoreHorizontal,
-  Navigation,
   PenLine,
   Pencil,
-  Play,
   Plus,
   RotateCcw,
-  Send,
   Trash2,
   XCircle,
 } from "lucide-react";
@@ -37,12 +31,13 @@ import UserAvatar from "./UserAvatar";
 import RecordWorkflowPanel from "./RecordWorkflowPanel";
 import RecordTimelineSection, { isValidTimelineSubject } from "./RecordTimelineSection";
 import { RecordLifecycleBar } from "./RecordLifecycleBar";
-import type { FieldDefinition } from "@runory/platform-core";
+import type { FieldDefinition, RecordCommandOption } from "@runory/platform-core";
 import type { FormBlock } from "@runory/contracts";
 import {
   useFields,
   useViews,
   useRecord,
+  useRecordCommands,
   useRecords,
   useRelations,
   useWorkspaceAccess,
@@ -57,7 +52,15 @@ import { objectKeyToRouteSegment } from "@/lib/dynamic-object";
 import type { MessageKey } from "@/i18n/messages";
 import { apiFetch, apiDelete, apiPost } from "@/lib/api-fetch";
 import { formatMinorAmount, majorToMinor, minorToMajor, recordDisplayName } from "@/lib/money";
-import { recordStatusBadge, type RecordStatusTone } from "@/lib/record-lifecycle";
+import { lifecycleStateLabel, statusBadgeClass, statusTone } from "@/lib/record-lifecycle";
+import {
+  commandLabel,
+  commandPlacement,
+  commandReasonPrompt,
+  commandTone,
+  type CommandTone,
+} from "@/lib/record-commands";
+import { resolveCommandIcon } from "@/lib/command-icons";
 import { LoadingState, ErrorState, EmptyState } from "@/components/states";
 import { FieldDisplay } from "@/components/fields";
 import { Card, CardContent, SectionHeader } from "@/components/layout";
@@ -192,6 +195,11 @@ const GOVERNED_FIELD_KEYS: Record<string, string[]> = {
   service_visit: ["status", "aggregate_version", "assignment_id", "schedule_entry_id", "outcome", "actual_start", "actual_end"],
   invoice: ["invoice_number", "status", "work_order_id", "quote_id", "company_id", "contact_id", "currency", "total_minor", "amount_paid_minor", "balance_due_minor", "issued_at", "due_at", "paid_at", "voided_at", "source_snapshot_hash", "created_by", "aggregate_version"],
 };
+
+// How many state-specific commands keep their own header button before the rest
+// spill into the overflow menu. Chosen so a full approval decision set (approve
+// / decline / return) still reads as one row.
+const MAX_INLINE_COMMANDS = 3;
 
 const FINANCIAL_OBJECTS = new Set([
   "invoice",
@@ -953,225 +961,10 @@ function WorkOrderDeliverablesPanel({
   );
 }
 
-interface BusinessCommandAction {
-  command: string;
-  labelKey: MessageKey;
-  tone?: "primary" | "secondary" | "danger";
-  reasonPromptKey?: MessageKey;
-  body?: Record<string, unknown>;
-  /**
-   * Administrative escape hatches available at almost any state (block, cancel,
-   * void). They belong in the overflow menu so they never read as the expected
-   * next step. State-specific decisions — including declining a quote — stay
-   * visible even when destructive.
-   */
-  overflow?: boolean;
-}
-
-function getBusinessCommandActions(objectKey: string, record: WorkspaceRecord): BusinessCommandAction[] {
-  const status = String(record.status ?? "");
-  if (objectKey === "quote") {
-    const actions: BusinessCommandAction[] = [];
-    if (status === "draft") {
-      actions.push({ command: "quote.submit_for_approval", labelKey: "workspace.command.quote.submit_for_approval", tone: "primary" });
-    }
-    if (status === "in_review") {
-      actions.push({ command: "quote.approve", labelKey: "workspace.command.quote.approve", tone: "primary" });
-      actions.push({
-        command: "quote.reject",
-        labelKey: "workspace.command.quote.reject",
-        tone: "danger",
-        reasonPromptKey: "workspace.command.reason.quote.reject",
-      });
-      actions.push({
-        command: "quote.return_for_changes",
-        labelKey: "workspace.command.quote.return_for_changes",
-        tone: "secondary",
-        reasonPromptKey: "workspace.command.reason.quote.return_for_changes",
-      });
-    }
-    if (status === "approved") {
-      actions.push({ command: "quote.mark_sent", labelKey: "workspace.command.quote.mark_sent", tone: "primary" });
-      actions.push({
-        command: "quote.withdraw",
-        labelKey: "workspace.command.quote.withdraw",
-        tone: "secondary",
-        reasonPromptKey: "workspace.command.reason.quote.withdraw",
-        overflow: true,
-      });
-    }
-    if (status === "sent") {
-      actions.push({
-        command: "quote.accept",
-        labelKey: "workspace.command.quote.accept",
-        tone: "secondary",
-      });
-      actions.push({
-        command: "quote.mark_declined",
-        labelKey: "workspace.command.quote.mark_declined",
-        tone: "danger",
-        reasonPromptKey: "workspace.command.reason.quote.mark_declined",
-      });
-    }
-    if (status === "accepted") {
-      actions.push({ command: "quote.convert_to_work_order", labelKey: "workspace.command.quote.convert_to_work_order", tone: "primary" });
-    }
-    return actions;
-  }
-  if (objectKey === "work_order") {
-    const actions: BusinessCommandAction[] = [];
-    if (status === "new") {
-      actions.push({ command: "work_order.triage", labelKey: "workspace.command.work_order.triage", tone: "primary" });
-    }
-    if (status === "triaged") {
-      actions.push({ command: "work_order.create_visit", labelKey: "workspace.command.work_order.create_visit", tone: "primary" });
-    }
-    if (status === "planned" || status === "reopened") {
-      actions.push({ command: "work_order.start", labelKey: "workspace.command.work_order.start", tone: "primary" });
-    }
-    if (status === "planned" || status === "in_progress") {
-      actions.push({ command: "work_order.create_visit", labelKey: "workspace.command.work_order.create_visit_add", tone: "secondary" });
-    }
-    if (status === "blocked") {
-      actions.push({ command: "work_order.unblock", labelKey: "workspace.command.work_order.unblock", tone: "secondary" });
-    }
-    if (status === "in_progress") {
-      actions.push({ command: "work_order.complete", labelKey: "workspace.command.work_order.complete", tone: "primary" });
-    }
-    if (!["completed", "cancelled", "blocked"].includes(status)) {
-      actions.push({
-        command: "work_order.block",
-        labelKey: "workspace.command.work_order.block",
-        tone: "secondary",
-        reasonPromptKey: "workspace.command.reason.work_order.block",
-        overflow: true,
-      });
-      actions.push({
-        command: "work_order.cancel",
-        labelKey: "workspace.command.work_order.cancel",
-        tone: "danger",
-        reasonPromptKey: "workspace.command.reason.work_order.cancel",
-        overflow: true,
-      });
-    }
-    if (status === "completed" || status === "cancelled") {
-      actions.push({
-        command: "work_order.reopen",
-        labelKey: "workspace.command.work_order.reopen",
-        tone: "secondary",
-        reasonPromptKey: "workspace.command.reason.work_order.reopen",
-        overflow: true,
-      });
-    }
-    if (status === "completed" && record.source_type === "quote") {
-      actions.unshift({
-        command: "invoice.issue_from_work_order",
-        labelKey: "workspace.command.invoice.issue_from_work_order",
-        tone: "primary",
-        body: { workOrderId: String(record.id) },
-      });
-    }
-    return actions;
-  }
-
-  if (objectKey === "service_visit") {
-    const actions: BusinessCommandAction[] = [];
-    if (status === "scheduled") {
-      actions.push({ command: "visit.start_travel", labelKey: "workspace.command.visit.start_travel", tone: "primary" });
-    }
-    if (status === "en_route") {
-      actions.push({ command: "visit.arrive", labelKey: "workspace.command.visit.arrive", tone: "primary" });
-    }
-    if (status === "on_site") {
-      actions.push({ command: "visit.submit_work", labelKey: "workspace.command.visit.submit_work", tone: "secondary" });
-      actions.push({ command: "visit.complete", labelKey: "workspace.command.visit.complete", tone: "primary" });
-    }
-    if (!["completed", "cancelled"].includes(status)) {
-      actions.push({
-        command: "visit.cancel",
-        labelKey: "workspace.command.visit.cancel",
-        tone: "danger",
-        reasonPromptKey: "workspace.command.reason.visit.cancel",
-        overflow: true,
-      });
-    }
-    return actions;
-  }
-
-  if (objectKey === "invoice" && status === "issued" && Number(record.amount_paid_minor ?? 0) === 0) {
-    return [{
-      command: "invoice.void",
-      labelKey: "workspace.command.invoice.void",
-      tone: "danger",
-      reasonPromptKey: "workspace.command.reason.invoice.void",
-      overflow: true,
-    }];
-  }
-
-  return [];
-}
-
-function statusBadgeClass(tone: RecordStatusTone): string {
-  if (tone === "done") return "bg-emerald-50 text-emerald-700";
-  if (tone === "warn") return "bg-amber-50 text-amber-800";
-  if (tone === "ended") return "bg-slate-100 text-slate-600";
-  return "bg-indigo-50 text-indigo-700";
-}
-
-function buttonClassForTone(tone: BusinessCommandAction["tone"]): string {
+function buttonClassForTone(tone: CommandTone): string {
   if (tone === "danger") return "app-button-danger";
   if (tone === "primary") return "app-button-primary";
   return "app-button-secondary";
-}
-
-function iconForBusinessCommand(command: string): typeof Play {
-  switch (command) {
-    case "quote.submit_for_approval":
-      return Send;
-    case "quote.approve":
-      return CheckCircle2;
-    case "quote.reject":
-    case "quote.mark_declined":
-      return XCircle;
-    case "quote.return_for_changes":
-      return RotateCcw;
-    case "quote.mark_sent":
-      return Send;
-    case "quote.withdraw":
-      return Ban;
-    case "quote.accept":
-      return Check;
-    case "quote.convert_to_work_order":
-      return ArrowRightLeft;
-    case "work_order.complete":
-    case "visit.complete":
-      return CheckCircle2;
-    case "invoice.issue_from_work_order":
-      return FileText;
-    case "invoice.void":
-      return Ban;
-    case "work_order.block":
-      return Ban;
-    case "work_order.cancel":
-    case "visit.cancel":
-      return XCircle;
-    case "work_order.reopen":
-    case "work_order.unblock":
-      return RotateCcw;
-    case "work_order.triage":
-      return ClipboardList;
-    case "work_order.create_visit":
-      return Calendar;
-    case "visit.start_travel":
-      return Navigation;
-    case "visit.arrive":
-      return MapPin;
-    case "visit.submit_work":
-      return Send;
-    case "work_order.start":
-    default:
-      return Play;
-  }
 }
 
 interface SourcePaymentRequest {
@@ -1591,6 +1384,7 @@ export default function ObjectDetailPage({
   const { data: objDetail, isLoading: loadingObj } = useFields(workspaceId, objectKey);
   const { data: views = [], isLoading: loadingViews } = useViews(workspaceId, objectKey);
   const { data: record, error: recordError, isLoading: loadingRecord, mutate: mutateRecord } = useRecord(workspaceId, objectKey, recordId);
+  const { data: recordCommands, mutate: mutateCommands } = useRecordCommands(workspaceId, objectKey, recordId);
   const { data: relationsData } = useRelations(workspaceId, objectKey);
   const { data: technicians = [] } = useRecords(workspaceId, "technician", { sortBy: "name", sortOrder: "asc" });
   const { data: workflowData } = useRecordWorkflow(workspaceId, objectKey, recordId);
@@ -1675,49 +1469,56 @@ export default function ObjectDetailPage({
     return keys;
   }, [parentLinks]);
 
-  // Hooks must run in the same order while SWR transitions from loading to
-  // loaded. Keep the derived action hook above all loading/empty early returns
-  // and use an empty action set until the record exists.
+  // When a workflow is running with active (non-completed) work items, those work
+  // items provide their own Approve/Reject/Complete buttons in the
+  // RecordWorkflowPanel. Showing the same command twice is confusing, so the
+  // ones already surfaced as work items are dropped here.
   const businessActions = useMemo(() => {
-    if (!record) return [];
-    const actions = getBusinessCommandActions(objectKey, record);
-    // When a workflow is running with active (non-completed) work items,
-    // those work items provide their own Approve/Reject/Complete buttons in
-    // the RecordWorkflowPanel. Showing the same actions twice is confusing,
-    // so filter out business actions that are already surfaced as work items.
-    const activeWorkItemCommands = new Set<string>();
+    const suppressed = new Set<string>();
     if (workflowData?.instance?.status === "running") {
       for (const item of workflowData.workItems) {
         if (item.status === "completed" || item.status === "cancelled") continue;
         if (item.kind === "approval") {
-          activeWorkItemCommands.add("quote.approve");
-          activeWorkItemCommands.add("quote.reject");
-          activeWorkItemCommands.add("quote.return_for_changes");
+          suppressed.add("quote.approve");
+          suppressed.add("quote.reject");
+          suppressed.add("quote.return_for_changes");
         }
         if (item.kind === "human_task") {
-          activeWorkItemCommands.add("work_order.complete");
+          suppressed.add("work_order.complete");
         }
       }
     }
-    return activeWorkItemCommands.size > 0
-      ? actions.filter((a) => !activeWorkItemCommands.has(a.command))
-      : actions;
-  }, [objectKey, record, workflowData]);
+    return suppressed.size > 0
+      ? recordCommands.filter((option) => !suppressed.has(option.key))
+      : recordCommands;
+  }, [recordCommands, workflowData]);
 
   // Commands live in the header toolbar: state-specific outcomes stay visible,
   // always-available escape hatches sit behind the overflow menu.
   const advanceActions = useMemo(
-    () => businessActions.filter((action) => !action.overflow),
+    () => businessActions.filter((option) => commandPlacement(option) === "inline"),
     [businessActions]
   );
   const overflowActions = useMemo(
-    () => businessActions.filter((action) => action.overflow),
+    () => businessActions.filter((option) => commandPlacement(option) === "overflow"),
     [businessActions]
   );
-  const statusBadge = useMemo(
-    () => (record ? recordStatusBadge(objectKey, String(record.status ?? "")) : null),
-    [objectKey, record]
-  );
+  // The badge reuses the declared lifecycle vocabulary, so the header, the stage
+  // bar and the record fields never disagree about what a state is called.
+  const statusBadge = useMemo(() => {
+    const spine = objDetail?.lifecycle;
+    const status = String(record?.status ?? "");
+    if (!spine || !status) return null;
+    const tone = statusTone(spine, status);
+    if (!tone) return null;
+    return { tone, label: lifecycleStateLabel(objectKey, status, t) };
+  }, [objDetail?.lifecycle, objectKey, record?.status, t]);
+  // The header stays bounded no matter how many commands a state offers: the
+  // first few keep their own button, the rest fall into the overflow menu ahead
+  // of the escape hatches.
+  const inlineActions = advanceActions.slice(0, MAX_INLINE_COMMANDS);
+  const menuActions = [...advanceActions.slice(MAX_INLINE_COMMANDS), ...overflowActions];
+  const canDelete = !FINANCIAL_OBJECTS.has(objectKey);
 
   const handleUpdate = async (data: Record<string, any>) => {
     setSubmitting(true);
@@ -1767,16 +1568,19 @@ export default function ObjectDetailPage({
     }
   };
 
-  const executeBusinessCommand = async (action: BusinessCommandAction) => {
+  const executeBusinessCommand = async (option: RecordCommandOption) => {
     if (!record) return;
-    if (action.command === "work_order.create_visit" && !dispatchOpen) {
+    // Dispatching a visit needs a technician and a window; open the form first
+    // and only then submit once those fields are filled.
+    if (option.key === "work_order.create_visit" && !dispatchOpen) {
       setDispatchOpen(true);
       return;
     }
-    const reason = action.reasonPromptKey ? window.prompt(t(action.reasonPromptKey)) : undefined;
-    if (action.reasonPromptKey && !reason) return;
+    const reasonPrompt = commandReasonPrompt(option, t);
+    const reason = reasonPrompt ? window.prompt(reasonPrompt) : undefined;
+    if (reasonPrompt && !reason) return;
 
-    setRunningCommand(action.command);
+    setRunningCommand(option.key);
     setError(null);
     try {
       const json = await apiFetch<{
@@ -1784,21 +1588,27 @@ export default function ObjectDetailPage({
         error?: { message: string };
         data?: { aggregate?: WorkspaceRecord & { id?: string } };
       }>(
-        `/api/workspaces/${workspaceId}/commands/${action.command}`,
+        `/api/workspaces/${workspaceId}/commands/${option.key}`,
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
             "X-Requested-With": "XMLHttpRequest",
-            "Idempotency-Key": `${action.command}:${recordId}:${Date.now()}`,
+            "Idempotency-Key": `${option.key}:${recordId}:${Date.now()}`,
           },
           body: JSON.stringify({
-            aggregateId: recordId,
-            expectedVersion: Number(record.aggregate_version ?? 1),
+            // A create Command acts on a new aggregate; the record it was issued
+            // from travels as declared input (e.g. workOrderId) instead.
+            ...(option.aggregate === objectKey
+              ? {
+                  aggregateId: recordId,
+                  expectedVersion: Number(record.aggregate_version ?? 1),
+                }
+              : {}),
             reason,
             completionReason: reason,
-            ...(action.body ?? {}),
-            ...(action.command === "work_order.create_visit" ? {
+            ...option.input,
+            ...(option.key === "work_order.create_visit" ? {
               technicianId: dispatchTechnicianId,
               scheduledStart: dispatchStart ? new Date(dispatchStart).toISOString() : undefined,
               scheduledEnd: dispatchEnd ? new Date(dispatchEnd).toISOString() : undefined,
@@ -1814,17 +1624,18 @@ export default function ObjectDetailPage({
       // Optimistic update: if the command returned the updated aggregate,
       // populate the SWR cache immediately so action buttons re-render
       // without waiting for the revalidation round-trip.
-      if (json.data?.aggregate) {
+      if (json.data?.aggregate && option.aggregate === objectKey) {
         await mutateRecord(json.data.aggregate, { revalidate: true });
       } else {
         await mutateRecord();
       }
+      await mutateCommands();
       notifyWorkspaceDataChanged();
-      if (action.command === "invoice.issue_from_work_order" && json.data?.aggregate?.id) {
+      if (option.key === "invoice.issue_from_work_order" && json.data?.aggregate?.id) {
         router.push(`/w/${workspaceId}/invoices/${json.data.aggregate.id}`);
         return;
       }
-      if (action.command === "work_order.create_visit") {
+      if (option.key === "work_order.create_visit") {
         setDispatchOpen(false);
         setDispatchNotes("");
       }
@@ -1898,24 +1709,26 @@ export default function ObjectDetailPage({
         displayValue = String(value);
       }
       return (
-        <div key={field.id}>
+        <div key={field.id} className="min-w-0">
           <dt className="flex items-center gap-1 text-xs font-bold uppercase tracking-wider text-slate-500">
             {field.label}
             <span className="rounded bg-purple-100 px-1 text-[10px] font-medium text-purple-700">
               {t("workspace.extension")}
             </span>
           </dt>
-          <dd className="mt-1 text-sm text-slate-900">{displayValue}</dd>
+          <dd className="mt-1 break-words text-sm text-slate-900">{displayValue}</dd>
         </div>
       );
     }
 
+    // min-w-0 keeps long identifiers from setting a min-content floor that
+    // pushes the whole detail grid into a horizontal scroll.
     return (
-      <div key={field.id}>
+      <div key={field.id} className="min-w-0">
         <dt className="text-xs font-bold uppercase tracking-wider text-slate-500">
           {field.label}
         </dt>
-        <dd className="mt-1 text-sm text-slate-900">
+        <dd className="mt-1 break-words text-sm text-slate-900">
           <FieldDisplay
             field={field}
             value={value}
@@ -1970,8 +1783,14 @@ export default function ObjectDetailPage({
           long records; left in flow on phones, where the shell header plus a
           pinned bar would eat most of the first screen. The negative margins
           let the band span the content gutters. */}
-      <header className="z-20 -mx-4 flex flex-col gap-4 border-b border-slate-200/70 bg-white/95 px-4 pb-4 pt-3 backdrop-blur-xl sm:-mx-7 sm:flex-row sm:items-start sm:justify-between sm:px-7 md:sticky md:top-0 lg:-mx-10 lg:px-10">
-        <div className="flex items-start gap-3">
+      {/* The toolbar only shares a row with the title from xl up, where the
+          content column is wide enough that the record name still reads; below
+          that it takes a full-width row of its own instead of being squeezed
+          into a stacked column. */}
+      <header className="z-20 -mx-4 flex flex-col gap-4 border-b border-slate-200/70 bg-white/95 px-4 pb-4 pt-3 backdrop-blur-xl sm:-mx-7 sm:px-7 md:sticky md:top-0 lg:-mx-10 lg:px-10 xl:flex-row xl:items-start xl:justify-between">
+        {/* min-w-0 lets the title truncate; without it the identity block sets a
+            content-width floor and squeezes the toolbar into a stacked column. */}
+        <div className="flex min-w-0 flex-1 items-start gap-3">
           {identityAvatarUrl && (
             <UserAvatar
               name={identityName}
@@ -1990,7 +1809,7 @@ export default function ObjectDetailPage({
             <div className="mt-3 flex flex-wrap items-center gap-2">
               <p className="app-eyebrow">{title}</p>
               {statusBadge && (
-                <span className={`app-badge ${statusBadgeClass(statusBadge.tone)}`}>{t(statusBadge.labelKey)}</span>
+                <span className={`app-badge ${statusBadgeClass(statusBadge.tone)}`}>{statusBadge.label}</span>
               )}
             </div>
             <h1 className="mt-1 truncate text-3xl font-bold tracking-[-.03em] text-slate-950">
@@ -1999,27 +1818,28 @@ export default function ObjectDetailPage({
           </div>
         </div>
         {!editing && (
-          <div className="flex flex-wrap items-center gap-2 self-start">
-            {advanceActions.map((action) => {
-              const ActionIcon = iconForBusinessCommand(action.command);
+          <div className="flex shrink-0 flex-wrap items-center gap-2 xl:self-start">
+            {inlineActions.map((option) => {
+              const ActionIcon = resolveCommandIcon(option);
+              const tone = commandTone(option);
               return (
                 <button
-                  key={`${action.command}:${action.labelKey}`}
+                  key={option.key}
                   type="button"
-                  onClick={() => void executeBusinessCommand(action)}
+                  onClick={() => void executeBusinessCommand(option)}
                   disabled={runningCommand !== null}
-                  className={buttonClassForTone(action.tone)}
+                  className={buttonClassForTone(tone)}
                 >
-                  {runningCommand === action.command ? (
+                  {runningCommand === option.key ? (
                     <Loader2 size={15} className="animate-spin" />
                   ) : (
                     <ActionIcon size={15} />
                   )}
-                  {t(action.labelKey)}
+                  {commandLabel(option, t)}
                 </button>
               );
             })}
-            {!FINANCIAL_OBJECTS.has(objectKey) && (
+            {canDelete && (
               <button
                 type="button"
                 onClick={() => setEditing(true)}
@@ -2028,35 +1848,35 @@ export default function ObjectDetailPage({
                 <Pencil size={15} />{t("workspace.edit")}
               </button>
             )}
-            {(overflowActions.length > 0 || !FINANCIAL_OBJECTS.has(objectKey)) && (
+            {(menuActions.length > 0 || canDelete) && (
               <details className="group/detail-actions relative">
                 <summary className="app-button-secondary flex cursor-pointer list-none px-3" aria-label={t("workspace.moreActions")}>
                   <MoreHorizontal size={18} />
                 </summary>
                 <div className="absolute right-0 top-full z-40 mt-1 min-w-[220px] rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl">
-                  {overflowActions.map((action) => {
-                    const ActionIcon = iconForBusinessCommand(action.command);
-                    const menuTone = action.tone === "danger"
+                  {menuActions.map((option) => {
+                    const ActionIcon = resolveCommandIcon(option);
+                    const menuTone = commandTone(option) === "danger"
                       ? "text-red-600 hover:bg-red-50"
                       : "text-slate-700 hover:bg-slate-100";
                     return (
                       <button
-                        key={`${action.command}:${action.labelKey}`}
+                        key={option.key}
                         type="button"
-                        onClick={() => void executeBusinessCommand(action)}
+                        onClick={() => void executeBusinessCommand(option)}
                         disabled={runningCommand !== null}
                         className={`flex min-h-9 w-full items-center gap-2 rounded-lg px-3 text-left text-sm font-semibold disabled:opacity-50 ${menuTone}`}
                       >
-                        {runningCommand === action.command ? (
+                        {runningCommand === option.key ? (
                           <Loader2 size={15} className="animate-spin" />
                         ) : (
                           <ActionIcon size={15} />
                         )}
-                        {t(action.labelKey)}
+                        {commandLabel(option, t)}
                       </button>
                     );
                   })}
-                  {!FINANCIAL_OBJECTS.has(objectKey) && (
+                  {canDelete && (
                     <button
                       type="button"
                       onClick={handleDelete}
@@ -2093,6 +1913,7 @@ export default function ObjectDetailPage({
             objectKey={objectKey}
             recordId={recordId}
             record={record}
+            spine={objDetail?.lifecycle ?? null}
           />
 
           {(objectKey === "quote" || objectKey === "work_order" || objectKey === "invoice") && (
@@ -2174,11 +1995,10 @@ export default function ObjectDetailPage({
                 <button
                   type="button"
                   disabled={!dispatchTechnicianId || !dispatchStart || !dispatchEnd || runningCommand !== null}
-                  onClick={() => void executeBusinessCommand({
-                    command: "work_order.create_visit",
-                    labelKey: "workspace.command.work_order.create_visit",
-                    tone: "primary",
-                  })}
+                  onClick={() => {
+                    const option = recordCommands.find((entry) => entry.key === "work_order.create_visit");
+                    if (option) void executeBusinessCommand(option);
+                  }}
                   className="app-button-primary"
                 >
                   {runningCommand === "work_order.create_visit" ? <Loader2 size={15} className="animate-spin" /> : <Calendar size={15} />}
@@ -2189,7 +2009,7 @@ export default function ObjectDetailPage({
           )}
 
           <div className="grid gap-6 xl:grid-cols-[minmax(320px,.82fr)_minmax(0,1.18fr)] xl:items-start">
-            <div className="space-y-4">
+            <div className="min-w-0 space-y-4">
               {fieldSectionPanels}
 
               {/* Parent associations stay close to the record's primary fields. */}
@@ -2212,7 +2032,7 @@ export default function ObjectDetailPage({
               </div>
             </div>
 
-            <div className="space-y-6">
+            <div className="min-w-0 space-y-6">
               {/* Workflow panel: fetches its own workflow data. */}
               <RecordWorkflowPanel
                 workspaceId={workspaceId}

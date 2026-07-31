@@ -56,6 +56,8 @@ export * from "./customer-access-session";
 export * from "./customer-access-context";
 export * from "./work-item-subject-enrichment";
 export * from "./actor-display";
+export * from "./aggregate-lifecycle";
+export * from "./record-commands";
 export * from "./payment-connect-commands";
 export * from "./workflow-projection";
 export * from "./cron-coordinator";

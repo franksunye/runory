@@ -486,6 +486,8 @@ describe("§14.3.2 Grant capability and aggregate/root checks are both required"
       operation: "transition",
       transition: { from: ["in_review"], to: "approved" },
       permission: "quote.approve",
+      requiresReason: false,
+      availableWhen: [],
       allowedActorTypes: ["user", "api_key", "system"],
       idempotent: true,
       requiresExpectedVersion: true,

@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { getObject, getFields } from "@runory/platform-core";
+import { getObject, getFields, resolveWorkspaceAggregateLifecycle } from "@runory/platform-core";
 import { requireWorkspaceContext } from "@/lib/auth";
 import { successResponse, handleError, notFound, getOrCreateRequestId, METADATA_CACHE } from "@/lib/http";
 
@@ -17,8 +17,13 @@ export async function GET(
     if (!object) {
       return notFound(`Object ${objectKey} not found`, ctx.requestId);
     }
-    const fields = await getFields(workspaceId, objectKey);
-    return successResponse({ object, fields }, 200, ctx.requestId, METADATA_CACHE);
+    const [fields, lifecycle] = await Promise.all([
+      getFields(workspaceId, objectKey),
+      // Null for objects with no declared state machine; surfaces then show no
+      // progress instead of inventing one.
+      resolveWorkspaceAggregateLifecycle(workspaceId, objectKey),
+    ]);
+    return successResponse({ object, fields, lifecycle }, 200, ctx.requestId, METADATA_CACHE);
   } catch (e) {
     return handleError(e, requestId);
   }

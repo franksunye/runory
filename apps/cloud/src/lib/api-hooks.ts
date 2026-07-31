@@ -8,11 +8,13 @@ import type {
   FieldDefinition,
   NavigationItem,
   ObjectDefinition,
+  RecordCommandOption,
   RelationDefinition,
   ViewDefinition,
   WorkflowInstanceRow,
 } from "@runory/platform-core";
 import type {
+  AggregateLifecycle,
   WorkflowInstance,
   WorkItem,
   WorkflowEvent,
@@ -40,6 +42,8 @@ export interface Installation {
 export interface ObjectDetailResponse {
   object: ObjectDefinition;
   fields: FieldDefinition[];
+  /** Declared state machine, or null for objects without one. */
+  lifecycle: AggregateLifecycle | null;
 }
 
 export type WorkspaceRecord = Record<string, string | number | boolean | null>;
@@ -130,6 +134,20 @@ export function useFields(workspaceId: string, objectKey: string) {
     workspaceKey(workspaceId, `objects/${objectKey}`)
   );
   return { data, error, isLoading, mutate };
+}
+
+/**
+ * The Commands this record admits, resolved server-side from the Workspace's
+ * Command Contracts. Surfaces render what they are given instead of restating
+ * the state machine.
+ */
+export function useRecordCommands(workspaceId: string, objectKey: string, recordId: string) {
+  const { data, error, isLoading, mutate } = useSWR<{ commands: RecordCommandOption[] }>(
+    recordId
+      ? workspaceKey(workspaceId, `objects/${objectKey}/records/${recordId}/commands`)
+      : null
+  );
+  return { data: data?.commands ?? [], error, isLoading, mutate };
 }
 
 export function useViews(workspaceId: string, objectKey: string) {

@@ -8,31 +8,11 @@ import {
   ChevronRight, X,
 } from "lucide-react";
 import { useI18n } from "@/i18n/locale-provider";
-import type { WorkspaceRecord } from "@/lib/api-hooks";
+import { useFields, type WorkspaceRecord } from "@/lib/api-hooks";
+import { recordStatusPresentation } from "@/lib/record-lifecycle";
 import { apiFetch } from "@/lib/api-fetch";
 
 export const dynamic = "force-dynamic";
-
-// ── Work Order status badge map ──
-
-const STATUS_BADGE: Record<string, string> = {
-  draft: "bg-slate-100 text-slate-600",
-  triaged: "bg-blue-50 text-blue-700",
-  in_progress: "bg-amber-50 text-amber-700",
-  blocked: "bg-red-50 text-red-600",
-  completed: "bg-green-50 text-green-700",
-  cancelled: "bg-red-50 text-red-600",
-};
-
-const STATUS_LABEL: Record<string, string> = {
-  draft: "Draft",
-  triaged: "Triaged",
-  in_progress: "In Progress",
-  blocked: "Blocked",
-  completed: "Completed",
-  cancelled: "Cancelled",
-  open: "Open",
-};
 
 // ── Page ──
 
@@ -53,6 +33,7 @@ export default function MobileWorkOrdersPageWrapper() {
 function MobileWorkOrdersPage() {
   const workspaceId = useParams().workspaceId as string;
   const { t } = useI18n();
+  const { data: objectDetail } = useFields(workspaceId, "work_order");
 
   const [records, setRecords] = useState<WorkspaceRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -185,9 +166,13 @@ function MobileWorkOrdersPage() {
             {records.map((record) => {
               const id = String(record.id ?? record._id ?? "");
               const title = String(record.title ?? record.name ?? record.work_order_number ?? "—");
-              const status = String(record.status ?? "draft");
-              const statusBadge = STATUS_BADGE[status] ?? "bg-slate-100 text-slate-600";
-              const statusLabel = STATUS_LABEL[status] ?? status;
+              const status = String(record.status ?? "");
+              const statusPresentation = recordStatusPresentation(
+                "work_order",
+                objectDetail?.lifecycle,
+                status,
+                t
+              );
               const customer = String(record.customer_name ?? record.company_name ?? record.customer ?? "");
               const site = String(record.site_name ?? record.service_site_name ?? record.site ?? "");
               const technician = String(record.technician_name ?? record.assigned_technician ?? record.technician ?? "");
@@ -203,9 +188,9 @@ function MobileWorkOrdersPage() {
                       {title}
                     </h3>
                     <span
-                      className={`inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${statusBadge}`}
+                      className={`inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${statusPresentation.badgeClass}`}
                     >
-                      {statusLabel}
+                      {statusPresentation.label}
                     </span>
                   </div>
 

@@ -124,6 +124,13 @@ domain:
     - key: service_visit
       stateField: status
       versionField: aggregate_version
+      lifecycle:
+        spine: [unplanned, scheduled, en_route, on_site, completed]
+        terminals: [cancelled]
+        evidence:
+          en_route: { events: [visit.travel_started] }
+          on_site: { events: [visit.arrived_on_site] }
+          completed: { events: [visit.completed], timestampField: actual_end }
   commands:
     - key: visit.start_travel
       contractVersion: "1.0.0"
@@ -131,6 +138,8 @@ domain:
       transition:
         from: [scheduled]
         to: en_route
+      intent: advance
+      icon: navigation
       allowedActorTypes: [user, api_key, system]
       permission: visit.execute
       idempotent: true
@@ -152,6 +161,8 @@ domain:
       transition:
         from: [en_route]
         to: on_site
+      intent: advance
+      icon: map-pin
       allowedActorTypes: [user, api_key, system]
       permission: visit.execute
       idempotent: true
@@ -167,6 +178,8 @@ domain:
       transition:
         from: [on_site]
         to: on_site
+      intent: advance
+      icon: send
       allowedActorTypes: [user, api_key, system]
       permission: visit.execute
       idempotent: true
@@ -182,6 +195,8 @@ domain:
       transition:
         from: [on_site]
         to: completed
+      intent: advance
+      icon: check-circle
       allowedActorTypes: [user, api_key, system]
       permission: visit.execute
       idempotent: true
@@ -206,6 +221,9 @@ domain:
       transition:
         from: [unplanned, scheduled, en_route, on_site]
         to: cancelled
+      intent: escape_hatch
+      icon: x-circle
+      requiresReason: true
       allowedActorTypes: [user, api_key, system]
       permission: visit.execute
       idempotent: true

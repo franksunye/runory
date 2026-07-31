@@ -193,11 +193,26 @@ domain:
     - key: work_order
       stateField: status
       versionField: aggregate_version
+      # Every state in validation.options must be classified exactly once, so a
+      # new state cannot be introduced without deciding what it means for
+      # progress. Surfaces resolve labels by convention, never from here.
+      lifecycle:
+        spine: [new, triaged, planned, in_progress, completed]
+        aliases: { reopened: planned }
+        interrupts: [blocked]
+        terminals: [cancelled]
+        evidence:
+          triaged: { events: [work_order.triaged] }
+          planned: { events: [work_order.visit_created] }
+          in_progress: { events: [work_order.started] }
+          completed: { events: [work_order.completed], timestampField: completed_at }
   commands:
     - key: work_order.triage
       contractVersion: "1.0.0"
       aggregate: work_order
       transition: { from: [new], to: triaged }
+      intent: advance
+      icon: clipboard-list
       allowedActorTypes: [user, api_key, system]
       permission: work_order.triage
       idempotent: true
@@ -212,6 +227,8 @@ domain:
       transition:
         from: [triaged, planned, in_progress]
         to: [planned, in_progress]
+      intent: advance
+      icon: calendar
       allowedActorTypes: [user, api_key, system]
       permission: work_order.create
       idempotent: true
@@ -233,6 +250,9 @@ domain:
       contractVersion: "1.0.0"
       aggregate: work_order
       transition: { from: [new, triaged, planned, in_progress, reopened], to: blocked }
+      intent: escape_hatch
+      icon: ban
+      requiresReason: true
       allowedActorTypes: [user, api_key, system]
       permission: work_order.triage
       idempotent: true
@@ -247,6 +267,8 @@ domain:
       transition:
         from: [blocked]
         to: [new, triaged, planned, in_progress, reopened]
+      intent: advance
+      icon: rotate-ccw
       allowedActorTypes: [user, api_key, system]
       permission: work_order.triage
       idempotent: true
@@ -259,6 +281,8 @@ domain:
       contractVersion: "1.0.0"
       aggregate: work_order
       transition: { from: [planned, reopened], to: in_progress }
+      intent: advance
+      icon: play
       allowedActorTypes: [user, api_key, system]
       permission: work_order.start
       idempotent: true
@@ -273,6 +297,8 @@ domain:
       transition:
         from: [in_progress]
         to: completed
+      intent: advance
+      icon: check-circle
       allowedActorTypes: [user, api_key, system]
       permission: work_order.complete
       idempotent: true
@@ -285,14 +311,18 @@ domain:
           cardinality: zero_or_more
       emits: [work_order.completed]
       auditRequired: true
+      resultAssertions:
+        - { field: completed_at, operator: not_null }
       postconditions:
         - work_order.status == completed
-        - work_order.completed_at != null
         - subject_schedule.status == completed
     - key: work_order.cancel
       contractVersion: "1.0.0"
       aggregate: work_order
       transition: { from: [new, triaged, planned, in_progress, blocked, reopened], to: cancelled }
+      intent: escape_hatch
+      icon: x-circle
+      requiresReason: true
       allowedActorTypes: [user, api_key, system]
       permission: work_order.triage
       idempotent: true
@@ -312,6 +342,9 @@ domain:
       contractVersion: "1.0.0"
       aggregate: work_order
       transition: { from: [completed, cancelled], to: reopened }
+      intent: escape_hatch
+      icon: rotate-ccw
+      requiresReason: true
       allowedActorTypes: [user, api_key, system]
       permission: work_order.reopen
       idempotent: true
@@ -370,8 +403,13 @@ migrations:
   upgrade:
     - from: "1.0.0"
       to: "1.1.0"
-      script: migrations/upgrade-from-1.0.sql
+      script: v1.1/migrations/upgrade-from-1.0.sql
       risk: low
+
+presentation:
+  visibility: top_level
+  surface: work_orders
+  audience: [dispatcher, service_supervisor]
 
 ui:
   navigation:

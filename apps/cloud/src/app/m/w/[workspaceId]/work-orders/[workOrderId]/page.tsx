@@ -22,6 +22,8 @@ import {
   Wrench,
 } from "lucide-react";
 import { useI18n } from "@/i18n/locale-provider";
+import { useFields } from "@/lib/api-hooks";
+import { recordStatusPresentation } from "@/lib/record-lifecycle";
 import { apiFetch } from "@/lib/api-fetch";
 
 export const dynamic = "force-dynamic";
@@ -38,17 +40,6 @@ interface WorkOrderContext {
   visits: BusinessRecord[];
   reports: BusinessRecord[];
 }
-
-const STATUS_BADGE: Record<string, string> = {
-  draft: "bg-slate-100 text-slate-600",
-  planned: "bg-blue-50 text-blue-700",
-  triaged: "bg-blue-50 text-blue-700",
-  in_progress: "bg-amber-50 text-amber-700",
-  blocked: "bg-red-50 text-red-600",
-  completed: "bg-green-50 text-green-700",
-  cancelled: "bg-red-50 text-red-600",
-  reopened: "bg-purple-50 text-purple-700",
-};
 
 const PRIORITY_BADGE: Record<string, string> = {
   low: "bg-slate-100 text-slate-600",
@@ -182,6 +173,7 @@ function MobileWorkOrderDetailPage() {
   const { t } = useI18n();
   const workspaceId = params.workspaceId as string;
   const workOrderId = params.workOrderId as string;
+  const { data: objectDetail } = useFields(workspaceId, "work_order");
 
   const [workOrder, setWorkOrder] = useState<BusinessRecord | null>(null);
   const [context, setContext] = useState<WorkOrderContext | null>(null);
@@ -222,9 +214,14 @@ function MobileWorkOrderDetailPage() {
     void load();
   }, [load]);
 
-  const status = str(workOrder?.status || "draft");
+  const status = str(workOrder?.status || "");
   const priority = str(workOrder?.priority || "normal");
-  const statusBadge = STATUS_BADGE[status] ?? "bg-slate-100 text-slate-600";
+  const statusPresentation = recordStatusPresentation(
+    "work_order",
+    objectDetail?.lifecycle,
+    status,
+    t
+  );
   const priorityBadge = PRIORITY_BADGE[priority] ?? "bg-slate-100 text-slate-600";
 
   const title = pickFirst(workOrder?.title, workOrder?.name, workOrder?.work_order_number, "—");
@@ -297,8 +294,8 @@ function MobileWorkOrderDetailPage() {
                 <div className="min-w-0 flex-1">
                   <h2 className="text-lg font-bold leading-snug text-slate-900">{title}</h2>
                   <div className="mt-2 flex flex-wrap gap-1.5">
-                    <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${statusBadge}`}>
-                      {titleize(status)}
+                    <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${statusPresentation.badgeClass}`}>
+                      {statusPresentation.label}
                     </span>
                     <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${priorityBadge}`}>
                       {titleize(priority)}

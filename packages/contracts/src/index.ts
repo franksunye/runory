@@ -477,11 +477,51 @@ export const commandConsistencySchema = z.enum(["atomic", "outbox", "projection"
 export const commandOperationSchema = z.enum(["create", "transition", "action"]);
 export const commandActorTypeSchema = z.enum(["user", "api_key", "system", "agent", "customer"]);
 
+// ── Aggregate Lifecycle ──
+//
+// The command graph proves which transitions are legal, but not which of the
+// legal states form the path a document is expected to travel. Operators need
+// that spine to answer "where is this, and how much is left" — and a raw graph
+// cannot answer it, because `blocked`, `reopened` and `cancelled` are all legal
+// yet off-spine.
+//
+// Declaring the partition on the aggregate (the owner of `stateField`) keeps one
+// source of truth for every surface — office, field app, customer portal — and
+// lets Catalog validation reject a state that was added without being
+// classified, which is what stops the declaration from drifting.
+//
+// Labels are deliberately absent: surfaces resolve them by convention from
+// (object, state), so a manifest never carries UI copy or per-locale strings.
+
+/** Proof of when a state was reached, in precedence order: column, then events. */
+export const aggregateLifecycleEvidenceSchema = z.object({
+  /** Governed domain events whose earliest occurrence dates this state. */
+  events: z.array(z.string().min(1)).default([]),
+  /** Aggregate column carrying an authoritative timestamp for this state. */
+  timestampField: z.string().min(1).optional(),
+});
+
+export const aggregateLifecycleSchema = z.object({
+  /** The expected path, in order. */
+  spine: z.array(z.string().min(1)).min(2),
+  /** State → spine state it sits at, for states reached by moving backwards. */
+  aliases: z.record(z.string().min(1)).default({}),
+  /** Paused on the spine: work can resume from where it stopped. */
+  interrupts: z.array(z.string().min(1)).default([]),
+  /** Ended off-spine: no further progress is expected. */
+  terminals: z.array(z.string().min(1)).default([]),
+  evidence: z.record(aggregateLifecycleEvidenceSchema).default({}),
+});
+
 export const aggregateContractSchema = z.object({
   key: z.string().min(1),
   stateField: z.string().min(1),
   versionField: z.string().min(1),
+  lifecycle: aggregateLifecycleSchema.optional(),
 });
+
+export type AggregateLifecycleEvidence = z.infer<typeof aggregateLifecycleEvidenceSchema>;
+export type AggregateLifecycle = z.infer<typeof aggregateLifecycleSchema>;
 
 export const commandEffectRequirementSchema = z.object({
   capability: z.string().min(1),
@@ -495,6 +535,52 @@ export const commandModuleRequirementSchema = z.object({
   id: z.string().min(1),
   version: z.string().default("*"),
 });
+
+// ── Command availability ──
+//
+// `transition.from` already says which states admit a Command. Two things it
+// cannot say: whether the aggregate row itself still admits it (an Invoice with
+// a payment on it can no longer be voided), and, for `create` Commands, which
+// record a person is looking at when they issue it.
+//
+// Declaring both keeps availability derivable on the server, so every surface
+// offers exactly the Commands the runtime would accept instead of maintaining
+// its own copy of the rule.
+export const commandAvailabilityPredicateSchema = z.discriminatedUnion("operator", [
+  z.object({
+    field: z.string().min(1),
+    operator: z.literal("equals"),
+    value: z.union([z.string(), z.number(), z.boolean()]),
+  }),
+  z.object({
+    field: z.string().min(1),
+    operator: z.literal("not_equals"),
+    value: z.union([z.string(), z.number(), z.boolean()]),
+  }),
+  z.object({
+    field: z.string().min(1),
+    operator: z.literal("not_null"),
+  }),
+  z.object({
+    field: z.string().min(1),
+    operator: z.literal("is_null"),
+  }),
+]);
+
+/**
+ * How a Command reads to the person holding the record.
+ *
+ * - `advance` moves the record along the lifecycle spine: the expected next step.
+ * - `decide` picks between divergent outcomes offered by one state (approve /
+ *   decline / return). Stays visible even when the outcome is destructive.
+ * - `escape_hatch` is an administrative override admitted by many states (block,
+ *   cancel, void, withdraw, reopen). Never the expected next step.
+ *
+ * Declaring an intent is what puts a Command on the record's command surface.
+ * Fine-grained operations invoked from purpose-built UI — editing quote lines,
+ * recalculating totals — leave it unset and stay off that surface.
+ */
+export const commandIntentSchema = z.enum(["advance", "decide", "escape_hatch"]);
 
 export const commandResultAssertionSchema = z.discriminatedUnion("operator", [
   z.object({
@@ -524,6 +610,28 @@ export const commandContractSchema = z.object({
     ]),
   }).optional(),
   permission: z.string().min(1),
+  intent: commandIntentSchema.optional(),
+  /**
+   * Presentation token for the command surface (same vocabulary as navigation
+   * and dashboard widget icons: `calendar`, `ban`, `send`, …). Surfaces map the
+   * token to a concrete glyph; the Contract never names a UI library.
+   */
+  icon: z.string().min(1).optional(),
+  /** The actor must supply a reason; surfaces prompt for it before dispatching. */
+  requiresReason: z.boolean().default(false),
+  /** Extra conditions on the aggregate row, beyond `transition.from`. */
+  availableWhen: z.array(commandAvailabilityPredicateSchema).default([]),
+  /**
+   * For `create` Commands: the record a person is looking at when they issue it.
+   * Without this, a Command that creates an Invoice from a Work Order has no
+   * declared surface and each client has to hardcode where the button belongs.
+   */
+  initiatedFrom: z.object({
+    aggregate: z.string().min(1),
+    /** Command input field carrying the id of the record it was issued from. */
+    idField: z.string().min(1),
+    when: z.array(commandAvailabilityPredicateSchema).default([]),
+  }).optional(),
   allowedActorTypes: z.array(commandActorTypeSchema).min(1)
     .default(["user", "api_key"]),
   idempotent: z.boolean().default(true),
@@ -547,6 +655,14 @@ export const commandContractSchema = z.object({
       code: z.ZodIssueCode.custom,
       path: ["transition"],
       message: "create commands must not invent a source state transition",
+    });
+  }
+  if (command.operation !== "create" && command.initiatedFrom) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["initiatedFrom"],
+      message: "only create commands are initiated from another aggregate; "
+        + "a transition command is surfaced on the aggregate it transitions",
     });
   }
   if (command.operation === "create" && command.requiresExpectedVersion) {
@@ -574,6 +690,9 @@ export const moduleDomainContractSchema = z.object({
 
 export type CommandConsistency = z.infer<typeof commandConsistencySchema>;
 export type CommandOperation = z.infer<typeof commandOperationSchema>;
+export type CommandActorType = z.infer<typeof commandActorTypeSchema>;
+export type CommandIntent = z.infer<typeof commandIntentSchema>;
+export type CommandAvailabilityPredicate = z.infer<typeof commandAvailabilityPredicateSchema>;
 export type AggregateContract = z.infer<typeof aggregateContractSchema>;
 export type CommandEffectRequirement = z.infer<typeof commandEffectRequirementSchema>;
 export type CommandModuleRequirement = z.infer<typeof commandModuleRequirementSchema>;
