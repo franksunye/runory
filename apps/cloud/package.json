@@ -16,6 +16,7 @@
     "db:status": "node scripts/db-status.mjs",
     "db:reset": "node scripts/db-reset.mjs",
     "contracts:repair": "tsx scripts/repair-command-contracts.mjs",
+    "contracts:sync-permissions": "tsx scripts/sync-pack-permission-groups.mjs",
     "avatars:generate": "node scripts/generate-demo-avatars.mjs",
     "bootstrap:demo": "node scripts/bootstrap-demo.mjs",
     "stripe:billing:setup": "node --env-file=.env.local scripts/stripe-billing-local.mjs setup",
