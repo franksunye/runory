@@ -1,0 +1,81 @@
+{
+  "schemaVersion": "runory.e2e-browser-summary/v1",
+  "evidenceLayer": "automated_browser_e2e",
+  "commit": "6627fd5e71fa008f6684da2389287b4c9c852a45",
+  "workingTreeDirty": false,
+  "apiResultPath": "docs/releases/v0.9-g1-api-walkthrough-6627fd5e.json",
+  "sourceApiArtifact": "apps/cloud/test-results/e2e/g1-6627fd5e.json",
+  "startedAt": "2026-07-30T14:00:05.460Z",
+  "durationMs": 30049,
+  "stats": {
+    "startTime": "2026-07-30T14:00:05.460Z",
+    "duration": 30049.036,
+    "expected": 10,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  },
+  "finalDecision": "PASS",
+  "tests": [
+    {
+      "title": "owner dashboard renders without browser errors",
+      "project": "desktop-chromium",
+      "status": "passed",
+      "durationMs": 6600
+    },
+    {
+      "title": "sales representative sees the fresh Quote projection",
+      "project": "desktop-chromium",
+      "status": "passed",
+      "durationMs": 3704
+    },
+    {
+      "title": "dispatcher sees the fresh Work Order and planning surface",
+      "project": "desktop-chromium",
+      "status": "passed",
+      "durationMs": 4491
+    },
+    {
+      "title": "technician sees the fresh Visit projection",
+      "project": "desktop-chromium",
+      "status": "passed",
+      "durationMs": 1177
+    },
+    {
+      "title": "supervisor sees the fresh Form Submission projection",
+      "project": "desktop-chromium",
+      "status": "passed",
+      "durationMs": 3606
+    },
+    {
+      "title": "owner dashboard renders without browser errors",
+      "project": "mobile-chromium",
+      "status": "passed",
+      "durationMs": 1460
+    },
+    {
+      "title": "sales representative sees the fresh Quote projection",
+      "project": "mobile-chromium",
+      "status": "passed",
+      "durationMs": 1425
+    },
+    {
+      "title": "dispatcher sees the fresh Work Order and planning surface",
+      "project": "mobile-chromium",
+      "status": "passed",
+      "durationMs": 2792
+    },
+    {
+      "title": "technician sees the fresh Visit projection",
+      "project": "mobile-chromium",
+      "status": "passed",
+      "durationMs": 1346
+    },
+    {
+      "title": "supervisor sees the fresh Form Submission projection",
+      "project": "mobile-chromium",
+      "status": "passed",
+      "durationMs": 2086
+    }
+  ]
+}

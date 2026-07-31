@@ -1,0 +1,105 @@
+{
+  "schemaVersion": "runory.e2e-result/v1",
+  "runId": "e2e-1785419976839-08awvd",
+  "commit": "6627fd5e71fa008f6684da2389287b4c9c852a45",
+  "workingTreeDirty": false,
+  "environment": "dev",
+  "evidenceLayer": "api_business_walkthrough",
+  "browser": null,
+  "viewport": null,
+  "baseUrl": "http://127.0.0.1:3100",
+  "startedAt": "2026-07-30T13:59:36.839Z",
+  "completedAt": "2026-07-30T13:59:51.902Z",
+  "principals": [
+    {
+      "id": "dev-local-owner",
+      "label": "Workspace Owner"
+    },
+    {
+      "id": "persona:sales-rep",
+      "label": "Sarah Chen (Sales Rep)"
+    },
+    {
+      "id": "persona:sales-manager",
+      "label": "Michael Torres (Sales Manager)"
+    },
+    {
+      "id": "persona:dispatcher",
+      "label": "Lisa Wang (Dispatcher)"
+    },
+    {
+      "id": "persona:technician",
+      "label": "David Park (Technician)"
+    },
+    {
+      "id": "persona:technician-james",
+      "label": "James Wilson (Technician)"
+    },
+    {
+      "id": "persona:technician-maria",
+      "label": "Maria Garcia (Technician)"
+    },
+    {
+      "id": "persona:supervisor",
+      "label": "Robert Kim (Supervisor)"
+    }
+  ],
+  "records": {
+    "workspaceId": "ws_f2bd2d8a-9199-4cce-a726-9dc3c0c245ec",
+    "workspaceSlug": "demo-workspace-c3c0c245ec",
+    "quoteId": "quote_23b1dad3-c70c-468b-8fb8-4de76823079b",
+    "workOrderId": "wo_2a6415b7-83c9-4731-9843-b1017f5bc6d2",
+    "visitId": "visit_6cf2f159-89da-4de6-aed0-5f1a4bd99283",
+    "formSubmissionId": "fsub_ec0b3533-f4e8-435c-acf5-0e0c7b617f3e"
+  },
+  "scenarios": [
+    {
+      "name": "Owner Workspace Verification",
+      "status": "PASS",
+      "pass": 37,
+      "fail": 0,
+      "failures": [],
+      "durationMs": 3902
+    },
+    {
+      "name": "Quote Lifecycle",
+      "status": "PASS",
+      "pass": 33,
+      "fail": 0,
+      "failures": [],
+      "durationMs": 4707
+    },
+    {
+      "name": "Dispatch Flow",
+      "status": "PASS",
+      "pass": 18,
+      "fail": 0,
+      "failures": [],
+      "durationMs": 2618
+    },
+    {
+      "name": "Field Execution",
+      "status": "PASS",
+      "pass": 14,
+      "fail": 0,
+      "failures": [],
+      "durationMs": 477
+    },
+    {
+      "name": "Cross-Surface Consistency",
+      "status": "PASS",
+      "pass": 20,
+      "fail": 0,
+      "failures": [],
+      "durationMs": 2740
+    }
+  ],
+  "artifacts": {
+    "screenshots": [],
+    "traces": [],
+    "console": [],
+    "network": []
+  },
+  "fatalError": null,
+  "finalDecision": "PASS"
+}

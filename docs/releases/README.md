@@ -6,7 +6,7 @@
 | Topic | `releases` |
 | Applies to | `v0.5+` |
 | Owner | Engineering / Operations |
-| Last reviewed | 2026-07-20 |
+| Last reviewed | 2026-07-31 |
 | Supersedes | — |
 | Superseded by | — |
 
@@ -33,6 +33,8 @@ This directory contains point-in-time acceptance, test, drill, migration, and pe
 
 - [v0.9 Engineering and E2E Convergence Review — 2026-07-30](v0.9-engineering-and-e2e-review-2026-07-30.md) — engineering conformance findings, E2E release-gate design, and required closure sequence.
 - [v0.9.1 Engineering and E2E Remediation Re-review — 2026-07-30](v0.9.1-engineering-and-e2e-remediation-review-2026-07-30.md) — verifies the v0.9.1 repair, records finding disposition, and identifies the remaining architecture and E2E release blockers.
+- [v0.9 G1/G2 Binding Evidence — 2026-07-30](v0.9-g1-g2-binding-evidence-2026-07-30.md) — clean-SHA PASS for API walkthrough and browser role-projection suite on `6627fd5e`; G3–G5 remain open.
+- [G1 API artifact](v0.9-g1-api-walkthrough-6627fd5e.json) / [G2 browser summary](v0.9-g2-browser-projection-6627fd5e.json) — machine-readable evidence for the binding record above.
 
 ## FSM
 
