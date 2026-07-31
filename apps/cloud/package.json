@@ -21,6 +21,8 @@
     "bootstrap:demo": "node scripts/bootstrap-demo.mjs",
     "stripe:billing:setup": "node --env-file=.env.local scripts/stripe-billing-local.mjs setup",
     "stripe:billing:verify": "node --env-file=.env.local scripts/stripe-billing-local.mjs verify",
+    "stripe:payments:setup": "pnpm exec tsx --env-file=.env.local scripts/stripe-payments-local.mjs setup",
+    "stripe:payments:verify": "pnpm exec tsx --env-file=.env.local scripts/stripe-payments-local.mjs verify",
     "dev:stripe": "node --env-file=.env.local scripts/stripe-billing-dev.mjs"
   },
   "dependencies": {

@@ -69,7 +69,11 @@ export function getStripePaymentConfiguration(): StripePaymentConfiguration {
   return {
     workspaceId: required("STRIPE_PAYMENT_WORKSPACE_ID"),
     providerAccountId: required("STRIPE_PAYMENT_PROVIDER_ACCOUNT_ID"),
-    providerAccountRef: process.env.STRIPE_ACCOUNT_ID?.trim() || "stripe-platform-account",
+    // Prefer the merchant Connected Account id. STRIPE_ACCOUNT_ID remains a
+    // legacy alias for older local .env files that only stored one acct_ ref.
+    providerAccountRef: process.env.STRIPE_CONNECT_ACCOUNT_ID?.trim()
+      || process.env.STRIPE_ACCOUNT_ID?.trim()
+      || "stripe-platform-account",
     mode,
     currency,
     webhookSecret: required("STRIPE_WEBHOOK_SECRET"),

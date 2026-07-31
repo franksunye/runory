@@ -15,8 +15,8 @@ import {
  * G2-S3 — Invoice issue and sandbox pay
  *
  * Fresh completed quote-sourced WO → Supervisor Issue invoice → Request payment.
- * Checkout settle requires Stripe Connect enrollment; when Connect is absent the
- * suite asserts fail-closed UI and annotates settle as BLOCKED (G4).
+ * Requires local Connect mapping (`pnpm stripe:payments:setup`). Hosted card
+ * settle + Connect webhook reconcile remain optional G4 depth.
  */
 
 test.describe("G2-S3 invoice issue and sandbox pay", () => {
@@ -24,7 +24,7 @@ test.describe("G2-S3 invoice issue and sandbox pay", () => {
     syncPackPermissionGroups();
   });
 
-  test("supervisor issues invoice and requests payment or records Connect BLOCKED", async ({
+  test("supervisor issues invoice and opens Stripe Checkout when Connect is ready", async ({
     page,
   }, testInfo) => {
     test.setTimeout(300_000);

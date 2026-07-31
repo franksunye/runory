@@ -103,6 +103,8 @@ async function main() {
   for (const pack of PACKS) {
     console.log(`  - ${pack.label}`);
   }
+  console.log("\nStripe customer payments (optional, for Invoice Checkout):");
+  console.log("  cd apps/cloud && pnpm stripe:payments:setup && pnpm stripe:payments:verify");
 }
 
 main().catch((err) => {

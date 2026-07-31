@@ -81,11 +81,21 @@ Payment tests (test case 03) require a Stripe test-mode environment.
    ```env
    STRIPE_SECRET_KEY=sk_test_...
    STRIPE_WEBHOOK_SECRET=whsec_...
+   STRIPE_CONNECT_WEBHOOK_SECRET=whsec_...
    STRIPE_PAYMENT_MODE=test
    STRIPE_PAYMENT_CURRENCY=USD
    STRIPE_PAYMENT_WORKSPACE_ID=<workspace-id>
+   STRIPE_PAYMENT_PROVIDER_ACCOUNT_ID=payment_provider_stripe_test
+   STRIPE_CONNECT_ACCOUNT_ID=acct_...
    ```
 
+   Then align the Demo Workspace Connect mapping:
+
+   ```bash
+   cd apps/cloud
+   pnpm stripe:payments:setup
+   pnpm stripe:payments:verify
+   ```
 ### 2.2 Set up the product catalog
 
 ```bash
