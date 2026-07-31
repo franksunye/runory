@@ -19,7 +19,11 @@ interface ApiEvidence {
 
 let evidence: ApiEvidence;
 
+test.describe("G2 projection surfaces", () => {
 test.beforeAll(() => {
+  if (!process.env.RUNORY_E2E_RESULT_PATH) {
+    test.skip(true, "RUNORY_E2E_RESULT_PATH is required for binding G2 projection evidence");
+  }
   const resultPath = process.env.RUNORY_E2E_RESULT_PATH;
   expect(resultPath, "RUNORY_E2E_RESULT_PATH must point to a validated API walkthrough artifact").toBeTruthy();
   evidence = JSON.parse(readFileSync(resolve(resultPath!), "utf8")) as ApiEvidence;
@@ -183,4 +187,5 @@ test("supervisor sees the fresh Form Submission projection", async ({ page }, te
     expectedText,
     testInfo,
   );
+});
 });

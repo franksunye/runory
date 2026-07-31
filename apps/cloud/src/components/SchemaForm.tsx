@@ -159,7 +159,10 @@ export default function SchemaForm({
                     fieldDef.type === "boolean" ? "sm:col-span-1" : "sm:col-span-1"
                   }
                 >
-                  <label className="mb-1 flex items-center gap-1 text-sm font-medium text-slate-700">
+                  <label
+                    htmlFor={`field-${sf.field}`}
+                    className="mb-1 flex items-center gap-1 text-sm font-medium text-slate-700"
+                  >
                     {fieldDef.label}
                     {required && <span className="text-red-500">*</span>}
                     {isExtension && (

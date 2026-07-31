@@ -63,11 +63,16 @@ export default function SchemaField({ field, value, displayValue, onChange, work
     );
   }
 
+  const fieldId = `field-${field.fieldKey}`;
+  const fieldName = field.fieldKey;
+
   const renderInput = () => {
     switch (field.type) {
       case "email":
         return (
           <input
+            id={fieldId}
+            name={fieldName}
             type="email"
             className={baseClass}
             value={value ?? ""}
@@ -78,6 +83,8 @@ export default function SchemaField({ field, value, displayValue, onChange, work
       case "phone":
         return (
           <input
+            id={fieldId}
+            name={fieldName}
             type="tel"
             className={baseClass}
             value={value ?? ""}
@@ -88,6 +95,8 @@ export default function SchemaField({ field, value, displayValue, onChange, work
       case "number":
         return (
           <input
+            id={fieldId}
+            name={fieldName}
             type="number"
             step="any"
             className={baseClass}
@@ -101,6 +110,8 @@ export default function SchemaField({ field, value, displayValue, onChange, work
       case "date":
         return (
           <input
+            id={fieldId}
+            name={fieldName}
             type="date"
             className={baseClass}
             value={toDateInputValue(value)}
@@ -110,6 +121,8 @@ export default function SchemaField({ field, value, displayValue, onChange, work
       case "boolean":
         return (
           <input
+            id={fieldId}
+            name={fieldName}
             type="checkbox"
             className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
             checked={Boolean(value)}
@@ -121,6 +134,8 @@ export default function SchemaField({ field, value, displayValue, onChange, work
           (field.validation?.options as string[] | undefined) ?? [];
         return (
           <select
+            id={fieldId}
+            name={fieldName}
             className={baseClass}
             value={value ?? ""}
             onChange={(e) => onChange(e.target.value)}
@@ -139,6 +154,8 @@ export default function SchemaField({ field, value, displayValue, onChange, work
           (field.validation?.targetObject as string | undefined) ?? "";
         return (
           <LookupField
+            id={fieldId}
+            name={fieldName}
             workspaceId={workspaceId}
             targetObject={targetObject}
             value={value}
@@ -153,6 +170,8 @@ export default function SchemaField({ field, value, displayValue, onChange, work
       case "user":
         return (
           <LookupField
+            id={fieldId}
+            name={fieldName}
             workspaceId={workspaceId}
             targetObject="__people"
             value={value}
@@ -167,6 +186,8 @@ export default function SchemaField({ field, value, displayValue, onChange, work
       default:
         return (
           <input
+            id={fieldId}
+            name={fieldName}
             type="text"
             className={baseClass}
             value={value ?? ""}
@@ -213,6 +234,8 @@ function toLookupOption(record: Record<string, unknown>): LookupOption {
 }
 
 function LookupField({
+  id,
+  name,
   workspaceId,
   targetObject,
   value,
@@ -222,6 +245,8 @@ function LookupField({
   t,
   filters,
 }: {
+  id?: string;
+  name?: string;
   workspaceId?: string;
   targetObject: string;
   value: any;
@@ -331,6 +356,8 @@ function LookupField({
   if (!workspaceId || !targetObject) {
     return (
       <input
+        id={id}
+        name={name}
         type="text"
         className="app-input"
         value={value ?? ""}
@@ -344,6 +371,8 @@ function LookupField({
     <div ref={rootRef} className="relative">
       <div className="relative">
         <input
+          id={id}
+          name={name}
           type="search"
           className="app-input pr-20"
           role="combobox"
