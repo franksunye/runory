@@ -247,7 +247,7 @@ async function verifyGrantContext(grant: CustomerAccessGrantRecord): Promise<voi
   }
 
   // 2. Verify root record exists and is in a valid state for customer access
-  //    Quotes in 'sent' or 'accepted' status are valid for customer access.
+  //    Quotes in 'sent', 'accepted', or 'converted' status are valid for customer access.
   //    Work orders in active statuses are valid for customer access.
   const rootTable = businessTable(grant.root_object_type);
   const rootStatusColumn = grant.root_object_type === "quote" ? "status" : "status";
@@ -259,9 +259,11 @@ async function verifyGrantContext(grant: CustomerAccessGrantRecord): Promise<voi
   if (!root || root.deleted_at) {
     throw new CustomerAccessUnavailableError();
   }
-  // Valid root statuses: sent, accepted (quote); any non-cancelled (work_order)
+  // Valid root statuses: sent, accepted, converted (quote); any non-cancelled (work_order).
+  // `converted` remains a valid customer-access root after Quote→WO so the portal
+  // can still project the commercial Quote alongside Invoice/Job status.
   if (grant.root_object_type === "quote") {
-    if (!["sent", "accepted"].includes(root.status)) {
+    if (!["sent", "accepted", "converted"].includes(root.status)) {
       throw new CustomerAccessUnavailableError();
     }
   } else {

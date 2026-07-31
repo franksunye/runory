@@ -14,9 +14,9 @@ import {
 /**
  * G2-S3 — Invoice issue and sandbox pay
  *
- * Fresh completed quote-sourced WO → Supervisor Issue invoice → Request payment.
- * Requires local Connect mapping (`pnpm stripe:payments:setup`). Hosted card
- * settle + Connect webhook reconcile remain optional G4 depth.
+ * Fresh completed quote-sourced WO → Supervisor Issue invoice → Request payment
+ * → checkout.stripe.com. Requires `pnpm stripe:payments:setup`.
+ * Hosted card settle / Connect webhook are out of Playwright (external one-time).
  */
 
 test.describe("G2-S3 invoice issue and sandbox pay", () => {
@@ -86,11 +86,6 @@ test.describe("G2-S3 invoice issue and sandbox pay", () => {
         testInfo.annotations.push({
           type: "g2-s3-checkout",
           description: `Checkout opened: ${page.url().slice(0, 80)}…`,
-        });
-        // Hosted card settle + Connect webhook reconcile remain G4 unless CLI listener is wired.
-        testInfo.annotations.push({
-          type: "blocked",
-          description: "Payment settle / webhook reconcile deferred to G4 (hosted Checkout + Connect webhook).",
         });
         await page.goto(invoiceUrl, { waitUntil: "domcontentloaded" });
       }
