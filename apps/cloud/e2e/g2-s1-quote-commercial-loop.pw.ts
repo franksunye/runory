@@ -12,40 +12,8 @@ import {
   saveFormAndWaitForCreate,
   selectField,
   switchPersona,
+  syncPackPermissionGroups,
 } from "./_helpers";
-import { execFileSync } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
-import { resolve } from "node:path";
-
-function loadCloudEnv(): NodeJS.ProcessEnv {
-  const envPath = resolve(__dirname, "../.env.local");
-  const env = { ...process.env };
-  if (!existsSync(envPath)) return env;
-  for (const line of readFileSync(envPath, "utf8").split("\n")) {
-    const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith("#")) continue;
-    const idx = trimmed.indexOf("=");
-    if (idx <= 0) continue;
-    const key = trimmed.slice(0, idx);
-    let value = trimmed.slice(idx + 1);
-    if (
-      (value.startsWith('"') && value.endsWith('"'))
-      || (value.startsWith("'") && value.endsWith("'"))
-    ) {
-      value = value.slice(1, -1);
-    }
-    env[key] = value;
-  }
-  return env;
-}
-
-function syncPackPermissionGroups() {
-  execFileSync("pnpm", ["exec", "tsx", "scripts/sync-pack-permission-groups.mjs"], {
-    cwd: resolve(__dirname, ".."),
-    env: loadCloudEnv(),
-    stdio: "pipe",
-  });
-}
 /**
  * G2-S1 — Quote commercial loop
  *

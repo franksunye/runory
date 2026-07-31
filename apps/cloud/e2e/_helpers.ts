@@ -1,4 +1,7 @@
 import { expect, type Page } from "@playwright/test";
+import { execFileSync } from "node:child_process";
+import { existsSync, readFileSync } from "node:fs";
+import { resolve } from "node:path";
 
 export interface WorkspaceContext {
   workspaceId: string;
@@ -163,10 +166,19 @@ export async function clickAndAwaitPost(
   }, { timeout: 30_000 });
   await page.getByRole("button", { name: buttonName }).first().click();
   const response = await responsePromise;
-  const body = await response.json().catch(() => ({} as { success?: boolean }));
-  expect(response.ok(), `${String(urlIncludes)} HTTP ok`).toBeTruthy();
+  const body = await response.json().catch(() => ({} as {
+    success?: boolean;
+    error?: { message?: string };
+  }));
+  expect(
+    response.ok(),
+    `${String(urlIncludes)} HTTP ok: ${body.error?.message ?? response.status()}`,
+  ).toBeTruthy();
   if ("success" in body) {
-    expect(body.success, `${String(urlIncludes)} succeeds`).toBeTruthy();
+    expect(
+      body.success,
+      `${String(urlIncludes)} succeeds: ${body.error?.message ?? "unknown"}`,
+    ).toBeTruthy();
   }
   return body;
 }
@@ -235,4 +247,166 @@ export async function ensureSalesQuoteRoleAssignments(
     );
     expect(response.ok(), `assign ${userId} to ${groupId}`).toBeTruthy();
   }
+}
+
+export function loadCloudEnv(envPath = resolve(__dirname, "../.env.local")): NodeJS.ProcessEnv {
+  const env = { ...process.env };
+  if (!existsSync(envPath)) return env;
+  for (const line of readFileSync(envPath, "utf8").split("\n")) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#")) continue;
+    const idx = trimmed.indexOf("=");
+    if (idx <= 0) continue;
+    const key = trimmed.slice(0, idx);
+    let value = trimmed.slice(idx + 1);
+    if (
+      (value.startsWith('"') && value.endsWith('"'))
+      || (value.startsWith("'") && value.endsWith("'"))
+    ) {
+      value = value.slice(1, -1);
+    }
+    env[key] = value;
+  }
+  return env;
+}
+
+export function syncPackPermissionGroups() {
+  execFileSync("pnpm", ["exec", "tsx", "scripts/sync-pack-permission-groups.mjs"], {
+    cwd: resolve(__dirname, ".."),
+    env: loadCloudEnv(),
+    stdio: "pipe",
+  });
+}
+
+export async function ensureFsmRoleAssignments(page: Page, workspaceId: string) {
+  await switchPersona(page, "dev-local-owner");
+  const [groupsRes, peopleRes] = await Promise.all([
+    page.request.get(`/api/workspaces/${workspaceId}/permission-groups`),
+    page.request.get(`/api/workspaces/${workspaceId}/people`),
+  ]);
+  expect(groupsRes.ok()).toBeTruthy();
+  expect(peopleRes.ok()).toBeTruthy();
+  const groups = (await groupsRes.json()).data as Array<Record<string, string>>;
+  const people = (await peopleRes.json()).data as Array<Record<string, string>>;
+  const byName = new Map(people.map((person) => [person.displayName, person.id]));
+  const fsmGroups = groups.filter((group) => group.packId === "fsm-pack");
+  const wanted = [
+    ["dispatcher", "Lisa Wang"],
+    ["field_technician", "David Park"],
+    ["service_supervisor", "Robert Kim"],
+  ] as const;
+  for (const [groupKey, displayName] of wanted) {
+    const group = fsmGroups.find((item) => item.groupKey === groupKey);
+    const userId = byName.get(displayName);
+    expect(group?.id, `fsm ${groupKey} group`).toBeTruthy();
+    expect(userId, `${displayName} user id`).toBeTruthy();
+    const response = await page.request.post(
+      `/api/workspaces/${workspaceId}/permission-groups/${group!.id}/assignments`,
+      {
+        data: { userId },
+        headers: { "X-Requested-With": "XMLHttpRequest" },
+      },
+    );
+    expect(response.ok(), `assign ${displayName} to ${groupKey}`).toBeTruthy();
+  }
+}
+
+export function localDateTimeOffset(hoursFromNow: number): string {
+  const date = new Date(Date.now() + hoursFromNow * 3_600_000);
+  return formatLocalDateTime(date);
+}
+
+export function formatLocalDateTime(date: Date): string {
+  const pad = (value: number) => String(value).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+/** Far-future, call-unique window so repeated G2-S2 runs do not stack David Park conflicts. */
+export function uniqueDispatchWindow(durationHours = 2): { start: string; end: string } {
+  const nonce = process.hrtime.bigint();
+  // Spread by unique minutes across a wide far-future band (avoids 2h overlaps from back-to-back runs).
+  const startMs = Date.now() + 180 * 86_400_000 + Number(nonce % 8_000_000n) * 60_000;
+  const start = new Date(startMs);
+  start.setSeconds(0, 0);
+  const end = new Date(start.getTime() + durationHours * 3_600_000);
+  return { start: formatLocalDateTime(start), end: formatLocalDateTime(end) };
+}
+
+export async function createConvertedWorkOrder(
+  page: Page,
+  workspace: WorkspaceContext,
+  runToken: string,
+) {
+  const quoteNumber = `Q-${runToken}`;
+  const quoteTitle = `${runToken} Commercial repair proposal`;
+  const { companyId, contactId, siteId, companyName, contactName, siteName } =
+    await createCustomerParties(page, workspace, runToken);
+
+  await switchPersona(page, "persona:sales-rep");
+  await page.goto(`/w/${workspace.workspaceSlug}/quotes/new`, { waitUntil: "domcontentloaded" });
+  await expect(page.locator("#field-title")).toBeVisible();
+  await fillField(page, "quote_number", quoteNumber);
+  await fillField(page, "title", quoteTitle);
+  await selectField(page, "status", "draft");
+  await fillField(page, "version", "1");
+  await fillField(page, "currency", "USD");
+  await chooseLookup(page, "company_id", companyName);
+  await chooseLookup(page, "contact_id", contactName);
+  await chooseLookup(page, "service_site_id", siteName);
+  const quoteId = await saveFormAndWaitForCreate(page, "quote");
+
+  await page.goto(
+    `/w/${workspace.workspaceSlug}/quote-lines/new?parentField=quote_id&parentId=${encodeURIComponent(quoteId)}&returnTo=${encodeURIComponent(`/w/${workspace.workspaceSlug}/quotes/${quoteId}`)}`,
+    { waitUntil: "domcontentloaded" },
+  );
+  await expect(page.locator("#field-description")).toBeVisible();
+  await fillField(page, "description", `${runToken} Labor`);
+  await fillField(page, "quantity", "2");
+  await fillField(page, "unit_price", "150");
+  await fillField(page, "discount_amount", "0");
+  await fillField(page, "tax_amount", "0");
+  await fillField(page, "sort_order", "1");
+  await saveFormAndWaitForCreate(page, "quote_line");
+
+  await page.goto(`/w/${workspace.workspaceSlug}/quotes/${quoteId}`, { waitUntil: "domcontentloaded" });
+  await clickAndAwaitPost(
+    page,
+    /^(Submit for approval|提交审批|提交批准)$/,
+    "/commands/quote.submit_for_approval",
+  );
+  await expectRecordStatus(page, workspace.workspaceId, "quote", quoteId, "in_review");
+
+  await switchPersona(page, "persona:sales-manager");
+  await approveInReviewQuote(page, workspace.workspaceSlug, workspace.workspaceId, quoteId);
+
+  await switchPersona(page, "dev-local-owner");
+  await page.goto(`/w/${workspace.workspaceSlug}/quotes/${quoteId}`, { waitUntil: "domcontentloaded" });
+  await clickAndAwaitPost(page, /^(Mark as sent|标记已发送)$/, "/commands/quote.mark_sent");
+  await expectRecordStatus(page, workspace.workspaceId, "quote", quoteId, "sent");
+  await page.goto(`/w/${workspace.workspaceSlug}/quotes/${quoteId}`, { waitUntil: "domcontentloaded" });
+  await clickAndAwaitPost(page, /^(Accept|接受)$/, "/commands/quote.accept");
+  await expectRecordStatus(page, workspace.workspaceId, "quote", quoteId, "accepted");
+  await page.goto(`/w/${workspace.workspaceSlug}/quotes/${quoteId}`, { waitUntil: "domcontentloaded" });
+  await clickAndAwaitPost(
+    page,
+    /^(Convert to Work Order|转换为工单)$/,
+    "/commands/quote.convert_to_work_order",
+  );
+  await expectRecordStatus(page, workspace.workspaceId, "quote", quoteId, "converted");
+
+  const quote = await getRecord(page, workspace.workspaceId, "quote", quoteId);
+  const workOrderId = String(quote.work_order_id ?? "");
+  expect(workOrderId).toBeTruthy();
+
+  return {
+    quoteId,
+    workOrderId,
+    companyId,
+    contactId,
+    siteId,
+    companyName,
+    contactName,
+    siteName,
+    quoteTitle,
+  };
 }
