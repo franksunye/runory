@@ -30,6 +30,7 @@ yarn-error.log*
 coverage
 playwright-report
 test-results
+apps/cloud/e2e/.g3-sample-fixture.json
 
 # Runory local dev
 .runory-dev

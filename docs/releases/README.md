@@ -34,7 +34,8 @@ This directory contains point-in-time acceptance, test, drill, migration, and pe
 - [v0.9 E2E Gate Remapping — 2026-07-31](v0.9-e2e-gate-remapping-2026-07-31.md) — **active** G0–G5 means: G2 = Playwright functional coverage, G3 = human/Agent critical-path feel, G4 = device/provider, G5 = customer cohort.
 - [v0.9 Engineering and E2E Convergence Review — 2026-07-30](v0.9-engineering-and-e2e-review-2026-07-30.md) — engineering conformance findings, E2E release-gate design, and required closure sequence.
 - [v0.9.1 Engineering and E2E Remediation Re-review — 2026-07-30](v0.9.1-engineering-and-e2e-remediation-review-2026-07-30.md) — verifies the v0.9.1 repair, records finding disposition, and identifies the remaining architecture and E2E release blockers.
-- [v0.9 G1/G2 Binding Evidence — 2026-07-30](v0.9-g1-g2-binding-evidence-2026-07-30.md) — clean-SHA PASS for API walkthrough and browser **projection subset** on `6627fd5e`; full G2 remains open under the remapping.
+- [v0.9 G1/G2 Binding Evidence — 2026-07-30](v0.9-g1-g2-binding-evidence-2026-07-30.md) — clean-SHA PASS for API walkthrough and browser **projection subset** on `6627fd5e`; full G2 closed later via S0–S5 on `ae169811`.
+- [v0.9 G3 Experience Sample Evidence — 2026-07-31](v0.9-g3-experience-sample-2026-07-31.md) — Agent browser critical-path feel sample PASS on `ae169811`.
 - [G1 API artifact](v0.9-g1-api-walkthrough-6627fd5e.json) / [G2 browser summary](v0.9-g2-browser-projection-6627fd5e.json) — machine-readable evidence for the binding record above.
 
 ## FSM
