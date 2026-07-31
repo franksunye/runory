@@ -953,9 +953,9 @@ function WorkOrderDeliverablesPanel({
 
 interface BusinessCommandAction {
   command: string;
-  label: string;
+  labelKey: MessageKey;
   tone?: "primary" | "secondary" | "danger";
-  reasonPrompt?: string;
+  reasonPromptKey?: MessageKey;
   body?: Record<string, unknown>;
 }
 
@@ -964,61 +964,96 @@ function getBusinessCommandActions(objectKey: string, record: WorkspaceRecord): 
   if (objectKey === "quote") {
     const actions: BusinessCommandAction[] = [];
     if (status === "draft") {
-      actions.push({ command: "quote.submit_for_approval", label: "Submit for approval", tone: "primary" });
+      actions.push({ command: "quote.submit_for_approval", labelKey: "workspace.command.quote.submit_for_approval", tone: "primary" });
     }
     if (status === "in_review") {
-      actions.push({ command: "quote.approve", label: "Approve", tone: "primary" });
-      actions.push({ command: "quote.reject", label: "Reject", tone: "danger", reasonPrompt: "Reason for rejecting this quote?" });
-      actions.push({ command: "quote.return_for_changes", label: "Return for changes", tone: "secondary", reasonPrompt: "Reason for returning this quote?" });
+      actions.push({ command: "quote.approve", labelKey: "workspace.command.quote.approve", tone: "primary" });
+      actions.push({
+        command: "quote.reject",
+        labelKey: "workspace.command.quote.reject",
+        tone: "danger",
+        reasonPromptKey: "workspace.command.reason.quote.reject",
+      });
+      actions.push({
+        command: "quote.return_for_changes",
+        labelKey: "workspace.command.quote.return_for_changes",
+        tone: "secondary",
+        reasonPromptKey: "workspace.command.reason.quote.return_for_changes",
+      });
     }
     if (status === "approved") {
-      actions.push({ command: "quote.mark_sent", label: "Mark as sent", tone: "primary" });
-      actions.push({ command: "quote.withdraw", label: "Withdraw", tone: "secondary", reasonPrompt: "Reason for withdrawing this quote?" });
+      actions.push({ command: "quote.mark_sent", labelKey: "workspace.command.quote.mark_sent", tone: "primary" });
+      actions.push({
+        command: "quote.withdraw",
+        labelKey: "workspace.command.quote.withdraw",
+        tone: "secondary",
+        reasonPromptKey: "workspace.command.reason.quote.withdraw",
+      });
     }
     if (status === "sent") {
       actions.push({
         command: "quote.accept",
-        label: "Record customer acceptance",
+        labelKey: "workspace.command.quote.accept",
         tone: "secondary",
       });
-      actions.push({ command: "quote.mark_declined", label: "Mark as declined", tone: "danger", reasonPrompt: "Reason for declining this quote?" });
+      actions.push({
+        command: "quote.mark_declined",
+        labelKey: "workspace.command.quote.mark_declined",
+        tone: "danger",
+        reasonPromptKey: "workspace.command.reason.quote.mark_declined",
+      });
     }
     if (status === "accepted") {
-      actions.push({ command: "quote.convert_to_work_order", label: "Convert to Work Order", tone: "primary" });
+      actions.push({ command: "quote.convert_to_work_order", labelKey: "workspace.command.quote.convert_to_work_order", tone: "primary" });
     }
     return actions;
   }
   if (objectKey === "work_order") {
     const actions: BusinessCommandAction[] = [];
     if (status === "new") {
-      actions.push({ command: "work_order.triage", label: "Triage", tone: "primary" });
+      actions.push({ command: "work_order.triage", labelKey: "workspace.command.work_order.triage", tone: "primary" });
     }
     if (status === "triaged") {
-      actions.push({ command: "work_order.create_visit", label: "Plan & dispatch", tone: "primary" });
+      actions.push({ command: "work_order.create_visit", labelKey: "workspace.command.work_order.create_visit", tone: "primary" });
     }
     if (status === "planned" || status === "reopened") {
-      actions.push({ command: "work_order.start", label: "Start work", tone: "primary" });
+      actions.push({ command: "work_order.start", labelKey: "workspace.command.work_order.start", tone: "primary" });
     }
     if (status === "planned" || status === "in_progress") {
-      actions.push({ command: "work_order.create_visit", label: "Add visit", tone: "secondary" });
+      actions.push({ command: "work_order.create_visit", labelKey: "workspace.command.work_order.create_visit_add", tone: "secondary" });
     }
     if (status === "blocked") {
-      actions.push({ command: "work_order.unblock", label: "Unblock", tone: "secondary" });
+      actions.push({ command: "work_order.unblock", labelKey: "workspace.command.work_order.unblock", tone: "secondary" });
     }
     if (status === "in_progress") {
-      actions.push({ command: "work_order.complete", label: "Complete", tone: "primary" });
+      actions.push({ command: "work_order.complete", labelKey: "workspace.command.work_order.complete", tone: "primary" });
     }
     if (!["completed", "cancelled", "blocked"].includes(status)) {
-      actions.push({ command: "work_order.block", label: "Block", tone: "secondary", reasonPrompt: "Reason for blocking this work order?" });
-      actions.push({ command: "work_order.cancel", label: "Cancel", tone: "danger", reasonPrompt: "Reason for cancelling this work order?" });
+      actions.push({
+        command: "work_order.block",
+        labelKey: "workspace.command.work_order.block",
+        tone: "secondary",
+        reasonPromptKey: "workspace.command.reason.work_order.block",
+      });
+      actions.push({
+        command: "work_order.cancel",
+        labelKey: "workspace.command.work_order.cancel",
+        tone: "danger",
+        reasonPromptKey: "workspace.command.reason.work_order.cancel",
+      });
     }
     if (status === "completed" || status === "cancelled") {
-      actions.push({ command: "work_order.reopen", label: "Reopen", tone: "secondary", reasonPrompt: "Reason for reopening this work order?" });
+      actions.push({
+        command: "work_order.reopen",
+        labelKey: "workspace.command.work_order.reopen",
+        tone: "secondary",
+        reasonPromptKey: "workspace.command.reason.work_order.reopen",
+      });
     }
     if (status === "completed" && record.source_type === "quote") {
       actions.unshift({
         command: "invoice.issue_from_work_order",
-        label: "Issue invoice",
+        labelKey: "workspace.command.invoice.issue_from_work_order",
         tone: "primary",
         body: { workOrderId: String(record.id) },
       });
@@ -1029,17 +1064,22 @@ function getBusinessCommandActions(objectKey: string, record: WorkspaceRecord): 
   if (objectKey === "service_visit") {
     const actions: BusinessCommandAction[] = [];
     if (status === "scheduled") {
-      actions.push({ command: "visit.start_travel", label: "Start travel", tone: "primary" });
+      actions.push({ command: "visit.start_travel", labelKey: "workspace.command.visit.start_travel", tone: "primary" });
     }
     if (status === "en_route") {
-      actions.push({ command: "visit.arrive", label: "Arrive on site", tone: "primary" });
+      actions.push({ command: "visit.arrive", labelKey: "workspace.command.visit.arrive", tone: "primary" });
     }
     if (status === "on_site") {
-      actions.push({ command: "visit.submit_work", label: "Submit work", tone: "secondary" });
-      actions.push({ command: "visit.complete", label: "Complete visit", tone: "primary" });
+      actions.push({ command: "visit.submit_work", labelKey: "workspace.command.visit.submit_work", tone: "secondary" });
+      actions.push({ command: "visit.complete", labelKey: "workspace.command.visit.complete", tone: "primary" });
     }
     if (!["completed", "cancelled"].includes(status)) {
-      actions.push({ command: "visit.cancel", label: "Cancel visit", tone: "danger", reasonPrompt: "Reason for cancelling this visit?" });
+      actions.push({
+        command: "visit.cancel",
+        labelKey: "workspace.command.visit.cancel",
+        tone: "danger",
+        reasonPromptKey: "workspace.command.reason.visit.cancel",
+      });
     }
     return actions;
   }
@@ -1047,9 +1087,9 @@ function getBusinessCommandActions(objectKey: string, record: WorkspaceRecord): 
   if (objectKey === "invoice" && status === "issued" && Number(record.amount_paid_minor ?? 0) === 0) {
     return [{
       command: "invoice.void",
-      label: "Void invoice",
+      labelKey: "workspace.command.invoice.void",
       tone: "danger",
-      reasonPrompt: "Reason for voiding this invoice?",
+      reasonPromptKey: "workspace.command.reason.invoice.void",
     }];
   }
 
@@ -1300,7 +1340,7 @@ function SourcePaymentPanel({
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <div className="flex items-center gap-2">
-            <CreditCard size={17} className="text-indigo-600" />
+            <CreditCard size={17} className="text-slate-500" />
             <h3 className="text-sm font-bold text-slate-900">{t("workspace.payment.title")}</h3>
           </div>
           <p className="mt-1 text-xs text-slate-500">
@@ -1336,7 +1376,7 @@ function SourcePaymentPanel({
                   <>
                     <button
                       type="button"
-                      className="text-xs font-semibold text-indigo-600 hover:text-indigo-800"
+                      className="text-xs font-semibold text-slate-600 hover:text-slate-900"
                       onClick={() => void copyCheckoutUrl(paymentRequest.checkout_url!)}
                     >
                       {t("workspace.payment.copyLink")}
@@ -1345,7 +1385,7 @@ function SourcePaymentPanel({
                       href={paymentRequest.checkout_url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-xs font-semibold text-indigo-600 hover:text-indigo-800"
+                      className="text-xs font-semibold text-slate-600 hover:text-slate-900"
                     >
                       {t("workspace.payment.openForCustomer")}
                     </a>
@@ -1696,8 +1736,8 @@ export default function ObjectDetailPage({
       setDispatchOpen(true);
       return;
     }
-    const reason = action.reasonPrompt ? window.prompt(action.reasonPrompt) : undefined;
-    if (action.reasonPrompt && !reason) return;
+    const reason = action.reasonPromptKey ? window.prompt(t(action.reasonPromptKey)) : undefined;
+    if (action.reasonPromptKey && !reason) return;
 
     setRunningCommand(action.command);
     setError(null);
@@ -1974,15 +2014,15 @@ export default function ObjectDetailPage({
           {businessActions.length > 0 && (
             <div className="app-card flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Business actions</p>
-                <p className="mt-1 text-sm text-slate-600">Advance this record through governed commands.</p>
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t("workspace.nextActions.title")}</p>
+                <p className="mt-1 text-sm text-slate-600">{t("workspace.nextActions.help")}</p>
               </div>
               <div className="flex flex-wrap gap-2">
                 {businessActions.map((action) => {
                   const ActionIcon = iconForBusinessCommand(action.command);
                   return (
                     <button
-                      key={action.command}
+                      key={`${action.command}:${action.labelKey}`}
                       type="button"
                       onClick={() => void executeBusinessCommand(action)}
                       disabled={runningCommand !== null}
@@ -1993,7 +2033,7 @@ export default function ObjectDetailPage({
                       ) : (
                         <ActionIcon size={15} />
                       )}
-                      {action.label}
+                      {t(action.labelKey)}
                     </button>
                   );
                 })}
@@ -2064,7 +2104,11 @@ export default function ObjectDetailPage({
                 <button
                   type="button"
                   disabled={!dispatchTechnicianId || !dispatchStart || !dispatchEnd || runningCommand !== null}
-                  onClick={() => void executeBusinessCommand({ command: "work_order.create_visit", label: "Plan & dispatch", tone: "primary" })}
+                  onClick={() => void executeBusinessCommand({
+                    command: "work_order.create_visit",
+                    labelKey: "workspace.command.work_order.create_visit",
+                    tone: "primary",
+                  })}
                   className="app-button-primary"
                 >
                   {runningCommand === "work_order.create_visit" ? <Loader2 size={15} className="animate-spin" /> : <Calendar size={15} />}

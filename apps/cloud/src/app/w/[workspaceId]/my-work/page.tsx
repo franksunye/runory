@@ -86,7 +86,7 @@ function MyWorkPage() {
   const workspaceId = useParams().workspaceId as string;
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
 
   const initialKind = searchParams.get("kind") ?? "";
   const initialSubjectType = searchParams.get("subjectType") ?? "";
@@ -460,10 +460,21 @@ function MyWorkPage() {
             <p className="mt-1 text-sm text-slate-500">
               {workItemPrimaryTitle(decisionFor)}
             </p>
+            {decisionFor.kind === "approval"
+              && decisionFor.amount_minor != null
+              && decisionFor.currency && (
+              <p className="mt-1 text-sm font-medium text-slate-800">
+                {formatMinorAmount(decisionFor.amount_minor, decisionFor.currency, locale)}
+              </p>
+            )}
             <textarea
               value={decisionComment}
               onChange={(e) => setDecisionComment(e.target.value)}
-              placeholder={t("forms.returnReason")}
+              placeholder={
+                decisionOutcome === "approved"
+                  ? t("myWork.decideApproveComment")
+                  : t("myWork.decideReturnReason")
+              }
               className="app-input mt-4 h-24 resize-none"
             />
             <div className="mt-4 flex justify-end gap-2">

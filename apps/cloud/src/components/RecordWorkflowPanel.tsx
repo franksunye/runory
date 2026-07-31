@@ -13,6 +13,7 @@ import { useRecordWorkflow } from "@/lib/api-hooks";
 import { apiPost } from "@/lib/api-fetch";
 import { workItemPrimaryTitle, workItemSecondaryTitle } from "@/lib/work-item-display";
 import { formatMinorAmount } from "@/lib/money";
+import { workflowStepLabel } from "@/lib/workflow-step-label";
 
 interface RecordWorkflowPanelProps {
   workspaceId: string;
@@ -39,11 +40,14 @@ export default function RecordWorkflowPanel({
     void mutate();
   }, [mutate]);
 
-  // Build step pipeline from work items (distinct stepId in creation order).
-  // The API returns instance + work_items + events but no definition, so we
-  // derive the step list from the work items themselves.
+  // Prefer definition order/labels when available; else work-item step order.
   const steps = useMemo(() => {
     if (!data) return [];
+    const fromDefinition = data.definition?.steps?.map((step) => ({
+      stepId: step.id,
+      kind: step.kind,
+    }));
+    if (fromDefinition && fromDefinition.length > 0) return fromDefinition;
     const seen = new Set<string>();
     const result: { stepId: string; kind: string }[] = [];
     for (const item of data.workItems) {
@@ -54,6 +58,24 @@ export default function RecordWorkflowPanel({
     }
     return result;
   }, [data]);
+
+  const stepLabelLookup = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const step of data?.definition?.steps ?? []) {
+      // Definition steps may not carry a display label; humanize via helper.
+      map.set(step.id, workflowStepLabel(step.id, { t }));
+    }
+    return map;
+  }, [data?.definition, t]);
+
+  const labelForStep = useCallback(
+    (stepId: string | null | undefined) =>
+      workflowStepLabel(stepId, {
+        definitionLabel: stepId ? stepLabelLookup.get(stepId) : null,
+        t,
+      }),
+    [stepLabelLookup, t]
+  );
 
   if (isLoading) {
     return (
@@ -117,7 +139,7 @@ export default function RecordWorkflowPanel({
           </span>
           <span className="inline-flex items-center gap-1 rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-700">
             {isCompleted ? <CheckCircle2 size={12} /> : <Clock3 size={12} />}
-            {currentStepId ?? "—"}
+            {labelForStep(currentStepId)}
           </span>
         </div>
 
@@ -138,7 +160,7 @@ export default function RecordWorkflowPanel({
                         : "bg-slate-50 text-slate-400"
                     }`}
                   >
-                    {step.stepId}
+                    {labelForStep(step.stepId)}
                   </span>
                 </div>
               ))}
@@ -152,10 +174,11 @@ export default function RecordWorkflowPanel({
         workspaceId={workspaceId}
         workItems={workItems}
         onRefresh={handleRefresh}
+        labelForStep={labelForStep}
       />
 
       {/* Recent Events */}
-      <EventsSection events={events} />
+      <EventsSection events={events} labelForStep={labelForStep} />
     </>
   );
 }
@@ -211,9 +234,10 @@ interface WorkItemsSectionProps {
   workspaceId: string;
   workItems: WorkItem[];
   onRefresh: () => void;
+  labelForStep: (stepId: string | null | undefined) => string;
 }
 
-function WorkItemsSection({ workspaceId, workItems, onRefresh }: WorkItemsSectionProps) {
+function WorkItemsSection({ workspaceId, workItems, onRefresh, labelForStep }: WorkItemsSectionProps) {
   const { t } = useI18n();
   const [error, setError] = useState<string | null>(null);
   const [executing, setExecuting] = useState<string | null>(null);
@@ -316,7 +340,7 @@ function WorkItemsSection({ workspaceId, workItems, onRefresh }: WorkItemsSectio
                           : t(statusLabelKey)}
                       </span>
                       <span className="app-badge bg-slate-50 text-slate-500">
-                        {t("workflow.stepKind")}: {item.stepId}
+                        {labelForStep(item.stepId)}
                       </span>
                       {item.formBindingId && (
                         <span className="app-badge bg-purple-50 text-purple-700">
@@ -455,9 +479,10 @@ const EVENT_TYPE_ICON: Record<string, typeof GitBranch> = {
 
 interface EventsSectionProps {
   events: WorkflowEvent[];
+  labelForStep: (stepId: string | null | undefined) => string;
 }
 
-function EventsSection({ events }: EventsSectionProps) {
+function EventsSection({ events, labelForStep }: EventsSectionProps) {
   const { t } = useI18n();
   const [expanded, setExpanded] = useState(false);
 
@@ -499,7 +524,7 @@ function EventsSection({ events }: EventsSectionProps) {
                 <div className="min-w-0">
                   <span className="font-medium">{event.eventType}</span>
                   {event.stepId && (
-                    <span className="text-slate-400"> · {event.stepId}</span>
+                    <span className="text-slate-400"> · {labelForStep(event.stepId)}</span>
                   )}
                   <span className="block text-slate-400">
                     {event.actorId ?? "system"} · {formatWorkDate(event.occurredAt)}
