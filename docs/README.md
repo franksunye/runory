@@ -84,7 +84,8 @@ Versioned iteration plans provide implementation history but do not override the
 - [v0.5.1 Mobile Field Work Spec](product/v0.5.1-mobile-field-work-spec.md) — mobile field-work experience.
 - [FSM Owner Single-role E2E Acceptance Runbook](product/fsm-owner-single-role-e2e-acceptance-runbook.md) — active acceptance procedure.
 - [FSM Owner E2E Run — 2026-07-14](releases/fsm-owner-e2e-run-2026-07-14.md) — release evidence.
-- [v0.9 G1/G2 Binding Evidence — 2026-07-30](releases/v0.9-g1-g2-binding-evidence-2026-07-30.md) — clean-SHA PASS for G1 API walkthrough and G2 browser projection; G3–G5 remain open.
+- [v0.9 E2E Gate Remapping — 2026-07-31](releases/v0.9-e2e-gate-remapping-2026-07-31.md) — active G0–G5 means for v0.9 (Playwright G2 vs human/Agent G3).
+- [v0.9 G1/G2 Binding Evidence — 2026-07-30](releases/v0.9-g1-g2-binding-evidence-2026-07-30.md) — clean-SHA PASS for G1 and G2 projection subset; full G2 remains open.
 - [FSM Pack Plan](product/fsm-pack-plan.md) — Pack planning context.
 - [v0.5 Commercial FSM Execution Plan](product/v0.5-commercial-fsm-execution-plan.md) — historical implementation context.
 - [Voice Intake Technical Specification](product/voice-intake-technical-spec.md) — proposed Twilio + Retell + Runory implementation.

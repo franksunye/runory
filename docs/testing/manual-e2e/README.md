@@ -5,7 +5,7 @@
 | Status | `active` |
 | Applies to | v0.5–v0.9 |
 | Owner | Product + Engineering |
-| Last reviewed | 2026-07-30 |
+| Last reviewed | 2026-07-31 |
 
 ## 1. Purpose
 
@@ -187,19 +187,22 @@ reasons so results are traceable across surfaces.
 - [v0.5.1 Local Commercial Acceptance Checklist](../../product/v0.5.1-local-commercial-acceptance-checklist.md) — automated gate context
 - [Stripe Local Development Guide](../../operations/stripe-local-development.md) — payment environment setup
 - [v0.9 Repeatable Delivery Execution Plan](../../product/v0.9-repeatable-delivery-execution-plan.md) — delivery infrastructure scope
+- [v0.9 E2E Gate Remapping — 2026-07-31](../../releases/v0.9-e2e-gate-remapping-2026-07-31.md) — active G0–G5 means (Playwright G2 vs human/Agent G3)
 - [Product Roadmap](../../product/product-roadmap.md) — version scope and primary questions
 
 ## 8. Evidence hierarchy
 
 No lower layer may be reported as satisfying a higher layer. Each run record
-must declare its evidence layer.
+must declare its evidence layer. Gate letters for v0.9 follow the
+[2026-07-31 remapping](../../releases/v0.9-e2e-gate-remapping-2026-07-31.md).
 
 ```text
-contract/integration test       unit and integration tests (e.g., v05-journey.test.ts)
-API business walkthrough         automated multi-role API journey (run-business-walkthrough.mjs)
-automated browser E2E            real UI actions through a browser automation tool
-manual device/provider acceptance  manual testing on real devices with real providers
-real-customer release evidence   production customer cohort data and metrics
+contract/integration test          G0 support (e.g., v05-journey.test.ts)
+API business walkthrough           G1 (run-business-walkthrough.mjs)
+automated browser E2E (Playwright) G2 functional UI coverage
+human/Agent browser sample         G3 critical-path experience
+manual device/provider acceptance  G4 real devices and providers
+real-customer release evidence     G5 cohort repeatability
 ```
 
 Layer relationships:
@@ -207,9 +210,11 @@ Layer relationships:
 - Contract/integration tests prove code correctness but not UI or interaction.
 - API walkthrough proves API-level business flows but not UI discoverability,
   visual feedback, or Service Worker behavior.
-- Automated browser E2E proves UI interaction but may not cover real provider
-  delivery (Stripe, Web Push) or real device behavior.
+- Playwright browser E2E proves UI functional interaction for merge/release
+  gates, but may not cover real provider delivery or human feel.
+- Human/Agent browser sampling proves critical-path experience; it is not the
+  merge-gate substitute for G2 breadth.
 - Manual device/provider acceptance proves real-world delivery but is not
-- repeatable on every PR.
+  repeatable on every PR.
 - Real-customer release evidence proves production repeatability and is the
   binding gate for v0.9 completion.
