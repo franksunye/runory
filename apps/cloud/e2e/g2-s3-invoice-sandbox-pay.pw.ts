@@ -15,8 +15,9 @@ import {
  * G2-S3 — Invoice issue and sandbox pay
  *
  * Fresh completed quote-sourced WO → Supervisor Issue invoice → Request payment
- * → checkout.stripe.com. Requires `pnpm stripe:payments:setup`.
- * Hosted card settle / Connect webhook are out of Playwright (external one-time).
+ * → Checkout link for the customer (operator stays on invoice). Requires
+ * `pnpm stripe:payments:setup`. Hosted card settle / Connect webhook are out
+ * of Playwright (external one-time).
  */
 
 test.describe("G2-S3 invoice issue and sandbox pay", () => {
@@ -24,7 +25,7 @@ test.describe("G2-S3 invoice issue and sandbox pay", () => {
     syncPackPermissionGroups();
   });
 
-  test("supervisor issues invoice and opens Stripe Checkout when Connect is ready", async ({
+  test("supervisor issues invoice and creates a customer Checkout link when Connect is ready", async ({
     page,
   }, testInfo) => {
     test.setTimeout(300_000);
@@ -61,6 +62,8 @@ test.describe("G2-S3 invoice issue and sandbox pay", () => {
 
     await expect(page.getByText(/^Customer payment$/)).toBeVisible();
     await expect(page.getByRole("button", { name: /^(Request payment|请求付款)$/ })).toBeVisible();
+    await expect(page.getByLabel(/^Amount$/)).toBeVisible();
+    await expect(page.getByText(/Amount \(minor units\)/)).toHaveCount(0);
 
     const paymentResponsePromise = page.waitForResponse((response) => {
       return response.request().method() === "POST"
@@ -81,14 +84,17 @@ test.describe("G2-S3 invoice issue and sandbox pay", () => {
       const checkoutUrl = body.data?.checkoutUrl ?? "";
       expect(checkoutUrl, "checkout URL from payment request").toMatch(/checkout\.stripe\.com/);
 
-      await page.waitForURL(/checkout\.stripe\.com/, { timeout: 30_000 }).catch(() => undefined);
-      if (page.url().includes("checkout.stripe.com")) {
-        testInfo.annotations.push({
-          type: "g2-s3-checkout",
-          description: `Checkout opened: ${page.url().slice(0, 80)}…`,
-        });
-        await page.goto(invoiceUrl, { waitUntil: "domcontentloaded" });
-      }
+      // Operator stays on the invoice and gets a shareable customer link.
+      await expect(page).toHaveURL(new RegExp(`/w/${workspace.workspaceSlug}/invoices/${invoiceId}`));
+      await expect(page.getByText(/Checkout link (copied|ready)/i)).toBeVisible({ timeout: 15_000 });
+      await expect(page.getByRole("link", { name: /Open for customer/i }).first()).toHaveAttribute(
+        "href",
+        /checkout\.stripe\.com/,
+      );
+      testInfo.annotations.push({
+        type: "g2-s3-checkout",
+        description: `Checkout link ready for customer: ${checkoutUrl.slice(0, 80)}…`,
+      });
       await expectRecordStatus(page, workspace.workspaceId, "invoice", invoiceId, "issued");
       return;
     }

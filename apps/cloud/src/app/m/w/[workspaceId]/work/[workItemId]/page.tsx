@@ -434,17 +434,22 @@ function MobileWorkItemPage() {
                 </div>
 
                 {/* Assignee */}
-                {item.assignee_id && (
-                  <div className="flex items-center gap-3">
-                    <dt className="w-20 shrink-0 text-xs text-slate-400">{t("workflow.assignee")}</dt>
-                    <dd className="min-w-0 flex-1 flex items-center gap-1 text-sm font-medium text-slate-800">
-                      <User size={12} className="text-slate-400" />
-                      {item.assignee_type === "permission_group"
-                        ? item.assignee_id.replace(/_/g, " ")
-                        : item.assignee_id}
-                    </dd>
-                  </div>
-                )}
+                {(() => {
+                  const assigneeLabel = item.assignee_display
+                    ?? (item.assignee_type === "permission_group" && item.assignee_id
+                      ? item.assignee_id.replace(/_/g, " ")
+                      : null);
+                  if (!assigneeLabel) return null;
+                  return (
+                    <div className="flex items-center gap-3">
+                      <dt className="w-20 shrink-0 text-xs text-slate-400">{t("workflow.assignee")}</dt>
+                      <dd className="min-w-0 flex-1 flex items-center gap-1 text-sm font-medium text-slate-800">
+                        <User size={12} className="text-slate-400" />
+                        {assigneeLabel}
+                      </dd>
+                    </div>
+                  );
+                })()}
 
                 {/* Due date */}
                 {item.due_at && (

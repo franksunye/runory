@@ -171,8 +171,10 @@ export default function PersonaSwitcher({ variant = "floating" }: { variant?: "f
 
   // Workspace pages provide the switcher through the account menu. Keep the
   // global control available on non-workspace surfaces such as the workspace
-  // dashboard, where that menu does not exist.
-  if (variant === "floating" && pathname?.startsWith("/w/")) return null;
+  // dashboard, where that menu does not exist. Never show it on the customer
+  // access portal — that surface must look like a secured customer session.
+  const isCustomerAccess = Boolean(pathname && /(^|\/)access(\/|$)/.test(pathname));
+  if (variant === "floating" && (pathname?.startsWith("/w/") || isCustomerAccess)) return null;
 
   const currentPersona = personas.find((p) => p.id === current) ?? personas[0];
   const roleLabelKey: Record<string, MessageKey> = {

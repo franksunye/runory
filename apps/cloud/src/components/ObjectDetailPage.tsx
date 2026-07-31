@@ -12,6 +12,7 @@ import {
   Check,
   CheckCircle2,
   ClipboardList,
+  Copy,
   CreditCard,
   FileQuestion,
   FileText,
@@ -1133,22 +1134,40 @@ function SourcePaymentPanel({
   const eligible = (objectKey === "quote" && record.status === "accepted")
     || (objectKey === "work_order" && record.status === "completed")
     || (objectKey === "invoice" && ["issued", "partially_paid"].includes(String(record.status)));
-  const defaultAmount = objectKey === "quote" && Number(record.grand_total) > 0
+  const defaultAmountMinor = objectKey === "quote" && Number(record.grand_total) > 0
     ? Math.round(Number(record.grand_total) * 100)
     : objectKey === "invoice"
       ? Number(record.balance_due_minor ?? 0)
       : 0;
-  const [amountMinor, setAmountMinor] = useState(defaultAmount);
+  const [amountMajor, setAmountMajor] = useState(
+    defaultAmountMinor > 0 ? Number((defaultAmountMinor / 100).toFixed(2)) : 0,
+  );
   const [currency, setCurrency] = useState(String(record.currency ?? "USD").toUpperCase());
   const [purpose, setPurpose] = useState<"deposit" | "final" | "general">(
     objectKey === "quote" ? "deposit" : "final",
   );
   const [submitting, setSubmitting] = useState(false);
   const [paymentError, setPaymentError] = useState<string | null>(null);
+  const [createdCheckoutUrl, setCreatedCheckoutUrl] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  const amountMinor = Math.round(amountMajor * 100);
+
+  const copyCheckoutUrl = async (url: string) => {
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setPaymentError("Could not copy checkout link. Use Open for customer instead.");
+    }
+  };
 
   const createCheckout = async () => {
     setSubmitting(true);
     setPaymentError(null);
+    setCreatedCheckoutUrl(null);
+    setCopied(false);
     try {
       const response = await apiPost<{
         success: boolean;
@@ -1170,13 +1189,27 @@ function SourcePaymentPanel({
         throw new Error(response.error?.message ?? "Checkout could not be created.");
       }
       await mutate();
-      window.location.assign(response.data.checkoutUrl);
+      const checkoutUrl = response.data.checkoutUrl;
+      setCreatedCheckoutUrl(checkoutUrl);
+      try {
+        await navigator.clipboard.writeText(checkoutUrl);
+        setCopied(true);
+        window.setTimeout(() => setCopied(false), 2000);
+      } catch {
+        // Clipboard may be denied in locked-down browsers; link is still shown.
+        setCopied(false);
+      }
     } catch (error) {
       setPaymentError(error instanceof Error ? error.message : "Checkout could not be created.");
     } finally {
       setSubmitting(false);
     }
   };
+
+  // Hide the panel until payment is in play (or an existing request must be shown).
+  if (!eligible && requests.length === 0) {
+    return null;
+  }
 
   return (
     <section className="app-card p-5 sm:p-6">
@@ -1187,7 +1220,7 @@ function SourcePaymentPanel({
             <h3 className="text-sm font-bold text-slate-900">Customer payment</h3>
           </div>
           <p className="mt-1 text-xs text-slate-500">
-            Stripe-hosted Checkout collects card details. Runory confirms payment only from a signed provider event.
+            Create a Stripe Checkout link for the customer. Keep this page open — share or open the link for them.
           </p>
         </div>
         {!eligible && (
@@ -1215,9 +1248,23 @@ function SourcePaymentPanel({
                   {paymentRequest.payment?.status ?? paymentRequest.status}
                 </span>
                 {paymentRequest.checkout_url && paymentRequest.status === "open" && (
-                  <a href={paymentRequest.checkout_url} className="text-xs font-semibold text-indigo-600 hover:text-indigo-800">
-                    Open Checkout →
-                  </a>
+                  <>
+                    <button
+                      type="button"
+                      className="text-xs font-semibold text-indigo-600 hover:text-indigo-800"
+                      onClick={() => void copyCheckoutUrl(paymentRequest.checkout_url!)}
+                    >
+                      Copy link
+                    </button>
+                    <a
+                      href={paymentRequest.checkout_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs font-semibold text-indigo-600 hover:text-indigo-800"
+                    >
+                      Open for customer →
+                    </a>
+                  </>
                 )}
               </div>
             </div>
@@ -1236,8 +1283,15 @@ function SourcePaymentPanel({
             </select>
           </label>
           <label className="text-xs font-semibold text-slate-600">
-            Amount (minor units)
-            <input type="number" min={1} step={1} value={amountMinor || ""} onChange={(event) => setAmountMinor(Number(event.target.value))} className="app-input mt-1" />
+            Amount
+            <input
+              type="number"
+              min={0.01}
+              step={0.01}
+              value={amountMajor || ""}
+              onChange={(event) => setAmountMajor(Number(event.target.value))}
+              className="app-input mt-1"
+            />
           </label>
           <label className="text-xs font-semibold text-slate-600">
             Currency
@@ -1247,6 +1301,28 @@ function SourcePaymentPanel({
             {submitting ? <Loader2 size={15} className="animate-spin" /> : <CreditCard size={15} />}
             Request payment
           </button>
+        </div>
+      )}
+      {createdCheckoutUrl && (
+        <div className="mt-3 flex flex-wrap items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs text-emerald-900">
+          <Check size={14} className="shrink-0" />
+          <span className="font-semibold">{copied ? "Checkout link copied." : "Checkout link ready."}</span>
+          <button
+            type="button"
+            className="inline-flex items-center gap-1 font-semibold text-emerald-800 underline"
+            onClick={() => void copyCheckoutUrl(createdCheckoutUrl)}
+          >
+            <Copy size={12} />
+            Copy again
+          </button>
+          <a
+            href={createdCheckoutUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-semibold text-emerald-800 underline"
+          >
+            Open for customer →
+          </a>
         </div>
       )}
       {paymentError && <p className="mt-3 text-xs font-semibold text-rose-600">{paymentError}</p>}
@@ -1268,20 +1344,23 @@ function PaymentRefundPanel({
   const remaining = Math.max(0, amount - refunded);
   const refundable = ["succeeded", "partially_refunded"].includes(String(payment.status))
     && remaining > 0;
-  const [refundAmount, setRefundAmount] = useState(remaining);
+  const [refundAmountMajor, setRefundAmountMajor] = useState(
+    remaining > 0 ? Number((remaining / 100).toFixed(2)) : 0,
+  );
   const [submitting, setSubmitting] = useState(false);
   const [refundError, setRefundError] = useState<string | null>(null);
+  const refundAmountMinor = Math.round(refundAmountMajor * 100);
 
   const requestRefund = async () => {
     setSubmitting(true);
     setRefundError(null);
     try {
       await apiPost(`/api/workspaces/${workspaceId}/payments/${payment.id}/refunds`, {
-        amountMinor: refundAmount,
+        amountMinor: refundAmountMinor,
         reason: "Operator-requested refund",
       }, {
         headers: {
-          "Idempotency-Key": `payment.refund:${payment.id}:${refundAmount}:${refunded}`,
+          "Idempotency-Key": `payment.refund:${payment.id}:${refundAmountMinor}:${refunded}`,
         },
       });
       await onChanged();
@@ -1311,10 +1390,18 @@ function PaymentRefundPanel({
         {refundable && (
           <div className="flex items-end gap-2">
             <label className="text-xs font-semibold text-slate-600">
-              Amount (minor units)
-              <input type="number" min={1} max={remaining} value={refundAmount} onChange={(event) => setRefundAmount(Number(event.target.value))} className="app-input mt-1 w-44" />
+              Amount
+              <input
+                type="number"
+                min={0.01}
+                max={Number((remaining / 100).toFixed(2))}
+                step={0.01}
+                value={refundAmountMajor}
+                onChange={(event) => setRefundAmountMajor(Number(event.target.value))}
+                className="app-input mt-1 w-44"
+              />
             </label>
-            <button type="button" disabled={submitting || refundAmount <= 0 || refundAmount > remaining} onClick={() => void requestRefund()} className="app-button-danger">
+            <button type="button" disabled={submitting || refundAmountMinor <= 0 || refundAmountMinor > remaining} onClick={() => void requestRefund()} className="app-button-danger">
               {submitting ? <Loader2 size={15} className="animate-spin" /> : <RotateCcw size={15} />}
               Request refund
             </button>
@@ -1669,7 +1756,15 @@ export default function ObjectDetailPage({
   const identityAvatarUrl = typeof record.user_id_avatar_url === "string"
     ? record.user_id_avatar_url
     : null;
-  const identityName = typeof record.name === "string" ? record.name : title;
+  // Prefer business identity (title / number) over the object-type label passed as `title`.
+  const identityName = [
+    typeof record.title === "string" ? record.title.trim() : "",
+    typeof record.name === "string" ? record.name.trim() : "",
+    typeof record.quote_number === "string" ? record.quote_number.trim() : "",
+    typeof record.work_order_number === "string" ? record.work_order_number.trim() : "",
+    typeof record.invoice_number === "string" ? record.invoice_number.trim() : "",
+    typeof record.number === "string" ? record.number.trim() : "",
+  ].find((value) => value.length > 0) ?? title;
 
   const fieldSectionPanels = viewSections.length > 0
     ? viewSections.map((section, sectionIndex) => {

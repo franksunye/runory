@@ -285,14 +285,19 @@ function MobileTodayPage() {
                           {formatDueDate(item.due_at)}
                         </span>
                       )}
-                      {item.assignee_id && (
-                        <span className="flex items-center gap-1">
-                          <Inbox size={12} />
-                          {item.assignee_type === "permission_group"
+                      {(() => {
+                        const assigneeLabel = item.assignee_display
+                          ?? (item.assignee_type === "permission_group" && item.assignee_id
                             ? item.assignee_id.replace(/_/g, " ")
-                            : item.assignee_id}
-                        </span>
-                      )}
+                            : null);
+                        if (!assigneeLabel) return null;
+                        return (
+                          <span className="flex items-center gap-1">
+                            <Inbox size={12} />
+                            {assigneeLabel}
+                          </span>
+                        );
+                      })()}
                     </div>
                   </div>
 

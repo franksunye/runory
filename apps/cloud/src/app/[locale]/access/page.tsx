@@ -926,7 +926,7 @@ function WorkOrderCard({
               {wo.scheduledEnd ? ` — ${formatDateTime(locale, wo.scheduledEnd)}` : ""}
             </DetailRow>
           )}
-          {!wo.scheduledStart && (
+          {!wo.scheduledStart && !isCompleted && (
             <DetailRow label={t("workOrder.scheduled")}>{t("workOrder.notScheduled")}</DetailRow>
           )}
           {wo.completedAt && (
