@@ -27,6 +27,7 @@ interface WorkItemDetail {
   subject_id: string | null;
   assignee_type: string | null;
   assignee_id: string | null;
+  assignee_display?: string | null;
   candidate_rule_json: string | null;
   due_at: string | null;
   claimed_by: string | null;
