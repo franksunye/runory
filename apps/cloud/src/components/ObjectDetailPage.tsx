@@ -55,6 +55,7 @@ import type { Locale } from "@/i18n/config";
 import { objectKeyToRouteSegment } from "@/lib/dynamic-object";
 import type { MessageKey } from "@/i18n/messages";
 import { apiFetch, apiDelete, apiPost } from "@/lib/api-fetch";
+import { formatMinorAmount, majorToMinor, minorToMajor, recordDisplayName } from "@/lib/money";
 import { LoadingState, ErrorState, EmptyState } from "@/components/states";
 import { FieldDisplay } from "@/components/fields";
 import { Card, CardContent, SectionHeader } from "@/components/layout";
@@ -1129,6 +1130,7 @@ function SourcePaymentPanel({
   recordId: string;
   record: WorkspaceRecord;
 }) {
+  const { t, locale } = useI18n();
   const endpoint = `/api/workspaces/${workspaceId}/payments/requests?sourceObjectType=${objectKey}&sourceObjectId=${encodeURIComponent(recordId)}`;
   const { data: requests = [], mutate } = useSWR<SourcePaymentRequest[]>(endpoint);
   const eligible = (objectKey === "quote" && record.status === "accepted")
@@ -1140,7 +1142,7 @@ function SourcePaymentPanel({
       ? Number(record.balance_due_minor ?? 0)
       : 0;
   const [amountMajor, setAmountMajor] = useState(
-    defaultAmountMinor > 0 ? Number((defaultAmountMinor / 100).toFixed(2)) : 0,
+    defaultAmountMinor > 0 ? minorToMajor(defaultAmountMinor) : 0,
   );
   const [currency, setCurrency] = useState(String(record.currency ?? "USD").toUpperCase());
   const [purpose, setPurpose] = useState<"deposit" | "final" | "general">(
@@ -1151,7 +1153,7 @@ function SourcePaymentPanel({
   const [createdCheckoutUrl, setCreatedCheckoutUrl] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
-  const amountMinor = Math.round(amountMajor * 100);
+  const amountMinor = majorToMinor(amountMajor);
 
   const copyCheckoutUrl = async (url: string) => {
     try {
@@ -1159,7 +1161,7 @@ function SourcePaymentPanel({
       setCopied(true);
       window.setTimeout(() => setCopied(false), 2000);
     } catch {
-      setPaymentError("Could not copy checkout link. Use Open for customer instead.");
+      setPaymentError(t("workspace.payment.copyFailed"));
     }
   };
 
@@ -1186,7 +1188,7 @@ function SourcePaymentPanel({
         },
       });
       if (!response.success || !response.data?.checkoutUrl) {
-        throw new Error(response.error?.message ?? "Checkout could not be created.");
+        throw new Error(response.error?.message ?? t("workspace.payment.createFailed"));
       }
       await mutate();
       const checkoutUrl = response.data.checkoutUrl;
@@ -1196,11 +1198,10 @@ function SourcePaymentPanel({
         setCopied(true);
         window.setTimeout(() => setCopied(false), 2000);
       } catch {
-        // Clipboard may be denied in locked-down browsers; link is still shown.
         setCopied(false);
       }
     } catch (error) {
-      setPaymentError(error instanceof Error ? error.message : "Checkout could not be created.");
+      setPaymentError(error instanceof Error ? error.message : t("workspace.payment.createFailed"));
     } finally {
       setSubmitting(false);
     }
@@ -1211,21 +1212,27 @@ function SourcePaymentPanel({
     return null;
   }
 
+  const ineligibleLabel = objectKey === "quote"
+    ? t("workspace.payment.acceptQuoteFirst")
+    : objectKey === "invoice"
+      ? t("workspace.payment.invoiceSettledOrVoid")
+      : t("workspace.payment.completeWorkOrderFirst");
+
   return (
     <section className="app-card p-5 sm:p-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <div className="flex items-center gap-2">
             <CreditCard size={17} className="text-indigo-600" />
-            <h3 className="text-sm font-bold text-slate-900">Customer payment</h3>
+            <h3 className="text-sm font-bold text-slate-900">{t("workspace.payment.title")}</h3>
           </div>
           <p className="mt-1 text-xs text-slate-500">
-            Create a Stripe Checkout link for the customer. Keep this page open — share or open the link for them.
+            {t("workspace.payment.help")}
           </p>
         </div>
         {!eligible && (
           <span className="app-badge self-start bg-amber-50 text-amber-700">
-            {objectKey === "quote" ? "Accept quote first" : objectKey === "invoice" ? "Invoice is settled or void" : "Complete work order first"}
+            {ineligibleLabel}
           </span>
         )}
       </div>
@@ -1237,10 +1244,11 @@ function SourcePaymentPanel({
               <div>
                 <p className="text-sm font-semibold text-slate-900">{paymentRequest.number}</p>
                 <p className="mt-0.5 text-xs text-slate-500">
-                  {paymentRequest.purpose} · {(paymentRequest.amount_due_minor / 100).toLocaleString(undefined, {
-                    style: "currency",
-                    currency: paymentRequest.currency,
-                  })}
+                  {paymentRequest.purpose} · {formatMinorAmount(
+                    paymentRequest.amount_due_minor,
+                    paymentRequest.currency,
+                    locale,
+                  )}
                 </p>
               </div>
               <div className="flex items-center gap-2">
@@ -1254,7 +1262,7 @@ function SourcePaymentPanel({
                       className="text-xs font-semibold text-indigo-600 hover:text-indigo-800"
                       onClick={() => void copyCheckoutUrl(paymentRequest.checkout_url!)}
                     >
-                      Copy link
+                      {t("workspace.payment.copyLink")}
                     </button>
                     <a
                       href={paymentRequest.checkout_url}
@@ -1262,7 +1270,7 @@ function SourcePaymentPanel({
                       rel="noopener noreferrer"
                       className="text-xs font-semibold text-indigo-600 hover:text-indigo-800"
                     >
-                      Open for customer →
+                      {t("workspace.payment.openForCustomer")}
                     </a>
                   </>
                 )}
@@ -1275,15 +1283,15 @@ function SourcePaymentPanel({
       {eligible && (
         <div className="mt-4 grid gap-3 border-t border-slate-100 pt-4 sm:grid-cols-[1fr_1fr_1fr_auto] sm:items-end">
           <label className="text-xs font-semibold text-slate-600">
-            Purpose
+            {t("workspace.payment.purpose")}
             <select value={purpose} onChange={(event) => setPurpose(event.target.value as typeof purpose)} className="app-input mt-1">
-              <option value="deposit">Deposit</option>
-              <option value="final">Final payment</option>
-              <option value="general">General</option>
+              <option value="deposit">{t("workspace.payment.purposeDeposit")}</option>
+              <option value="final">{t("workspace.payment.purposeFinal")}</option>
+              <option value="general">{t("workspace.payment.purposeGeneral")}</option>
             </select>
           </label>
           <label className="text-xs font-semibold text-slate-600">
-            Amount
+            {t("workspace.payment.amount")}
             <input
               type="number"
               min={0.01}
@@ -1294,26 +1302,28 @@ function SourcePaymentPanel({
             />
           </label>
           <label className="text-xs font-semibold text-slate-600">
-            Currency
+            {t("workspace.payment.currency")}
             <input value={currency} maxLength={3} onChange={(event) => setCurrency(event.target.value.toUpperCase())} className="app-input mt-1 uppercase" />
           </label>
           <button type="button" disabled={submitting || amountMinor <= 0 || currency.length !== 3} onClick={() => void createCheckout()} className="app-button-primary">
             {submitting ? <Loader2 size={15} className="animate-spin" /> : <CreditCard size={15} />}
-            Request payment
+            {t("workspace.payment.request")}
           </button>
         </div>
       )}
       {createdCheckoutUrl && (
         <div className="mt-3 flex flex-wrap items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs text-emerald-900">
           <Check size={14} className="shrink-0" />
-          <span className="font-semibold">{copied ? "Checkout link copied." : "Checkout link ready."}</span>
+          <span className="font-semibold">
+            {copied ? t("workspace.payment.linkCopied") : t("workspace.payment.linkReady")}
+          </span>
           <button
             type="button"
             className="inline-flex items-center gap-1 font-semibold text-emerald-800 underline"
             onClick={() => void copyCheckoutUrl(createdCheckoutUrl)}
           >
             <Copy size={12} />
-            Copy again
+            {t("workspace.payment.copyAgain")}
           </button>
           <a
             href={createdCheckoutUrl}
@@ -1321,7 +1331,7 @@ function SourcePaymentPanel({
             rel="noopener noreferrer"
             className="font-semibold text-emerald-800 underline"
           >
-            Open for customer →
+            {t("workspace.payment.openForCustomer")}
           </a>
         </div>
       )}
@@ -1339,17 +1349,19 @@ function PaymentRefundPanel({
   payment: WorkspaceRecord;
   onChanged: () => Promise<unknown>;
 }) {
+  const { t, locale } = useI18n();
   const amount = Number(payment.amount_minor ?? 0);
   const refunded = Number(payment.refunded_amount_minor ?? 0);
   const remaining = Math.max(0, amount - refunded);
   const refundable = ["succeeded", "partially_refunded"].includes(String(payment.status))
     && remaining > 0;
   const [refundAmountMajor, setRefundAmountMajor] = useState(
-    remaining > 0 ? Number((remaining / 100).toFixed(2)) : 0,
+    remaining > 0 ? minorToMajor(remaining) : 0,
   );
   const [submitting, setSubmitting] = useState(false);
   const [refundError, setRefundError] = useState<string | null>(null);
-  const refundAmountMinor = Math.round(refundAmountMajor * 100);
+  const refundAmountMinor = majorToMinor(refundAmountMajor);
+  const currency = String(payment.currency ?? "USD");
 
   const requestRefund = async () => {
     setSubmitting(true);
@@ -1366,7 +1378,7 @@ function PaymentRefundPanel({
       await onChanged();
       notifyWorkspaceDataChanged();
     } catch (error) {
-      setRefundError(error instanceof Error ? error.message : "Refund could not be requested.");
+      setRefundError(error instanceof Error ? error.message : t("workspace.refund.failed"));
     } finally {
       setSubmitting(false);
     }
@@ -1378,23 +1390,22 @@ function PaymentRefundPanel({
         <div>
           <div className="flex items-center gap-2">
             <RotateCcw size={16} className="text-indigo-600" />
-            <h3 className="text-sm font-bold text-slate-900">Refund</h3>
+            <h3 className="text-sm font-bold text-slate-900">{t("workspace.refund.title")}</h3>
           </div>
           <p className="mt-1 text-xs text-slate-500">
-            Refundable balance: {(remaining / 100).toLocaleString(undefined, {
-              style: "currency",
-              currency: String(payment.currency ?? "USD"),
-            })}.
+            {t("workspace.refund.balance", {
+              amount: formatMinorAmount(remaining, currency, locale),
+            })}
           </p>
         </div>
         {refundable && (
           <div className="flex items-end gap-2">
             <label className="text-xs font-semibold text-slate-600">
-              Amount
+              {t("workspace.refund.amount")}
               <input
                 type="number"
                 min={0.01}
-                max={Number((remaining / 100).toFixed(2))}
+                max={minorToMajor(remaining)}
                 step={0.01}
                 value={refundAmountMajor}
                 onChange={(event) => setRefundAmountMajor(Number(event.target.value))}
@@ -1403,7 +1414,7 @@ function PaymentRefundPanel({
             </label>
             <button type="button" disabled={submitting || refundAmountMinor <= 0 || refundAmountMinor > remaining} onClick={() => void requestRefund()} className="app-button-danger">
               {submitting ? <Loader2 size={15} className="animate-spin" /> : <RotateCcw size={15} />}
-              Request refund
+              {t("workspace.refund.request")}
             </button>
           </div>
         )}
@@ -1757,14 +1768,7 @@ export default function ObjectDetailPage({
     ? record.user_id_avatar_url
     : null;
   // Prefer business identity (title / number) over the object-type label passed as `title`.
-  const identityName = [
-    typeof record.title === "string" ? record.title.trim() : "",
-    typeof record.name === "string" ? record.name.trim() : "",
-    typeof record.quote_number === "string" ? record.quote_number.trim() : "",
-    typeof record.work_order_number === "string" ? record.work_order_number.trim() : "",
-    typeof record.invoice_number === "string" ? record.invoice_number.trim() : "",
-    typeof record.number === "string" ? record.number.trim() : "",
-  ].find((value) => value.length > 0) ?? title;
+  const identityName = recordDisplayName(record as Record<string, unknown>, title);
 
   const fieldSectionPanels = viewSections.length > 0
     ? viewSections.map((section, sectionIndex) => {

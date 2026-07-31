@@ -60,9 +60,9 @@ test.describe("G2-S3 invoice issue and sandbox pay", () => {
     expect(Number(invoice.balance_due_minor ?? 0)).toBeGreaterThan(0);
     expect(Number(invoice.amount_paid_minor ?? 0)).toBe(0);
 
-    await expect(page.getByText(/^Customer payment$/)).toBeVisible();
+    await expect(page.getByText(/^Customer payment$|^客户付款$/)).toBeVisible();
     await expect(page.getByRole("button", { name: /^(Request payment|请求付款)$/ })).toBeVisible();
-    await expect(page.getByLabel(/^Amount$/)).toBeVisible();
+    await expect(page.getByLabel(/^(Amount|金额)$/)).toBeVisible();
     await expect(page.getByText(/Amount \(minor units\)/)).toHaveCount(0);
 
     const paymentResponsePromise = page.waitForResponse((response) => {
@@ -86,8 +86,8 @@ test.describe("G2-S3 invoice issue and sandbox pay", () => {
 
       // Operator stays on the invoice and gets a shareable customer link.
       await expect(page).toHaveURL(new RegExp(`/w/${workspace.workspaceSlug}/invoices/${invoiceId}`));
-      await expect(page.getByText(/Checkout link (copied|ready)/i)).toBeVisible({ timeout: 15_000 });
-      await expect(page.getByRole("link", { name: /Open for customer/i }).first()).toHaveAttribute(
+      await expect(page.getByText(/Checkout link (copied|ready)|结账链接已(复制|就绪)/i)).toBeVisible({ timeout: 15_000 });
+      await expect(page.getByRole("link", { name: /Open for customer|为客户打开/i }).first()).toHaveAttribute(
         "href",
         /checkout\.stripe\.com/,
       );
