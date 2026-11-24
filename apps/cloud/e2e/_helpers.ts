@@ -206,18 +206,18 @@ export async function expectCommandDeniedFromUi(
   const waitForGet = (suffix: string) => page.waitForResponse((response) =>
     response.request().method() === "GET" && new URL(response.url()).pathname.endsWith(suffix),
   );
+  // Unload the previous record before changing identity. Its SWR requests
+  // can still be in flight, even when the next persona visits the same URL.
+  await page.goto("about:blank");
   await switchPersona(page, options.allowedPersonaId);
-  const [allowedRecord] = await Promise.all([
-    waitForGet(recordSuffix),
-    page.goto(options.recordPath, { waitUntil: "domcontentloaded" }),
-  ]);
-  expect(allowedRecord.status()).toBe(200);
-  const before = (await allowedRecord.json()).data as Record<string, unknown>;
-  expect(before.id).toBe(options.recordId);
+  await page.goto(options.recordPath, { waitUntil: "domcontentloaded" });
   const allowedButton = page.getByRole("button", { name: buttonName }).first();
   await expect(allowedButton, `${options.commandType} is visible to the eligible actor`).toBeVisible();
   await expect(allowedButton).toBeEnabled();
+  const before = await getRecord(page, options.workspaceId, options.objectKey, options.recordId);
+  expect(before.id).toBe(options.recordId);
 
+  await page.goto("about:blank");
   await switchPersona(page, options.deniedPersonaId);
   const [recordResponse, commandsResponse] = await Promise.all([
     waitForGet(recordSuffix),
@@ -285,6 +285,7 @@ export async function expectCommandDeniedFromUi(
   expect(["PERMISSION_DENIED", "AUTH_FORBIDDEN"]).toContain(body.error?.code);
   if (options.objectKey === "work_order") {
     // The field app has its own record detail page, independent of the office toolbar.
+    await page.goto("about:blank");
     const [mobileRecord] = await Promise.all([
       waitForGet(recordSuffix),
       page.goto(`/m${options.recordPath}`, { waitUntil: "domcontentloaded" }),
