@@ -31,6 +31,8 @@ test("candidate profile rejects unsafe deployment and credential configuration w
     [{ PLATFORM_MAIL_PROVIDER_URL: "https://user:SYNTHETIC_SECRET@example.invalid" }, "owner_controlled_mail_endpoint_required"],
     [{ RUNORY_SELF_HOST_MAIL_MODE: "operator" }, "invalid_operator_delivery_configuration"],
     [{ RUNORY_SELF_HOST_MAIL_MODE: "other" }, "invalid_mail_delivery_mode"],
+    [{ RUNORY_SELF_HOST_EMAIL_OUTBOX_ENABLED: "1" }, "email_worker_requires_provider_configuration"],
+    [{ RUNORY_SELF_HOST_EMAIL_OUTBOX_ENABLED: "invalid" }, "invalid_email_worker_mode"],
     [{ PLATFORM_CRON_SECRET: "short" }, "distinct_runtime_secrets_required"],
     [{ CUSTOMER_ACCESS_SESSION_SECRET: good.PLATFORM_CRON_SECRET }, "distinct_runtime_secrets_required"],
   ]) {

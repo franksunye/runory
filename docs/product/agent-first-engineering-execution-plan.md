@@ -39,6 +39,8 @@ Use synthetic records and approved local/non-production environments. The first 
 
 ## 2. Source baseline and implementation gaps
 
+Latest B1.2 execution: [bounded independent Outbox](../releases/agent-first-b1-outbox-2026-11-24.md). Preserve the verified prior candidate; this increment requires its own CI result before release.
+
 Latest verified baseline and B1.1/B1.2 follow-up: [owner initialization and runtime readiness](../releases/agent-first-b1-operator-readiness-2026-11-24.md). New source changes require fresh evidence; remaining delivery and upgrade gates are not waived.
 
 Verified fallback engineering candidate and next initializer increment: [B1 bundled Catalog evidence](../releases/agent-first-b1-bundled-catalog-2026-11-24.md). The verified baseline uses the prior fixture; new source requires fresh CI evidence.

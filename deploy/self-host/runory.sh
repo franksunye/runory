@@ -10,7 +10,7 @@ expected_id="$(cat image-id.txt)"
 [[ "$expected_id" =~ ^sha256:[a-f0-9]{64}$ ]] || fail "invalid bundled image ID"
 # Do not let ambient host provider credentials or compose overrides silently
 # replace the selected bundle image. Compose reads only this local .env.
-unset RUNORY_IMAGE RUNORY_PORT RUNORY_SELF_HOST_MAIL_MODE PLATFORM_ADMIN_EMAILS PLATFORM_MAIL_PROVIDER_URL PLATFORM_CRON_SECRET CUSTOMER_ACCESS_SESSION_SECRET COMPOSE_FILE COMPOSE_PROJECT_NAME COMPOSE_ENV_FILES
+unset RUNORY_IMAGE RUNORY_PORT RUNORY_SELF_HOST_MAIL_MODE RUNORY_SELF_HOST_EMAIL_OUTBOX_ENABLED RESEND_API_KEY RUNORY_EMAIL_FROM PLATFORM_ADMIN_EMAILS PLATFORM_MAIL_PROVIDER_URL PLATFORM_CRON_SECRET CUSTOMER_ACCESS_SESSION_SECRET COMPOSE_FILE COMPOSE_PROJECT_NAME COMPOSE_ENV_FILES
 verify_image() {
   [[ "$(docker image inspect --format '{{.Id}}' "$expected_image")" == "$expected_id" ]] || fail "loaded image does not match bundle"
 }

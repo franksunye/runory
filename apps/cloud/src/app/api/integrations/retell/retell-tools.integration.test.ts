@@ -1,6 +1,9 @@
 import { existsSync, mkdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
-import { beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { POST as runOutbox } from "@/app/api/platform/cron/outbox/route";
+import { runSelfHostOutboxTick } from "@/lib/self-host-outbox";
+import { enqueueOutboxMessage } from "@runory/platform-core";
 import { NextRequest } from "next/server";
 import { getAuditEvents, getOutboxMessages, ingestInboundMessage, ingestVoiceEvent, markMessageDeliveryAccepted, recordMessageDeliveryStatus, upsertVoiceCall } from "@runory/platform-core";
 import { businessTable, TABLES } from "@runory/platform-core";
@@ -93,9 +96,83 @@ beforeAll(() => {
 beforeEach(async () => {
   await resetDatabase();
   await setupWorkspace();
+  vi.stubEnv("RESEND_API_KEY", "");
+  vi.stubEnv("RUNORY_EMAIL_FROM", "");
+  vi.stubEnv("RUNORY_SELF_HOST_EMAIL_OUTBOX_ENABLED", "0");
 });
+afterEach(() => { vi.unstubAllGlobals(); vi.unstubAllEnvs(); });
 
 describe("Retell custom tool routes", () => {
+  it("keeps disabled, unconfigured, aged and unsupported queue work visible", async () => {
+    const args = { ...completeArgs("call_disabled_outbox"), customerEmail: "queued@example.invalid" };
+    expect((await createWorkOrder(toolRequest(args))).status).toBe(200);
+    const [message] = await getOutboxMessages(workspaceId);
+    const fetchMock = vi.fn().mockRejectedValue(new Error("must not send"));
+    vi.stubGlobal("fetch", fetchMock);
+    await enqueueOutboxMessage(workspaceId, "payment.refund.create", { refundId: "synthetic" });
+    expect(await runSelfHostOutboxTick()).toMatchObject({mode:"disabled", attempted:0, emailOutstanding:1, otherOutstanding:1});
+    vi.stubEnv("RUNORY_SELF_HOST_EMAIL_OUTBOX_ENABLED", "1");
+    expect(await runSelfHostOutboxTick()).toMatchObject({mode:"unconfigured", attempted:0, emailOutstanding:1});
+    vi.stubEnv("RESEND_API_KEY", "synthetic-resend");
+    vi.stubEnv("RUNORY_EMAIL_FROM", "test@example.invalid");
+    await execute(`UPDATE ${TABLES.outboxMessages} SET created_at=? WHERE id=?`, ["2000-01-01T00:00:00.000Z", message.id]);
+    expect(await runSelfHostOutboxTick()).toMatchObject({mode:"enabled", attempted:0, reviewRequired:1, otherOutstanding:1});
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(await getOutboxMessages(workspaceId)).toEqual(expect.arrayContaining([
+      expect.objectContaining({id:message.id, status:"pending", attempts:0}),
+      expect.objectContaining({messageType:"payment.refund.create", status:"pending"}),
+    ]));
+  });
+
+  it("authenticates the independent scheduler and retries a persisted email intent", async () => {
+    const args = { ...completeArgs("call_retry_outbox"), customerEmail: "queued@example.invalid" };
+    expect((await createWorkOrder(toolRequest(args))).status).toBe(200);
+    const [message] = await getOutboxMessages(workspaceId);
+    const secret = "a".repeat(64);
+    const request = (token: string) => new NextRequest("http://localhost:3000/api/platform/cron/outbox", {
+      method: "POST", headers: { "x-cron-secret": token, "X-Requested-With": "XMLHttpRequest" },
+    });
+    vi.stubEnv("RUNORY_SELF_HOST_CANDIDATE", "");
+    expect((await runOutbox(request(secret))).status).toBe(404);
+    vi.stubEnv("RUNORY_SELF_HOST_CANDIDATE", "1");
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("PLATFORM_DEPLOYMENT_MODE", "local");
+    vi.stubEnv("VERCEL", "");
+    vi.stubEnv("VERCEL_ENV", "");
+    vi.stubEnv("PLATFORM_CRON_SECRET", secret);
+    vi.stubEnv("RUNORY_SELF_HOST_EMAIL_OUTBOX_ENABLED", "1");
+    vi.stubEnv("RESEND_API_KEY", "synthetic-resend");
+    vi.stubEnv("RUNORY_EMAIL_FROM", "test@example.invalid");
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response("synthetic provider error containing sensitive data", {status:503}))
+      .mockResolvedValueOnce(Response.json({id:"synthetic-provider-ack"}));
+    vi.stubGlobal("fetch", fetchMock);
+    expect((await runOutbox(request("bad"))).status).toBe(401);
+    expect(fetchMock).not.toHaveBeenCalled();
+    const first = await runOutbox(request(secret));
+    expect(first.status).toBe(200);
+    expect((await first.json()).data).toMatchObject({attempted:1, failed:1, accepted:0, emailOutstanding:1});
+    const [failed] = await getOutboxMessages(workspaceId);
+    expect(failed).toMatchObject({id:message.id, status:"failed", attempts:1, lastError:"RESEND_503"});
+    expect(Date.parse(failed.nextAttemptAt!)).toBeGreaterThan(Date.now());
+    expect((await (await runOutbox(request(secret))).json()).data.attempted).toBe(0);
+    // Advance only the synthetic fixture's due time.
+    await execute(`UPDATE ${TABLES.outboxMessages} SET next_attempt_at=? WHERE id=?`, [new Date(Date.now()-1000).toISOString(), message.id]);
+    const retry = await runOutbox(request(secret));
+    expect((await retry.json()).data).toMatchObject({attempted:1, accepted:1, failed:0, emailOutstanding:0});
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    for (const [url, options] of fetchMock.mock.calls) {
+      expect(url).toBe("https://api.resend.com/emails");
+      expect(options.headers["Idempotency-Key"]).toBe("work-order-confirmation-" + message.id);
+    }
+    expect((await (await runOutbox(request(secret))).json()).data.attempted).toBe(0);
+    expect(await getOutboxMessages(workspaceId)).toEqual([expect.objectContaining({status:"delivered", lastError:null})]);
+    expect(await queryAll(`SELECT status,provider_message_id FROM ${TABLES.messageDeliveries} WHERE workspace_id=?`, [workspaceId]))
+      .toEqual([expect.objectContaining({status:"accepted",provider_message_id:"synthetic-provider-ack"})]);
+    expect(await queryAll(`SELECT status FROM ${TABLES.notifications} WHERE workspace_id=?`, [workspaceId]))
+      .toEqual([expect.objectContaining({status:"sent"})]);
+  });
+
   it("rejects a request without the scoped Retell tool secret", async () => {
     const response = await createWorkOrder(toolRequest(completeArgs(), { secret: "wrong-secret" }));
     expect(response.status).toBe(401);

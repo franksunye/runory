@@ -136,6 +136,48 @@ export async function enqueueOutboxMessage(
 /**
  * Get pending outbox messages for diagnostics.
  */
+export async function getOutboxMessage(workspaceId: string, messageId: string): Promise<OutboxMessage | null> {
+  const row = await queryOne<OutboxRow>(
+    `SELECT * FROM ${TABLES.outboxMessages} WHERE workspace_id = ? AND id = ?`,
+    [workspaceId, messageId],
+  );
+  return row ? mapOutboxMessage(row) : null;
+}
+
+/** Internal scheduler selection; claimOutboxMessage remains the authority. */
+export async function listDueOutboxMessageIds(
+  messageType: string,
+  options: { at?: string; createdAfter: string; limit?: number },
+): Promise<Array<{ id: string; workspaceId: string }>> {
+  const at = options.at ?? now();
+  const staleBefore = new Date(Date.parse(at) - 5 * 60_000).toISOString();
+  const limit = Math.max(1, Math.min(20, Math.trunc(options.limit ?? 2)));
+  const rows = await queryAll<{ id: string; workspace_id: string }>(
+    `SELECT id, workspace_id FROM ${TABLES.outboxMessages}
+      WHERE message_type = ? AND created_at >= ? AND
+        ((status IN ('pending', 'failed') AND (next_attempt_at IS NULL OR next_attempt_at <= ?))
+          OR (status = 'processing' AND locked_at <= ?))
+      ORDER BY created_at, id LIMIT ?`,
+    [messageType, options.createdAfter, at, staleBefore, limit],
+  );
+  return rows.map(row => ({ id: row.id, workspaceId: row.workspace_id }));
+}
+
+/** Aggregate diagnostics only; never expose payloads or recipients here. */
+export async function getOutboxQueueCounts(messageType: string, createdAfter: string) {
+  const row = await queryOne<{ active: number; other: number; aged: number; dead: number }>(
+    `SELECT
+       COALESCE(SUM(CASE WHEN message_type = ? AND status IN ('pending','processing','failed') THEN 1 ELSE 0 END), 0) AS active,
+       COALESCE(SUM(CASE WHEN message_type != ? AND status IN ('pending','processing','failed') THEN 1 ELSE 0 END), 0) AS other,
+       COALESCE(SUM(CASE WHEN message_type = ? AND created_at < ? AND status IN ('pending','processing','failed') THEN 1 ELSE 0 END), 0) AS aged,
+       COALESCE(SUM(CASE WHEN status = 'dead_letter' THEN 1 ELSE 0 END), 0) AS dead
+     FROM ${TABLES.outboxMessages}`,
+    [messageType, messageType, messageType, createdAfter],
+  );
+  return { active: Number(row?.active ?? 0), other: Number(row?.other ?? 0),
+    aged: Number(row?.aged ?? 0), dead: Number(row?.dead ?? 0) };
+}
+
 export async function getPendingOutboxMessages(
   workspaceId: string,
   limit = 50
@@ -221,14 +263,17 @@ export async function claimOutboxMessage(
 export async function markOutboxDelivered(
   workspaceId: string,
   messageId: string,
-): Promise<void> {
-  await execute(
+  claimLockedAt?: string,
+): Promise<boolean> {
+  const row = await queryOne<{ id: string }>(
     `UPDATE ${TABLES.outboxMessages}
      SET status = 'delivered', delivered_at = ?, locked_at = NULL,
          next_attempt_at = NULL, last_error = NULL, updated_at = ?
-     WHERE id = ? AND workspace_id = ? AND status = 'processing'`,
-    [now(), now(), messageId, workspaceId],
+     WHERE id = ? AND workspace_id = ? AND status = 'processing'
+       AND (? IS NULL OR locked_at = ?) RETURNING id`,
+    [now(), now(), messageId, workspaceId, claimLockedAt ?? null, claimLockedAt ?? null],
   );
+  return Boolean(row);
 }
 
 /**
@@ -239,16 +284,18 @@ export async function markOutboxFailed(
   workspaceId: string,
   messageId: string,
   error: string,
-  options?: { maxAttempts?: number; failedAt?: string },
-): Promise<void> {
+  options?: { maxAttempts?: number; failedAt?: string; claimLockedAt?: string },
+): Promise<boolean> {
   const failedAt = options?.failedAt ?? now();
   const maxAttempts = Math.max(options?.maxAttempts ?? 5, 1);
+  const claimLockedAt = options?.claimLockedAt ?? null;
   const current = await queryOne<{ attempts: number }>(
     `SELECT attempts FROM ${TABLES.outboxMessages}
-     WHERE id = ? AND workspace_id = ? AND status = 'processing'`,
-    [messageId, workspaceId],
+     WHERE id = ? AND workspace_id = ? AND status = 'processing'
+       AND (? IS NULL OR locked_at = ?)`,
+    [messageId, workspaceId, claimLockedAt, claimLockedAt],
   );
-  if (!current) return;
+  if (!current) return false;
   const attempts = Number(current.attempts) + 1;
   const deadLetter = attempts >= maxAttempts;
   const nextAttemptAt = deadLetter
@@ -256,11 +303,12 @@ export async function markOutboxFailed(
     : new Date(
       new Date(failedAt).getTime() + Math.min(2 ** (attempts - 1) * 30_000, 3_600_000),
     ).toISOString();
-  await execute(
+  const row = await queryOne<{ id: string }>(
     `UPDATE ${TABLES.outboxMessages}
      SET status = ?, attempts = ?, last_error = ?, locked_at = NULL,
          next_attempt_at = ?, updated_at = ?
-     WHERE id = ? AND workspace_id = ? AND status = 'processing'`,
+     WHERE id = ? AND workspace_id = ? AND status = 'processing'
+       AND (? IS NULL OR locked_at = ?) AND attempts = ? RETURNING id`,
     [
       deadLetter ? "dead_letter" : "failed",
       attempts,
@@ -269,8 +317,12 @@ export async function markOutboxFailed(
       failedAt,
       messageId,
       workspaceId,
+      claimLockedAt,
+      claimLockedAt,
+      Number(current.attempts),
     ],
   );
+  return Boolean(row);
 }
 
 export async function retryOutboxMessage(

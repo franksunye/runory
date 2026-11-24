@@ -48,6 +48,9 @@ jobs:
           export PLATFORM_ADMIN_EMAILS="owner@runory.invalid"
           export PLATFORM_MAIL_PROVIDER_URL="http://mail-fixture:8787/send"
           export RUNORY_SELF_HOST_MAIL_MODE=provider
+          export RUNORY_SELF_HOST_EMAIL_OUTBOX_ENABLED=0
+          export RESEND_API_KEY=""
+          export RUNORY_EMAIL_FROM=""
           export RUNORY_IMAGE="runory-candidate:ci"
           export RUNORY_EXPECTED_COMMIT="$GITHUB_SHA"
           export RUNORY_DATA_VOLUME="runory-candidate-data"
@@ -64,7 +67,7 @@ jobs:
           export RUNORY_EXPECTED_STATE="$(jq -ce 'select(.checkpoint != null) | .checkpoint' candidate-evidence/initialize.jsonl)"
           test -n "$RUNORY_EXPECTED_STATE"
           compose run --rm --no-deps scheduler node /app/deploy/self-host/scheduler.mjs --once | tee candidate-evidence/scheduler.jsonl
-          jq -e 'select(.status == "PASS" and .overdueFired == 1)' candidate-evidence/scheduler.jsonl > /dev/null
+          jq -e 'select(.status == "PASS" and .overdueFired == 1 and .outbox.mode == "disabled" and .outbox.attempted == 0)' candidate-evidence/scheduler.jsonl > /dev/null
           compose run --rm --no-deps scheduler node /app/deploy/self-host/scheduler.mjs --once | tee candidate-evidence/scheduler-repeat.jsonl
           jq -e 'select(.status == "PASS" and .overdueFired == 0)' candidate-evidence/scheduler-repeat.jsonl > /dev/null
           compose rm -sf runory

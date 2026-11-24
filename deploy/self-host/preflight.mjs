@@ -33,6 +33,10 @@ export function validateProfile(env) {
       issues.push("owner_controlled_mail_endpoint_required");
     }
   } else issues.push("invalid_mail_delivery_mode");
+  const emailWorker = env.RUNORY_SELF_HOST_EMAIL_OUTBOX_ENABLED ?? "0";
+  if (!["0", "1"].includes(emailWorker)) issues.push("invalid_email_worker_mode");
+  if (emailWorker === "1" && (!env.RESEND_API_KEY?.trim() || !env.RUNORY_EMAIL_FROM?.trim()))
+    issues.push("email_worker_requires_provider_configuration");
   const cron = env.PLATFORM_CRON_SECRET ?? "";
   const customer = env.CUSTOMER_ACCESS_SESSION_SECRET ?? "";
   if (cron.length < 32 || customer.length < 32 || cron === customer)

@@ -111,6 +111,7 @@ async function main() {
   await request("/api/workspaces", { expected: [401, 403] });
   await request("/api/platform/catalog/seed", { method: "POST", expected: 403 });
   await request("/api/platform/cron/workflow-timers", { expected: 401 });
+  await request("/api/platform/cron/outbox", { method: "POST", expected: 401 });
   passed("anonymous-workspace-catalog-cron-denied");
 
   currentStage = "production OTP request";

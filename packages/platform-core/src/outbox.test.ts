@@ -6,6 +6,9 @@ import {
   claimOutboxMessage,
   enqueueOutboxMessage,
   getOutboxMessages,
+  getOutboxMessage,
+  listDueOutboxMessageIds,
+  getOutboxQueueCounts,
   markOutboxDelivered,
   markOutboxFailed,
   retryOutboxMessage,
@@ -37,6 +40,37 @@ async function createWorkspace(id: string): Promise<void> {
 beforeEach(resetDatabase);
 
 describe("Outbox delivery reliability", () => {
+  it("fences an expired worker from settling a reclaimed message", async () => {
+    const workspaceId = genId("ws");
+    await createWorkspace(workspaceId);
+    const id = await enqueueOutboxMessage(workspaceId, "message_delivery.email", {});
+    const first = await claimOutboxMessage(workspaceId, id, "2099-07-20T00:00:00.000Z");
+    const next = await claimOutboxMessage(workspaceId, id, "2099-07-20T00:06:00.000Z");
+    expect(first?.lockedAt).toBeTruthy();
+    expect(next?.lockedAt).not.toBe(first?.lockedAt);
+    expect(await markOutboxDelivered(workspaceId, id, first!.lockedAt!)).toBe(false);
+    expect(await markOutboxFailed(workspaceId, id, "STALE_WORKER", { claimLockedAt: first!.lockedAt! })).toBe(false);
+    expect(await markOutboxDelivered(workspaceId, id, next!.lockedAt!)).toBe(true);
+    expect((await getOutboxMessage(workspaceId, id))?.status).toBe("delivered");
+  });
+
+  it("selects due supported jobs including stale leases and counts held work", async () => {
+    const workspaceId = genId("ws");
+    await createWorkspace(workspaceId);
+    const due = await enqueueOutboxMessage(workspaceId, "message_delivery.email", {});
+    const stale = await enqueueOutboxMessage(workspaceId, "message_delivery.email", {});
+    const future = await enqueueOutboxMessage(workspaceId, "message_delivery.email", {});
+    const aged = await enqueueOutboxMessage(workspaceId, "message_delivery.email", {});
+    await enqueueOutboxMessage(workspaceId, "payment.refund.create", {});
+    await claimOutboxMessage(workspaceId, stale, "2099-07-20T00:00:00.000Z");
+    await execute(`UPDATE ${TABLES.outboxMessages} SET next_attempt_at = ? WHERE id = ?`, ["2099-07-21T00:00:00.000Z", future]);
+    await execute(`UPDATE ${TABLES.outboxMessages} SET created_at = ? WHERE id = ?`, ["2000-01-01T00:00:00.000Z", aged]);
+    const options = { at: "2099-07-20T00:06:00.000Z", createdAfter: "2020-01-01T00:00:00.000Z" };
+    const ids = await listDueOutboxMessageIds("message_delivery.email", options);
+    expect(ids.map(row => row.id).sort()).toEqual([due, stale].sort());
+    expect(await getOutboxQueueCounts("message_delivery.email", options.createdAfter)).toEqual({active:4, other:1, aged:1, dead:0});
+  });
+
   it("allows only one worker to claim a due message and preserves correlation", async () => {
     const workspaceId = genId("ws");
     await createWorkspace(workspaceId);
