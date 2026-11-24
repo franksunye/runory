@@ -30,4 +30,4 @@ ENV NODE_ENV=production \
     RUNORY_RELEASE_COMMIT=$RUNORY_SOURCE_SHA
 WORKDIR /app/apps/cloud
 EXPOSE 3000
-CMD ["node","node_modules/next/dist/bin/next","start","--hostname","0.0.0.0","--port","3000"]
+CMD ["sh","-c","node /app/deploy/self-host/preflight.mjs && exec node node_modules/next/dist/bin/next start --hostname 0.0.0.0 --port 3000"]

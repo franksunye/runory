@@ -21,3 +21,4 @@ apps/cloud/data
 artifacts
 .review
 deploy/self-host/verify-candidate.mjs
+deploy/self-host/preflight.test.mjs

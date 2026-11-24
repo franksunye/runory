@@ -23,6 +23,11 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           persist-credentials: false
+      - name: Check candidate startup profile and fixture syntax
+        run: |
+          node --test deploy/self-host/preflight.test.mjs
+          node --check deploy/self-host/verify-candidate.mjs
+          node --check deploy/self-host/scheduler.mjs
       - name: Build production image from tracked source only
         shell: bash
         run: |
@@ -46,19 +51,25 @@ jobs:
           docker compose -f deploy/self-host/compose.yaml config --quiet
           docker network create --internal runory-candidate-ci
           docker volume create runory-candidate-data
-          docker run -d --name runory-candidate-app --network runory-candidate-ci --network-alias runory --init --cap-drop ALL --security-opt no-new-privileges \
-            -e PLATFORM_ADMIN_EMAILS -e PLATFORM_MAIL_PROVIDER_URL -e PLATFORM_CRON_SECRET -e CUSTOMER_ACCESS_SESSION_SECRET \
-            -v runory-candidate-data:/data "$RUNORY_IMAGE"
+          start_app() {
+            docker run -d --name runory-candidate-app --network runory-candidate-ci --network-alias runory --init --cap-drop ALL --security-opt no-new-privileges \
+              -e PLATFORM_ADMIN_EMAILS -e PLATFORM_MAIL_PROVIDER_URL -e PLATFORM_CRON_SECRET -e CUSTOMER_ACCESS_SESSION_SECRET \
+              -v runory-candidate-data:/data "$RUNORY_IMAGE"
+          }
+          start_app
           verify() {
             docker run --rm --network runory-candidate-ci --network-alias mail-fixture --cap-drop ALL --security-opt no-new-privileges \
-              -e RUNORY_EXPECTED_COMMIT -v "$PWD/deploy/self-host/verify-candidate.mjs:/tmp/verify-candidate.mjs:ro" \
+              -e RUNORY_EXPECTED_COMMIT -e RUNORY_EXPECTED_STATE -v "$PWD/deploy/self-host/verify-candidate.mjs:/tmp/verify-candidate.mjs:ro" \
               "$RUNORY_IMAGE" node /tmp/verify-candidate.mjs "$1"
           }
           verify initialize | tee candidate-evidence/initialize.jsonl
+          export RUNORY_EXPECTED_STATE="$(jq -ce 'select(.checkpoint != null) | .checkpoint' candidate-evidence/initialize.jsonl)"
+          test -n "$RUNORY_EXPECTED_STATE"
           docker run --rm --network runory-candidate-ci --cap-drop ALL --security-opt no-new-privileges \
             -e PLATFORM_CRON_SECRET "$RUNORY_IMAGE" node /app/deploy/self-host/scheduler.mjs --once | tee candidate-evidence/scheduler.jsonl
           grep -q '"status":"PASS"' candidate-evidence/scheduler.jsonl
-          docker restart runory-candidate-app >/dev/null
+          docker rm -f runory-candidate-app >/dev/null
+          start_app
           verify readback | tee candidate-evidence/readback.jsonl
       - name: Clean up isolated fixture
         if: always()
