@@ -52,6 +52,7 @@ import { objectKeyToRouteSegment } from "@/lib/dynamic-object";
 import type { MessageKey } from "@/i18n/messages";
 import { apiFetch, apiDelete, apiPost } from "@/lib/api-fetch";
 import { formatMinorAmount, majorToMinor, minorToMajor, recordDisplayName } from "@/lib/money";
+import { resolvePaymentPanelAccess } from "@/lib/payment-panel-access";
 import { lifecycleStateLabel, statusBadgeClass, statusTone } from "@/lib/record-lifecycle";
 import {
   commandLabel,
@@ -990,18 +991,24 @@ function SourcePaymentPanel({
   record: WorkspaceRecord;
 }) {
   const { t, locale } = useI18n();
-  const endpoint = `/api/workspaces/${workspaceId}/payments/requests?sourceObjectType=${objectKey}&sourceObjectId=${encodeURIComponent(recordId)}`;
+  const { data: workspaceAccess } = useWorkspaceAccess(workspaceId);
+  const access = resolvePaymentPanelAccess(workspaceAccess);
+  const endpoint = access.canView
+    ? `/api/workspaces/${workspaceId}/payments/requests?sourceObjectType=${objectKey}&sourceObjectId=${encodeURIComponent(recordId)}`
+    : null;
   const { data: requests = [], mutate } = useSWR<SourcePaymentRequest[]>(endpoint);
   const eligible = (objectKey === "quote" && record.status === "accepted")
     || (objectKey === "work_order" && record.status === "completed")
     || (objectKey === "invoice" && ["issued", "partially_paid"].includes(String(record.status)));
+  const canCreateRequest = eligible && access.canRequest;
 
-  // WO: prefer linked open invoice balance, else source quote total.
-  const woInvoiceKey = objectKey === "work_order"
+  // Only eligible writers need amount suggestions. A dispatcher can view
+  // existing payment requests without reading the originating Quote.
+  const woInvoiceKey = objectKey === "work_order" && canCreateRequest && access.canSuggestInvoice
     ? `/api/workspaces/${workspaceId}/objects/invoice/records?filter.work_order_id=${encodeURIComponent(recordId)}&limit=20`
     : null;
   const { data: woInvoices, isLoading: loadingWoInvoices } = useSWR<WorkspaceRecord[]>(woInvoiceKey);
-  const sourceQuoteId = objectKey === "work_order"
+  const sourceQuoteId = objectKey === "work_order" && canCreateRequest && access.canSuggestQuote
     && String(record.source_type ?? "") === "quote"
     && record.source_id
     ? String(record.source_id)
@@ -1012,6 +1019,7 @@ function SourcePaymentPanel({
   const { data: sourceQuote, isLoading: loadingSourceQuote } = useSWR<WorkspaceRecord>(sourceQuoteKey);
 
   const amountSuggestion = useMemo(() => {
+    if (!canCreateRequest) return null;
     if (objectKey === "invoice") {
       const balance = Number(record.balance_due_minor ?? 0);
       return balance > 0
@@ -1051,10 +1059,10 @@ function SourcePaymentPanel({
       }
     }
     return null;
-  }, [objectKey, record, woInvoices, sourceQuote]);
+  }, [canCreateRequest, objectKey, record, woInvoices, sourceQuote]);
 
   const suggestionReady = objectKey !== "work_order"
-    || (!loadingWoInvoices && (!sourceQuoteId || !loadingSourceQuote));
+    || ((!woInvoiceKey || !loadingWoInvoices) && (!sourceQuoteId || !loadingSourceQuote));
 
   const [amountMajor, setAmountMajor] = useState<number>(
     objectKey === "invoice" && Number(record.balance_due_minor ?? 0) > 0
@@ -1098,6 +1106,7 @@ function SourcePaymentPanel({
   };
 
   const createCheckout = async () => {
+    if (!canCreateRequest) return;
     setSubmitting(true);
     setPaymentError(null);
     setCreatedCheckoutUrl(null);
@@ -1139,8 +1148,9 @@ function SourcePaymentPanel({
     }
   };
 
-  // Hide the panel until payment is in play (or an existing request must be shown).
-  if (!eligible && requests.length === 0) {
+  // A read-only role can see existing requests but not the creation form.
+  // Missing or not-yet-loaded access fails closed.
+  if ((!access.canView || requests.length === 0) && !canCreateRequest) {
     return null;
   }
 
@@ -1169,7 +1179,7 @@ function SourcePaymentPanel({
         )}
       </div>
 
-      {requests.length > 0 && (
+      {access.canView && requests.length > 0 && (
         <div className="mt-4 space-y-2">
           {requests.map((paymentRequest) => (
             <div key={paymentRequest.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 px-4 py-3">
@@ -1212,7 +1222,7 @@ function SourcePaymentPanel({
         </div>
       )}
 
-      {eligible && (
+      {canCreateRequest && (
         <div className="mt-4 space-y-2 border-t border-slate-100 pt-4">
           <div className="grid gap-3 sm:grid-cols-[1fr_1fr_1fr_auto] sm:items-end">
             <label className="text-xs font-semibold text-slate-600">
@@ -1252,7 +1262,7 @@ function SourcePaymentPanel({
           )}
         </div>
       )}
-      {createdCheckoutUrl && (
+      {canCreateRequest && createdCheckoutUrl && (
         <div className="mt-3 flex flex-wrap items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs text-emerald-900">
           <Check size={14} className="shrink-0" />
           <span className="font-semibold">

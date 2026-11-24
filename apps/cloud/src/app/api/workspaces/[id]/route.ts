@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { z } from "zod";
-import { getWorkspace, getVisibilitySummary, updateWorkspaceName, writeAuditEvent, queryOne, TABLES, NotFoundError } from "@runory/platform-core";
+import { getWorkspace, getVisibilitySummary, canReadObject, updateWorkspaceName, writeAuditEvent, queryOne, TABLES, NotFoundError } from "@runory/platform-core";
 import { requireWorkspaceContext } from "@/lib/auth";
 import { successResponse, handleError, notFound, invalidInput, getOrCreateRequestId } from "@/lib/http";
 
@@ -37,7 +37,15 @@ export async function GET(
         organizationId: ctx.organizationId,
         workspaceRole: ctx.workspaceRole,
         organizationRole: ctx.organizationRole,
-        accessSummary,
+        accessSummary: accessSummary ? {
+          ...accessSummary,
+          // Optional source reads must follow the same policy as the actual
+          // record endpoints. Invoices additionally require invoice.read.
+          paymentSourceReads: {
+            quote: canReadObject(new Set(accessSummary.permissions), "quote"),
+            invoice: accessSummary.permissions.includes("*") || accessSummary.permissions.includes("invoice.read"),
+          },
+        } : null,
         currentUser: ctx.principal
           ? {
               userId: ctx.principal.userId,

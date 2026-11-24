@@ -77,7 +77,7 @@ export function useInstallations(workspaceId: string) {
 
 export interface WorkspaceAccessData {
   workspaceRole?: string | null;
-  accessSummary?: { permissions: string[] } | null;
+  accessSummary?: { permissions: string[]; paymentSourceReads?: { quote: boolean; invoice: boolean } } | null;
 }
 
 export function useWorkspaceAccess(workspaceId: string) {

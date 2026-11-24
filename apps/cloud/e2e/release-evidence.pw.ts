@@ -157,6 +157,24 @@ test("sales representative sees the fresh Quote projection", async ({ page }, te
 
 test("dispatcher sees the fresh Work Order and planning surface", async ({ page }, testInfo) => {
   await switchPersona(page, "persona:dispatcher");
+  // This role has payment.view and invoice.read, but not payment.request or
+  // quote.read. Retain the backend denial, and ensure the work-order page
+  // never fetches the inaccessible source Quote for an amount suggestion.
+  const quotePath = `/objects/quote/records/${evidence.records.quoteId}`;
+  const forbiddenReads: string[] = [];
+  page.on("request", request => {
+    if (request.method() === "GET" && new URL(request.url()).pathname.endsWith(quotePath)) {
+      forbiddenReads.push("source_quote");
+    }
+  });
+  const workspaceResponse = await page.request.get(`/api/workspaces/${evidence.records.workspaceId}`);
+  expect(workspaceResponse.ok()).toBeTruthy();
+  const workspace = (await workspaceResponse.json()).data;
+  expect(workspace.accessSummary.permissions).toContain("payment.view");
+  expect(workspace.accessSummary.permissions).not.toContain("payment.request");
+  expect(workspace.accessSummary.paymentSourceReads.quote).toBe(false);
+  const quoteResponse = await page.request.get(`/api/workspaces/${evidence.records.workspaceId}${quotePath}`);
+  expect(quoteResponse.status(), "dispatcher still cannot read commercial Quote").toBe(404);
   const expectedText = await semanticRecordText(page, "work_order", evidence.records.workOrderId!);
   await assertSurface(
     page,
@@ -164,7 +182,9 @@ test("dispatcher sees the fresh Work Order and planning surface", async ({ page 
     expectedText,
     testInfo,
   );
+  await expect(page.getByRole("button", { name: /^(Request payment|Create payment request|申请收款|创建收款请求)$/i })).toHaveCount(0);
   await assertSurface(page, `/w/${evidence.records.workspaceSlug}/planning`, null, testInfo);
+  expect(forbiddenReads, "dispatcher UI must not request an inaccessible source Quote").toEqual([]);
 });
 
 test("technician sees the fresh Visit projection", async ({ page }, testInfo) => {
