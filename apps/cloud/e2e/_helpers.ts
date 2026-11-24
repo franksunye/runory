@@ -404,6 +404,9 @@ export function syncPackPermissionGroups() {
     || env.LIBSQL_URL !== env.RUNORY_VERIFICATION_DATABASE_URL
     || Boolean(env.LIBSQL_AUTH_TOKEN)
   )) throw new Error("Isolated verification may only write its fresh local database");
+  // The release runner already synchronized this specific fixture before browser startup.
+  // Standalone suites continue to perform their normal permission setup.
+  if (env.RUNORY_ISOLATED_VERIFICATION === "true" && env.RUNORY_E2E_SYNCED_PERMISSIONS_DB === env.LIBSQL_URL) return;
   execFileSync(process.execPath, ["--import", "tsx", "scripts/sync-pack-permission-groups.mjs"], {
     cwd: resolve(__dirname, ".."),
     env,

@@ -137,6 +137,9 @@ try {
   }
   checks.recovery = "PASS";
   checks.browser = "RUNNING";
+  // Finish fixture writes before any browser starts issuing concurrent requests.
+  await execute(process.execPath, ["--import", "tsx", "scripts/sync-pack-permission-groups.mjs"], cloud);
+  env.RUNORY_E2E_SYNCED_PERMISSIONS_DB = env.LIBSQL_URL;
   await execute(process.execPath, [playwrightCli, "test", "g2-", "release-evidence.pw.ts",
     ...(browserProject ? [`--project=${browserProject}`] : [])], cloud);
   checks.browser = "PASS";
