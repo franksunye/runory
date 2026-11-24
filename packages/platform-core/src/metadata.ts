@@ -187,7 +187,7 @@ export async function getWorkspace(reference: string) {
 export async function resolveWorkspaceId(reference: string): Promise<string> {
   if (reference.startsWith("ws_")) return reference;
   const workspace = await getWorkspace(reference);
-  if (!workspace) throw new Error(`Workspace ${reference} not found`);
+  if (!workspace) throw new NotFoundError(`Workspace ${reference} not found`);
   return workspace.id;
 }
 

@@ -1,10 +1,9 @@
-import { NextResponse } from "next/server";
-import { ok } from "@runory/contracts";
+import { getOrCreateRequestId, successResponse } from "@/lib/http";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
-  return NextResponse.json(ok({
+export async function GET(request: Request) {
+  return successResponse({
     ok: true,
     service: "runory-cloud",
     // Public build identity lets a release check verify the served commit,
@@ -13,5 +12,5 @@ export async function GET() {
       commit: process.env.VERCEL_GIT_COMMIT_SHA ?? (/^[a-f0-9]{40}$/.test(process.env.RUNORY_RELEASE_COMMIT ?? "") ? process.env.RUNORY_RELEASE_COMMIT : null),
       environment: process.env.VERCEL_ENV ?? "local",
     },
-  }), { headers: { "Cache-Control": "no-store" } });
+  }, 200, getOrCreateRequestId(request.headers.get("x-request-id")), "no-store");
 }

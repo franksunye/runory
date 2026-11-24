@@ -59,14 +59,15 @@ export function middleware(request: NextRequest) {
   // If the path is a marketing path without a locale prefix, redirect to
   // /{locale}{path}. This enables static generation for all marketing pages
   // while keeping URLs locale-aware (e.g. /en/product, /zh/product).
+  let response: NextResponse;
   if (!hasLocalePrefix(pathname) && isMarketingPath(pathname)) {
     const locale = detectLocale(request);
     const redirectUrl = new URL(request.url);
     redirectUrl.pathname = pathname === "/" ? `/${locale}` : `/${locale}${pathname}`;
-    return NextResponse.redirect(redirectUrl);
+    response = NextResponse.redirect(redirectUrl);
+  } else {
+    response = NextResponse.next();
   }
-
-  const response = NextResponse.next();
   const isDev = process.env.NODE_ENV !== "production";
 
   // ── Security Headers ──

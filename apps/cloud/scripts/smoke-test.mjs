@@ -52,7 +52,19 @@ async function main() {
     if (!ok) {
       record("Landing page", false, error);
     } else {
-      record("Landing page", res.status === 200, `HTTP ${res.status}`);
+      // The public root negotiates a locale. Follow only the app's same-origin
+      // locale redirect and require an actual successful Runory landing page.
+      let page = res;
+      if ([307, 308].includes(res.status) && res.headers.has("location")) {
+        const location = new URL(res.headers.get("location"), TARGET);
+        if (location.origin === new URL(TARGET).origin && /^\/(en|zh)\/?$/.test(location.pathname)) {
+          page = (await fetchSafe(location)).res;
+        }
+      }
+      const html = page?.status === 200 && page.headers.get("content-type")?.includes("text/html")
+        ? await page.text() : "";
+      record("Landing page", /<main[\s>]/i.test(html) && /Runory/i.test(html),
+        `HTTP ${res.status} → ${page?.status ?? "fetch failed"}`);
     }
   }
 
@@ -145,6 +157,7 @@ async function main() {
     if (!ok) {
       record("No stack traces in errors", false, error);
     } else {
+      const body = await res.clone().json().catch(() => null);
       const text = await res.text();
       const hasStack =
         text.includes("at /") ||
@@ -153,7 +166,7 @@ async function main() {
         text.includes("Error: at ");
       record(
         "No stack traces in errors",
-        !hasStack,
+        res.status === 404 && !hasStack && body?.success === false && body.error?.code === "NOT_FOUND",
         hasStack ? "stack trace detected!" : `HTTP ${res.status}`
       );
     }
