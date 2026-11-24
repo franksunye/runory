@@ -17,6 +17,7 @@
 | 范围 | 当前实现与边界 |
 | --- | --- |
 | API key、租户与业务角色 | 权限取创建者当前角色与 Key scopes 的交集；无效 Bearer 不回退到 Cookie；Key 只能发现所属 Workspace。诊断 target 与 baseline 分别授权。非管理员没有业务角色时默认拒绝业务 Command；凭据和成员管理要求用户会话。参见 [管理与治理](../admin-governance.md)。 |
+| 技师现场交付与改派 | 已有 `visit.execute` 和 `forms.submission.submit` 的用户可完成确实指派给本人的现场表单任务；资源策略限定内置完工契约，当前需求、任务、资源及有效指派必须同租户一致。提交事务再次核对资源归属；改派同步未完成任务的负责人、认领与版本，陈旧完工事务不能记录成功。API Key 沿用原权限与 scopes，详见 [命令架构](../architecture/contract-driven-command-architecture.md)。 |
 | Stripe Connect | 精确豁免 Connect webhook 的浏览器 CSRF 检查，保留原始请求体验签。真实本地 Next HTTP 脚本验证合成签名事件更新数据库、重复投递业务状态稳定、坏签名不写库。`account.updated` 是状态幂等更新，重复时可刷新同步时间，不宣称事件只处理一次。 |
 | 持久升级与回滚 | [迁移 0054](../../schema/migrations/0054_upgrade_snapshots.sql) 保存不可变升级快照和执行状态；快照写入失败阻止后续升级。重开连接后可读取快照；校验损坏、范围不符或后续元数据变化时拒绝伪造回滚成功。SQL 已尝试执行时明确要求数据库恢复。 |
 | Voice Intake 原子性 | Provider receipt、关联业务状态以及 intake 操作的业务写入、回放结果和 outbox 意图纳入数据库事务；失败可重试，嵌套调用复用外层事务。外部电话和邮件投递不属于数据库事务。 |
@@ -33,6 +34,7 @@
 4. **生产必须配置真实邮件 Provider。** 调试 OTP 和开发身份不再是部署后的登录替代方案。确认生产登录、邮件投递、有效会话及管理员权限后再开放使用。
 5. **Vercel 附件每文件 4 MiB，本地 10 MiB。** UI 从鉴权 policy 接口读取限制。连接 private store，配置 `RUNORY_ATTACHMENT_STORAGE=vercel-blob` 和 `BLOB_STORE_ID`；显式静态 token 连接使用该 token，无静态 token 时让 SDK 管理 OIDC 刷新。按上传政策配置扫描器及 `RUNORY_MALWARE_SCAN_REQUIRED`。对象写入与 DB 不构成分布式事务，补偿失败或进程中断留下的孤立对象需按引用对账。
 6. **MapLibre 例外严格限定。** [依赖检查脚本](../../scripts/check-production-dependencies.mjs) 只对 `GHSA-jrc7-96c5-q579` 且实际命中版本全部恰为 `maplibre-gl@5.24.1` 接受维护者 backport 证据；不是整包或整项公告的长期豁免。依据：[维护者公告](https://github.com/maplibre/maplibre-gl-js/security/advisories/GHSA-jrc7-96c5-q579)、[5.24.1 发布记录](https://github.com/maplibre/maplibre-gl-js/releases/tag/v5.24.1)。版本变化或出现其他公告必须重新评估，保留原始审计结果。
+7. **既有技师角色无需新增通用工作流权限。** 新资源策略使用现有现场执行和表单提交权限。部署前已改派、但工作项仍保留旧负责人名下的历史不一致记录会被拒绝；管理员或调度员需通过正常改派操作重新同步未完成任务，本次不执行隐式全库修复。已完成的任务历史保持原归属。
 
 ## 验证命令与证据
 
@@ -77,7 +79,7 @@ CI 将桌面和手机浏览器分为两个并行作业，每个作业使用独�
 
 生产数据库凭据为 Vercel sensitive 变量，管理 API 不提供其内容。发布备份在已授权的生产构建环境内使用现有变量，只读源库、恢复到新的临时库并重开校验，再上传到 private Blob 并回读验证；任何必要步骤失败阻断构建。备份不导入迁移或 seed 入口，不把业务数据或凭据输出到日志、源码、构建产物或公开 URL。实际云端执行结果仍须随目标 commit 验收。
 
-修复了 G2 验收中的过期命令文案，并加强角色拒绝证据：先证明授权角色能看到有效操作，再验证受限角色的 API 必须明确返回权限拒绝且状态不变。完整 Gate 是否通过，以该候选 commit 对应的 GitHub Actions 结果为准。
+修复了 G2 验收中的过期命令文案，并加强角色拒绝证据：先证明授权角色能看到有效操作，再验证受限角色的 API 必须明确返回权限拒绝且状态不变。浏览器追踪另确认上传规则已成功返回，但表单区块缓存遗漏策略状态，导致入口持续禁用；移除该错误缓存，并验证真实策略响应延迟到达、答案未修改时入口仍能就绪。表单验收同时等待提交成功、关联工作项完成及页面成功提示。完整 Gate 是否通过，以该候选 commit 对应的 GitHub Actions 结果为准。
 
 GitHub `main` 已启用分支保护，必需检查为 GitHub Actions 的 `Release Gate`，并要求检查基于最新分支。保持现有 main-only 工作方式，不强制 PR；管理员仍可直接更新分支，因此生产发布仍必须单独核对确切 commit 的 Gate 结果。禁止强制推送与删除分支。
 

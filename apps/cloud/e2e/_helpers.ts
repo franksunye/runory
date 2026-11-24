@@ -1,4 +1,4 @@
-import { expect, type Page } from "@playwright/test";
+import { expect, type Page, type Route } from "@playwright/test";
 import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
@@ -630,7 +630,8 @@ export async function dispatchAndCompleteWorkOrder(
     waitUntil: "domcontentloaded",
   });
   if (companyName) {
-    await expect(page.getByText(companyName, { exact: false }).first()).toBeVisible();
+    // Match the API assertion budget for the separately fetched customer label.
+    await expect(page.getByText(companyName, { exact: false }).first()).toBeVisible({ timeout: 30_000 });
   }
   const workOrder = await getRecord(page, workspace.workspaceId, "work_order", workOrderId);
   if (workOrder.status === "new") {
@@ -677,9 +678,32 @@ export async function dispatchAndCompleteWorkOrder(
   await clickAndAwaitPost(page, /^(Arrive on site|到达现场)$/, "/commands/visit.arrive");
   await expectRecordStatus(page, workspace.workspaceId, "service_visit", visitId, "on_site");
 
-  await page.goto(`/m/w/${workspace.workspaceSlug}/work/${workItemId}/form`, {
-    waitUntil: "domcontentloaded",
-  });
+  // Hold the real deployment-policy request until the form is visible. Its
+  // response must enable evidence controls without an answer edit forcing a
+  // re-render; no policy response or upload is mocked.
+  let releaseUploadPolicy!: () => void;
+  const uploadPolicyGate = new Promise<void>((resolve) => { releaseUploadPolicy = resolve; });
+  const matchesUploadPolicy = (url: URL) =>
+    url.pathname === `/api/workspaces/${workspace.workspaceSlug}/uploads`;
+  const delayUploadPolicy = async (route: Route) => {
+    if (route.request().method() === "GET") await uploadPolicyGate;
+    // React's development effect cleanup may abort its first request.
+    if (!route.request().failure()) await route.continue();
+  };
+  await page.route(matchesUploadPolicy, delayUploadPolicy);
+  try {
+    await page.goto(`/m/w/${workspace.workspaceSlug}/work/${workItemId}/form`, {
+      waitUntil: "domcontentloaded",
+    });
+    await expect(page.getByRole("button", { name: /^(Submit Form|提交表单)$/ })).toBeVisible({ timeout: 30_000 });
+    const attachFile = page.getByRole("button", { name: "Attach File", exact: true }).first();
+    await expect(attachFile).toBeDisabled();
+    releaseUploadPolicy();
+    await expect(attachFile).toBeEnabled({ timeout: 30_000 });
+  } finally {
+    releaseUploadPolicy();
+    await page.unroute(matchesUploadPolicy, delayUploadPolicy);
+  }
   await fillServiceVisitCompletionForm(page, workItemId, `${runToken} replaced filters and verified airflow.`);
 
   await page.goto(`/w/${workspace.workspaceSlug}/service-visits/${visitId}`, {

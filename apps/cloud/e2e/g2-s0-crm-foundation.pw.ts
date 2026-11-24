@@ -57,8 +57,10 @@ test.describe("G2-S0 CRM foundation", () => {
       waitUntil: "domcontentloaded",
     });
     await expect(page.getByText(workOrderTitle, { exact: false }).first()).toBeVisible();
-    await expect(page.getByText(companyName, { exact: false }).first()).toBeVisible();
-    await expect(page.getByText(contactName, { exact: false }).first()).toBeVisible();
-    await expect(page.getByText(siteName, { exact: false }).first()).toBeVisible();
+    // Related labels load after the record. The isolated dev server may need
+    // to compile their routes; use the same 30s budget as other API assertions.
+    await expect(page.getByText(companyName, { exact: false }).first()).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText(contactName, { exact: false }).first()).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText(siteName, { exact: false }).first()).toBeVisible({ timeout: 30_000 });
   });
 });

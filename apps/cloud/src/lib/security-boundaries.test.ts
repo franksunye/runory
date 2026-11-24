@@ -7,12 +7,16 @@ import { join } from "node:path";
 import {
   db, createWorkspace, createApiKey, revokeApiKey, queryOne, execute, now, genId,
   TABLES, SESSION_COOKIE_NAME, createCustomView, installPack, _clearAccessCache,
+  businessTable, createRecord, createVisit, triageWorkOrder,
 } from "@runory/platform-core";
 import { requireWorkspaceContext } from "./auth";
 import { PATCH as patchWorkspace, GET as getWorkspaceRoute } from "@/app/api/workspaces/[id]/route";
 import { POST as createRecordRoute } from "@/app/api/workspaces/[id]/objects/[objectKey]/records/route";
 import { POST as createViewRoute } from "@/app/api/workspaces/[id]/views/route";
 import { POST as readWidgetBatch } from "@/app/api/workspaces/[id]/widgets/batch/route";
+import { POST as submitFormRoute } from "@/app/api/workspaces/[id]/forms/submissions/route";
+import { POST as completeWorkItemRoute } from "@/app/api/workspaces/[id]/work-items/[workItemId]/complete/route";
+import { GET as getUploadPolicy } from "@/app/api/workspaces/[id]/uploads/route";
 import { POST as createKeyRoute } from "@/app/api/workspaces/[id]/api-keys/route";
 import { PATCH as updateMemberRoute } from "@/app/api/workspaces/[id]/access/members/[userId]/route";
 import { GET as healthRoute } from "@/app/api/workspaces/[id]/health/route";
@@ -145,6 +149,107 @@ describe("API key scope ceiling", () => {
     expect((await readWidgetBatch(request(path, { authorization: `Bearer ${writeToken}` }, "POST", body), params(workspaceId))).status).toBe(403);
     await expect(requireWorkspaceContext(request(`${path}/other`, headers, "POST", body), workspaceId)).rejects.toMatchObject({ name: "AuthorizationError" });
     await expect(requireWorkspaceContext(request(path, headers, "PATCH", body), workspaceId)).rejects.toMatchObject({ name: "AuthorizationError" });
+  });
+
+  it("keeps API key scopes and generic permission gates while the assigned technician's session can complete", async () => {
+    await installPack(workspaceId, "fsm-pack", { includeDemoData: true });
+    const technician = (await queryOne<{ id: string }>(
+      `SELECT id FROM ${TABLES.users} WHERE external_id = 'persona:technician'`,
+    ))!;
+    const technicianRecord = (await queryOne<{ id: string }>(
+      `SELECT id FROM ${businessTable("technician")} WHERE workspace_id = ? AND user_id = ?`,
+      [workspaceId, technician.id],
+    ))!;
+    const order = await createRecord(workspaceId, "work_order", {
+      title: "Synthetic key-scoped visit", status: "new", priority: "medium", source: "manual",
+    });
+    const dispatchActor = { type: "user" as const, id: ownerId };
+    await triageWorkOrder(workspaceId, order.id, dispatchActor, 1, { priority: "medium" });
+    await createVisit(workspaceId, order.id, dispatchActor, 2, {
+      title: "Synthetic assigned deliverable", technicianId: technicianRecord.id,
+      scheduledStart: "2095-03-01T09:00:00Z", scheduledEnd: "2095-03-01T10:00:00Z",
+    });
+    const item = (await queryOne<{
+      id: string; subject_id: string; binding_id: string; form_definition_id: string; form_version_id: string;
+    }>(
+      `SELECT item.id, item.subject_id, requirement.binding_id,
+              requirement.form_definition_id, requirement.form_version_id
+       FROM ${TABLES.workItems} item
+       JOIN ${TABLES.visitExecutionRequirements} requirement
+         ON requirement.workspace_id = item.workspace_id AND requirement.id = item.step_id
+       JOIN ${businessTable("service_visit")} visit
+         ON visit.workspace_id = item.workspace_id AND visit.id = item.subject_id
+       WHERE item.workspace_id = ? AND visit.work_order_id = ?`,
+      [workspaceId, order.id],
+    ))!;
+    const technicianCookie = await sessionCookie(technician.id);
+    const workspace = (await queryOne<{ slug: string }>(
+      `SELECT slug FROM ${TABLES.workspaces} WHERE id = ?`, [workspaceId],
+    ))!;
+    // The mobile form route uses the Workspace slug, while API callers may use
+    // its ID. Both must provide the same usable, private upload policy for an
+    // ordinary technician session before the Attach File button can enable.
+    for (const reference of [workspaceId, workspace.slug]) {
+      const policyResponse = await getUploadPolicy(request(`/api/workspaces/${reference}/uploads`, {
+        cookie: technicianCookie,
+      }), params(reference));
+      expect(policyResponse.status).toBe(200);
+      expect(policyResponse.headers.get("cache-control")).toBe("private, no-store");
+      const policy = await policyResponse.json();
+      expect(policy.success).toBe(true);
+      expect(Number.isFinite(policy.data.maxFileSizeBytes)).toBe(true);
+      expect(policy.data.maxFileSizeBytes).toBeGreaterThan(0);
+      expect(policy.data.allowedContentTypes).toEqual(expect.arrayContaining(["image/png"]));
+    }
+    // Keys can only be issued by an administrator. Exercise existing keys
+    // after that creator is demoted to the ordinary installed technician role.
+    await execute(`UPDATE ${TABLES.workspaceMemberships} SET role = 'admin' WHERE workspace_id = ? AND user_id = ?`, [workspaceId, technician.id]);
+    _clearAccessCache();
+    const [technicianRead, technicianWrite] = await (async () => {
+      try {
+        return [
+          await createApiKey(workspaceId, technician.id, { name: "Technician read", scopes: ["workspace:read"] }),
+          await createApiKey(workspaceId, technician.id, { name: "Technician write", scopes: ["records:write"] }),
+        ] as const;
+      } finally {
+        await execute(`UPDATE ${TABLES.workspaceMemberships} SET role = 'member' WHERE workspace_id = ? AND user_id = ?`, [workspaceId, technician.id]);
+        _clearAccessCache();
+      }
+    })();
+    const submission = await submitFormRoute(request(`/api/workspaces/${workspaceId}/forms/submissions`, {
+      authorization: `Bearer ${technicianWrite.token}`,
+    }, "POST", {
+      formDefinitionId: item.form_definition_id, formVersionId: item.form_version_id,
+      bindingId: item.binding_id, workItemId: item.id,
+      subjectType: "service_visit", subjectId: item.subject_id,
+      answers: {
+        work_performed: "Synthetic key permission regression", system_status_after_service: "operational",
+        "cl-pre-service": { "cl-1": "pass", "cl-2": "pass", "cl-3": "pass", "cl-4": "pass" },
+        "evi-photos": { attachments: ["synthetic-before", "synthetic-after"] },
+        "sig-customer": { acknowledged: true, signedBy: "Synthetic customer" },
+      },
+    }), params(workspaceId));
+    expect(submission.status).toBe(201);
+    expect((await submission.json()).success).toBe(true);
+    const path = `/api/workspaces/${workspaceId}/work-items/${item.id}/complete`;
+    const itemParams = { params: Promise.resolve({ id: workspaceId, workItemId: item.id }) };
+    const denied = await completeWorkItemRoute(request(path, {
+      authorization: `Bearer ${technicianRead.token}`,
+    }, "POST", { expectedVersion: 1 }), itemParams);
+    expect(denied.status).toBe(403);
+    expect(await queryOne(`SELECT status, version FROM ${TABLES.workItems} WHERE id = ?`, [item.id]))
+      .toMatchObject({ status: "ready", version: 1 });
+    const keyWithoutWorkflowAuthority = await completeWorkItemRoute(request(path, {
+      authorization: `Bearer ${technicianWrite.token}`,
+    }, "POST", { expectedVersion: 1 }), itemParams);
+    expect(keyWithoutWorkflowAuthority.status).toBe(403);
+    expect(await queryOne(`SELECT status, version FROM ${TABLES.workItems} WHERE id = ?`, [item.id]))
+      .toMatchObject({ status: "ready", version: 1 });
+    const completed = await completeWorkItemRoute(request(path, {
+      cookie: technicianCookie,
+    }, "POST", { expectedVersion: 1 }), itemParams);
+    expect(completed.status).toBe(200);
+    expect((await completed.json()).data.aggregate).toMatchObject({ id: item.id, status: "completed", version: 2 });
   });
 
   it("does not allow even a full-scope key to mint credentials or change membership", async () => {

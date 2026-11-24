@@ -279,10 +279,15 @@ export async function executeCommand<TAggregate = Record<string, unknown>>(
     envelope.workspaceId,
     envelope.commandType,
   );
-  await authorizeCommandActor(
+  const authorization = await authorizeCommandActor(
     envelope.workspaceId,
     envelope.actor,
     contractPlan.contract,
+    {
+      aggregateType: envelope.aggregateType,
+      aggregateId: envelope.aggregateId,
+      source: contractPlan.source,
+    },
   );
 
   // ── Idempotency check ──
@@ -342,6 +347,9 @@ export async function executeCommand<TAggregate = Record<string, unknown>>(
 
   // ── Build the complete batch ──
   const allStatements: BatchStatement[] = [
+    // Resource-scoped authority must still hold when the write commits. This
+    // assertion shares the transaction with all domain, event, and audit writes.
+    ...(authorization ? [authorization.commitGuard] : []),
     ...handlerResult.statements,
     ...contractStatements,
   ];

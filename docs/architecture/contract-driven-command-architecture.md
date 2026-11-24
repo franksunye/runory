@@ -201,6 +201,46 @@ visit.complete requires scheduling.complete_reservation@^1
 It must never silently omit a required effect because a Module, provider, table,
 or handler is unavailable.
 
+### 6.1 Assigned Visit deliverable completion
+
+Visit execution uses durable Work Items without requiring the technician role
+to operate general Workflow tasks. The Runtime therefore has one explicit
+resource policy for a human user's `work_item.complete`: the persisted source
+must be `platform_service:runory.workflow@1.0.0`, the Contract version must be
+`1.0.0`, and its aggregate and permission must remain `work_item` and
+`workflow.work_item.act`. Contract actor restrictions and Workspace write
+membership still apply. A changed Contract source, version, or permission does
+not inherit this policy.
+
+The user must already hold both `visit.execute` and `forms.submission.submit`.
+The target must be a directly assigned human task joined to its persisted Visit
+requirement by Workspace, Visit, step, and form binding. Its current execution,
+active resource, and assigned/accepted assignment must identify the same user.
+Cancelled or released work does not qualify. API keys, unassigned tasks, other
+people's tasks, and ordinary Workflow tasks retain the existing Contract
+permission requirements. No Pack role permission or installed Contract snapshot
+is rewritten by this policy.
+
+The same resource predicate is checked again as the first guarded statement of
+the atomic Command transaction. A cancellation, release, or reassignment between
+authorization and commit therefore rolls back the mutation, event, audit, and
+Command result. The completion handler separately validates required evidence,
+candidate eligibility, legal status, and expected version; its terminal update
+must affect exactly one row. An already-completed task in a completed Visit may
+still authorize a stored idempotent replay; a new transition cannot complete it
+again.
+
+Reassignment updates nonterminal Visit Work Items' assignees, clears old claims,
+and increments their versions in the same transaction as the assignment and
+execution changes. Completed task history is preserved. Existing installed
+technician roles need no permission migration. A legacy task whose recorded
+assignee already disagrees with the current execution fails closed; an explicit
+authorized reassignment resynchronizes its pending task projection.
+
+Behavior is covered by `visit-deliverable-authorization.test.ts` and the real
+HTTP/session/API-key paths in `security-boundaries.test.ts`, using synthetic
+local databases only.
+
 ## 7. Module, Pack, And Catalog Responsibilities
 
 ### Module

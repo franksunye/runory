@@ -244,8 +244,8 @@ export async function reassignAssignment(
     );
   }
 
-  const newResource = await queryOne<{ id: string }>(
-    `SELECT id FROM ${TABLES.resources} WHERE workspace_id = ? AND id = ? AND active = 1`,
+  const newResource = await queryOne<{ id: string; user_id: string | null }>(
+    `SELECT id, user_id FROM ${TABLES.resources} WHERE workspace_id = ? AND id = ? AND active = 1`,
     [workspaceId, newResourceId]
   );
   if (!newResource) throw new NotFoundError(`Active resource not found: ${newResourceId}`);
@@ -287,6 +287,7 @@ export async function reassignAssignment(
             SET status = 'released', effective_to = ?, version = ?, updated_at = ?
             WHERE workspace_id = ? AND id = ? AND version = ?`,
       args: [ts, oldVersion, ts, workspaceId, assignmentId, assignment.version],
+      expectedRowsAffected: 1,
     },
     // Create a dispatch-ready assignment for the new resource.
     {
@@ -325,6 +326,27 @@ export async function reassignAssignment(
               SET resource_id = ?, assignment_id = ?, updated_at = ?
               WHERE workspace_id = ? AND visit_id = ? AND status IN ('ready', 'active')`,
         args: [newResourceId, newAssignmentId, ts, workspaceId, assignment.subjectId],
+      },
+      {
+        // Mobile form tasks must follow the current dispatch owner. Bump their
+        // versions in this same batch so an already-open form cannot complete
+        // against a stale assignment, and retain completed historical tasks.
+        sql: `UPDATE ${TABLES.workItems}
+              SET assignee_type = ?, assignee_id = ?,
+                  status = CASE WHEN status = 'active' THEN 'ready' ELSE status END,
+                  claimed_by = NULL, claimed_at = NULL,
+                  version = version + 1, updated_at = ?
+              WHERE workspace_id = ? AND subject_type = 'service_visit' AND subject_id = ?
+                AND instance_id = ? AND status IN ('pending', 'ready', 'active', 'returned')
+                AND EXISTS (
+                  SELECT 1 FROM ${TABLES.visitExecutionRequirements} requirement
+                  WHERE requirement.workspace_id = ${TABLES.workItems}.workspace_id
+                    AND requirement.id = ${TABLES.workItems}.step_id
+                    AND requirement.visit_id = ${TABLES.workItems}.subject_id
+                    AND requirement.binding_id = ${TABLES.workItems}.form_binding_id
+                )`,
+        args: [newResource.user_id ? "user" : null, newResource.user_id, ts,
+          workspaceId, assignment.subjectId, `visit_execution:${assignment.subjectId}`],
       },
     ] : []),
   ]);

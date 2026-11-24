@@ -46,7 +46,9 @@ export default defineConfig({
       // environments; CI uses Playwright's pinned browser when unset.
       executablePath: process.env.RUNORY_CHROMIUM_EXECUTABLE_PATH,
     },
-    trace: "on",
+    // Preserve failed attempts (including a failure followed by a green retry)
+    // without retaining every successful test's large development bundles.
+    trace: "retain-on-failure",
     screenshot: "only-on-failure",
     video: "retain-on-failure",
   },

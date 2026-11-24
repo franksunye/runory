@@ -14,7 +14,7 @@
 // inside a form answer (Spec §5.5).  Uploads report real progress via
 // XMLHttpRequest upload events and support explicit, idempotent retry.
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { FormBlock } from "@runory/contracts";
 import {
   AlertCircle,
@@ -1214,12 +1214,9 @@ export function MobileFormRenderer({
 
   const hasErrors = Object.keys(errors).length > 0;
 
-  // Memoized block list to keep re-renders shallow
-  const renderedBlocks = useMemo(
-    () => schema.blocks.map(renderBlock),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [schema.blocks, answers, errors]
-  );
+  // Evidence controls and their handlers also depend on the asynchronous
+  // upload policy. Render from current state even when answers have not changed.
+  const renderedBlocks = schema.blocks.map(renderBlock);
 
   // ── Draft save status indicator (v0.5.1 Spec §5.4) ──
   // Subtle, non-blocking status shown only while a draft is being persisted

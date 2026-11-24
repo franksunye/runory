@@ -1820,6 +1820,7 @@ export async function completeWorkItemHandler(
                 SET status = 'completed', completed_at = ?, version = ?, updated_at = ?
                 WHERE workspace_id = ? AND id = ? AND version = ?`,
           args: [ts, completedVersion, ts, workspaceId, workItemId, workItem.version],
+          expectedRowsAffected: 1,
         },
         // Cancel any active SLA timer for this work item
         {
