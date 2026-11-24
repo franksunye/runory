@@ -134,19 +134,23 @@ async function main() {
 
   let checkpoint = expectedState;
   if (phase === "initialize") {
-    // Deliberately use the existing authenticated release-manager seed route
-    // in the isolated candidate test ONLY. This does not establish a shipped
-    // release-import flow or authorize promotion of artifacts in Cloud.
-    currentStage = "candidate catalog initialization";
-    const seed = await request("/api/platform/catalog/seed", { method: "POST", session: true });
-    check(Array.isArray(seed.data.errors) && seed.data.errors.length === 0, "Candidate catalog seed has errors");
+    currentStage = "bundled catalog without development seed";
+    const catalog = await request(ws + "/packs", { session: true });
+    check(Array.isArray(catalog.data) && catalog.data.length === 2 &&
+      ["fsm-pack", "sales-quote-pack"].every(id => catalog.data.some(pack => pack.packId === id &&
+        pack.release?.channel === "stable" && !pack.installed)), "Expected exact bundled FSM catalog");
+    await request("/api/platform/catalog/seed", { method: "POST", session: true, expected: 403 });
+    await request(ws + "/packs/crm-lite-pack/install", {
+      method: "POST", body: { includeDemoData: false }, session: true, expected: [404, 409],
+    });
+    passed("bundled-catalog-ready-and-unbundled-pack-denied");
     for (const pack of ["fsm-pack", "sales-quote-pack"]) {
       currentStage = "pack installation: " + pack;
       await request(ws + "/packs/" + pack + "/install", {
         method: "POST", body: { includeDemoData: false }, session: true, expected: 201,
       });
     }
-    passed("authenticated-local-catalog-and-two-packs");
+    passed("bundled-catalog-and-two-locked-packs");
 
     currentStage = "create customer and scoped key";
     const record = await request(ws + "/objects/company/records", {

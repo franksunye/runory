@@ -6,7 +6,7 @@ Engineering candidate only. Not a supported production release, Cloud GA, or com
 
 ## Candidate bundle
 
-If the exact commit's Self-hosted Candidate workflow succeeds, its Actions artifact contains the tested image archive, image reference and ID, Compose configuration, operator helper, release metadata, license and SHA-256 checksums. It is a short-lived engineering artifact, not a signed public distribution. Obtain it only from the official repository and verify the workflow commit and artifact integrity; checksums do not replace a trusted download source.
+If the exact commit's Self-hosted Candidate workflow succeeds, its Actions artifact contains the tested image archive, image reference and ID, Compose configuration, operator helper, release metadata, license, Catalog/Pack lock inventory and SHA-256 checksums. It is a short-lived engineering artifact, not a signed public distribution. Obtain it only from the official repository and verify the workflow commit and artifact integrity; checksums do not replace a trusted download source.
 
 From an extracted candidate bundle on a prepared Linux amd64 host with Docker Compose, Bash, openssl and sha256sum:
 
@@ -20,7 +20,7 @@ bash runory.sh status
 
 Replace the example owner email and mail URL with a verified, operator-owned private mail endpoint implementing the existing OTP delivery contract. The helper generates distinct secrets in a new restricted .env; it refuses to overwrite existing configuration and checks that the loaded image matches the bundle. Keep .env outside shared files. Do not use the CI mail fixture, public OTP inbox or developer authentication shortcut. Only loopback is exposed by default. HTTPS/reverse-proxy and real browser/mobile access remain separate acceptance work.
 
-The current candidate uses the existing authenticated platform-admin catalog seed in its isolated verification fixture. A pinned, approved bundled catalog import and complete owner onboarding flow are still release blockers. Do not present the fixture seed as the final installer, or assume any artifact is production-ready.
+The independent candidate image now prepares the exact FSM and Sales Quote Catalog during its isolated image build, using the existing schema validation, Catalog validation, freeze, channel and Pack-lock services. The engineering candidate channels inside this local template are not Cloud promotions or a human production approval. The template contains no provisioned users, credentials, workspaces or business records. On first startup the initializer validates the image/source identity and template checksum, publishes the database only into a new empty data volume, and records the release marker. Subsequent starts preserve the business database. Unrecognized, partial and different-release volumes fail closed; no automatic upgrade or overwrite. Normal owner OTP authorization and Pack installation are still required; the candidate does not call the development seed endpoint. Exact Pack and Module versions and checksums are checked against the bundled lock before installing. Complete owner onboarding and final release-manager approval remain separate acceptance work.
 
 ## Complete offline instance snapshot (same image only)
 
@@ -49,6 +49,6 @@ docker build --platform linux/amd64 \
   -f deploy/self-host/Dockerfile -t runory-candidate:local .
 ```
 
-CI tests the actual Compose file with a test-only internal-network override (no host port or external providers). It checks production OTP, scoped authorization, installed Packs, customer and named Quote command/retry, attachments, timer invocation, container replacement, cold backup/restore into a new volume and a second fresh install. The fixtures are not real Agent, provider, or production acceptance.
+CI tests the actual Compose file with a test-only internal-network override (no host port or external providers). It checks production OTP, scoped authorization, the prebundled Catalog without development seed, rejection of out-of-scope Packs, locked Pack installation, customer and named Quote command/retry, attachments, timer invocation, container replacement, cold backup/restore into a new volume and a second fresh install. The fixtures are not real Agent, provider, or production acceptance.
 
 See the repository's [engineering plan](../../docs/product/agent-first-engineering-execution-plan.md) and [candidate workflow](../../.github/workflows/self-hosted-candidate.yml) for scope and results (links resolve in the source repository). Check the exact commit before relying on any candidate claim.

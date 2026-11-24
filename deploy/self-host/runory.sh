@@ -43,7 +43,8 @@ case "${1:-help}" in
   start)
     verify_image
     compose config --quiet
-    compose up -d
+    compose up -d --wait --wait-timeout 120
+    printf '{"operation":"start","status":"PASS","scope":"engineering_candidate_services_started"}\n'
     ;;
   status)
     compose ps --format json

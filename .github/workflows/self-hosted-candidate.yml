@@ -25,7 +25,7 @@ jobs:
           persist-credentials: false
       - name: Check startup, snapshot safety and fixture syntax
         run: |
-          node --test deploy/self-host/preflight.test.mjs deploy/self-host/snapshot.test.mjs
+          node --test deploy/self-host/preflight.test.mjs deploy/self-host/snapshot.test.mjs deploy/self-host/initialize.test.mjs
           node --check deploy/self-host/verify-candidate.mjs
           node --check deploy/self-host/scheduler.mjs
           bash -n deploy/self-host/runory.sh
@@ -98,9 +98,10 @@ jobs:
           printf '%s\n' "$image" > candidate-bundle/image-reference.txt
           docker image inspect "$image" --format '{{.Id}}' > candidate-bundle/image-id.txt
           cp deploy/self-host/compose.yaml deploy/self-host/runory.sh deploy/self-host/README.md LICENSE candidate-bundle/
+          docker run --rm --network none --read-only "$image" cat /app/deploy/self-host/bundle/catalog.json > candidate-bundle/catalog.json
           jq -n --arg commit "$GITHUB_SHA" --arg image "$image" --arg imageId "$(cat candidate-bundle/image-id.txt)" \
             '{format:"runory.self-host.engineering-candidate/v1",sourceCommit:$commit,image:$image,imageId:$imageId,platform:"linux/amd64",status:"engineering_candidate",productionSupported:false,cloudGa:false}' > candidate-bundle/release.json
-          (cd candidate-bundle && sha256sum image.tar.gz image-reference.txt image-id.txt compose.yaml runory.sh README.md LICENSE release.json > SHA256SUMS && sha256sum -c SHA256SUMS)
+          (cd candidate-bundle && sha256sum image.tar.gz image-reference.txt image-id.txt compose.yaml runory.sh README.md LICENSE release.json catalog.json > SHA256SUMS && sha256sum -c SHA256SUMS)
       - name: Clean up isolated fixture
         if: always()
         shell: bash

@@ -1,7 +1,8 @@
 import { NextRequest } from "next/server";
 import { seedDevCatalog } from "@runory/platform-core";
 import { requirePlatformAdmin } from "@/lib/auth";
-import { successResponse, handleError, getOrCreateRequestId } from "@/lib/http";
+import { successResponse, handleError, getOrCreateRequestId, forbidden } from "@/lib/http";
+import { isSelfHostCandidate } from "@/lib/self-host-catalog";
 
 export const dynamic = "force-dynamic";
 
@@ -15,6 +16,7 @@ export async function POST(request: NextRequest) {
   const startedAt = Date.now();
   try {
     const { principal } = await requirePlatformAdmin(request);
+    if (isSelfHostCandidate()) return forbidden("Self-hosted candidate catalog is prepared with the verified release, not development seed", requestId);
     console.info("[catalog:seed] started", { requestId, userId: principal.userId });
     const result = await seedDevCatalog(principal);
     console.info("[catalog:seed] completed", {

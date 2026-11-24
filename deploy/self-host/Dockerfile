@@ -22,7 +22,17 @@ RUN pnpm install --frozen-lockfile
 RUN mkdir -p /tmp/runory-build && \
     LIBSQL_URL=file:/tmp/runory-build/build.db pnpm --filter @runory/cloud build && \
     rm -rf /tmp/runory-build
+# Build the bounded, validated Catalog on a separate empty database, then
+# copy only its credential-free template and immutable release metadata.
+RUN mkdir -p /tmp/runory-catalog-build && \
+    NODE_ENV=production PLATFORM_DEPLOYMENT_MODE=local \
+    PLATFORM_ADMIN_EMAILS=offline-catalog-builder@runory.invalid \
+    LIBSQL_URL=file:/tmp/runory-catalog-build/catalog.db \
+    RUNORY_CANDIDATE_CATALOG_BUILD=1 RUNORY_CATALOG_SOURCE_SHA="$RUNORY_SOURCE_SHA" \
+    pnpm --filter @runory/cloud exec tsx scripts/build-self-host-catalog.mts && \
+    rm -rf /tmp/runory-catalog-build
 ENV NODE_ENV=production \
+    RUNORY_SELF_HOST_CANDIDATE=1 \
     PLATFORM_DEPLOYMENT_MODE=local \
     LIBSQL_URL=file:/data/platform.db \
     RUNORY_ATTACHMENT_STORAGE=local \
@@ -30,4 +40,4 @@ ENV NODE_ENV=production \
     RUNORY_RELEASE_COMMIT=$RUNORY_SOURCE_SHA
 WORKDIR /app/apps/cloud
 EXPOSE 3000
-CMD ["sh","-c","node /app/deploy/self-host/preflight.mjs && exec node node_modules/next/dist/bin/next start --hostname 0.0.0.0 --port 3000"]
+CMD ["sh","-c","node /app/deploy/self-host/preflight.mjs && node /app/deploy/self-host/initialize.mjs && exec node node_modules/next/dist/bin/next start --hostname 0.0.0.0 --port 3000"]

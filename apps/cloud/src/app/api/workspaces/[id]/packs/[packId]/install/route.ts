@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { installPack, updatePackInstallError, clearPackInstallError } from "@runory/platform-core";
 import { requireWorkspaceContext } from "@/lib/auth";
+import { assertBundledPack, isSelfHostCandidate } from "@/lib/self-host-catalog";
 import { successResponse, handleError, getOrCreateRequestId } from "@/lib/http";
 
 export const dynamic = "force-dynamic";
@@ -16,6 +17,9 @@ export async function POST(
   const { id, packId } = await params;
   try {
     const { ctx, workspaceId } = await requireWorkspaceContext(request, id, "admin");
+    // Independent candidate only: validate exact release and dependency locks.
+    // Existing Cloud installation behavior and Workspace permission checks remain unchanged.
+    if (isSelfHostCandidate()) await assertBundledPack(packId);
     const body = await request.json().catch(() => ({})) as { includeDemoData?: boolean };
     try {
       const result = await installPack(workspaceId, packId, {
