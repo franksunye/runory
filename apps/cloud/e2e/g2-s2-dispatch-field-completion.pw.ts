@@ -31,22 +31,18 @@ test.describe("G2-S2 dispatch and field completion", () => {
     await ensureSalesQuoteRoleAssignments(page, workspace.workspaceId);
     await ensureFsmRoleAssignments(page, workspace.workspaceId);
 
-    const { workOrderId, companyName } = await createConvertedWorkOrder(
-      page,
-      workspace,
-      runToken,
+    const { workOrderId, companyName } = await test.step("Create and convert a fresh Quote through UI", () =>
+      createConvertedWorkOrder(page, workspace, runToken),
     );
-    const { visitId } = await dispatchAndCompleteWorkOrder(
-      page,
-      workspace,
-      workOrderId,
-      runToken,
-      companyName,
+    const { visitId } = await test.step("Dispatch, submit evidence and complete Work Order through role UI", () =>
+      dispatchAndCompleteWorkOrder(page, workspace, workOrderId, runToken, companyName),
     );
 
-    const workOrder = await getRecord(page, workspace.workspaceId, "work_order", workOrderId);
-    expect(String(workOrder.status)).toBe("completed");
-    const visit = await getRecord(page, workspace.workspaceId, "service_visit", visitId);
-    expect(String(visit.status)).toBe("completed");
+    await test.step("Verify persisted final states", async () => {
+      const workOrder = await getRecord(page, workspace.workspaceId, "work_order", workOrderId);
+      expect(String(workOrder.status)).toBe("completed");
+      const visit = await getRecord(page, workspace.workspaceId, "service_visit", visitId);
+      expect(String(visit.status)).toBe("completed");
+    });
   });
 });

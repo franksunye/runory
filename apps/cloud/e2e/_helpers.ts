@@ -525,10 +525,12 @@ export async function createConvertedWorkOrder(
   await page.goto(`/w/${workspace.workspaceSlug}/quotes/${quoteId}`, { waitUntil: "domcontentloaded" });
   await clickAndAwaitPost(page, /^(Mark as sent to customer|标记为已发给客户)$/, "/commands/quote.mark_sent");
   await expectRecordStatus(page, workspace.workspaceId, "quote", quoteId, "sent");
-  await page.goto(`/w/${workspace.workspaceSlug}/quotes/${quoteId}`, { waitUntil: "domcontentloaded" });
+  // Same actor, same record: exercise the live Command projection instead
+  // of restarting the entire client and every metadata query after each POST.
+  await expect(page.getByRole("button", { name: /^(Record customer acceptance|记录客户接受)$/ }).first()).toBeEnabled();
   await clickAndAwaitPost(page, /^(Record customer acceptance|记录客户接受)$/, "/commands/quote.accept");
   await expectRecordStatus(page, workspace.workspaceId, "quote", quoteId, "accepted");
-  await page.goto(`/w/${workspace.workspaceSlug}/quotes/${quoteId}`, { waitUntil: "domcontentloaded" });
+  await expect(page.getByRole("button", { name: /^(Convert to work order|转为工单)$/ }).first()).toBeEnabled();
   await clickAndAwaitPost(
     page,
     /^(Convert to work order|转为工单)$/,
@@ -566,7 +568,7 @@ export async function findVisitForWorkOrder(
   let visitId = "";
   await expect.poll(async () => {
     const response = await page.request.get(
-      `/api/workspaces/${workspaceId}/objects/service_visit/records?limit=100`,
+      `/api/workspaces/${workspaceId}/objects/service_visit/records?filter.work_order_id=${encodeURIComponent(workOrderId)}&limit=100`,
     );
     if (!response.ok()) return false;
     const body = await response.json();
@@ -691,12 +693,15 @@ export async function dispatchAndCompleteWorkOrder(
   }
   await expectRecordStatus(page, workspace.workspaceId, "work_order", workOrderId, "triaged");
 
-  await page.goto(`/w/${workspace.workspaceSlug}/work-orders/${workOrderId}`, {
-    waitUntil: "domcontentloaded",
-  });
-  await page.getByRole("button", { name: /^(Plan & dispatch|计划与派工)$/ }).first().click();
+  // Require the next business action to become enabled on the existing page.
+  const planDispatch = page.getByRole("button", { name: /^(Plan & dispatch|计划与派工)$/ }).first();
+  await expect(planDispatch).toBeEnabled();
+  await planDispatch.click();
   await expect(page.getByRole("button", { name: /^(Dispatch visit|派发访问)$/ })).toBeVisible();
-  await page.getByLabel(/^Technician/).selectOption({ label: "David Park" });
+  const technicianSelect = page.getByLabel(/^Technician/);
+  await expect(technicianSelect).toBeEnabled({ timeout: 30_000 });
+  await expect(technicianSelect.getByRole("option", { name: "David Park", exact: true })).toHaveCount(1, { timeout: 30_000 });
+  await technicianSelect.selectOption({ label: "David Park" });
   const window = uniqueDispatchWindow();
   await page.getByLabel(/^Scheduled start/).fill(window.start);
   await page.getByLabel(/^Scheduled end/).fill(window.end);
@@ -724,9 +729,7 @@ export async function dispatchAndCompleteWorkOrder(
   await clickAndAwaitPost(page, /^(Start travel|出发)$/, "/commands/visit.start_travel");
   await expectRecordStatus(page, workspace.workspaceId, "service_visit", visitId, "en_route");
 
-  await page.goto(`/w/${workspace.workspaceSlug}/service-visits/${visitId}`, {
-    waitUntil: "domcontentloaded",
-  });
+  await expect(page.getByRole("button", { name: /^(Arrive on site|到达现场)$/ }).first()).toBeEnabled();
   await clickAndAwaitPost(page, /^(Arrive on site|到达现场)$/, "/commands/visit.arrive");
   await expectRecordStatus(page, workspace.workspaceId, "service_visit", visitId, "on_site");
 
@@ -771,9 +774,7 @@ export async function dispatchAndCompleteWorkOrder(
   await clickAndAwaitPost(page, /^(Start work|开始作业)$/, "/commands/work_order.start");
   await expectRecordStatus(page, workspace.workspaceId, "work_order", workOrderId, "in_progress");
 
-  await page.goto(`/w/${workspace.workspaceSlug}/work-orders/${workOrderId}`, {
-    waitUntil: "domcontentloaded",
-  });
+  await expect(page.getByRole("button", { name: /^(Complete|完成)$/ }).first()).toBeEnabled();
   page.once("dialog", async (dialog) => {
     await dialog.accept(`${runToken} closed`);
   });

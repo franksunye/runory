@@ -45,8 +45,21 @@ export default function nextConfig(phase: string): NextConfig {
     && (process.env.NODE_ENV === "development" || process.env.NODE_ENV === "test")
     && process.env.VERCEL !== "1"
     && !process.env.VERCEL_ENV;
+  // The isolated release harness exercises many routes in a long journey.
+  // Keep its compiled routes warm across role transitions instead of repeatedly
+  // evicting/recompiling them under the browser test's unchanged time budget.
+  // Do not change normal development or production build behavior.
+  const isolatedRelease = localDevelopment
+    && process.env.RUNORY_ISOLATED_VERIFICATION === "true"
+    && process.env.PLATFORM_DEPLOYMENT_MODE === "local"
+    && Boolean(process.env.RUNORY_VERIFICATION_DATABASE_URL?.startsWith("file:"))
+    && process.env.LIBSQL_URL === process.env.RUNORY_VERIFICATION_DATABASE_URL
+    && !process.env.LIBSQL_AUTH_TOKEN;
   return {
     ...baseConfig,
+    ...(isolatedRelease ? {
+      onDemandEntries: { maxInactiveAge: 5 * 60_000, pagesBufferLength: 16 },
+    } : {}),
     env: {
       ...baseConfig.env,
       NEXT_PUBLIC_OTP_DEV_CODE_ENABLED: String(localDevelopment),

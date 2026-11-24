@@ -120,11 +120,12 @@ function buildRecordsQuery(params?: RecordsQueryParams): string {
 export function useRecords(
   workspaceId: string,
   objectKey: string,
-  params?: RecordsQueryParams
+  params?: RecordsQueryParams,
+  enabled = true
 ) {
   const query = buildRecordsQuery(params);
   const { data, error, isLoading, mutate } = useSWR<WorkspaceRecord[]>(
-    workspaceKey(workspaceId, `objects/${objectKey}/records${query}`)
+    enabled ? workspaceKey(workspaceId, `objects/${objectKey}/records${query}`) : null
   );
   return { data, error, isLoading, mutate };
 }

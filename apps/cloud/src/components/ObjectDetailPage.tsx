@@ -1396,7 +1396,6 @@ export default function ObjectDetailPage({
   const { data: record, error: recordError, isLoading: loadingRecord, mutate: mutateRecord } = useRecord(workspaceId, objectKey, recordId);
   const { data: recordCommands, mutate: mutateCommands } = useRecordCommands(workspaceId, objectKey, recordId);
   const { data: relationsData } = useRelations(workspaceId, objectKey);
-  const { data: technicians = [] } = useRecords(workspaceId, "technician", { sortBy: "name", sortOrder: "asc" });
   const { data: workflowData } = useRecordWorkflow(workspaceId, objectKey, recordId);
 
   useWorkspaceChangeEvent(workspaceId);
@@ -1411,6 +1410,12 @@ export default function ObjectDetailPage({
   const [dispatchStart, setDispatchStart] = useState("");
   const [dispatchEnd, setDispatchEnd] = useState("");
   const [dispatchNotes, setDispatchNotes] = useState("");
+  // The roster is only used by Plan & dispatch. Other detail pages must not
+  // fetch it or revalidate it on every commercial/field Command.
+  const { data: technicians = [], isLoading: loadingTechnicians, error: techniciansError, mutate: reloadTechnicians } = useRecords(
+    workspaceId, "technician", { sortBy: "name", sortOrder: "asc" },
+    objectKey === "work_order" && dispatchOpen,
+  );
 
   const loading = loadingObj || loadingViews || loadingRecord;
   const fields: FieldDefinition[] = objDetail?.fields ?? [];
@@ -1960,17 +1965,24 @@ export default function ObjectDetailPage({
                   Technician
                   <select
                     value={dispatchTechnicianId}
+                    disabled={loadingTechnicians || Boolean(techniciansError)}
+                    aria-busy={loadingTechnicians}
                     onChange={(event) => setDispatchTechnicianId(event.target.value)}
                     className="mt-1.5 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900"
                     required
                   >
-                    <option value="">Select a technician</option>
+                    <option value="">{loadingTechnicians ? "Loading technicians…" : "Select a technician"}</option>
                     {technicians.map((technician) => (
                       <option key={String(technician.id)} value={String(technician.id)}>
                         {String(technician.name ?? technician.id)}
                       </option>
                     ))}
                   </select>
+                  {techniciansError && (
+                    <button type="button" className="mt-1 block text-xs text-red-600 underline" onClick={() => void reloadTechnicians()}>
+                      Unable to load technicians. Retry
+                    </button>
+                  )}
                 </label>
                 <label className="text-sm font-semibold text-slate-700">
                   Scheduled start
@@ -2004,7 +2016,7 @@ export default function ObjectDetailPage({
               <div className="mt-5 flex justify-end">
                 <button
                   type="button"
-                  disabled={!dispatchTechnicianId || !dispatchStart || !dispatchEnd || runningCommand !== null}
+                  disabled={loadingTechnicians || Boolean(techniciansError) || !dispatchTechnicianId || !dispatchStart || !dispatchEnd || runningCommand !== null}
                   onClick={() => {
                     const option = recordCommands.find((entry) => entry.key === "work_order.create_visit");
                     if (option) void executeBusinessCommand(option);
