@@ -9,15 +9,21 @@ export interface WorkspaceContext {
 }
 
 export async function switchPersona(page: Page, personaId: string) {
+  // This test-only endpoint sets the same cookie on repeated requests; it
+  // does not execute a business Command. Avoid a stale keep-alive socket and
+  // retry ECONNRESET once. All HTTP/identity/business assertions remain hard.
   const response = await page.request.post("/api/dev/persona", {
     data: { personaId },
-    headers: { "X-Requested-With": "XMLHttpRequest" },
+    headers: { "X-Requested-With": "XMLHttpRequest", Connection: "close" },
+    maxRetries: 1,
   });
   if (!response.ok()) {
     throw new Error(
       `Switch to ${personaId} failed with HTTP ${response.status()}: ${await response.text()}`,
     );
   }
+  const result = await response.json();
+  expect(result, "test persona selection returns the requested identity").toMatchObject({ success: true, personaId });
 }
 
 export async function resolveWorkspace(page: Page): Promise<WorkspaceContext> {

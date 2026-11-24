@@ -94,6 +94,17 @@ case "${1:-help}" in
     verify_image
     compose exec -T runory pnpm exec tsx scripts/self-host-owner-code.mts
     ;;
+  mcp)
+    [[ $# == 1 && -n "${RUNORY_API_KEY:-}" && "${RUNORY_WORKSPACE_ID:-}" =~ ^[A-Za-z0-9_-]+$ ]] || fail "MCP requires an authorized scoped RUNORY_API_KEY and RUNORY_WORKSPACE_ID"
+    verify_image
+    running="$(compose ps -q runory)"
+    [[ -n "$running" && "$(docker inspect --format '{{.Image}}' "$running")" == "$expected_id" ]] || fail "expected release is not running"
+    # Stdio contains only MCP protocol messages. Keep the bearer credential
+    # in the client-provided environment; do not persist it in .env or argv.
+    compose exec -T -e RUNORY_API_KEY -e RUNORY_WORKSPACE_ID \
+      -e RUNORY_API_BASE=http://127.0.0.1:3000 runory \
+      node --import tsx /app/apps/mcp/src/server.ts
+    ;;
   status)
     compose ps --format json
     ;;
@@ -106,6 +117,6 @@ case "${1:-help}" in
     compose stop
     ;;
   *)
-    printf '%s\n' 'Engineering candidate commands: verify | load | init OWNER_EMAIL [PRIVATE_MAIL_ENDPOINT] | prepare-upgrade PRIOR_BUNDLE SOURCE_VOLUME BACKUP_VOLUME TARGET_VOLUME | start | code | status | doctor | stop'
+    printf '%s\n' 'Engineering candidate commands: verify | load | init OWNER_EMAIL [PRIVATE_MAIL_ENDPOINT] | prepare-upgrade PRIOR_BUNDLE SOURCE_VOLUME BACKUP_VOLUME TARGET_VOLUME | start | code | mcp | status | doctor | stop'
     ;;
 esac

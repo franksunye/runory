@@ -24,8 +24,14 @@ External Super Agents such as ChatGPT, Codex, Claude, Cursor, Trae, and compatib
 - https://runory.vercel.app/docs
 - https://github.com/franksunye/runory
 
+## Self-hosted engineering preview
+- Official release index: https://github.com/franksunye/runory/releases
+- Agent installation contract: https://github.com/franksunye/runory/blob/main/deploy/self-host/AGENT-INSTALL.md
+- Agent entry point: https://github.com/franksunye/runory/blob/main/AGENTS.md
+- Independent scope: single-instance Linux amd64 Docker/Compose, FSM and Sales Quote Packs. Use a verified prerelease when available; do not assume a supported production release or public remote deployment. Owner authorization and scoped Agent credentials are required.
+
 ## Primary use cases
-Home services, HVAC, plumbing, waterproofing and repair, installation services, inspection, quoting, scheduling, dispatch, field execution, evidence capture, completion, payment, and after-sales.
+Reactive repair and callout for home services, HVAC, plumbing and waterproofing: inspection, quoting, scheduling, dispatch, field execution, evidence capture, completion, and after-sales. Live providers and additional trades or capabilities require separate acceptance.
 `;
 
   return new Response(body, {

@@ -1,0 +1,129 @@
+name: Publish Self-hosted Preview
+
+# Explicit maintainer action only. Never automatically publish on push.
+on:
+  workflow_dispatch:
+    inputs:
+      candidate_run_id:
+        description: Successful Self-hosted Candidate run ID with source-free consumer acceptance
+        required: true
+        type: string
+      source_commit:
+        description: Exact 40-character tested main commit
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  actions: read
+
+concurrency:
+  group: self-hosted-preview-publication
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: github.repository == 'franksunye/runory' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      CANDIDATE_RUN: ${{ inputs.candidate_run_id }}
+      SOURCE_COMMIT: ${{ inputs.source_commit }}
+    steps:
+      - name: Verify exact source and required release evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$CANDIDATE_RUN" =~ ^[0-9]+$ && "$SOURCE_COMMIT" =~ ^[a-f0-9]{40}$ ]]
+          repo="$GITHUB_REPOSITORY"
+          # Only completed trusted main workflow runs for the exact commit.
+          run="$(gh api "repos/$repo/actions/runs/$CANDIDATE_RUN")"
+          jq -e --arg sha "$SOURCE_COMMIT" --arg repo "$repo" '
+            .head_sha==$sha and .head_branch=="main" and .head_repository.full_name==$repo
+            and .path==".github/workflows/self-hosted-candidate.yml" and .status=="completed"
+            and .conclusion=="success" and (.event=="push" or .event=="workflow_dispatch")
+          ' <<<"$run" >/dev/null
+          compare="$(gh api "repos/$repo/compare/$SOURCE_COMMIT...main" --jq .status)"
+          [[ "$compare" == ahead || "$compare" == identical ]]
+          gh api "repos/$repo/actions/runs/$CANDIDATE_RUN/jobs?per_page=100" --jq '.jobs' |
+            jq -e 'any(.[]; .name=="isolated-candidate" and .conclusion=="success") and
+              any(.[]; .name=="Source-free bundle acceptance" and .conclusion=="success")' >/dev/null
+          # Require aggregate Release Gate and documentation governance;
+          # command governance must pass if it ran on this exact commit.
+          for workflow in release-gate.yml docs-governance.yml command-contract-governance.yml; do
+            runs="$(gh api "repos/$repo/actions/workflows/$workflow/runs?head_sha=$SOURCE_COMMIT&branch=main&per_page=20")"
+            latest="$(jq -c '.workflow_runs | map(select(.event=="push" or .event=="workflow_dispatch")) | first // null' <<<"$runs")"
+            if [[ "$workflow" == command-contract-governance.yml && "$latest" == null ]]; then continue; fi
+            jq -e --arg sha "$SOURCE_COMMIT" --arg repo "$repo" '.head_sha==$sha and .head_branch=="main" and .head_repository.full_name==$repo and .status=="completed" and .conclusion=="success"' <<<"$latest" >/dev/null
+            if [[ "$workflow" == release-gate.yml ]]; then
+              echo "RELEASE_GATE_RUN=$(jq -r .id <<<"$latest")" >> "$GITHUB_ENV"
+            fi
+          done
+      - name: Download, verify and archive the already-tested bytes
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/preview-bundle" "$RUNNER_TEMP/consumer" "$RUNNER_TEMP/release-assets"
+          bundle="$RUNNER_TEMP/preview-bundle"
+          assets="$RUNNER_TEMP/release-assets"
+          name="runory-self-hosted-engineering-candidate-$SOURCE_COMMIT"
+          id="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$CANDIDATE_RUN/artifacts" --jq ".artifacts[] | select(.name==\"$name\" and .expired==false) | .id")"
+          [[ "$id" =~ ^[0-9]+$ ]]
+          gh run download "$CANDIDATE_RUN" --name "$name" --dir "$bundle"
+          gh run download "$CANDIDATE_RUN" --name bundle-consumer-evidence --dir "$RUNNER_TEMP/consumer"
+          # Fixed file allowlist: do not publish a workspace, volume, .env,
+          # hidden file, arbitrary path or source/credentials from an artifact.
+          files=(image.tar.gz image-reference.txt image-id.txt compose.yaml runory.sh README.md LICENSE release.json catalog.json prepare-upgrade.sh release-profile.mjs release-profile.json upgrade-scope.json AGENT-INSTALL.md SHA256SUMS)
+          for file in "${files[@]}"; do [[ -f "$bundle/$file" && ! -L "$bundle/$file" ]]; done
+          diff -u <(printf '%s\n' "${files[@]}" | sort) <(find "$bundle" -mindepth 1 -maxdepth 1 -printf '%f\n' | sort)
+          # The expected checksum manifest covers every other allowed file.
+          diff -u <(printf '%s\n' "${files[@]}" | grep -vx SHA256SUMS | sort) <(awk 'NF==2 && $1 ~ /^[a-f0-9]{64}$/ {print $2}' "$bundle/SHA256SUMS" | sort)
+          (cd "$bundle" && sha256sum --strict --check SHA256SUMS)
+          image_id="$(cat "$bundle/image-id.txt")"
+          [[ "$image_id" =~ ^sha256:[a-f0-9]{64}$ ]]
+          [[ "$(cat "$bundle/image-reference.txt")" == "runory/self-host-candidate:$SOURCE_COMMIT" ]]
+          jq -e --arg sha "$SOURCE_COMMIT" --arg image "$image_id" '.sourceCommit==$sha and .imageId==$image and .bundleContract==2 and .platform=="linux/amd64" and .status=="engineering_candidate" and .productionSupported==false' "$bundle/release.json" >/dev/null
+          jq -e --arg sha "$SOURCE_COMMIT" --arg image "$image_id" --arg artifact "$id" '
+            .status=="PASS" and .sourceCommit==$sha and .imageId==$image and .candidateArtifactId==$artifact
+            and .independentAgentTrial==false
+            and (.checks | index("real_chromium_owner_login_secure_cookie"))
+            and (.checks | index("company_visible_in_browser"))
+            and (.checks | index("bundled_stdio_mcp_scoped_readback_and_revocation"))
+          ' "$RUNNER_TEMP/consumer/consumer.json" >/dev/null
+          jq -e '.status=="PASS" and .scope=="same_schema_and_catalog" and .preCutoverRollback==true' "$bundle/upgrade-scope.json" >/dev/null
+          # Archive exactly the verified build artifact; no rebuild or execution
+          # of its scripts is performed in this privileged publishing job.
+          tar -C "$bundle" -czf "$assets/runory-self-host-linux-amd64.tar.gz" "${files[@]}"
+          cp "$bundle"/{release.json,catalog.json,release-profile.json,upgrade-scope.json,AGENT-INSTALL.md} "$assets/"
+          cp "$RUNNER_TEMP/consumer/consumer.json" "$assets/acceptance.json"
+          jq -e '.status=="PASS" and (.elapsedSeconds|type)=="number"' "$RUNNER_TEMP/consumer/install.json" >/dev/null
+          (cd "$assets" && sha256sum runory-self-host-linux-amd64.tar.gz release.json catalog.json release-profile.json upgrade-scope.json AGENT-INSTALL.md acceptance.json > SHA256SUMS)
+      - name: Publish immutable engineering prerelease
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag="self-host-preview-$SOURCE_COMMIT"
+          if gh release view "$tag" >/dev/null 2>&1 || gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$tag" >/dev/null 2>&1; then
+            echo "Release/tag already exists. Do not overwrite a published artifact."; exit 1
+          fi
+          assets="$RUNNER_TEMP/release-assets"
+          notes="$RUNNER_TEMP/preview-notes.md"
+          printf '%s\n' \
+            '**Runory — Field Service Operating System for the Agent Era.**' \
+            '' 'Engineering preview only; not production-supported, not Cloud GA.' \
+            "Source commit: $SOURCE_COMMIT" \
+            "Candidate and bundle-consumer acceptance: https://github.com/$GITHUB_REPOSITORY/actions/runs/$CANDIDATE_RUN" \
+            "Aggregate Release Gate: https://github.com/$GITHUB_REPOSITORY/actions/runs/$RELEASE_GATE_RUN" \
+            '' 'Linux amd64 Docker/Compose; owner-only local OTP or configured private email, FSM + Sales Quote, existing scoped MCP tools, local data and attachments. No source build required.' \
+            'Read AGENT-INSTALL.md and verify SHA256SUMS. Upgrade scope is same schema/Catalog only; do not overwrite or downgrade a live volume.' \
+            'Browser/MCP acceptance is scripted, not an independent Agent session. Live provider, public TLS/multi-user and full B2 acceptance remain separate. Synthetic data only.' > "$notes"
+          # A failed upload leaves at most a draft, never a partial public release.
+          gh release create "$tag" "$assets"/* --target "$SOURCE_COMMIT" --draft --prerelease \
+            --title "Runory Self-hosted engineering preview ${SOURCE_COMMIT:0:12}" --notes-file "$notes"
+          gh release view "$tag" --json assets,isDraft,isPrerelease |
+            jq -e '.isDraft==true and .isPrerelease==true and (.assets|length)==8 and all(.assets[]; .size>0)' >/dev/null
+          gh release edit "$tag" --draft=false --prerelease
+          gh release view "$tag" --json url,isDraft,isPrerelease |
+            jq -e '.isDraft==false and .isPrerelease==true'

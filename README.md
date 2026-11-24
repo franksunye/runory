@@ -63,9 +63,13 @@ Start with the governed [Documentation Index](docs/README.md). It identifies eac
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Development workflow and contribution standards |
 | [SECURITY.md](SECURITY.md) | Vulnerability reporting and supported-version policy |
 
-## Self-hosted engineering candidate
+## Self-hosted — engineering preview
 
-The [B1 packaging and isolated acceptance work](deploy/self-host/README.md) is underway. This is a source-build candidate, not a downloadable supported production release. Use the existing local development instructions only for development.
+**Start here for Agent-led installation:** [AGENT-INSTALL.md](deploy/self-host/AGENT-INSTALL.md) · [Official release index](https://github.com/franksunye/runory/releases) · [Operator guide](deploy/self-host/README.md).
+
+Verified engineering bundles contain a prebuilt Linux amd64 Docker image, Compose configuration, installer and versioned Catalog. They need no source compilation or mandatory Runory Cloud account for the owner-only profile. Use only an exact verified release or approved engineering artifact; the index may not yet contain a published prerelease. The preview is not production-supported. The [previous verified engineering bundle](https://github.com/franksunye/runory/actions/runs/45364405125/artifacts/14906421579) is temporary, not a stable public release. Check the current [candidate CI](https://github.com/franksunye/runory/actions/workflows/self-hosted-candidate.yml) and exact source evidence.
+
+The independent bundle supports FSM and Sales Quote Packs. Other Pack manifests in this repository are not automatically part of the independent preview. Use the local development instructions below only for development.
 
 ## Local development
 

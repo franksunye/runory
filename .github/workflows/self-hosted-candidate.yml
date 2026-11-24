@@ -14,7 +14,7 @@ permissions:
 
 concurrency:
   group: self-hosted-candidate-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   isolated-candidate:
@@ -31,6 +31,7 @@ jobs:
           node --check deploy/self-host/scheduler.mjs
           bash -n deploy/self-host/runory.sh
           bash -n deploy/self-host/prepare-upgrade.sh
+          node --check apps/cloud/scripts/verify-self-host-bundle.mjs
           node --check deploy/self-host/upgrade.mjs
       - name: Build production image from tracked source only
         shell: bash
@@ -194,7 +195,7 @@ jobs:
           docker save "$image" | gzip -1 > candidate-bundle/image.tar.gz
           printf '%s\n' "$image" > candidate-bundle/image-reference.txt
           docker image inspect "$image" --format '{{.Id}}' > candidate-bundle/image-id.txt
-          cp deploy/self-host/compose.yaml deploy/self-host/runory.sh deploy/self-host/README.md deploy/self-host/prepare-upgrade.sh deploy/self-host/release-profile.mjs LICENSE candidate-bundle/
+          cp deploy/self-host/compose.yaml deploy/self-host/runory.sh deploy/self-host/README.md deploy/self-host/AGENT-INSTALL.md deploy/self-host/prepare-upgrade.sh deploy/self-host/release-profile.mjs LICENSE candidate-bundle/
           docker run --rm --network none --read-only "$image" cat /app/deploy/self-host/bundle/catalog.json > candidate-bundle/catalog.json
           docker run --rm --network none --read-only "$image" node /app/deploy/self-host/release-profile.mjs > candidate-bundle/release-profile.json
           if [[ -f candidate-evidence/upgrade-scope.json ]]; then
@@ -203,8 +204,8 @@ jobs:
             printf '{"status":"NOT_RUN","reason":"upgrade_rehearsal_not_executed"}\n' > candidate-bundle/upgrade-scope.json
           fi
           jq -n --arg commit "$GITHUB_SHA" --arg image "$image" --arg imageId "$(cat candidate-bundle/image-id.txt)" \
-            '{format:"runory.self-host.engineering-candidate/v1",sourceCommit:$commit,image:$image,imageId:$imageId,platform:"linux/amd64",status:"engineering_candidate",productionSupported:false,cloudGa:false}' > candidate-bundle/release.json
-          (cd candidate-bundle && sha256sum image.tar.gz image-reference.txt image-id.txt compose.yaml runory.sh README.md LICENSE release.json catalog.json prepare-upgrade.sh release-profile.mjs release-profile.json upgrade-scope.json > SHA256SUMS && sha256sum -c SHA256SUMS)
+            '{format:"runory.self-host.engineering-candidate/v1",sourceCommit:$commit,image:$image,imageId:$imageId,platform:"linux/amd64",status:"engineering_candidate",bundleContract:2,productionSupported:false,cloudGa:false}' > candidate-bundle/release.json
+          (cd candidate-bundle && sha256sum image.tar.gz image-reference.txt image-id.txt compose.yaml runory.sh README.md LICENSE release.json catalog.json prepare-upgrade.sh release-profile.mjs release-profile.json upgrade-scope.json AGENT-INSTALL.md > SHA256SUMS && sha256sum -c SHA256SUMS)
       - name: Clean up isolated fixture
         if: always()
         shell: bash
@@ -228,4 +229,79 @@ jobs:
           path: candidate-bundle/
           compression-level: 0
           if-no-files-found: error
+          retention-days: 14
+
+  bundle-consumer:
+    name: Source-free bundle acceptance
+    needs: isolated-candidate
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      # Test harness dependencies only. The installer runs in a separate
+      # extracted artifact directory with no source tree or host Node build.
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - name: Prepare independent browser/MCP test harness
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm --filter @runory/cloud exec playwright install --with-deps chromium
+      - name: Obtain the exact built artifact on a fresh runner
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          bundle="$RUNNER_TEMP/runory-consumer-bundle"
+          mkdir -m 700 "$bundle"
+          name="runory-self-hosted-engineering-candidate-$GITHUB_SHA"
+          id="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/artifacts" --jq ".artifacts[] | select(.name==\"$name\" and .expired==false) | .id")"
+          [[ "$id" =~ ^[0-9]+$ ]]
+          gh run download "$GITHUB_RUN_ID" --name "$name" --dir "$bundle"
+          (cd "$bundle" && sha256sum --check SHA256SUMS)
+          jq -e --arg sha "$GITHUB_SHA" '.sourceCommit==$sha and .bundleContract==2 and .productionSupported==false' "$bundle/release.json" >/dev/null
+          echo "RUNORY_BUNDLE_DIR=$bundle" >> "$GITHUB_ENV"
+          echo "RUNORY_CANDIDATE_ARTIFACT_ID=$id" >> "$GITHUB_ENV"
+          echo "RUNORY_EXPECTED_IMAGE_ID=$(cat "$bundle/image-id.txt")" >> "$GITHUB_ENV"
+      - name: Install using only the extracted release bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          unset GH_TOKEN GITHUB_TOKEN RUNORY_API_KEY RUNORY_WORKSPACE_ID
+          mkdir -p bundle-consumer-evidence
+          cd "$RUNORY_BUNDLE_DIR"
+          test ! -d apps && test ! -d node_modules && test ! -d .git
+          start="$SECONDS"
+          bash runory.sh load
+          bash runory.sh init bundle-owner@runory.invalid
+          bash runory.sh start
+          bash runory.sh doctor
+          elapsed=$((SECONDS-start))
+          jq -n --argjson seconds "$elapsed" '{operation:"source_free_install",status:"PASS",elapsedSeconds:$seconds,tenMinuteTargetMet:($seconds<=600)}' > "$GITHUB_WORKSPACE/bundle-consumer-evidence/install.json"
+      - name: Verify actual browser session and bundled MCP interface
+        env:
+          RUNORY_EXPECTED_COMMIT: ${{ github.sha }}
+          RUNORY_CONSUMER_REPORT: ${{ github.workspace }}/bundle-consumer-evidence/consumer.json
+        run: node apps/cloud/scripts/verify-self-host-bundle.mjs
+      - name: Stop disposable instance
+        if: always()
+        shell: bash
+        run: |
+          if [[ -n "${RUNORY_BUNDLE_DIR:-}" && -f "$RUNORY_BUNDLE_DIR/.env" ]]; then
+            (cd "$RUNORY_BUNDLE_DIR" && bash runory.sh stop) || true
+          fi
+          # Ephemeral runner only. Never upload instance volumes or .env.
+      - name: Retain redacted consumer evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: bundle-consumer-evidence
+          path: bundle-consumer-evidence/
+          if-no-files-found: ignore
           retention-days: 14

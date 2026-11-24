@@ -60,6 +60,10 @@ The MCP server lives in `apps/mcp` and uses stdio transport. It is started from 
 pnpm --filter @runory/cloud mcp
 ```
 
+### Self-hosted bundle
+
+For the bounded independent preview, the prebuilt image includes the existing stdio server. Run `bash runory.sh mcp` from the extracted bundle with an authorized scoped `RUNORY_API_KEY` and `RUNORY_WORKSPACE_ID` supplied securely by the MCP client. No host Node.js/pnpm or source checkout is required. See the [Agent install contract](../deploy/self-host/AGENT-INSTALL.md). The owner performs login and authorizes scopes; do not expose OTP or secrets to the Agent. B2 named business-command coverage is separate.
+
 ### Environment
 
 | Variable | Purpose | Default |

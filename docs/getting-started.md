@@ -12,7 +12,7 @@
 
 Welcome to Runory. This guide walks you through the existing human-operated Cloud exploration journey: create a free Cloud account, set up a workspace, install an official pack, load demo data, use the workbench, customize safely with the Agent, and inspect the audit trail.
 
-The steps below originated in the v0.4 preview. The current strategic first user is the external Agent, with independent Self-hosted and managed Cloud as target deployment forms. See the [Agent-first Product Strategy](product/agent-first-product-strategy.md) and [Deployment Contract](architecture/cloud-to-local-workspace.md) for that target journey; do not interpret this guide's local development shortcut as production installation. For current Cloud offers and implemented release scope, consult the published offer and [Release Notes](./release-notes.md).
+The steps below originated in the v0.4 preview. The current strategic first user is the external Agent, with independent Self-hosted and managed Cloud as target deployment forms. See the [Agent-first Product Strategy](product/agent-first-product-strategy.md) and [Deployment Contract](architecture/cloud-to-local-workspace.md) for that target journey; do not interpret this guide's local development shortcut as production installation. For current Cloud offers and implemented release scope, consult the published offer and [Release Notes](./release-notes.md). For the independent prebuilt engineering preview, use the [Agent install contract](../deploy/self-host/AGENT-INSTALL.md), not the development setup below.
 
 > Read [Concepts](./concepts.md) first if you want to understand workspaces, modules, packs, and Agent operations before you start clicking.
 
