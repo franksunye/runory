@@ -39,7 +39,7 @@ Use synthetic records and approved local/non-production environments. The first 
 
 ## 2. Source baseline and implementation gaps
 
-B1.4: [artifact consumer and preview distribution](../releases/agent-first-b1-distribution-2026-11-24.md). The new consumer gate and explicit prerelease publication require exact-source evidence; scripted acceptance and actual independent Agent sessions remain distinct.
+B1.4: [artifact consumer and preview distribution](../releases/agent-first-b1-distribution-2026-11-24.md), including the final closure checklist and independent Agent trial protocol. The two-host consumer gate and explicit prerelease publication require exact-source evidence; scripted acceptance and actual independent Agent sessions remain distinct.
 
 Latest B1.3 work: [explicit compatible runtime upgrade](../releases/agent-first-b1-upgrade-2026-11-24.md). Prior candidate passed; new upgrade implementation requires exact-commit verification. The first supported upgrade class preserves schema and Catalog resources; broader migrations remain separate.
 

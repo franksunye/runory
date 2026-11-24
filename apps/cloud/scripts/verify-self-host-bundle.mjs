@@ -1,7 +1,7 @@
 // CI harness only. Runs on a fresh host against the extracted artifact, with
 // synthetic identity and business records. Never capture OTPs, keys, browser
 // storage, provider bodies, raw error objects or screenshots in evidence.
-import { chromium } from "@playwright/test";
+import { chromium, devices } from "@playwright/test";
 import { createRequire } from "node:module";
 import { execFileSync } from "node:child_process";
 import { writeFile } from "node:fs/promises";
@@ -14,6 +14,7 @@ const commit = process.env.RUNORY_EXPECTED_COMMIT;
 const imageId = process.env.RUNORY_EXPECTED_IMAGE_ID;
 const artifactId = process.env.RUNORY_CANDIDATE_ARTIFACT_ID;
 const reportPath = process.env.RUNORY_CONSUMER_REPORT;
+const browserProfile = process.env.RUNORY_CONSUMER_BROWSER;
 const email = "bundle-owner@runory.invalid";
 const companyName = "B1 distributed bundle synthetic customer";
 let stage = "preconditions", browser, client, transport;
@@ -27,8 +28,12 @@ function toolPayload(result) {
 try {
   assert(bundle && reportPath && /^[a-f0-9]{40}$/.test(commit ?? "") &&
     /^sha256:[a-f0-9]{64}$/.test(imageId ?? "") && /^\d+$/.test(artifactId ?? ""), "missing_release_context");
+  assert(["desktop-chromium","mobile-chromium"].includes(browserProfile ?? ""), "invalid_consumer_browser_profile");
   browser = await chromium.launch({headless:true});
-  const context = await browser.newContext({ locale:"en-US" });
+  const context = await browser.newContext({
+    ...devices[browserProfile === "mobile-chromium" ? "Pixel 7" : "Desktop Chrome"],
+    locale:"en-US",
+  });
   // No external images, analytics or other provider requests in the browser.
   await context.route("**/*", route => {
     try { if (new URL(route.request().url()).origin === base) return route.continue(); }
@@ -121,7 +126,7 @@ try {
   pass("bundled_stdio_mcp_scoped_readback_and_revocation");
   await writeFile(reportPath,JSON.stringify({format:"runory.self-host.bundle-consumer/v1",status:"PASS",
     sourceCommit:commit,imageId,candidateArtifactId:artifactId,checks,independentAgentTrial:false,
-    browser:"chromium-localhost",providerAcceptance:false},null,2)+"\n",{flag:"wx",mode:0o600});
+    browser:browserProfile,providerAcceptance:false},null,2)+"\n",{flag:"wx",mode:0o600});
 } catch {
   console.error(JSON.stringify({stage,status:"FAIL",checks}));
   process.exitCode=1;

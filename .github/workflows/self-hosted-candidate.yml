@@ -26,7 +26,7 @@ jobs:
           persist-credentials: false
       - name: Check startup, snapshot safety and fixture syntax
         run: |
-          node --test deploy/self-host/preflight.test.mjs deploy/self-host/snapshot.test.mjs deploy/self-host/initialize.test.mjs deploy/self-host/upgrade.test.mjs
+          node --test deploy/self-host/preflight.test.mjs deploy/self-host/snapshot.test.mjs deploy/self-host/initialize.test.mjs deploy/self-host/upgrade.test.mjs deploy/self-host/agent-install.test.mjs
           node --check deploy/self-host/verify-candidate.mjs
           node --check deploy/self-host/scheduler.mjs
           bash -n deploy/self-host/runory.sh
@@ -232,11 +232,17 @@ jobs:
           retention-days: 14
 
   bundle-consumer:
-    name: Source-free bundle acceptance
+    name: Source-free bundle acceptance (${{ matrix.browser }})
     needs: isolated-candidate
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [desktop-chromium, mobile-chromium]
+    env:
+      RUNORY_CONSUMER_BROWSER: ${{ matrix.browser }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
@@ -283,7 +289,7 @@ jobs:
           bash runory.sh start
           bash runory.sh doctor
           elapsed=$((SECONDS-start))
-          jq -n --argjson seconds "$elapsed" '{operation:"source_free_install",status:"PASS",elapsedSeconds:$seconds,tenMinuteTargetMet:($seconds<=600)}' > "$GITHUB_WORKSPACE/bundle-consumer-evidence/install.json"
+          jq -n --argjson seconds "$elapsed" --arg browser "$RUNORY_CONSUMER_BROWSER" --arg sha "$GITHUB_SHA" --arg image "$RUNORY_EXPECTED_IMAGE_ID" --arg artifact "$RUNORY_CANDIDATE_ARTIFACT_ID" '{operation:"source_free_install",status:"PASS",browser:$browser,sourceCommit:$sha,imageId:$image,candidateArtifactId:$artifact,elapsedSeconds:$seconds,tenMinuteTargetMet:($seconds<=600)}' > "$GITHUB_WORKSPACE/bundle-consumer-evidence/install.json"
       - name: Verify actual browser session and bundled MCP interface
         env:
           RUNORY_EXPECTED_COMMIT: ${{ github.sha }}
@@ -301,7 +307,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: bundle-consumer-evidence
+          name: bundle-consumer-evidence-${{ matrix.browser }}
           path: bundle-consumer-evidence/
           if-no-files-found: ignore
           retention-days: 14

@@ -11,7 +11,9 @@ permissions:
 
 concurrency:
   group: release-gate-${{ github.ref }}
-  cancel-in-progress: true
+  # Preserve the completed evidence of each main release candidate; new work
+  # must not cancel a running full regression suite. PRs may supersede checks.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   tests:

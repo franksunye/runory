@@ -28,3 +28,4 @@ deploy/self-host/initialize.test.mjs
 deploy/self-host/bundle
 deploy/self-host/upgrade.test.mjs
 apps/cloud/scripts/verify-self-host-bundle.mjs
+deploy/self-host/agent-install.test.mjs
