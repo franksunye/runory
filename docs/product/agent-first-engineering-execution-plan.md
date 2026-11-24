@@ -39,6 +39,8 @@ Use synthetic records and approved local/non-production environments. The first 
 
 ## 2. Source baseline and implementation gaps
 
+Current execution evidence: [B0 source baseline and first candidate boundary — 2026-11-24](../releases/agent-first-b0-baseline-2026-11-24.md). B1 engineering candidate entry: [Self-hosted packaging](../../deploy/self-host/README.md). These are not completed batch or release claims.
+
 Source inspection: [main at 4575360ed7382821d1945908093565ce44635bd4](https://github.com/franksunye/runory/tree/4575360ed7382821d1945908093565ce44635bd4), 2026-11-24. Repository is public; GitHub Releases listing returned no releases at review time. This is not a full runtime audit, a live site verification, or an assertion that no distribution exists anywhere else.
 
 | Capability | Existing source evidence | Gap / immediate action |

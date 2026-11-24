@@ -63,6 +63,10 @@ Start with the governed [Documentation Index](docs/README.md). It identifies eac
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Development workflow and contribution standards |
 | [SECURITY.md](SECURITY.md) | Vulnerability reporting and supported-version policy |
 
+## Self-hosted engineering candidate
+
+The [B1 packaging and isolated acceptance work](deploy/self-host/README.md) is underway. This is a source-build candidate, not a downloadable supported production release. Use the existing local development instructions only for development.
+
 ## Local development
 
 Requirements: Node.js 20+, pnpm 9+.

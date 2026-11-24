@@ -1,0 +1,36 @@
+# B1 candidate; no published image is implied by this configuration.
+services:
+  runory:
+    image: ${RUNORY_IMAGE:?Select a verified local candidate image}
+    init: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${RUNORY_PORT:-3000}:3000"
+    environment:
+      PLATFORM_ADMIN_EMAILS: ${PLATFORM_ADMIN_EMAILS:?Set the verified owner email}
+      PLATFORM_MAIL_PROVIDER_URL: ${PLATFORM_MAIL_PROVIDER_URL:?Set an owner-controlled private mail provider}
+      PLATFORM_CRON_SECRET: ${PLATFORM_CRON_SECRET:?Generate a distinct random cron secret}
+      CUSTOMER_ACCESS_SESSION_SECRET: ${CUSTOMER_ACCESS_SESSION_SECRET:?Generate a distinct random customer access secret}
+    volumes:
+      - runory-data:/data
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+  scheduler:
+    image: ${RUNORY_IMAGE:?Select a verified local candidate image}
+    init: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    restart: unless-stopped
+    command: ["node", "/app/deploy/self-host/scheduler.mjs"]
+    environment:
+      PLATFORM_CRON_SECRET: ${PLATFORM_CRON_SECRET:?Generate a distinct random cron secret}
+    depends_on:
+      runory:
+        condition: service_healthy
+volumes:
+  runory-data:

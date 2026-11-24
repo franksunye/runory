@@ -1,0 +1,77 @@
+name: Self-hosted Candidate
+
+on:
+  pull_request:
+    paths: ["deploy/self-host/**", ".dockerignore", ".github/workflows/self-hosted-candidate.yml", "apps/**", "packages/**", "catalog/**", "schema/**", "package.json", "pnpm-lock.yaml", "pnpm-workspace.yaml"]
+  push:
+    branches: [main]
+    paths: ["deploy/self-host/**", ".dockerignore", ".github/workflows/self-hosted-candidate.yml", "apps/**", "packages/**", "catalog/**", "schema/**", "package.json", "pnpm-lock.yaml", "pnpm-workspace.yaml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: self-hosted-candidate-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  isolated-candidate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Build production image from tracked source only
+        shell: bash
+        run: |
+          set -euo pipefail
+          context="$(mktemp -d)"
+          git archive HEAD | tar -x -C "$context"
+          docker build --platform linux/amd64 --build-arg "RUNORY_SOURCE_SHA=$GITHUB_SHA" -f "$context/deploy/self-host/Dockerfile" -t runory-candidate:ci "$context"
+          rm -rf "$context"
+          mkdir -p candidate-evidence
+          docker image inspect runory-candidate:ci --format '{{.Id}} {{index .Config.Labels "org.opencontainers.image.revision"}}' > candidate-evidence/image.txt
+      - name: Verify isolated production installation and restart
+        shell: bash
+        run: |
+          set -euo pipefail
+          export PLATFORM_CRON_SECRET="$(openssl rand -hex 32)"
+          export CUSTOMER_ACCESS_SESSION_SECRET="$(openssl rand -hex 32)"
+          export PLATFORM_ADMIN_EMAILS="owner@runory.invalid"
+          export PLATFORM_MAIL_PROVIDER_URL="http://mail-fixture:8787/send"
+          export RUNORY_IMAGE="runory-candidate:ci"
+          export RUNORY_EXPECTED_COMMIT="$GITHUB_SHA"
+          docker compose -f deploy/self-host/compose.yaml config --quiet
+          docker network create --internal runory-candidate-ci
+          docker volume create runory-candidate-data
+          docker run -d --name runory-candidate-app --network runory-candidate-ci --network-alias runory --init --cap-drop ALL --security-opt no-new-privileges \
+            -e PLATFORM_ADMIN_EMAILS -e PLATFORM_MAIL_PROVIDER_URL -e PLATFORM_CRON_SECRET -e CUSTOMER_ACCESS_SESSION_SECRET \
+            -v runory-candidate-data:/data "$RUNORY_IMAGE"
+          verify() {
+            docker run --rm --network runory-candidate-ci --network-alias mail-fixture --cap-drop ALL --security-opt no-new-privileges \
+              -e RUNORY_EXPECTED_COMMIT -v "$PWD/deploy/self-host/verify-candidate.mjs:/tmp/verify-candidate.mjs:ro" \
+              "$RUNORY_IMAGE" node /tmp/verify-candidate.mjs "$1"
+          }
+          verify initialize | tee candidate-evidence/initialize.jsonl
+          docker run --rm --network runory-candidate-ci --cap-drop ALL --security-opt no-new-privileges \
+            -e PLATFORM_CRON_SECRET "$RUNORY_IMAGE" node /app/deploy/self-host/scheduler.mjs --once | tee candidate-evidence/scheduler.jsonl
+          grep -q '"status":"PASS"' candidate-evidence/scheduler.jsonl
+          docker restart runory-candidate-app >/dev/null
+          verify readback | tee candidate-evidence/readback.jsonl
+      - name: Clean up isolated fixture
+        if: always()
+        shell: bash
+        run: |
+          docker rm -f runory-candidate-app 2>/dev/null || true
+          docker volume rm runory-candidate-data 2>/dev/null || true
+          docker network rm runory-candidate-ci 2>/dev/null || true
+      - name: Retain non-sensitive candidate evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: self-hosted-candidate-evidence
+          path: candidate-evidence/
+          if-no-files-found: ignore
+          retention-days: 14
