@@ -28,12 +28,16 @@ uploads. Non-Vercel production also requires an explicit provider. The authentic
 allowlist to the mobile form. Larger Vercel files require a future governed direct
 upload flow; raising the server limit would exceed the Function request limit.
 
-With `@vercel/blob` 2.9.0, the SDK uses Vercel's rotating OIDC credentials and the
-connected store ID. Do not copy a fixed `VERCEL_OIDC_TOKEN` into application code or
-pass an `oidcToken` option: doing so disables SDK refresh. Outside Vercel,
-`BLOB_READ_WRITE_TOKEN` may be used for the same store. Store IDs accept either
-`store_<id>` or `<id>`. Keep all credentials server-side. Separate Preview and
-Production stores when their data must be isolated.
+If `BLOB_READ_WRITE_TOKEN` is explicitly configured, the adapter passes it to the
+SDK for that store. This supports existing token connections even when Vercel also
+supplies an OIDC token without a corresponding store grant. Keep the production
+token sensitive and scoped to Production. Without a static token, `@vercel/blob`
+2.9.0 resolves and refreshes Vercel OIDC credentials for the connected store ID.
+Do not copy a fixed `VERCEL_OIDC_TOKEN` into application code or pass an `oidcToken`
+option: doing so disables SDK refresh. Authentication failure does not switch
+credentials and retry. Store IDs accept either `store_<id>` or `<id>`. Keep all
+credentials server-side. Separate Preview and Production stores when their data
+must be isolated.
 
 The application always passes `access: "private"`. Downloads first authorize the
 Workspace, select the attachment within that Workspace, and then stream the object

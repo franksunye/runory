@@ -66,6 +66,8 @@ beforeEach(() => {
   vi.stubEnv("CRON_SECRET", "");
   vi.stubEnv("PLATFORM_MAIL_PROVIDER_URL", "https://mail.synthetic.invalid/send");
   vi.stubEnv("RUNORY_MAIL_PROVIDER_URL", "");
+  vi.stubEnv("RESEND_API_KEY", "");
+  vi.stubEnv("RUNORY_EMAIL_FROM", "");
   fetchMock.mockClear();
   // Only the mail transport is stubbed; authentication, rate limiting,
   // identities, cookies and route authorization use the real implementation.
@@ -127,10 +129,23 @@ describe("Production rejects accidentally enabled development authentication", (
     expect((await response.json()).data).not.toHaveProperty("devCode");
     expect(fetchMock).toHaveBeenCalledTimes(1);
     vi.stubEnv("PLATFORM_MAIL_PROVIDER_URL", "");
+    vi.stubEnv("RESEND_API_KEY", "re_synthetic_route_key");
+    vi.stubEnv("RUNORY_EMAIL_FROM", "Runory <no-reply@example.invalid>");
+    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ id: "synthetic-message-id" })));
+    const resend = await requestOtpRoute(request("/api/auth/request-otp", { email: "resend@production-boundaries.invalid" }));
+    expect(resend.status).toBe(200);
+    expect((await resend.json()).data).not.toHaveProperty("devCode");
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    fetchMock.mockResolvedValueOnce(new Response("synthetic provider failure", { status: 503 }));
+    const rejected = await requestOtpRoute(request("/api/auth/request-otp", { email: "rejected@production-boundaries.invalid" }));
+    expect(rejected.status).toBe(500);
+    expect(await rejected.json()).not.toHaveProperty("data.devCode");
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    vi.stubEnv("RESEND_API_KEY", "");
     const unavailable = await requestOtpRoute(request("/api/auth/request-otp", { email: "missing-provider@production-boundaries.invalid" }));
     expect(unavailable.status).toBe(500);
     expect(await unavailable.json()).not.toHaveProperty("data.devCode");
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
   });
 
   it("ignores core devMode/skipRateLimit options for production OTP issuance and verification", async () => {

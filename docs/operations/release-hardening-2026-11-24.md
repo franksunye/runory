@@ -20,7 +20,7 @@
 | Stripe Connect | 精确豁免 Connect webhook 的浏览器 CSRF 检查，保留原始请求体验签。真实本地 Next HTTP 脚本验证合成签名事件更新数据库、重复投递业务状态稳定、坏签名不写库。`account.updated` 是状态幂等更新，重复时可刷新同步时间，不宣称事件只处理一次。 |
 | 持久升级与回滚 | [迁移 0054](../../schema/migrations/0054_upgrade_snapshots.sql) 保存不可变升级快照和执行状态；快照写入失败阻止后续升级。重开连接后可读取快照；校验损坏、范围不符或后续元数据变化时拒绝伪造回滚成功。SQL 已尝试执行时明确要求数据库恢复。 |
 | Voice Intake 原子性 | Provider receipt、关联业务状态以及 intake 操作的业务写入、回放结果和 outbox 意图纳入数据库事务；失败可重试，嵌套调用复用外层事务。外部电话和邮件投递不属于数据库事务。 |
-| 生产开发开关隔离 | Bootstrap、Persona、OTP 调试与相关 UI 只在本地开发运行时启用；生产构建不会嵌入调试身份开关。生产 OTP 要求邮件 Provider，不能靠调试标志跳过投递或限流。 |
+| 生产开发开关隔离与邮件 | Bootstrap、Persona、OTP 调试与相关 UI 只在本地开发运行时启用；生产构建不会嵌入调试身份开关。生产 OTP 优先使用自定义邮件 URL，未配置时支持项目已有的 Resend key/from；投递超时或失败使该次验证码失效，日志不含验证码或 Provider 响应。 |
 | 附件持久存储 | 支持本地持久目录与 Vercel **private Blob**；鉴权后服务端流式下载，数据库保存版本化 provider/store/key 引用。Vercel 缺配置时拒绝上传，不回退本地。上传失败有补偿，旧对象不可读时去重重试不误报成功。配置扫描器后错误严格拒绝；未配置的可选扫描明确记为 `not_configured`。参见 [附件操作说明](attachment-storage.md)。 |
 | 依赖与兼容 | 更新直接和传递依赖、修复 Zod 4 契约兼容，按锁文件安装。生产依赖门槛阻止未审查的 High/Critical 命中；MapLibre 的精确 backport 例外见下文。 |
 | CI 与当前版本恢复 | 新增 [Release Gate](../../.github/workflows/release-gate.yml)：测试、类型检查、生产构建、依赖检查、本地 G1/G2 与恢复演练。恢复工具只读源库、只接受新的本地目标，校验数据/结构摘要、完整性、外键并重开验证。当前版本演练要求真实迁移、Catalog/安装记录和合成业务数据。工作流存在不等同于远程检查已通过或分支保护已配置。 |
@@ -31,7 +31,7 @@
 2. **应用快照不能逆转任意 SQL。** 一旦升级尝试执行 schema/data SQL，回滚返回 `requires_database_restore`；必须使用已验证的数据库恢复流程，不能只把安装版本号改回旧值。先执行 [备份与恢复操作说明](backup-restore-runbook.md)，保留独立恢复目标。
 3. **旧附件必须迁移原字节。** 裸 `workspace/id` 仍代表本地文件；改环境变量不会把它变成 Blob。校验字节数与 SHA-256、上传并回读后，才同步更新 `storage_path` 与 `storage_key`。新引用不能由旧版仅磁盘 reader 读取；应用回滚必须选择兼容 reader，或恢复配套的引用与字节。数据库备份不包含附件字节。
 4. **生产必须配置真实邮件 Provider。** 调试 OTP 和开发身份不再是部署后的登录替代方案。确认生产登录、邮件投递、有效会话及管理员权限后再开放使用。
-5. **Vercel 附件每文件 4 MiB，本地 10 MiB。** UI 从鉴权 policy 接口读取限制。连接 private store，配置 `RUNORY_ATTACHMENT_STORAGE=vercel-blob` 和 `BLOB_STORE_ID`，让 SDK 管理 OIDC 刷新；按上传政策配置扫描器及 `RUNORY_MALWARE_SCAN_REQUIRED`。对象写入与 DB 不构成分布式事务，补偿失败或进程中断留下的孤立对象需按引用对账。
+5. **Vercel 附件每文件 4 MiB，本地 10 MiB。** UI 从鉴权 policy 接口读取限制。连接 private store，配置 `RUNORY_ATTACHMENT_STORAGE=vercel-blob` 和 `BLOB_STORE_ID`；显式静态 token 连接使用该 token，无静态 token 时让 SDK 管理 OIDC 刷新。按上传政策配置扫描器及 `RUNORY_MALWARE_SCAN_REQUIRED`。对象写入与 DB 不构成分布式事务，补偿失败或进程中断留下的孤立对象需按引用对账。
 6. **MapLibre 例外严格限定。** [依赖检查脚本](../../scripts/check-production-dependencies.mjs) 只对 `GHSA-jrc7-96c5-q579` 且实际命中版本全部恰为 `maplibre-gl@5.24.1` 接受维护者 backport 证据；不是整包或整项公告的长期豁免。依据：[维护者公告](https://github.com/maplibre/maplibre-gl-js/security/advisories/GHSA-jrc7-96c5-q579)、[5.24.1 发布记录](https://github.com/maplibre/maplibre-gl-js/releases/tag/v5.24.1)。版本变化或出现其他公告必须重新评估，保留原始审计结果。
 
 ## 验证命令与证据
@@ -69,7 +69,13 @@ node --import tsx scripts/verify-connect-http.mts --report=../../artifacts/conne
 
 ## 尚未完成的外部验收
 
-实际 Vercel 团队 `team_TSrVlFAv1bzZttdJxPkXUXgK` 的访问返回 **403**，当前无法取得真实项目配置及构建/运行日志。本地代码、构建或模拟测试通过不能解除此权限阻塞，也不能证明该团队已有成功部署。
+2026-11-24 已通过正确账号访问实际 Vercel 团队 `sun's projects` 及 `runory` 项目，原先的账号权限阻塞已解除。现已核实该团队为 **Hobby**，而 Cloud 配置的 workflow timer 是 `* * * * *`。Hobby 只允许每天运行的 cron，分钟级表达式会阻止部署；旧失败状态也指向该限制的官方说明。需要团队升级到支持分钟任务的套餐，或另行明确设计等价调度；不能静默降为每天运行。参见 [Cron 使用与限制](https://vercel.com/docs/cron-jobs/usage-and-pricing)。
+
+已创建项目的 private Blob store，并将其静态读写 token 设为 sensitive、仅限 Production。已补齐 Production 的附件 provider/store、cron 密钥、客户访问会话密钥、正式站点 URL 和 `RUNORY_RELEASE_BACKUP_REQUIRED=1`；关闭部署环境的调试 OTP，明确 Cloud 模式。Vercel 项目设为生产部署先暂存、验收后显式推广。配置写入不等于新版本已部署或真实 Provider 已验证。
+
+生产数据库凭据为 Vercel sensitive 变量，管理 API 不提供其内容。发布备份在已授权的生产构建环境内使用现有变量，只读源库、恢复到新的临时库并重开校验，再上传到 private Blob 并回读验证；任何必要步骤失败阻断构建。备份不导入迁移或 seed 入口，不把业务数据或凭据输出到日志、源码、构建产物或公开 URL。实际云端执行结果仍须随目标 commit 验收。
+
+修复了 G2 验收中的过期命令文案，并加强角色拒绝证据：先证明授权角色能看到有效操作，再验证受限角色的 API 必须明确返回权限拒绝且状态不变。完整 Gate 是否通过，以该候选 commit 对应的 GitHub Actions 结果为准。
 
 以下仍需在实际受控环境验收：private Blob/OIDC 连接及跨部署字节恢复、扫描 Provider、生产 OTP 投递、真实 Stripe Connect/Retell 回调、cron 调度和外部投递，以及所选数据库 Provider 的备份/PITR/恢复能力。真实商户开通、真实设备与 Provider 例外场景仍属于 G4；本地数据库恢复不验证外部附件或 Provider 状态恢复，也不认证生产 RPO/RTO。
 

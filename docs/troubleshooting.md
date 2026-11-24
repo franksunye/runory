@@ -84,8 +84,14 @@ With `PLATFORM_DEV_BOOTSTRAP=true` in a local `development` or `test` runtime, R
 
 Notes:
 
-- OTPs are hashed, single-use, expire, and have an attempt limit. In dev, the OTP email is only sent if a mail provider URL is configured (`PLATFORM_MAIL_PROVIDER_URL`).
+- OTPs are hashed, single-use, expire, and have an attempt limit. Local development returns a debug code when requested, or logs the email locally; it does not contact an email provider.
 - If you set `PLATFORM_TRUST_IDENTITY_HEADERS=true`, you must also set `PLATFORM_TRUST_PROXY_VERIFIED=true`, otherwise the server prints a loud startup warning. Trust headers are spoofable by any client unless a verified reverse proxy strips and re-injects them.
+
+### Production OTP email
+
+Configure either `PLATFORM_MAIL_PROVIDER_URL` (legacy alias: `RUNORY_MAIL_PROVIDER_URL`) or both `RESEND_API_KEY` and `RUNORY_EMAIL_FROM`. A non-empty custom URL takes precedence and retains its existing JSON contract: `POST { to, subject, html, text }`, accepting a 2xx response. Without a custom URL, Runory uses the [official Resend send-email API](https://resend.com/docs/api-reference/emails/send-email) at `https://api.resend.com/emails`; the sender must use a domain verified in Resend.
+
+Delivery has a 10-second timeout and refuses redirects. Provider rejection, transport failure, or an invalid Resend acknowledgement fails the OTP request and expires that request's challenge. Runory does not switch providers after a failed attempt. Logs include the provider label, failure category, and available HTTP status, never the OTP, API key, or provider response body. A provider acknowledgement confirms acceptance, not inbox delivery; check the provider's delivery status if mail is missing.
 
 ## Session issues
 

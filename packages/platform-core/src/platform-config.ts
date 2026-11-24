@@ -209,7 +209,9 @@ export function isDevBootstrapEnabled(): boolean {
 
 /** Get the mail provider URL */
 export function getMailProviderUrl(): string | undefined {
-  return envWithLegacy(PLATFORM_CONFIG.mailProviderUrlEnv, PLATFORM_CONFIG.mailProviderUrlEnvLegacy);
+  return process.env[PLATFORM_CONFIG.mailProviderUrlEnv]?.trim()
+    || process.env[PLATFORM_CONFIG.mailProviderUrlEnvLegacy]?.trim()
+    || undefined;
 }
 
 /** Get platform admin emails from env */

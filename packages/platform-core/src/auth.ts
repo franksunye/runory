@@ -14,6 +14,7 @@ import {
 const OTP_TTL_MINUTES = 10;
 const OTP_LENGTH = 6;
 const OTP_MAX_ATTEMPTS = 5;
+const OTP_MAIL_TIMEOUT_MS = 10_000;
 const SESSION_TTL_DAYS = 30;
 const SESSION_TOKEN_BYTES = 32;
 
@@ -181,7 +182,17 @@ export async function requestOtp(
 
   // In production, send email via provider. In dev, return the code.
   if (!devMode) {
-    await sendOtpEmail(emailNormalized, code);
+    try {
+      await sendOtpEmail(emailNormalized, code);
+    } catch (error) {
+      // A rejected or timed-out delivery must not leave this request usable.
+      // Keep other requests for the same address untouched.
+      await execute(
+        `UPDATE ${TABLES.authChallenges} SET status = 'expired' WHERE id = ? AND status = 'pending'`,
+        [challengeId]
+      );
+      throw error;
+    }
   }
 
   return {
@@ -625,8 +636,8 @@ export async function listUserSessions(userId: string, currentToken?: string): P
 // ── Email Provider Adapter ──
 //
 // Per SaaS Core Boundaries §4.2: "Email delivery uses external service, Runory does not maintain mail server."
-// In development, emails are logged to console. In production, this should be replaced with
-// a real email provider (Resend, SendGrid, Postmark, etc.).
+// Local development logs email. Hosted runtimes use the custom HTTP contract
+// when configured, otherwise Resend with an explicit API key and sender.
 
 async function sendOtpEmail(email: string, code: string): Promise<void> {
   if (isLocalDevelopmentRuntime()) {
@@ -636,32 +647,67 @@ async function sendOtpEmail(email: string, code: string): Promise<void> {
   }
 
   const providerUrl = getMailProviderUrl();
-  if (!providerUrl) {
-    console.error("[MAIL] No mail provider configured. Set PLATFORM_MAIL_PROVIDER_URL.");
+  const resendKey = process.env.RESEND_API_KEY?.trim();
+  const resendFrom = process.env.RUNORY_EMAIL_FROM?.trim();
+  if (!providerUrl && (!resendKey || !resendFrom)) {
+    console.error("[MAIL] No mail provider configured. Set PLATFORM_MAIL_PROVIDER_URL or both RESEND_API_KEY and RUNORY_EMAIL_FROM.");
     throw new Error("Mail provider not configured");
   }
 
-  // Call external mail provider via HTTP
-  // Provider API contract: POST {url} with JSON body { to, subject, html, text }
-  // Expected response: 2xx status code
-  const response = await fetch(providerUrl, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      to: email,
-      subject: "Runory — your verification code",
-      text: `Your verification code is: ${code}\n\nThis code expires in ${OTP_TTL_MINUTES} minutes.\n\nIf you did not request this code, you can safely ignore this email.`,
-      html: `<div style="font-family: sans-serif; max-width: 400px; margin: 0 auto;"><h2 style="margin-bottom: 24px;">Runory verification code</h2><p style="font-size: 32px; font-weight: bold; letter-spacing: 4px; color: #2563eb;">${code}</p><p style="color: #64748b;">This code expires in ${OTP_TTL_MINUTES} minutes.</p><p style="color: #94a3b8; font-size: 12px; margin-top: 24px;">If you did not request this code, you can safely ignore this email.</p></div>`,
-    }),
-  });
+  const provider = providerUrl ? "custom" : "resend";
+  const content = {
+    subject: "Runory — your verification code",
+    text: `Your verification code is: ${code}\n\nThis code expires in ${OTP_TTL_MINUTES} minutes.\n\nIf you did not request this code, you can safely ignore this email.`,
+    html: `<div style="font-family: sans-serif; max-width: 400px; margin: 0 auto;"><h2 style="margin-bottom: 24px;">Runory verification code</h2><p style="font-size: 32px; font-weight: bold; letter-spacing: 4px; color: #2563eb;">${code}</p><p style="color: #64748b;">This code expires in ${OTP_TTL_MINUTES} minutes.</p><p style="color: #94a3b8; font-size: 12px; margin-top: 24px;">If you did not request this code, you can safely ignore this email.</p></div>`,
+  };
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), OTP_MAIL_TIMEOUT_MS);
+  let response: Response | undefined;
+  let failureReason: "transport" | "rejected" | "invalid_response" = "transport";
 
-  if (!response.ok) {
-    const errorText = await response.text().catch(() => "unknown error");
-    console.error(`[MAIL] Provider returned ${response.status}: ${errorText}`);
-    throw new Error(`Mail provider error: ${response.status}`);
+  try {
+    response = await fetch(providerUrl ?? "https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(provider === "resend" ? { Authorization: `Bearer ${resendKey}` } : {}),
+      },
+      // Preserve the existing custom-provider contract and 2xx acceptance.
+      body: JSON.stringify(provider === "custom"
+        ? { to: email, ...content }
+        : { from: resendFrom, to: [email], ...content }),
+      redirect: "error",
+      signal: controller.signal,
+    });
+
+    if (!response.ok) {
+      failureReason = "rejected";
+      throw new Error("Provider rejected delivery");
+    }
+    if (provider === "resend") {
+      failureReason = "invalid_response";
+      const result: unknown = await response.json();
+      if (!result || typeof result !== "object" || !("id" in result)
+        || typeof result.id !== "string" || !result.id.trim()) {
+        throw new Error("Provider did not acknowledge delivery");
+      }
+    }
+  } catch {
+    // Provider bodies and transport errors can echo the OTP, recipient, key,
+    // or a credential-bearing URL. Log only fixed labels and HTTP status.
+    console.error("[MAIL] OTP email delivery failed", {
+      provider,
+      reason: controller.signal.aborted ? "timeout" : failureReason,
+      ...(response ? { status: response.status } : {}),
+    });
+    throw new Error("OTP email delivery failed");
+  } finally {
+    clearTimeout(timeout);
+    // Also release unread custom-provider/error response bodies.
+    controller.abort();
   }
 
-  console.log(`[MAIL] OTP email sent to ${email}`);
+  console.log("[MAIL] OTP email accepted", { provider });
 }
 
 // ── Cookie Helpers ──

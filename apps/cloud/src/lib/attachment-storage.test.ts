@@ -55,7 +55,7 @@ describe("attachment storage provider boundaries", () => {
     const storage = createAttachmentStorage({ RUNORY_ATTACHMENT_STORAGE: "vercel-blob", BLOB_STORE_ID: "store_newstore", BLOB_READ_WRITE_TOKEN: "synthetic" });
     blob.get.mockResolvedValueOnce(null);
     expect(await storage.get("ws_a", "vercel-blob-private:v1:oldstore/ws_a/att_a")).toBeNull();
-    expect(blob.get).toHaveBeenCalledWith("https://oldstore.private.blob.vercel-storage.com/attachments/ws_a/att_a", { access: "private", storeId: "oldstore", useCache: false });
+    expect(blob.get).toHaveBeenCalledWith("https://oldstore.private.blob.vercel-storage.com/attachments/ws_a/att_a", { access: "private", storeId: "oldstore", token: "synthetic", useCache: false });
   });
 
   it("rejects a token/store mismatch and compensates the actual uploaded object", async () => {
@@ -64,7 +64,41 @@ describe("attachment storage provider boundaries", () => {
     blob.put.mockResolvedValueOnce({ url });
     blob.del.mockResolvedValueOnce(undefined);
     await expect(storage.put("ws_a", storage.prepare("ws_a", "att_a"), new Uint8Array([1]), "image/png")).rejects.toMatchObject({ httpStatus: 503 });
-    expect(blob.del).toHaveBeenCalledWith(url, { storeId: "expected" });
+    expect(blob.del).toHaveBeenCalledWith(url, { storeId: "expected", token: "synthetic" });
+  });
+
+  it("uses the configured store token when Vercel also supplies an ambient OIDC token", async () => {
+    const storage = createAttachmentStorage({
+      VERCEL: "1", RUNORY_ATTACHMENT_STORAGE: "vercel-blob", BLOB_STORE_ID: "store_example",
+      BLOB_READ_WRITE_TOKEN: "synthetic_store_token", VERCEL_OIDC_TOKEN: "synthetic_ungranted_oidc",
+    });
+    const stored = storage.prepare("ws_a", "att_a");
+    const url = "https://example.private.blob.vercel-storage.com/attachments/ws_a/att_a";
+    blob.put.mockResolvedValueOnce({ url });
+    blob.get.mockResolvedValueOnce(null);
+    blob.del.mockResolvedValueOnce(undefined);
+    await storage.put("ws_a", stored, new Uint8Array([1]), "image/png");
+    await storage.get("ws_a", stored.reference);
+    await storage.remove("ws_a", stored.reference);
+    const auth = { storeId: "example", token: "synthetic_store_token" };
+    expect(blob.put).toHaveBeenCalledWith("attachments/ws_a/att_a", expect.any(Buffer), expect.objectContaining(auth));
+    expect(blob.get).toHaveBeenCalledWith(url, { access: "private", ...auth, useCache: false });
+    expect(blob.del).toHaveBeenCalledWith(url, auth);
+    expect(blob.put.mock.calls[0][2]).not.toHaveProperty("oidcToken");
+  });
+
+  it("accepts DNS host normalization while preserving the exact private object path", async () => {
+    const storage = createAttachmentStorage({
+      RUNORY_ATTACHMENT_STORAGE: "vercel-blob", BLOB_STORE_ID: "store_MixedCase",
+      BLOB_READ_WRITE_TOKEN: "synthetic_store_token",
+    });
+    const stored = storage.prepare("ws_a", "att_a");
+    blob.put.mockResolvedValueOnce({ url: "https://mixedcase.private.blob.vercel-storage.com/attachments/ws_a/att_a" });
+    await expect(storage.put("ws_a", stored, new Uint8Array([1]), "image/png")).resolves.toBeUndefined();
+    expect(blob.del).not.toHaveBeenCalled();
+    blob.put.mockResolvedValueOnce({ url: "https://mixedcase.private.blob.vercel-storage.com/attachments/ws_a/att_other" });
+    blob.del.mockResolvedValueOnce(undefined);
+    await expect(storage.put("ws_a", stored, new Uint8Array([1]), "image/png")).rejects.toMatchObject({ httpStatus: 503 });
   });
 
   it("retries idempotent cleanup and emits an actionable reference if both attempts fail", async () => {

@@ -183,32 +183,85 @@ export async function clickAndAwaitPost(
   return body;
 }
 
-/** Click a business action and assert the command fails without advancing state. */
+/** Prove the action exists for an eligible actor, then verify UI/API denial. */
 export async function expectCommandDeniedFromUi(
   page: Page,
   buttonName: RegExp,
   urlIncludes: string | RegExp,
+  options: {
+    workspaceId: string;
+    objectKey: string;
+    recordId: string;
+    recordPath: string;
+    commandType: string;
+    allowedPersonaId: string;
+    deniedPersonaId: string;
+    input?: Record<string, unknown>;
+    submitUi?: () => Promise<void>;
+  },
 ) {
+  await switchPersona(page, options.allowedPersonaId);
+  await page.goto(options.recordPath, { waitUntil: "domcontentloaded" });
+  const allowedButton = page.getByRole("button", { name: buttonName }).first();
+  await expect(allowedButton, `${options.commandType} is visible to the eligible actor`).toBeVisible();
+  await expect(allowedButton).toBeEnabled();
+  const before = await getRecord(page, options.workspaceId, options.objectKey, options.recordId);
+
+  await switchPersona(page, options.deniedPersonaId);
+  const commandsLoaded = page.waitForResponse((response) =>
+    response.request().method() === "GET"
+    && response.url().includes(`/objects/${options.objectKey}/records/${options.recordId}/commands`),
+  );
+  await page.goto(options.recordPath, { waitUntil: "domcontentloaded" });
+  const commandsResponse = await commandsLoaded;
+  expect(commandsResponse.ok(), "denied actor's command surface loads").toBeTruthy();
+  const commandsBody = await commandsResponse.json() as { data?: { commands?: Array<{ key: string }> } };
+  expect(commandsBody.data?.commands, "resolved command surface").toBeDefined();
+  expect(commandsBody.data!.commands!.map((command) => command.key)).not.toContain(options.commandType);
+  await expect(page.getByRole("heading", { name: String(before.title ?? before.name), exact: true })).toBeVisible();
+  if (options.commandType === "quote.approve") {
+    // Workflow decisions load independently of the record command toolbar.
+    // Wait for the rendered panel before deciding whether Approve is omitted.
+    await expect(page.getByRole("heading", { name: /^(Work Items|工作项)$/ })).toBeVisible();
+  }
+
   const matchesUrl = (url: string) =>
     typeof urlIncludes === "string" ? url.includes(urlIncludes) : urlIncludes.test(url);
   const button = page.getByRole("button", { name: buttonName }).first();
-  if (!(await button.isVisible().catch(() => false))) {
-    // Fail-closed by omission is also acceptable for smoke.
-    return { omitted: true as const };
+  if (await button.isVisible()) {
+    const responsePromise = page.waitForResponse((response) =>
+      response.request().method() === "POST" && matchesUrl(response.url()),
+    { timeout: 30_000 });
+    await button.click();
+    // Some actions open an input form before submitting a command.
+    await options.submitUi?.();
+    const response = await responsePromise;
+    const body = await response.json() as { success?: boolean; error?: { code?: string; message?: string } };
+    expect(response.status(), `${options.commandType} UI permission denial: ${body.error?.message}`).toBe(403);
+    expect(body.success).toBe(false);
+    expect(["PERMISSION_DENIED", "AUTH_FORBIDDEN", "ASSIGNEE_NOT_ELIGIBLE"]).toContain(body.error?.code);
   }
-  const responsePromise = page.waitForResponse((response) => {
-    return response.request().method() === "POST"
-      && matchesUrl(response.url())
-      && response.status() < 500;
-  }, { timeout: 30_000 });
-  await button.click();
-  const response = await responsePromise;
-  const body = await response.json().catch(() => ({} as { success?: boolean; error?: { message?: string } }));
-  expect(
-    response.ok() === false || body.success === false,
-    `${String(urlIncludes)} must fail closed: ${body.error?.message ?? response.status()}`,
-  ).toBeTruthy();
-  return { omitted: false as const, body };
+
+  // An absent button alone is not denial evidence: send an otherwise valid
+  // command as the denied actor, and require an authorization error.
+  const response = await page.request.post(
+    `/api/workspaces/${options.workspaceId}/commands/${options.commandType}`,
+    {
+      data: {
+        aggregateId: options.recordId,
+        expectedVersion: Number(before.aggregate_version),
+        ...options.input,
+      },
+      headers: { "X-Requested-With": "XMLHttpRequest" },
+    },
+  );
+  const body = await response.json() as { success?: boolean; error?: { code?: string; message?: string } };
+  expect(response.status(), `${options.commandType} API permission denial: ${body.error?.message}`).toBe(403);
+  expect(body.success).toBe(false);
+  expect(["PERMISSION_DENIED", "AUTH_FORBIDDEN"]).toContain(body.error?.code);
+  const after = await getRecord(page, options.workspaceId, options.objectKey, options.recordId);
+  expect(after.status, "denied command preserves status").toBe(before.status);
+  expect(after.aggregate_version, "denied command preserves aggregate version").toBe(before.aggregate_version);
 }
 
 
@@ -419,15 +472,15 @@ export async function createConvertedWorkOrder(
 
   await switchPersona(page, "dev-local-owner");
   await page.goto(`/w/${workspace.workspaceSlug}/quotes/${quoteId}`, { waitUntil: "domcontentloaded" });
-  await clickAndAwaitPost(page, /^(Mark as sent|标记已发送)$/, "/commands/quote.mark_sent");
+  await clickAndAwaitPost(page, /^(Mark as sent to customer|标记为已发给客户)$/, "/commands/quote.mark_sent");
   await expectRecordStatus(page, workspace.workspaceId, "quote", quoteId, "sent");
   await page.goto(`/w/${workspace.workspaceSlug}/quotes/${quoteId}`, { waitUntil: "domcontentloaded" });
-  await clickAndAwaitPost(page, /^(Accept|接受)$/, "/commands/quote.accept");
+  await clickAndAwaitPost(page, /^(Record customer acceptance|记录客户接受)$/, "/commands/quote.accept");
   await expectRecordStatus(page, workspace.workspaceId, "quote", quoteId, "accepted");
   await page.goto(`/w/${workspace.workspaceSlug}/quotes/${quoteId}`, { waitUntil: "domcontentloaded" });
   await clickAndAwaitPost(
     page,
-    /^(Convert to Work Order|转换为工单)$/,
+    /^(Convert to work order|转为工单)$/,
     "/commands/quote.convert_to_work_order",
   );
   await expectRecordStatus(page, workspace.workspaceId, "quote", quoteId, "converted");
@@ -552,13 +605,16 @@ export async function dispatchAndCompleteWorkOrder(
   if (companyName) {
     await expect(page.getByText(companyName, { exact: false }).first()).toBeVisible();
   }
-  await clickAndAwaitPost(page, /^(Triage|分诊)$/, "/commands/work_order.triage");
+  const workOrder = await getRecord(page, workspace.workspaceId, "work_order", workOrderId);
+  if (workOrder.status === "new") {
+    await clickAndAwaitPost(page, /^(Accept for planning|受理并进入计划)$/, "/commands/work_order.triage");
+  }
   await expectRecordStatus(page, workspace.workspaceId, "work_order", workOrderId, "triaged");
 
   await page.goto(`/w/${workspace.workspaceSlug}/work-orders/${workOrderId}`, {
     waitUntil: "domcontentloaded",
   });
-  await page.getByRole("button", { name: /^(Plan & dispatch|计划并派工)$/ }).first().click();
+  await page.getByRole("button", { name: /^(Plan & dispatch|计划与派工)$/ }).first().click();
   await expect(page.getByRole("button", { name: /^(Dispatch visit|派发访问)$/ })).toBeVisible();
   await page.getByLabel(/^Technician/).selectOption({ label: "David Park" });
   const window = uniqueDispatchWindow();
@@ -585,7 +641,7 @@ export async function dispatchAndCompleteWorkOrder(
   await page.goto(`/w/${workspace.workspaceSlug}/service-visits/${visitId}`, {
     waitUntil: "domcontentloaded",
   });
-  await clickAndAwaitPost(page, /^(Start travel|开始行程)$/, "/commands/visit.start_travel");
+  await clickAndAwaitPost(page, /^(Start travel|出发)$/, "/commands/visit.start_travel");
   await expectRecordStatus(page, workspace.workspaceId, "service_visit", visitId, "en_route");
 
   await page.goto(`/w/${workspace.workspaceSlug}/service-visits/${visitId}`, {
@@ -609,7 +665,7 @@ export async function dispatchAndCompleteWorkOrder(
   await page.goto(`/w/${workspace.workspaceSlug}/work-orders/${workOrderId}`, {
     waitUntil: "domcontentloaded",
   });
-  await clickAndAwaitPost(page, /^(Start work|开始工作)$/, "/commands/work_order.start");
+  await clickAndAwaitPost(page, /^(Start work|开始作业)$/, "/commands/work_order.start");
   await expectRecordStatus(page, workspace.workspaceId, "work_order", workOrderId, "in_progress");
 
   await page.goto(`/w/${workspace.workspaceSlug}/work-orders/${workOrderId}`, {

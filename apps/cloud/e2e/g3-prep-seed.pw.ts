@@ -147,12 +147,12 @@ test.describe("G3 prep seed", () => {
     await page.goto(`/w/${workspace.workspaceSlug}/work-orders/${field.workOrderId}`, {
       waitUntil: "domcontentloaded",
     });
-    await clickAndAwaitPost(page, /^(Triage|分诊)$/, "/commands/work_order.triage");
+    await clickAndAwaitPost(page, /^(Accept for planning|受理并进入计划)$/, "/commands/work_order.triage");
     await expectRecordStatus(page, workspace.workspaceId, "work_order", field.workOrderId, "triaged");
     await page.goto(`/w/${workspace.workspaceSlug}/work-orders/${field.workOrderId}`, {
       waitUntil: "domcontentloaded",
     });
-    await page.getByRole("button", { name: /^(Plan & dispatch|计划并派工)$/ }).first().click();
+    await page.getByRole("button", { name: /^(Plan & dispatch|计划与派工)$/ }).first().click();
     await expect(page.getByRole("button", { name: /^(Dispatch visit|派发访问)$/ })).toBeVisible();
     await page.getByLabel(/^Technician/).selectOption({ label: "David Park" });
     const window = uniqueDispatchWindow();

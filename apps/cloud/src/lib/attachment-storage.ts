@@ -41,12 +41,18 @@ function normalizeStoreId(value: string): string {
 }
 
 function assertBlobCredentials(env: Environment): void {
-  // Let the SDK resolve and refresh OIDC itself. Passing a captured oidcToken
-  // would disable automatic refresh. Static credentials remain an explicit
-  // SDK-supported fallback outside Vercel; neither token is logged or stored.
   if (!env.VERCEL_OIDC_TOKEN && !env.BLOB_READ_WRITE_TOKEN) {
     throw unavailable("Private attachment storage credentials are not configured");
   }
+}
+
+function blobAuthOptions(env: Environment, storeId: string) {
+  assertBlobCredentials(env);
+  // A token-connected store may not have an OIDC project grant. Honor an
+  // explicitly configured static credential instead of letting an unrelated
+  // ambient Vercel OIDC token override it. With no static token, the SDK owns
+  // OIDC resolution and refresh; never capture or forward a fixed oidcToken.
+  return { storeId, ...(env.BLOB_READ_WRITE_TOKEN ? { token: env.BLOB_READ_WRITE_TOKEN } : {}) };
 }
 
 function assertLocalAllowed(env: Environment): void {
@@ -57,6 +63,16 @@ function assertLocalAllowed(env: Environment): void {
 
 function privateBlobUrl(ref: { storeId: string; pathname: string }): string {
   return `https://${ref.storeId}.private.blob.vercel-storage.com/${ref.pathname}`;
+}
+
+function matchesPrivateBlobUrl(url: string, ref: { storeId: string; pathname: string }): boolean {
+  try {
+    // Providers may normalize DNS host casing. All other URL components must
+    // still identify exactly the expected private object.
+    return new URL(url).href === new URL(privateBlobUrl(ref)).href;
+  } catch {
+    return false;
+  }
 }
 
 function parseReference(reference: string, workspaceId: string): StorageReference {
@@ -134,20 +150,20 @@ export function createAttachmentStorage(env: Environment = process.env) {
         await writeFile(path, bytes, { flag: "wx" });
         return;
       }
-      assertBlobCredentials(env);
+      const auth = blobAuthOptions(env, ref.storeId);
       const { put, del } = await import("@vercel/blob");
       const uploaded = await put(ref.pathname, Buffer.from(bytes), {
         access: "private",
-        storeId: ref.storeId,
+        ...auth,
         addRandomSuffix: false,
         allowOverwrite: false,
         contentType,
       });
       // A static read/write token determines its own store in the SDK. Detect
       // a mismatched BLOB_STORE_ID before committing a misleading reference.
-      if (uploaded.url !== privateBlobUrl(ref)) {
+      if (!matchesPrivateBlobUrl(uploaded.url, ref)) {
         try {
-          await del(uploaded.url, { storeId: ref.storeId });
+          await del(uploaded.url, auth);
         } catch {
           console.error("[attachments:store-mismatch-cleanup-required]", {
             workspaceId, expectedReference: stored.reference,
@@ -183,11 +199,11 @@ export function createAttachmentStorage(env: Environment = process.env) {
           throw error;
         }
       }
-      assertBlobCredentials(env);
+      const auth = blobAuthOptions(env, ref.storeId);
       const { get } = await import("@vercel/blob");
       // An explicit private URL pins the persisted store even when a static
       // token is rotated to another store. The URL stays on the server.
-      const result = await get(privateBlobUrl(ref), { access: "private", storeId: ref.storeId, useCache: false });
+      const result = await get(privateBlobUrl(ref), { access: "private", ...auth, useCache: false });
       if (!result) return null;
       if (result.statusCode !== 200 || !result.stream) {
         throw unavailable("Attachment storage returned an unexpected response");
@@ -202,9 +218,9 @@ export function createAttachmentStorage(env: Environment = process.env) {
         await rm(resolve(localRoot, ref.pathname), { force: true });
         return;
       }
-      assertBlobCredentials(env);
+      const auth = blobAuthOptions(env, ref.storeId);
       const { del } = await import("@vercel/blob");
-      await del(privateBlobUrl(ref), { storeId: ref.storeId });
+      await del(privateBlobUrl(ref), auth);
     },
   };
 }

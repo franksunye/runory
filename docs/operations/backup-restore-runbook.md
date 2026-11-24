@@ -34,6 +34,34 @@ Record and verify the following for the actual production account:
 
 Current local evidence is engineering recovery evidence. Production RPO/RTO require a measured restore using the selected managed provider and attachment store; they are not certified by a local drill.
 
+### Production build backup gate
+
+The Cloud `build` command explicitly runs `scripts/release-backup.mts` before `next build`. It does not rely on a package manager running a `prebuild` lifecycle hook. The backup is required only when **both** `RUNORY_RELEASE_BACKUP_REQUIRED=1` and `VERCEL_ENV=production` are present. Other builds report `SKIPPED` and do not connect to a source database or Blob; that status is not backup evidence.
+
+Configure these values in the intended Vercel project's production environment:
+
+| Configuration | Requirement |
+| --- | --- |
+| `LIBSQL_URL`, `LIBSQL_AUTH_TOKEN` | Existing production source, supplied by the secret manager. The gate accepts a remote `libsql:` or `https:` URL, rejects disabled TLS and URL-embedded credentials, and never falls back to a local database. Prefer a read-only database credential where the provider supports it. |
+| `BLOB_STORE_ID` | The project's intended **private** Blob store. Backup objects use a separate `database-backups/` prefix. |
+| `BLOB_READ_WRITE_TOKEN` or SDK-managed OIDC | An explicitly configured static token is passed to the SDK and takes priority. Without it the SDK resolves and refreshes OIDC using the connected store; the gate never captures an `oidcToken` or retries a permission failure with different credentials. Keep static credentials sensitive and production-only. |
+| `VERCEL_GIT_COMMIT_SHA` | The full 40-character commit ID supplied by the Git deployment. Missing or malformed commit identity blocks a required backup. |
+| `RUNORY_RELEASE_BACKUP_REQUIRED` | Set to `1` for the production release gate. |
+
+For an enabled production build, the gate performs the following before Next.js can build:
+
+1. Read one transaction-consistent logical snapshot. It imports the standalone backup implementation directly and never initializes the application database, applies migrations or runs seeds against the source.
+2. Restore into a newly and exclusively created local temporary database, then close and reopen it to check complete schema/data hashes, integrity and foreign keys.
+3. Gzip the verified archive and upload it with `access: private`, a unique `database-backups/<commit>/<UUID>.json.gz` key, and overwrites disabled.
+4. Read that exact private object from origin with `useCache: false`. Verify its store/path, byte count, compressed-byte SHA-256, archive checksum and internal schema/data checksums.
+5. Remove the temporary recovery database. Any required configuration, snapshot, restore, upload, readback or cleanup failure exits nonzero and stops the build.
+
+Successful logs contain counts, checksums, commit identity and an opaque object reference. They never contain database rows, source URLs, tokens or raw provider exceptions. Record the `objectReference`, `archiveChecksum` and `gzipChecksum` in release evidence. Retrieve an archive through an authenticated private Blob read into a restricted local file, verify its compressed-byte checksum, then use the independent-target restore procedure below. Do not expose backup objects through the application's attachment routes or publish them as build artifacts.
+
+An uploaded object whose verification failed is **not** a certified recovery point. The gate does not automatically delete backups; inspect failed objects through the private store and apply the documented retention policy. Do not delete an archive or attachment bytes needed by a retained recovery point.
+
+This gate establishes a verified database snapshot at backup time. It does not freeze ongoing application writes, prove provider PITR/RPO/RTO, or back up attachment bytes. Before a destructive migration or a recovery cutover, coordinate the write freeze and reconcile changes and external effects after the snapshot. Logical export materializes data in memory and is subject to build memory and remote transaction limits; if those limits prevent verification, the build remains blocked until a suitable provider-native recovery process is established. Synthetic SQLite and mocked Blob tests establish implementation behavior; the first real build must separately prove this account's source and storage permissions.
+
 ## 3. Read-only database backup
 
 Run commands from the repository root with the declared pnpm version. The following source is an explicitly local example:
@@ -75,7 +103,7 @@ corepack pnpm --filter @runory/cloud db:recovery:drill -- \
 
 Acceptance requires nonzero application tables/data, the current applied migration count, Catalog/installation records, a complete checksum match, a successful close/reopen verification and tenant-scoped readback. Preserve only the non-sensitive summary in release evidence.
 
-`corepack pnpm verify:release:local` also runs this drill after the G1 API walkthrough and G2 browser journeys against its new local database. It does not use external provider credentials.
+`corepack pnpm verify:release:local` also runs this drill after the G1 API walkthrough and before the G2 browser journeys against its new local database. It does not use external provider credentials.
 
 ## 6. Attachment recovery
 

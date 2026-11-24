@@ -105,17 +105,17 @@ test.describe("G2-S1 Quote commercial loop", () => {
 
     await switchPersona(page, "dev-local-owner");
     await openQuote(page, workspace.workspaceSlug, quoteId);
-    await clickAndAwaitPost(page, /^(Mark as sent|标记已发送)$/, "/commands/quote.mark_sent");
+    await clickAndAwaitPost(page, /^(Mark as sent to customer|标记为已发给客户)$/, "/commands/quote.mark_sent");
     await expectRecordStatus(page, workspace.workspaceId, "quote", quoteId, "sent");
 
     await openQuote(page, workspace.workspaceSlug, quoteId);
-    await clickAndAwaitPost(page, /^(Accept|接受)$/, "/commands/quote.accept");
+    await clickAndAwaitPost(page, /^(Record customer acceptance|记录客户接受)$/, "/commands/quote.accept");
     await expectRecordStatus(page, workspace.workspaceId, "quote", quoteId, "accepted");
 
     await openQuote(page, workspace.workspaceSlug, quoteId);
     await clickAndAwaitPost(
       page,
-      /^(Convert to Work Order|转换为工单)$/,
+      /^(Convert to work order|转为工单)$/,
       "/commands/quote.convert_to_work_order",
     );
     await expectRecordStatus(page, workspace.workspaceId, "quote", quoteId, "converted");
