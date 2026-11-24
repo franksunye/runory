@@ -50,7 +50,7 @@ The owner opens http://localhost:3000/en/login, requests a verification code for
 
 The first login creates a Workspace. The owner can install `fsm-pack` and `sales-quote-pack` via Modules, without demo data, and issue a Workspace-scoped API key via Settings. Start read-only (`workspace:read`); obtain only the extra scopes required for separately authorized operations (`extensions:manage` for Pack/extension changes and `records:write` for supported business writes). Never grant the Agent a platform-admin session or direct database access. Use the client's secure credential mechanism, not a pasted token.
 
-For a same-host stdio MCP client, configure the absolute extracted bundle directory as the process working directory:
+The local stdio entry point is `bash runory.sh mcp`. It requires an already running verified bundle and an authorized Workspace API key and ID. For a same-host MCP client, configure the executable and arguments below using the absolute extracted bundle path:
 
 ```json
 {

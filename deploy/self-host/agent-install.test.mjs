@@ -30,6 +30,20 @@ test("Agent installation guide has a single ordered journey and executable verif
   }
 });
 
+test("the documented MCP JSON launches the bundled helper with separate arguments and scoped placeholders", () => {
+  const blocks = [...guide.matchAll(/\x60\x60\x60json\n([\s\S]*?)\n\x60\x60\x60/g)];
+  assert.equal(blocks.length, 1, "expected one MCP client configuration example");
+  const config = JSON.parse(blocks[0][1]);
+  assert.deepEqual(config, {
+    command: "bash",
+    args: ["/absolute/path/to/bundle/runory.sh", "mcp"],
+    env: {
+      RUNORY_API_KEY: "<securely supplied workspace key>",
+      RUNORY_WORKSPACE_ID: "<authorized workspace ID>",
+    },
+  });
+});
+
 async function fixture(t, mode) {
   const root = await mkdtemp(join(tmpdir(), "runory-agent-guide-"));
   t.after(()=>rm(root,{recursive:true,force:true}));
