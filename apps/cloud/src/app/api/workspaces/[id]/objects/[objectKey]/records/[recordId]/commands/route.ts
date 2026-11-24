@@ -31,7 +31,13 @@ export async function GET(
     const { id, objectKey, recordId } = await params;
     const { ctx, workspaceId } = await requireWorkspaceContext(request, id, "viewer");
 
-    const record = await getRecord(workspaceId, objectKey, recordId);
+    const record = await getRecord(workspaceId, objectKey, recordId, {
+      visibilityScope: ctx.principal ? {
+        userId: ctx.principal.userId,
+        role: ctx.workspaceRole,
+        organizationRole: ctx.organizationRole,
+      } : undefined,
+    });
     if (!record) {
       return notFound(`Record ${recordId} not found`, ctx.requestId);
     }

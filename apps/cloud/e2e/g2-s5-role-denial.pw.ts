@@ -93,6 +93,7 @@ test.describe("G2-S5 role denial smoke", () => {
         commandType: "quote.approve",
         allowedPersonaId: "persona:sales-manager",
         deniedPersonaId: "persona:sales-rep",
+        recordVisibility: "visible",
       },
     );
     await expectRecordStatus(page, workspace.workspaceId, "quote", denyQuoteId, "in_review");
@@ -110,6 +111,7 @@ test.describe("G2-S5 role denial smoke", () => {
       recordPath: workOrderPath,
       allowedPersonaId: "persona:dispatcher",
       deniedPersonaId: "persona:technician",
+      recordVisibility: "hidden" as const,
     };
     await expectCommandDeniedFromUi(
       page,
@@ -179,6 +181,7 @@ test.describe("G2-S5 role denial smoke", () => {
       {
         ...workOrderDenial,
         allowedPersonaId: "persona:supervisor",
+        recordVisibility: "visible",
         commandType: "invoice.issue_from_work_order",
         input: { workOrderId },
       },

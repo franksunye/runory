@@ -73,7 +73,7 @@ CI 将桌面和手机浏览器分为两个并行作业，每个作业使用独�
 
 ## 尚未完成的外部验收
 
-2026-11-24 已通过正确账号访问实际 Vercel 团队 `sun's projects` 及 `runory` 项目，原先的账号权限阻塞已解除。现已核实该团队为 **Hobby**，而 Cloud 配置的 workflow timer 是 `* * * * *`。Hobby 只允许每天运行的 cron，分钟级表达式会阻止部署；旧失败状态也指向该限制的官方说明。需要团队升级到支持分钟任务的套餐，或另行明确设计等价调度；不能静默降为每天运行。参见 [Cron 使用与限制](https://vercel.com/docs/cron-jobs/usage-and-pricing)。
+2026-11-24 已通过正确账号访问实际 Vercel 团队 `sun's projects` 及 `runory` 项目，原先的账号权限阻塞已解除。现已核实该团队为 **Hobby**，而 Cloud 配置的 workflow timer 是 `* * * * *`。Hobby 只允许每天运行的 cron，分钟级表达式会阻止部署；旧失败状态也指向该限制的官方说明。本次候选移除 Vercel 的分钟级调度声明，保留受密钥保护的 workflow timer 执行端点。在未来的 Cloudflare Worker 调度上线前，自动触发暂停；生产状态以本候选推广后的核验为准。参见 [Cron 使用与限制](https://vercel.com/docs/cron-jobs/usage-and-pricing)。
 
 已创建项目的 private Blob store，并将其静态读写 token 设为 sensitive、仅限 Production。已补齐 Production 的附件 provider/store、cron 密钥、客户访问会话密钥、正式站点 URL 和 `RUNORY_RELEASE_BACKUP_REQUIRED=1`；关闭部署环境的调试 OTP，明确 Cloud 模式。Vercel 项目设为生产部署先暂存、验收后显式推广。配置写入不等于新版本已部署或真实 Provider 已验证。
 

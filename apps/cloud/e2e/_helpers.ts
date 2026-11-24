@@ -195,6 +195,7 @@ export async function expectCommandDeniedFromUi(
     commandType: string;
     allowedPersonaId: string;
     deniedPersonaId: string;
+    recordVisibility: "visible" | "hidden";
     input?: Record<string, unknown>;
     submitUi?: () => Promise<void>;
   },
@@ -207,17 +208,34 @@ export async function expectCommandDeniedFromUi(
   const before = await getRecord(page, options.workspaceId, options.objectKey, options.recordId);
 
   await switchPersona(page, options.deniedPersonaId);
-  const commandsLoaded = page.waitForResponse((response) =>
-    response.request().method() === "GET"
-    && response.url().includes(`/objects/${options.objectKey}/records/${options.recordId}/commands`),
+  const recordSuffix = `/objects/${options.objectKey}/records/${options.recordId}`;
+  const waitForGet = (suffix: string) => page.waitForResponse((response) =>
+    response.request().method() === "GET" && new URL(response.url()).pathname.endsWith(suffix),
   );
-  await page.goto(options.recordPath, { waitUntil: "domcontentloaded" });
-  const commandsResponse = await commandsLoaded;
-  expect(commandsResponse.ok(), "denied actor's command surface loads").toBeTruthy();
-  const commandsBody = await commandsResponse.json() as { data?: { commands?: Array<{ key: string }> } };
-  expect(commandsBody.data?.commands, "resolved command surface").toBeDefined();
-  expect(commandsBody.data!.commands!.map((command) => command.key)).not.toContain(options.commandType);
-  await expect(page.getByRole("heading", { name: String(before.title ?? before.name), exact: true })).toBeVisible();
+  const [recordResponse, commandsResponse] = await Promise.all([
+    waitForGet(recordSuffix),
+    waitForGet(`${recordSuffix}/commands`),
+    page.goto(options.recordPath, { waitUntil: "domcontentloaded" }),
+  ]);
+  const recordHeading = page.getByRole("heading", { name: String(before.title ?? before.name), exact: true });
+  const hidden = options.recordVisibility === "hidden";
+  const notFoundMessage = `Record ${options.recordId} not found`;
+  if (hidden) {
+    for (const response of [recordResponse, commandsResponse]) {
+      expect(response.status()).toBe(404);
+      expect(await response.json()).toMatchObject({ success: false, error: { code: "NOT_FOUND" } });
+    }
+    await expect(page.getByRole("alert").filter({ hasText: notFoundMessage })).toBeVisible();
+    await expect(recordHeading).toHaveCount(0);
+    await expect(page.getByRole("button", { name: buttonName })).toHaveCount(0);
+  } else {
+    expect(recordResponse.status()).toBe(200);
+    expect((await recordResponse.json()).data.id).toBe(options.recordId);
+    expect(commandsResponse.status()).toBe(200);
+    const commandsBody = await commandsResponse.json() as { data: { commands: Array<{ key: string }> } };
+    expect(commandsBody.data.commands.map((command) => command.key)).not.toContain(options.commandType);
+    await expect(recordHeading).toBeVisible();
+  }
   if (options.commandType === "quote.approve") {
     // Workflow decisions load independently of the record command toolbar.
     // Wait for the rendered panel before deciding whether Approve is omitted.
@@ -258,6 +276,23 @@ export async function expectCommandDeniedFromUi(
   expect(response.status(), `${options.commandType} API permission denial: ${body.error?.message}`).toBe(403);
   expect(body.success).toBe(false);
   expect(["PERMISSION_DENIED", "AUTH_FORBIDDEN"]).toContain(body.error?.code);
+  if (options.objectKey === "work_order") {
+    // The field app has its own record detail page, independent of the office toolbar.
+    const [mobileRecord] = await Promise.all([
+      waitForGet(recordSuffix),
+      page.goto(`/m${options.recordPath}`, { waitUntil: "domcontentloaded" }),
+    ]);
+    expect(mobileRecord.status()).toBe(hidden ? 404 : 200);
+    if (hidden) {
+      await expect(page.getByText(notFoundMessage, { exact: true })).toBeVisible();
+      await expect(recordHeading).toHaveCount(0);
+    } else {
+      await expect(recordHeading).toBeVisible();
+    }
+    await expect(page.getByRole("button", { name: buttonName })).toHaveCount(0);
+  }
+  // A technician cannot read unassigned work even to verify the postcondition.
+  await switchPersona(page, options.allowedPersonaId);
   const after = await getRecord(page, options.workspaceId, options.objectKey, options.recordId);
   expect(after.status, "denied command preserves status").toBe(before.status);
   expect(after.aggregate_version, "denied command preserves aggregate version").toBe(before.aggregate_version);

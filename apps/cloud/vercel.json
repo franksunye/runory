@@ -1,11 +1,5 @@
 {
   "git": { "deploymentEnabled": false },
   "installCommand": "cd ../.. && corepack enable && pnpm install --frozen-lockfile --filter @runory/cloud...",
-  "buildCommand": "pnpm --filter @runory/cloud run build",
-  "crons": [
-    {
-      "path": "/api/platform/cron/workflow-timers",
-      "schedule": "* * * * *"
-    }
-  ]
+  "buildCommand": "pnpm --filter @runory/cloud run build"
 }
