@@ -39,6 +39,8 @@ Use synthetic records and approved local/non-production environments. The first 
 
 ## 2. Source baseline and implementation gaps
 
+Latest B1.3 work: [explicit compatible runtime upgrade](../releases/agent-first-b1-upgrade-2026-11-24.md). Prior candidate passed; new upgrade implementation requires exact-commit verification. The first supported upgrade class preserves schema and Catalog resources; broader migrations remain separate.
+
 Latest B1.2 execution: [bounded independent Outbox](../releases/agent-first-b1-outbox-2026-11-24.md). Preserve the verified prior candidate; this increment requires its own CI result before release.
 
 Latest verified baseline and B1.1/B1.2 follow-up: [owner initialization and runtime readiness](../releases/agent-first-b1-operator-readiness-2026-11-24.md). New source changes require fresh evidence; remaining delivery and upgrade gates are not waived.

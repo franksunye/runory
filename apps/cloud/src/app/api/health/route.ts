@@ -12,7 +12,7 @@ export async function GET(request: Request) {
   if (candidate) {
     try {
       const marker = JSON.parse(await readFile("/data/release.json", "utf8"));
-      if (marker.format !== "runory.self-host.volume/v1" || marker.sourceCommit !== process.env.RUNORY_RELEASE_COMMIT)
+      if (!["runory.self-host.volume/v1", "runory.self-host.volume/v2"].includes(marker.format) || marker.sourceCommit !== process.env.RUNORY_RELEASE_COMMIT)
         throw new Error("release marker mismatch");
       await access("/data/uploads", constants.R_OK | constants.W_OK | constants.X_OK);
       // The existing DB helper verifies immutable migrations on first use.

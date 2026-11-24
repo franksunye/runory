@@ -10,6 +10,7 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 concurrency:
   group: self-hosted-candidate-${{ github.ref }}
@@ -18,17 +19,19 @@ concurrency:
 jobs:
   isolated-candidate:
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 55
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           persist-credentials: false
       - name: Check startup, snapshot safety and fixture syntax
         run: |
-          node --test deploy/self-host/preflight.test.mjs deploy/self-host/snapshot.test.mjs deploy/self-host/initialize.test.mjs
+          node --test deploy/self-host/preflight.test.mjs deploy/self-host/snapshot.test.mjs deploy/self-host/initialize.test.mjs deploy/self-host/upgrade.test.mjs
           node --check deploy/self-host/verify-candidate.mjs
           node --check deploy/self-host/scheduler.mjs
           bash -n deploy/self-host/runory.sh
+          bash -n deploy/self-host/prepare-upgrade.sh
+          node --check deploy/self-host/upgrade.mjs
       - name: Build production image from tracked source only
         shell: bash
         run: |
@@ -100,6 +103,86 @@ jobs:
           compose exec -T scheduler node /app/deploy/self-host/scheduler.mjs --health | tee candidate-evidence/scheduler-health.jsonl
           compose exec -T -e RUNORY_EXPECTED_COMMIT -e RUNORY_EXPECTED_STATE runory node /tmp/verify-candidate.mjs readback | tee candidate-evidence/operator-readback.jsonl
           compose rm -sf scheduler runory
+      - name: Rehearse compatible upgrade and rollback from the prior candidate
+        if: github.event_name != 'pull_request'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          # Fixed, verified first upgrade baseline. Reconstruct the same source
+          # if the short-lived original artifact is no longer available.
+          prior=992994d8d34ff8986d1009794d23e6c4a984d60e
+          prior_run=45361187619
+          prior_artifact=14904098913
+          git fetch --no-tags --depth=1 origin "$prior"
+          # A fresh install candidate may still be built when later work
+          # changes schema or Catalog. Never present such a run as upgrade PASS.
+          if git diff --quiet "$prior" HEAD -- schema catalog; then
+            :
+          else
+            rc=$?
+            [[ "$rc" == 1 ]] || exit "$rc"
+            printf '{"status":"NOT_RUN","reason":"new_schema_or_catalog_requires_new_upgrade_contract"}\n' > candidate-evidence/upgrade-scope.json
+            exit 0
+          fi
+          old_image="runory/self-host-candidate:$prior"
+          artifact="$RUNNER_TEMP/runory-prior"
+          mkdir -p "$artifact"
+          expired="$(gh api "repos/$GITHUB_REPOSITORY/actions/artifacts/$prior_artifact" --jq '.expired' 2>/dev/null || printf unknown)"
+          if [[ "$expired" == false ]]; then
+            test "$(gh run view "$prior_run" --json conclusion --jq .conclusion)" = success
+            gh run download "$prior_run" --name "runory-self-hosted-engineering-candidate-$prior" --dir "$artifact"
+            (cd "$artifact" && sha256sum --check SHA256SUMS)
+            test "$(cat "$artifact/image-reference.txt")" = "$old_image"
+            docker load -i "$artifact/image.tar.gz"
+            test "$(docker image inspect --format '{{.Id}}' "$old_image")" = "$(cat "$artifact/image-id.txt")"
+            printf 'verified_prior_artifact\n' > candidate-evidence/upgrade-source.txt
+          else
+            # The reference source remains reproducible after artifact expiry;
+            # report explicitly that this is not the original image digest.
+            context="$(mktemp -d)"
+            git archive "$prior" | tar -x -C "$context"
+            docker build --platform linux/amd64 --build-arg "RUNORY_SOURCE_SHA=$prior" -f "$context/deploy/self-host/Dockerfile" -t "$old_image" "$context"
+            rm -rf "$context"
+            printf 'reconstructed_prior_source_not_original_image\n' > candidate-evidence/upgrade-source.txt
+          fi
+          export PLATFORM_CRON_SECRET="$(openssl rand -hex 32)"
+          export CUSTOMER_ACCESS_SESSION_SECRET="$(openssl rand -hex 32)"
+          export PLATFORM_ADMIN_EMAILS="owner@runory.invalid"
+          export RUNORY_SELF_HOST_MAIL_MODE=operator PLATFORM_MAIL_PROVIDER_URL=""
+          export RUNORY_SELF_HOST_EMAIL_OUTBOX_ENABLED=0 RESEND_API_KEY="" RUNORY_EMAIL_FROM=""
+          export RUNORY_IMAGE="$old_image" RUNORY_EXPECTED_COMMIT="$prior"
+          export RUNORY_DATA_VOLUME=runory-upgrade-source
+          compose() { docker compose -p runory-candidate-ci -f deploy/self-host/compose.yaml -f deploy/self-host/compose.ci.yaml "$@"; }
+          docker volume create "$RUNORY_DATA_VOLUME"
+          compose up -d --no-deps runory
+          compose exec -T -e RUNORY_EXPECTED_COMMIT runory node /tmp/verify-candidate.mjs initialize | tee candidate-evidence/upgrade-before.jsonl
+          export RUNORY_EXPECTED_STATE="$(jq -ce 'select(.checkpoint != null) | .checkpoint' candidate-evidence/upgrade-before.jsonl)"
+          compose run --rm --no-deps scheduler node /app/deploy/self-host/scheduler.mjs --once | tee candidate-evidence/upgrade-before-timer.jsonl
+          jq -e 'select(.status == "PASS" and .overdueFired == 1)' candidate-evidence/upgrade-before-timer.jsonl >/dev/null
+          compose rm -sf runory
+          # An ordinary start on the old volume is forbidden for the new image.
+          if docker run --rm --network none --read-only -v runory-upgrade-source:/data:ro runory-candidate:ci node /app/deploy/self-host/initialize.mjs; then
+            echo "ERROR: implicit cross-release startup accepted"; exit 1
+          fi
+          bash deploy/self-host/prepare-upgrade.sh "$old_image" runory-candidate:ci \
+            runory-upgrade-source runory-upgrade-backup runory-upgrade-target | tee candidate-evidence/upgrade-prepare.jsonl
+          export RUNORY_IMAGE=runory-candidate:ci RUNORY_EXPECTED_COMMIT="$GITHUB_SHA"
+          export RUNORY_DATA_VOLUME=runory-upgrade-target
+          compose up -d --no-deps runory
+          compose exec -T -e RUNORY_EXPECTED_COMMIT -e RUNORY_EXPECTED_STATE runory node /tmp/verify-candidate.mjs readback | tee candidate-evidence/upgrade-after.jsonl
+          compose rm -sf runory
+          # Old image cannot accidentally open the prepared target volume.
+          if docker run --rm --network none --read-only -v runory-upgrade-target:/data:ro "$old_image" node /app/deploy/self-host/initialize.mjs; then
+            echo "ERROR: implicit rollback on upgraded volume accepted"; exit 1
+          fi
+          # Roll back only before live cutover: restart the untouched original.
+          export RUNORY_IMAGE="$old_image" RUNORY_EXPECTED_COMMIT="$prior" RUNORY_DATA_VOLUME=runory-upgrade-source
+          compose up -d --no-deps runory
+          compose exec -T -e RUNORY_EXPECTED_COMMIT -e RUNORY_EXPECTED_STATE runory node /tmp/verify-candidate.mjs readback | tee candidate-evidence/upgrade-rollback.jsonl
+          compose rm -sf runory
+          printf '{"status":"PASS","scope":"same_schema_and_catalog","preCutoverRollback":true}\n' > candidate-evidence/upgrade-scope.json
       - name: Package tested engineering image without a source checkout
         if: github.event_name != 'pull_request'
         shell: bash
@@ -111,17 +194,23 @@ jobs:
           docker save "$image" | gzip -1 > candidate-bundle/image.tar.gz
           printf '%s\n' "$image" > candidate-bundle/image-reference.txt
           docker image inspect "$image" --format '{{.Id}}' > candidate-bundle/image-id.txt
-          cp deploy/self-host/compose.yaml deploy/self-host/runory.sh deploy/self-host/README.md LICENSE candidate-bundle/
+          cp deploy/self-host/compose.yaml deploy/self-host/runory.sh deploy/self-host/README.md deploy/self-host/prepare-upgrade.sh deploy/self-host/release-profile.mjs LICENSE candidate-bundle/
           docker run --rm --network none --read-only "$image" cat /app/deploy/self-host/bundle/catalog.json > candidate-bundle/catalog.json
+          docker run --rm --network none --read-only "$image" node /app/deploy/self-host/release-profile.mjs > candidate-bundle/release-profile.json
+          if [[ -f candidate-evidence/upgrade-scope.json ]]; then
+            cp candidate-evidence/upgrade-scope.json candidate-bundle/upgrade-scope.json
+          else
+            printf '{"status":"NOT_RUN","reason":"upgrade_rehearsal_not_executed"}\n' > candidate-bundle/upgrade-scope.json
+          fi
           jq -n --arg commit "$GITHUB_SHA" --arg image "$image" --arg imageId "$(cat candidate-bundle/image-id.txt)" \
             '{format:"runory.self-host.engineering-candidate/v1",sourceCommit:$commit,image:$image,imageId:$imageId,platform:"linux/amd64",status:"engineering_candidate",productionSupported:false,cloudGa:false}' > candidate-bundle/release.json
-          (cd candidate-bundle && sha256sum image.tar.gz image-reference.txt image-id.txt compose.yaml runory.sh README.md LICENSE release.json catalog.json > SHA256SUMS && sha256sum -c SHA256SUMS)
+          (cd candidate-bundle && sha256sum image.tar.gz image-reference.txt image-id.txt compose.yaml runory.sh README.md LICENSE release.json catalog.json prepare-upgrade.sh release-profile.mjs release-profile.json upgrade-scope.json > SHA256SUMS && sha256sum -c SHA256SUMS)
       - name: Clean up isolated fixture
         if: always()
         shell: bash
         run: |
           docker ps -aq --filter label=com.docker.compose.project=runory-candidate-ci | xargs -r docker rm -f
-          for v in runory-candidate-data runory-candidate-backup runory-candidate-restored runory-candidate-second; do docker volume rm "$v" 2>/dev/null || true; done
+          for v in runory-candidate-data runory-candidate-backup runory-candidate-restored runory-candidate-second runory-upgrade-source runory-upgrade-backup runory-upgrade-target; do docker volume rm "$v" 2>/dev/null || true; done
           docker network rm runory-candidate-ci 2>/dev/null || true
       - name: Retain non-sensitive candidate evidence
         if: always()

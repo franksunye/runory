@@ -6,6 +6,7 @@ import { constants } from "node:fs";
 import { chmod, copyFile, link, lstat, open, readFile, readdir, unlink } from "node:fs/promises";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
+import { readImageProfile, validateVolumeRelease } from "./release-profile.mjs";
 
 const format = "runory.self-host.catalog/v1";
 class InitializationError extends Error {}
@@ -43,9 +44,15 @@ export async function initializeVolume(dataRoot, bundleRoot, commit) {
   if (db || marker) {
     requireCheck(regular(db) && db.size > 0 && regular(marker), "unrecognized_or_partial_volume");
     const existing = JSON.parse(await readFile(markerPath, "utf8"));
-    requireCheck(existing?.format === expectedMarker.format &&
-      existing.sourceCommit === commit && existing.initialCatalogSha256 === metadata.databaseSha256,
-      "volume_release_mismatch_use_explicit_upgrade_or_restore");
+    if (existing?.format === "runory.self-host.volume/v2") {
+      // Only an explicit, verified clone upgrade creates this marker.
+      try { validateVolumeRelease(existing, await readImageProfile(commit, bundleRoot)); }
+      catch { throw new InitializationError("volume_release_mismatch_use_explicit_upgrade_or_restore"); }
+    } else {
+      requireCheck(existing?.format === expectedMarker.format &&
+        existing.sourceCommit === commit && existing.initialCatalogSha256 === metadata.databaseSha256,
+        "volume_release_mismatch_use_explicit_upgrade_or_restore");
+    }
     return { status: "existing", sourceCommit: commit };
   }
   // preflight creates an empty uploads directory. Reject all other files,

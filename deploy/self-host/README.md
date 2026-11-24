@@ -46,7 +46,26 @@ docker run --rm --network none --read-only --cap-drop ALL \
   VERIFIED_IMAGE node /app/deploy/self-host/snapshot.mjs restore
 ```
 
-Mount a writable backup/target directory owned by the container's node user (UID 1000 on the selected image). Retain matching runtime configuration and secrets separately under owner control. Do not upload backups to public artifacts; database and files can contain confidential information. Verify the restored instance in isolation before any cutover. Failed partial snapshots/targets must be inspected and replaced with fresh empty volumes, never reused blindly. No in-place upgrade or cross-version recovery claim.
+Mount a writable backup/target directory owned by the container's node user (UID 1000 on the selected image). Retain matching runtime configuration and secrets separately under owner control. Do not upload backups to public artifacts; database and files can contain confidential information. Verify the restored instance in isolation before any cutover. Failed partial snapshots/targets must be inspected and replaced with fresh empty volumes, never reused blindly. No in-place upgrade. Cross-release preparation is a distinct, explicitly bounded operation described below.
+
+## Explicit compatible runtime upgrade
+
+The first upgrade class is deliberately narrow: both images must have byte-identical packaged schema and Catalog resources, the same Module/Pack versions and locks, and different runtime commits. This does **not** support adding or changing schema migrations, Module versions, or arbitrary customer forks. Those need separate migration and compatibility evidence. Frozen Catalog rows retain their original provenance. There is no implicit cross-release startup.
+
+On a maintenance host, keep both verified bundles and loaded images. Stop the existing app and scheduler, confirm all other writers are stopped, keep the original private configuration, and select three distinct local named volumes (source existing, backup and target new). From the **new** extracted candidate bundle:
+
+```sh
+bash runory.sh load
+bash runory.sh prepare-upgrade /path/to/prior-bundle SOURCE_VOLUME NEW_BACKUP_VOLUME NEW_TARGET_VOLUME
+```
+
+This compares actual image resources, checks the existing instance release identity, creates a complete offline backup, restores into the new volume, validates database integrity, existing migrations, installed Modules/Packs and Catalog locks, and writes the prepared release marker only after success. It does not change the running services, source volume, source bundle or secrets. After success the new bundle records the prepared target volume in a private local `data-volume.txt`; no cutover occurs. If preparation fails, retain the source and backup; never start a partially prepared target or reuse its volume. There is no automatic cleanup of customer data.
+
+For a controlled acceptance/cutover, copy the original restricted `.env` into the new bundle directory with permissions 0600, review identity/provider configuration, keep the prepared `data-volume.txt` selection unchanged, and disable external sending during validation (remove provider credentials, set `RUNORY_SELF_HOST_EMAIL_OUTBOX_ENABLED=0`). The default original volume created by the prior helper is `runory-self-host_runory-data`. The new helper checks that the selected prepared volume exists and has the expected release marker before starting; a missing or mistyped selection must not create a new instance. The bundle-local selection takes precedence over ambient variables and copied dotenv. Start the new bundle only with the original stopped; run `doctor` and verify authorized business/role tasks. Do not accept live writes or external side effects until the operator explicitly accepts the upgrade.
+
+Before live cutover, rollback is stopping the candidate and starting the prior verified image with its original configuration and original data volume. Do not downgrade the upgraded volume. After live writes have occurred on the new instance, restoring the old volume would lose those changes: freeze writes and reconcile or recover forward instead. Do not run both instances as authorities.
+
+The candidate workflow rehearses a genuine prior-image-to-new-image upgrade and pre-cutover rollback with synthetic business records, attachments, workflow events and identity; its artifact is still an engineering candidate. See the exact run for which prior artifact or reconstructed source was used, and the packaged `upgrade-scope.json` for the result. A later target with changed schema or Catalog resources records `NOT_RUN` for this bounded upgrade path; a fresh-install candidate is not automatically an upgrade-certified release.
 
 ## Developer candidate build
 

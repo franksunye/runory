@@ -46,3 +46,4 @@ services:
       start_period: 15s
 volumes:
   runory-data:
+    name: ${RUNORY_DATA_VOLUME:-runory-self-host_runory-data}

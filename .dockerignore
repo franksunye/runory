@@ -26,3 +26,4 @@ deploy/self-host/snapshot.test.mjs
 deploy/self-host/compose.ci.yaml
 deploy/self-host/initialize.test.mjs
 deploy/self-host/bundle
+deploy/self-host/upgrade.test.mjs

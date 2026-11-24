@@ -10,13 +10,29 @@ expected_id="$(cat image-id.txt)"
 [[ "$expected_id" =~ ^sha256:[a-f0-9]{64}$ ]] || fail "invalid bundled image ID"
 # Do not let ambient host provider credentials or compose overrides silently
 # replace the selected bundle image. Compose reads only this local .env.
-unset RUNORY_IMAGE RUNORY_PORT RUNORY_SELF_HOST_MAIL_MODE RUNORY_SELF_HOST_EMAIL_OUTBOX_ENABLED RESEND_API_KEY RUNORY_EMAIL_FROM PLATFORM_ADMIN_EMAILS PLATFORM_MAIL_PROVIDER_URL PLATFORM_CRON_SECRET CUSTOMER_ACCESS_SESSION_SECRET COMPOSE_FILE COMPOSE_PROJECT_NAME COMPOSE_ENV_FILES
+unset RUNORY_IMAGE RUNORY_PORT RUNORY_DATA_VOLUME RUNORY_SELF_HOST_MAIL_MODE RUNORY_SELF_HOST_EMAIL_OUTBOX_ENABLED RESEND_API_KEY RUNORY_EMAIL_FROM PLATFORM_ADMIN_EMAILS PLATFORM_MAIL_PROVIDER_URL PLATFORM_CRON_SECRET CUSTOMER_ACCESS_SESSION_SECRET COMPOSE_FILE COMPOSE_PROJECT_NAME COMPOSE_ENV_FILES
 verify_image() {
   [[ "$(docker image inspect --format '{{.Id}}' "$expected_image")" == "$expected_id" ]] || fail "loaded image does not match bundle"
 }
+# Only the local bundle's explicit volume selection is authoritative.
+# An environment variable or copied dotenv cannot silently select another DB.
+selected_volume() {
+  if [[ -e data-volume.txt || -L data-volume.txt ]]; then
+    [[ -f data-volume.txt && ! -L data-volume.txt ]] || fail "invalid local volume selection"
+    local selected
+    selected="$(cat data-volume.txt)"
+    [[ "$selected" =~ ^[A-Za-z0-9][A-Za-z0-9_.-]+$ ]] || fail "invalid selected volume"
+    docker volume inspect "$selected" >/dev/null || fail "prepared volume does not exist"
+    printf '%s\n' "$selected"
+  else
+    printf '%s\n' runory-self-host_runory-data
+  fi
+}
 compose() {
-  [[ -f .env && ! -L .env ]] || fail "run init first"
-  RUNORY_IMAGE="$expected_image" docker compose --env-file .env --project-name runory-self-host -f compose.yaml "$@"
+  [[ -f .env && ! -L .env ]] || fail "run init first or copy the prior private configuration for upgrade"
+  local selected
+  selected="$(selected_volume)"
+  RUNORY_IMAGE="$expected_image" RUNORY_DATA_VOLUME="$selected" docker compose --env-file .env --project-name runory-self-host -f compose.yaml "$@"
 }
 case "${1:-help}" in
   verify)
@@ -46,8 +62,29 @@ case "${1:-help}" in
     (set -o noclobber; printf 'RUNORY_PORT=3000\nRUNORY_SELF_HOST_MAIL_MODE=%s\nPLATFORM_ADMIN_EMAILS=%s\nPLATFORM_MAIL_PROVIDER_URL=%s\nPLATFORM_CRON_SECRET=%s\nCUSTOMER_ACCESS_SESSION_SECRET=%s\n' "$mode" "$2" "$endpoint" "$cron" "$customer" > .env)
     printf '{"operation":"init","status":"PASS","next":"load_then_start"}\n'
     ;;
+  prepare-upgrade)
+    [[ $# == 5 ]] || fail "Usage: bash runory.sh prepare-upgrade PRIOR_BUNDLE SOURCE_VOLUME BACKUP_VOLUME TARGET_VOLUME"
+    sha256sum --check SHA256SUMS >/dev/null
+    verify_image
+    prior="$(cd -- "$2" && pwd)"
+    (cd -- "$prior" && sha256sum --check SHA256SUMS >/dev/null)
+    old_image="$(cat "$prior/image-reference.txt")"
+    old_id="$(cat "$prior/image-id.txt")"
+    [[ "$old_image" =~ ^runory/self-host-candidate:[a-f0-9]{40}$ && "$old_id" =~ ^sha256:[a-f0-9]{64}$ ]] || fail "invalid prior bundle identity"
+    [[ "$(docker image inspect --format '{{.Id}}' "$old_image")" == "$old_id" ]] || fail "prior image must match the verified bundle"
+    [[ ! -e data-volume.txt && ! -L data-volume.txt ]] || fail "bundle already has a volume selection; use a fresh extracted bundle"
+    bash prepare-upgrade.sh "$old_id" "$expected_id" "$3" "$4" "$5"
+    # Local selection is written only after successful clone preparation.
+    # No live services are switched or started by this command.
+    (set -o noclobber; printf '%s\n' "$5" > data-volume.txt)
+    ;;
   start)
     verify_image
+    if [[ -e data-volume.txt || -L data-volume.txt ]]; then
+      selected="$(selected_volume)"
+      docker run --rm --network none --read-only --cap-drop ALL --security-opt no-new-privileges \
+        -v "$selected:/data:ro" "$expected_id" node --input-type=module -e 'import {readFile} from "node:fs/promises"; import {readImageProfile,validateVolumeRelease} from "/app/deploy/self-host/release-profile.mjs"; const marker=JSON.parse(await readFile("/data/release.json","utf8")); if(marker.format!=="runory.self-host.volume/v2")throw Error("explicit volume is not prepared for upgrade"); validateVolumeRelease(marker,await readImageProfile(process.env.RUNORY_RELEASE_COMMIT));'
+    fi
     compose config --quiet
     compose up -d --wait --wait-timeout 120
     printf '{"operation":"start","status":"PASS","scope":"engineering_candidate_services_started"}\n'
@@ -69,6 +106,6 @@ case "${1:-help}" in
     compose stop
     ;;
   *)
-    printf '%s\n' 'Engineering candidate commands: verify | load | init OWNER_EMAIL [PRIVATE_MAIL_ENDPOINT] | start | code | status | doctor | stop'
+    printf '%s\n' 'Engineering candidate commands: verify | load | init OWNER_EMAIL [PRIVATE_MAIL_ENDPOINT] | prepare-upgrade PRIOR_BUNDLE SOURCE_VOLUME BACKUP_VOLUME TARGET_VOLUME | start | code | status | doctor | stop'
     ;;
 esac

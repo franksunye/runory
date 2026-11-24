@@ -1,3 +1,4 @@
+import { readFile } from "node:fs/promises";
 import {
   computeManifestChecksum, ConflictError, getActiveReleaseForItem,
   getCatalogItemByName, getCatalogVersion, getPackLock, loadModuleManifest,
@@ -39,9 +40,18 @@ async function checkedRelease(type: "pack" | "module", id: string, manifest: { i
  * Pack lock before calling the existing installer. No second install/runtime path.
  * The surrounding HTTP route must first authorize the actual Workspace owner.
  */
-export async function assertBundledPack(packId: string, commit = process.env.RUNORY_RELEASE_COMMIT ?? ""): Promise<void> {
+export async function assertBundledPack(packId: string, commit?: string): Promise<void> {
   if (!BUNDLED_FSM_PACKS.some(id => id === packId)) {
     throw new NotFoundError("Pack is outside the supported self-hosted candidate catalog");
+  }
+  // A runtime-only upgrade preserves the frozen Catalog's actual source
+  // identity. The marker is local, created offline after clone verification.
+  if (!commit) {
+    const runtime = process.env.RUNORY_RELEASE_COMMIT ?? "";
+    const marker = JSON.parse(await readFile("/data/release.json", "utf8"));
+    requireMatch(marker.sourceCommit === runtime, "volume release identity");
+    requireMatch(["runory.self-host.volume/v1", "runory.self-host.volume/v2"].includes(marker.format), "volume marker format");
+    commit = marker.format === "runory.self-host.volume/v2" ? String(marker.catalogSourceCommit ?? "") : runtime;
   }
   requireMatch(/^[a-f0-9]{40}$/.test(commit), "invalid release identity");
   const manifest = loadPackManifest(packId);
