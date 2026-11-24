@@ -134,6 +134,8 @@ export async function getRecord(
 ) {
   const response = await page.request.get(
     `/api/workspaces/${workspaceId}/objects/${objectKey}/records/${recordId}`,
+    // Retry a reset idle connection once for this read. HTTP errors still fail.
+    { maxRetries: 1 },
   );
   expect(response.ok(), `read ${objectKey} ${recordId}`).toBeTruthy();
   return (await response.json()).data as Record<string, unknown>;
@@ -200,18 +202,23 @@ export async function expectCommandDeniedFromUi(
     submitUi?: () => Promise<void>;
   },
 ) {
-  await switchPersona(page, options.allowedPersonaId);
-  await page.goto(options.recordPath, { waitUntil: "domcontentloaded" });
-  const allowedButton = page.getByRole("button", { name: buttonName }).first();
-  await expect(allowedButton, `${options.commandType} is visible to the eligible actor`).toBeVisible();
-  await expect(allowedButton).toBeEnabled();
-  const before = await getRecord(page, options.workspaceId, options.objectKey, options.recordId);
-
-  await switchPersona(page, options.deniedPersonaId);
   const recordSuffix = `/objects/${options.objectKey}/records/${options.recordId}`;
   const waitForGet = (suffix: string) => page.waitForResponse((response) =>
     response.request().method() === "GET" && new URL(response.url()).pathname.endsWith(suffix),
   );
+  await switchPersona(page, options.allowedPersonaId);
+  const [allowedRecord] = await Promise.all([
+    waitForGet(recordSuffix),
+    page.goto(options.recordPath, { waitUntil: "domcontentloaded" }),
+  ]);
+  expect(allowedRecord.status()).toBe(200);
+  const before = (await allowedRecord.json()).data as Record<string, unknown>;
+  expect(before.id).toBe(options.recordId);
+  const allowedButton = page.getByRole("button", { name: buttonName }).first();
+  await expect(allowedButton, `${options.commandType} is visible to the eligible actor`).toBeVisible();
+  await expect(allowedButton).toBeEnabled();
+
+  await switchPersona(page, options.deniedPersonaId);
   const [recordResponse, commandsResponse] = await Promise.all([
     waitForGet(recordSuffix),
     waitForGet(`${recordSuffix}/commands`),

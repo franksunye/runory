@@ -1,10 +1,10 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import {
   chooseLookup,
   clickAndAwaitPost,
   createConvertedWorkOrder,
   createCustomerParties,
-  dispatchAndCompleteWorkOrder,
+  createCompletedQuoteWorkOrder,
   ensureFsmRoleAssignments,
   ensureSalesQuoteRoleAssignments,
   expectCommandDeniedFromUi,
@@ -31,15 +31,21 @@ test.describe("G2-S5 role denial smoke", () => {
     syncPackPermissionGroups();
   });
 
-  test("sales rep cannot approve; technician cannot triage or issue invoice", async ({ page }) => {
+  test.beforeEach(async ({ page }) => {
     test.setTimeout(300_000);
-
-    const runToken = `G2S5-${Date.now()}`;
     await switchPersona(page, "dev-local-owner");
+  });
+
+  async function roleWorkspace(page: Page) {
     const workspace = await resolveWorkspace(page);
     await ensureSalesQuoteRoleAssignments(page, workspace.workspaceId);
     await ensureFsmRoleAssignments(page, workspace.workspaceId);
+    return workspace;
+  }
 
+  test("sales rep can submit a quote but cannot approve it", async ({ page }) => {
+    const runToken = `G2S5-Q-${Date.now()}`;
+    const workspace = await roleWorkspace(page);
     // ── Approve denial (Sales Rep) ──
     const quoteNumber = `Q-${runToken}-DENY`;
     const quoteTitle = `${runToken} Denial quote`;
@@ -97,9 +103,11 @@ test.describe("G2-S5 role denial smoke", () => {
       },
     );
     await expectRecordStatus(page, workspace.workspaceId, "quote", denyQuoteId, "in_review");
+  });
 
-    // ── Dispatch denial (Technician) ──
-    await switchPersona(page, "dev-local-owner");
+  test("technician cannot read, triage or dispatch an unassigned work order", async ({ page }) => {
+    const runToken = `G2S5-Dispatch-${Date.now()}`;
+    const workspace = await roleWorkspace(page);
     const { workOrderId } = await createConvertedWorkOrder(page, workspace, `${runToken}-WO`);
     await expectRecordStatus(page, workspace.workspaceId, "work_order", workOrderId, "new");
 
@@ -134,7 +142,7 @@ test.describe("G2-S5 role denial smoke", () => {
     expect(technicianId, "valid technician for dispatch denial").toBeTruthy();
     const window = uniqueDispatchWindow();
     const visitsUrl = `/api/workspaces/${workspace.workspaceId}/objects/service_visit/records?filter.work_order_id=${encodeURIComponent(workOrderId)}`;
-    const visitsBefore = await page.request.get(visitsUrl);
+    const visitsBefore = await page.request.get(visitsUrl, { maxRetries: 1 });
     expect(visitsBefore.ok()).toBeTruthy();
     expect((await visitsBefore.json()).data).toEqual([]);
 
@@ -161,17 +169,19 @@ test.describe("G2-S5 role denial smoke", () => {
     );
     await expectRecordStatus(page, workspace.workspaceId, "work_order", workOrderId, "triaged");
     await switchPersona(page, "persona:dispatcher");
-    const visitsAfter = await page.request.get(visitsUrl);
+    const visitsAfter = await page.request.get(visitsUrl, { maxRetries: 1 });
     expect(visitsAfter.ok()).toBeTruthy();
     expect((await visitsAfter.json()).data, "denied dispatch creates no visit").toEqual([]);
+  });
 
-    // ── Issue-invoice denial (Technician) — pay-path gate on completed WO ──
-    await dispatchAndCompleteWorkOrder(page, workspace, workOrderId, `${runToken}-WO`);
+  test("technician can read assigned completed work but cannot issue an invoice", async ({ page }) => {
+    const workspace = await roleWorkspace(page);
+    const { workOrderId } = await createCompletedQuoteWorkOrder(page, workspace, `G2S5-Invoice-${Date.now()}`);
     await expectRecordStatus(page, workspace.workspaceId, "work_order", workOrderId, "completed");
 
     await switchPersona(page, "persona:supervisor");
     const invoicesUrl = `/api/workspaces/${workspace.workspaceId}/objects/invoice/records?filter.work_order_id=${encodeURIComponent(workOrderId)}`;
-    const invoicesBefore = await page.request.get(invoicesUrl);
+    const invoicesBefore = await page.request.get(invoicesUrl, { maxRetries: 1 });
     expect(invoicesBefore.ok()).toBeTruthy();
     expect((await invoicesBefore.json()).data).toEqual([]);
     await expectCommandDeniedFromUi(
@@ -179,8 +189,12 @@ test.describe("G2-S5 role denial smoke", () => {
       /^(Issue invoice|开具发票)$/,
       "/commands/invoice.issue_from_work_order",
       {
-        ...workOrderDenial,
+        workspaceId: workspace.workspaceId,
+        objectKey: "work_order",
+        recordId: workOrderId,
+        recordPath: `/w/${workspace.workspaceSlug}/work-orders/${workOrderId}`,
         allowedPersonaId: "persona:supervisor",
+        deniedPersonaId: "persona:technician",
         recordVisibility: "visible",
         commandType: "invoice.issue_from_work_order",
         input: { workOrderId },
@@ -188,7 +202,7 @@ test.describe("G2-S5 role denial smoke", () => {
     );
     await expectRecordStatus(page, workspace.workspaceId, "work_order", workOrderId, "completed");
     await switchPersona(page, "persona:supervisor");
-    const invoicesAfter = await page.request.get(invoicesUrl);
+    const invoicesAfter = await page.request.get(invoicesUrl, { maxRetries: 1 });
     expect(invoicesAfter.ok()).toBeTruthy();
     expect((await invoicesAfter.json()).data, "denied invoice command creates no invoice").toEqual([]);
   });
