@@ -12,6 +12,12 @@ import { once } from "node:events";
 const root = path.resolve(import.meta.dirname, "..");
 const cloud = path.join(root, "apps/cloud");
 const require = createRequire(import.meta.url);
+// Each CI browser project gets its own server, database and upload directory.
+// Without a selection, local verification continues to run both projects.
+const browserProject = process.env.RUNORY_BROWSER_PROJECT;
+if (browserProject && !["desktop-chromium", "mobile-chromium"].includes(browserProject)) {
+  throw new Error("RUNORY_BROWSER_PROJECT must name a configured release browser project");
+}
 const expectedCommit = execFileSync("git", ["rev-parse", "HEAD"], { cwd: root, encoding: "utf8" }).trim();
 function assertCleanCommit() {
   const currentCommit = execFileSync("git", ["rev-parse", "HEAD"], { cwd: root, encoding: "utf8" }).trim();
@@ -93,6 +99,7 @@ function writeSummary(status, error) {
     status, commit: expectedCommit, currentCommit, workingTreeDirty, completedAt: new Date().toISOString(), checks,
     apiEvidence: "api-result.json", recoveryEvidence: "recovery-result.json",
     connectHttpEvidence: "connect-result.json",
+    browserProject: browserProject ?? "all",
     providerAcceptance: "NOT RUN: isolated checks use no external provider credentials",
     productionDataAccessed: false,
     ...(error ? { error: error.message ?? String(error) } : {}),
@@ -130,7 +137,8 @@ try {
   }
   checks.recovery = "PASS";
   checks.browser = "RUNNING";
-  await execute(process.execPath, [playwrightCli, "test", "g2-", "release-evidence.pw.ts"], cloud);
+  await execute(process.execPath, [playwrightCli, "test", "g2-", "release-evidence.pw.ts",
+    ...(browserProject ? [`--project=${browserProject}`] : [])], cloud);
   checks.browser = "PASS";
   assertCleanCommit();
   writeSummary("PASS");

@@ -21,6 +21,9 @@ export default defineConfig({
   fullyParallel: false,
   forbidOnly: true,
   retries: process.env.CI ? 1 : 0,
+  // A confirmed failure already blocks release; preserve its evidence promptly
+  // instead of waiting for every dependent journey to repeat the same failure.
+  maxFailures: process.env.CI ? 1 : 0,
   workers: 1,
   timeout: 60_000,
   expect: { timeout: 15_000 },
@@ -32,7 +35,7 @@ export default defineConfig({
     apiResultPath: process.env.RUNORY_E2E_RESULT_PATH ?? null,
   },
   reporter: [
-    ["list"],
+    ["list", { printFailuresInline: true }],
     ["json", { outputFile: "test-results/e2e/browser-report.json" }],
     ["html", { outputFolder: "playwright-report", open: "never" }],
   ],

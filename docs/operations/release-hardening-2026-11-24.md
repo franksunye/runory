@@ -55,7 +55,9 @@ node --import tsx scripts/verify-connect-http.mts --report=../../artifacts/conne
 
 该脚本使用合成 HMAC、独立临时 DB 和真实 Next HTTP；URL/socket 防护只允许 loopback，Next 的可选版本查询在本地被阻断。
 
-`verify:release:local` 要求已提交、工作区干净且没有 dotenv 文件；生成新的本地 fixture，不复用其他服务。证据保存在 `apps/cloud/test-results/release/`，包括 API、Connect、恢复及带 commit 的汇总，浏览器报告位于 `apps/cloud/test-results/e2e/browser-report.json`。只保存不含凭据、客户数据或数据库备份的摘要。最终结果必须绑定同一干净 commit；本清单不预填测试数量或 SHA。
+`verify:release:local` 要求已提交、工作区干净且没有 dotenv 文件；生成新的本地 fixture，不复用其他服务。证据保存在 `apps/cloud/test-results/release/`，包括 API、Connect、恢复及带 commit 的汇总，浏览器报告位于 `apps/cloud/test-results/e2e/browser-report.json`。CI 同时保留隔离 fixture 的服务日志与浏览器 trace、截图和视频，包含重试前的失败记录；这些证据可能包含临时本地会话，只适用于不带真实 Provider 凭据或客户数据的隔离运行，不保存数据库备份。浏览器错误实时输出，重试仍失败后立即阻止发布；剩余未运行用例不视为通过。最终结果必须绑定同一干净 commit；本清单不预填测试数量或 SHA。
+
+CI 将桌面和手机浏览器分为两个并行作业，每个作业使用独立服务器、数据库和上传目录；两者都成功才满足 Release Gate。`RUNORY_BROWSER_PROJECT` 只接受这两个已配置的浏览器名称；本地不设置时仍完整执行两者。
 
 ## 发布操作清单
 
@@ -76,6 +78,8 @@ node --import tsx scripts/verify-connect-http.mts --report=../../artifacts/conne
 生产数据库凭据为 Vercel sensitive 变量，管理 API 不提供其内容。发布备份在已授权的生产构建环境内使用现有变量，只读源库、恢复到新的临时库并重开校验，再上传到 private Blob 并回读验证；任何必要步骤失败阻断构建。备份不导入迁移或 seed 入口，不把业务数据或凭据输出到日志、源码、构建产物或公开 URL。实际云端执行结果仍须随目标 commit 验收。
 
 修复了 G2 验收中的过期命令文案，并加强角色拒绝证据：先证明授权角色能看到有效操作，再验证受限角色的 API 必须明确返回权限拒绝且状态不变。完整 Gate 是否通过，以该候选 commit 对应的 GitHub Actions 结果为准。
+
+GitHub `main` 已启用分支保护，必需检查为 GitHub Actions 的 `Release Gate`，并要求检查基于最新分支。保持现有 main-only 工作方式，不强制 PR；管理员仍可直接更新分支，因此生产发布仍必须单独核对确切 commit 的 Gate 结果。禁止强制推送与删除分支。
 
 以下仍需在实际受控环境验收：private Blob/OIDC 连接及跨部署字节恢复、扫描 Provider、生产 OTP 投递、真实 Stripe Connect/Retell 回调、cron 调度和外部投递，以及所选数据库 Provider 的备份/PITR/恢复能力。真实商户开通、真实设备与 Provider 例外场景仍属于 G4；本地数据库恢复不验证外部附件或 Provider 状态恢复，也不认证生产 RPO/RTO。
 

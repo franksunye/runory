@@ -100,9 +100,15 @@ jobs:
       - run: pnpm audit:production
 
   journeys:
-    name: Local G1 G2 and recovery
+    name: Local G1 G2 and recovery (${{ matrix.browser }})
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [desktop-chromium, mobile-chromium]
+    env:
+      RUNORY_BROWSER_PROJECT: ${{ matrix.browser }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
@@ -115,15 +121,19 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @runory/cloud exec playwright install --with-deps chromium
       - run: pnpm verify:release:local
-      - name: Retain synthetic verification summaries
+      # The harness admits only synthetic local data and no provider credentials.
+      # Keep traces even when a retry passes, so intermittent failures are diagnosable.
+      - name: Retain synthetic verification evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: local-release-evidence
+          name: local-release-evidence-${{ matrix.browser }}
           path: |
             apps/cloud/test-results/release/**/*-result.json
             apps/cloud/test-results/release/**/verification-summary.json
+            apps/cloud/test-results/release/**/server.log
             apps/cloud/test-results/e2e/browser-report.json
+            apps/cloud/test-results/e2e/browser-artifacts/**
           retention-days: 14
 
   release-gate:

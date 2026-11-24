@@ -159,13 +159,12 @@ export async function clickAndAwaitPost(
 ) {
   const matchesUrl = (url: string) =>
     typeof urlIncludes === "string" ? url.includes(urlIncludes) : urlIncludes.test(url);
-  const responsePromise = page.waitForResponse((response) => {
-    return response.request().method() === "POST"
-      && matchesUrl(response.url())
-      && response.status() < 500;
-  }, { timeout: 30_000 });
-  await page.getByRole("button", { name: buttonName }).first().click();
-  const response = await responsePromise;
+  const [response] = await Promise.all([
+    page.waitForResponse((response) =>
+      response.request().method() === "POST" && matchesUrl(response.url()),
+    { timeout: 30_000 }),
+    page.getByRole("button", { name: buttonName }).first().click({ timeout: 30_000 }),
+  ]);
   const body = await response.json().catch(() => ({} as {
     success?: boolean;
     error?: { message?: string };
@@ -540,7 +539,11 @@ export async function getVisitWorkItemId(page: Page, workspaceId: string, visitI
   return String(workItemId);
 }
 
-export async function fillServiceVisitCompletionForm(page: Page, workPerformed: string) {
+export async function fillServiceVisitCompletionForm(
+  page: Page,
+  workItemId: string,
+  workPerformed: string,
+) {
   await expect(page.getByRole("button", { name: /^(Submit Form|提交表单)$/ })).toBeVisible({
     timeout: 30_000,
   });
@@ -554,6 +557,10 @@ export async function fillServiceVisitCompletionForm(page: Page, workPerformed: 
   await page.getByLabel(/^Work Performed/).fill(workPerformed);
   await page.getByLabel(/^System Status After Service/).selectOption("operational");
 
+  // Match the real user path: the visible picker stays disabled while the
+  // deployment's upload policy loads. Setting the hidden input directly can
+  // otherwise bypass that gate and create failed entries without an upload.
+  await expect(page.getByRole("button", { name: "Attach File", exact: true }).first()).toBeEnabled({ timeout: 30_000 });
   const galleryInput = page.locator('input[type="file"][multiple]').first();
   await galleryInput.setInputFiles([
     { name: "before.png", mimeType: "image/png", buffer: TINY_PNG },
@@ -575,19 +582,39 @@ export async function fillServiceVisitCompletionForm(page: Page, workPerformed: 
 
   const submitButton = page.getByRole("button", { name: /^(Submit Form|提交表单)$/ });
   await submitButton.scrollIntoViewIfNeeded();
-  const submit = page.waitForResponse((response) => {
-    return response.request().method() === "POST"
-      && response.url().includes("/forms/submissions")
-      && response.status() < 500;
-  }, { timeout: 30_000 });
-  await submitButton.evaluate((el: HTMLButtonElement) => el.click());
-  const response = await submit;
-  const body = await response.json().catch(() => ({} as { success?: boolean; error?: { message?: string } }));
-  expect(
-    response.ok(),
-    `form submit HTTP ok: ${body.error?.message ?? response.status()}`,
-  ).toBeTruthy();
-  if ("success" in body) expect(body.success).toBeTruthy();
+  // The mobile flow saves the form and then completes its work item. Register
+  // both listeners before clicking so navigation cannot race the second POST.
+  await Promise.all([
+    page.waitForResponse((response) =>
+      response.request().method() === "POST" && new URL(response.url()).pathname.endsWith("/forms/submissions"),
+    { timeout: 30_000 }).then(async (response) => {
+      const body = await response.json().catch(() => ({} as { success?: boolean; error?: { message?: string } }));
+      expect(
+        response.ok(),
+        `form submit HTTP ok: ${body.error?.message ?? response.status()}`,
+      ).toBeTruthy();
+      expect(body.success, "form submission succeeds").toBe(true);
+    }),
+    page.waitForResponse((response) =>
+      response.request().method() === "POST"
+        && new URL(response.url()).pathname.endsWith(`/work-items/${workItemId}/complete`),
+    { timeout: 30_000 }).then(async (response) => {
+      const body = await response.json().catch(() => ({} as {
+        success?: boolean;
+        error?: { message?: string };
+        data?: { aggregate?: { id?: string; status?: string } };
+      }));
+      expect(
+        response.ok(),
+        `form work item complete HTTP ok: ${body.error?.message ?? response.status()}`,
+      ).toBeTruthy();
+      expect(body.success, "form work item completion succeeds").toBe(true);
+      expect(body.data?.aggregate?.id, "completed form work item id").toBe(workItemId);
+      expect(body.data?.aggregate?.status, "form work item reaches completed").toBe("completed");
+    }),
+    submitButton.evaluate((el: HTMLButtonElement) => el.click()),
+  ]);
+  await expect(page.getByRole("heading", { name: /^(Form submitted|表单已提交)$/ })).toBeVisible({ timeout: 30_000 });
 }
 
 /** Triage → dispatch → field form → supervisor complete for a quote-sourced WO. */
@@ -653,7 +680,7 @@ export async function dispatchAndCompleteWorkOrder(
   await page.goto(`/m/w/${workspace.workspaceSlug}/work/${workItemId}/form`, {
     waitUntil: "domcontentloaded",
   });
-  await fillServiceVisitCompletionForm(page, `${runToken} replaced filters and verified airflow.`);
+  await fillServiceVisitCompletionForm(page, workItemId, `${runToken} replaced filters and verified airflow.`);
 
   await page.goto(`/w/${workspace.workspaceSlug}/service-visits/${visitId}`, {
     waitUntil: "domcontentloaded",
