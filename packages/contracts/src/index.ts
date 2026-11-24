@@ -12,7 +12,7 @@ export const fieldDefinitionSchema = z.object({
   ownership: z.enum(["module_owned", "workspace_extension"]).default("module_owned"),
   required: z.boolean().default(false),
   default_value: z.string().optional(),
-  validation: z.record(z.unknown()).optional(),
+  validation: z.record(z.string(), z.unknown()).optional(),
 });
 
 // ── Raw View Config (legacy input — accepts untrusted manifest/DB data) ──
@@ -51,7 +51,7 @@ export const viewConfigSchema = z.object({
     value: z.union([z.string(), z.number(), z.boolean()]),
   })).optional(),
   pageSize: z.union([z.literal(10), z.literal(20), z.literal(50), z.literal(100), z.number()]).optional(),
-  workspaceRoleDefaults: z.record(z.unknown()).optional(),
+  workspaceRoleDefaults: z.record(z.string(), z.unknown()).optional(),
   emptyState: z.object({
     title: z.string().optional(),
     description: z.string().optional(),
@@ -393,7 +393,7 @@ export const packLayoutItemSchema = z.object({
   module: z.string(),                            // module id, or "_platform"
   widget: z.string(),                            // widget key
   instance: z.string().default("default"),       // for multi-instance widgets
-  config: z.record(z.unknown()).optional(),      // config override applied to widget
+  config: z.record(z.string(), z.unknown()).optional(),      // config override applied to widget
 });
 
 // Pack layout zone — a group of widgets in a zone
@@ -505,12 +505,12 @@ export const aggregateLifecycleSchema = z.object({
   /** The expected path, in order. */
   spine: z.array(z.string().min(1)).min(2),
   /** State → spine state it sits at, for states reached by moving backwards. */
-  aliases: z.record(z.string().min(1)).default({}),
+  aliases: z.record(z.string(), z.string().min(1)).default({}),
   /** Paused on the spine: work can resume from where it stopped. */
   interrupts: z.array(z.string().min(1)).default([]),
   /** Ended off-spine: no further progress is expected. */
   terminals: z.array(z.string().min(1)).default([]),
-  evidence: z.record(aggregateLifecycleEvidenceSchema).default({}),
+  evidence: z.record(z.string(), aggregateLifecycleEvidenceSchema).default({}),
 });
 
 export const aggregateContractSchema = z.object({
@@ -1053,13 +1053,13 @@ export const templateManifestSchema = z.object({
   version: z.string(),
   manifestSchemaVersion: z.string().default("1.0.0"),
   publisher: z.string().optional(),
-  terminology: z.record(z.string()).optional(),
+  terminology: z.record(z.string(), z.string()).optional(),
   navigation: z.array(z.string()).optional(),
   homepage: z.object({
     layout: z.string(),
     widgets: z.array(z.string()),
   }).optional(),
-  roleEntry: z.record(z.string()).optional(),
+  roleEntry: z.record(z.string(), z.string()).optional(),
   // Template must declare compatible Pack/Module ranges (docs/09 §8)
   compatiblePacks: z.array(z.string()).optional(),
   compatibleModules: z.array(z.string()).optional(),
@@ -1075,7 +1075,7 @@ export const customFieldPlanSchema = z.object({
   type: z.enum(fieldTypes),
   ownership: z.literal("workspace_extension"),
   required: z.boolean().default(false),
-  validation: z.record(z.unknown()).optional(),
+  validation: z.record(z.string(), z.unknown()).optional(),
   ui: z.object({
     listColumn: z.boolean().default(false),
     slot: z.string().optional(),
@@ -1388,6 +1388,7 @@ export type UpgradeExecutionResult = z.infer<typeof upgradeExecutionResultSchema
 // ── Pack-level Rollback (v0.9.4) ──
 
 export const rollbackSnapshotSchema = z.object({
+  snapshotVersion: z.literal(1),
   targetId: z.string(),
   workspaceId: z.string(),
   moduleId: z.string(),
@@ -1400,6 +1401,8 @@ export const rollbackSnapshotSchema = z.object({
     fields: z.array(z.record(z.string(), z.unknown())),
     views: z.array(z.record(z.string(), z.unknown())),
     navigation: z.array(z.record(z.string(), z.unknown())),
+    relations: z.array(z.record(z.string(), z.unknown())),
+    commandContracts: z.array(z.record(z.string(), z.unknown())),
   }),
 });
 
@@ -1411,6 +1414,7 @@ export const rollbackResultSchema = z.object({
   status: z.enum(["succeeded", "failed", "partial"]),
   stepsTaken: z.array(z.string()),
   metadataRestored: z.boolean(),
+  recoveryRequired: z.enum(["database_restore", "operator_review"]).optional(),
   error: z.string().optional(),
   completedAt: z.string(),
 });

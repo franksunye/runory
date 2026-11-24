@@ -48,6 +48,8 @@ const PERSONA_DESCRIPTION_KEYS: Record<string, MessageKey> = {
   "persona:supervisor": "persona.desc.supervisor",
 };
 
+const DEV_PERSONAS_ENABLED = process.env.NEXT_PUBLIC_PLATFORM_DEV_BOOTSTRAP === "true";
+
 export default function PersonaSwitcher({ variant = "floating" }: { variant?: "floating" | "account" }) {
   const { t } = useI18n();
   const pathname = usePathname();
@@ -66,6 +68,7 @@ export default function PersonaSwitcher({ variant = "floating" }: { variant?: "f
   const workspaceId = pathname?.match(/^\/w\/([^/]+)/)?.[1] ?? null;
 
   const fetchPersonas = useCallback(async () => {
+    if (!DEV_PERSONAS_ENABLED) return;
     try {
       const res = await fetch("/api/dev/persona", { cache: "no-store" });
       if (!res.ok) return;
@@ -87,7 +90,7 @@ export default function PersonaSwitcher({ variant = "floating" }: { variant?: "f
   }, []);
 
   useEffect(() => {
-    if (!workspaceId) {
+    if (!DEV_PERSONAS_ENABLED || !workspaceId) {
       setWorkspaceRole(null);
       setAccessSummary(null);
       return;
@@ -159,10 +162,7 @@ export default function PersonaSwitcher({ variant = "floating" }: { variant?: "f
   );
 
   // Only render in dev mode — in production, users log in via OTP with their own email
-  if (
-    process.env.NODE_ENV !== "development" &&
-    process.env.NEXT_PUBLIC_PLATFORM_DEV_BOOTSTRAP !== "true"
-  ) {
+  if (!DEV_PERSONAS_ENABLED) {
     return null;
   }
 

@@ -80,7 +80,7 @@ Recovery — use the dev bootstrap:
 PLATFORM_DEV_BOOTSTRAP=true
 ```
 
-With `PLATFORM_DEV_BOOTSTRAP=true`, Runory auto-authenticates you as a local owner and auto-creates the workspace tenant — no email is sent. This is **dev only** and gated on an explicit flag (not `NODE_ENV`), so it will not activate in staging or test. Production must reject dev bootstrap identity.
+With `PLATFORM_DEV_BOOTSTRAP=true` in a local `development` or `test` runtime, Runory auto-authenticates you as a local owner and auto-creates the workspace tenant — no email is sent. Production and hosted deployments ignore this flag. Persona switching, catalog bootstrap, and cron shortcuts use the same guard. OTP debug codes and rate-limit bypasses are also local only; `PLATFORM_OTP_RETURN_DEV_CODE=true` cannot expose a code in production, where a mail provider is required.
 
 Notes:
 

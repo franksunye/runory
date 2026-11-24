@@ -20,7 +20,25 @@ import {
   AuthenticationError,
   AuthorizationError,
 } from "@runory/platform-core";
-import { PLATFORM_CONFIG, isTrustHeadersEnabled, isPlatformAdmin } from "@runory/platform-core";
+import { PLATFORM_CONFIG, isTrustHeadersEnabled, isPlatformAdmin, isDevBootstrapEnabled } from "@runory/platform-core";
+import { authorizeWorkspaceApiKey } from "./api-key-policy";
+
+export { isDevBootstrapEnabled };
+
+/** An explicit credential must never silently fall back to a more powerful session. */
+export function requestApiKeyToken(request: NextRequest): string | null {
+  const header = request.headers.get("authorization");
+  if (!header) return null;
+  const match = /^Bearer\s+(\S+)$/i.exec(header);
+  if (!match) throw new AuthenticationError("Invalid authorization header");
+  return match[1];
+}
+
+function requireSessionCredential(request: NextRequest): void {
+  if (requestApiKeyToken(request) !== null) {
+    throw new AuthorizationError("This operation requires an authenticated user session");
+  }
+}
 
 const DEVELOPMENT_ACTOR: ActorIdentity = {
   externalId: "dev-local-owner",
@@ -78,16 +96,6 @@ function principalFromDevActor(actor: ActorIdentity): Principal {
   };
 }
 
-// ── Dev bootstrap flag ──
-//
-// The dev bootstrap fallback (auto-authenticating as a local owner) is gated on
-// an explicit opt-in flag rather than NODE_ENV. This prevents accidental
-// unauthenticated access when NODE_ENV is unset or set to a non-production value
-// like "staging" or "test".
-export function isDevBootstrapEnabled(): boolean {
-  return process.env.PLATFORM_DEV_BOOTSTRAP === "true";
-}
-
 // ── Trust headers startup warning ──
 //
 // Trust identity headers (x-platform-user-id etc.) can be spoofed by any client
@@ -128,6 +136,7 @@ export interface OrganizationMembership {
 // ── Get Request Actor ──
 
 export async function getRequestActor(request: NextRequest): Promise<ActorIdentity> {
+  requireSessionCredential(request);
   const explicitDevActor = getExplicitDevActor(request);
   if (explicitDevActor) return explicitDevActor;
 
@@ -159,6 +168,7 @@ export async function getRequestActor(request: NextRequest): Promise<ActorIdenti
 // ── Get Current Principal (session-based) ──
 
 export async function getCurrentPrincipal(request: NextRequest): Promise<Principal | null> {
+  requireSessionCredential(request);
   const explicitDevActor = getExplicitDevActor(request);
   if (explicitDevActor) return principalFromDevActor(explicitDevActor);
 
@@ -177,9 +187,10 @@ export async function getCurrentPrincipal(request: NextRequest): Promise<Princip
   return null;
 }
 
-// ── Require Authenticated Principal (session or API key) ──
+// ── Require Authenticated User Principal (API keys require workspace scope) ──
 
 export async function requirePrincipal(request: NextRequest): Promise<Principal> {
+  requireSessionCredential(request);
   const explicitDevActor = getExplicitDevActor(request);
   if (explicitDevActor) return principalFromDevActor(explicitDevActor);
 
@@ -214,7 +225,7 @@ export async function requirePlatformAdmin(
   }
   // Dev bootstrap: allow the local dev owner to act as platform admin so the
   // catalog seed and admin surfaces work without a real admin session. Gated
-  // on the explicit PLATFORM_DEV_BOOTSTRAP flag — never active in production.
+  // on both the local runtime and PLATFORM_DEV_BOOTSTRAP flag.
   if (isDevBootstrapEnabled()) {
     const devPrincipal = await requirePrincipal(request);
     return { principal: devPrincipal, requestId };
@@ -340,15 +351,14 @@ export async function requireWorkspaceContext(
   const workspaceId = await resolveWorkspaceId(reference);
 
   // Try API key authentication first (Bearer token)
-  const authHeader = request.headers.get("authorization");
+  const token = requestApiKeyToken(request);
   let principal: Principal | null = null;
 
-  if (authHeader?.startsWith("Bearer ")) {
-    const token = authHeader.slice(7);
+  if (token !== null) {
     const apiKeyResult = await resolveApiKey(token, workspaceId);
-    if (apiKeyResult) {
-      principal = apiKeyResult.principal;
-    }
+    if (!apiKeyResult) throw new AuthenticationError("Invalid or expired API key");
+    principal = apiKeyResult.principal;
+    authorizeWorkspaceApiKey(principal, workspaceId, request.method, request.nextUrl.pathname);
   }
 
 

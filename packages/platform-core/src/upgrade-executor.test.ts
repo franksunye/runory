@@ -23,7 +23,7 @@ import {
   publishDefaultPolicies,
   generateVocabularyReport,
 } from "./upgrade-policy";
-import { TABLES } from "./contracts";
+import { TABLES, businessTable } from "./contracts";
 import { db, execute, genId, now } from "./db";
 import { runMigrations } from "./migrations";
 
@@ -219,6 +219,7 @@ describe("validateUpgrade", () => {
   it("returns pass checks when all expected metadata exists", async () => {
     const moduleId = "runory.test";
     await createInstallation(workspaceId, moduleId, "1.1.0");
+    await execute(`CREATE TABLE ${businessTable("test_object")} (id TEXT PRIMARY KEY, workspace_id TEXT, name TEXT)`);
     await createObjectDef(workspaceId, "test_object", moduleId);
     await createFieldDef(workspaceId, "test_object", "name", "text", moduleId);
     await createViewDef(workspaceId, "test_object", "test_list", moduleId);

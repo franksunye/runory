@@ -1,8 +1,8 @@
 import { createHmac } from "node:crypto";
-import { beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { existsSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
-import { db, execute, genId, now, queryAll } from "./db";
+import { batch, db, execute, genId, now, queryAll, queryOne, runInTransaction } from "./db";
 import { TABLES, businessTable } from "./contracts";
 import { getAuditEvents } from "./audit-service";
 import { runMigrations } from "./migrations";
@@ -41,8 +41,21 @@ async function setupWorkspace() {
   await installPack(workspaceId, "voice-intake-poc-pack");
 }
 
-beforeAll(resetDatabase);
-beforeEach(async () => { await resetDatabase(); await setupWorkspace(); });
+beforeAll(async () => { await resetDatabase(); await setupWorkspace(); });
+beforeEach(async () => {
+  // Keep the installed metadata fixture; only synthetic business state changes
+  // between cases. Reinstalling both Packs for every assertion obscures failures
+  // behind long synchronous SQLite setup and can starve Vitest's IPC heartbeat.
+  const tables = [
+    TABLES.outboxMessages, TABLES.auditLogs, TABLES.messageDeliveries, TABLES.messages,
+    TABLES.notifications, TABLES.conversationParticipants, TABLES.conversations,
+    "voice_intake_provider_events", "voice_intake_idempotency", "voice_intake_slot_tokens",
+    businessTable("voice_follow_up"), businessTable("voice_intake_session"), businessTable("voice_call"),
+    businessTable("work_order"), businessTable("service_site"), businessTable("contact"),
+  ];
+  await batch(tables.map((table) => ({ sql: `DELETE FROM ${table} WHERE workspace_id=?`, args: [workspaceId] })));
+});
+afterEach(async () => { await new Promise<void>((resolve) => setImmediate(resolve)); });
 
 describe("voice intake provider boundary", () => {
   it("normalizes supported US phone input", () => {
@@ -134,6 +147,77 @@ describe("voice intake POC flows", () => {
     expect(duplicate.duplicate).toBe(true);
     const rows = await queryAll<{ status: string }>(`SELECT status FROM ${businessTable("voice_call")} WHERE workspace_id = ?`, [workspaceId]);
     expect(rows[0]?.status).toBe("ended");
+  });
+
+  it("rolls back a provider receipt when its state update fails, so the retry still applies", async () => {
+    const event = { eventId: "evt_retry", providerCallId: complete.providerCallId, eventType: "call_ended", status: "ended" as const, sequence: 3 };
+    await execute(`CREATE TRIGGER fail_voice_state BEFORE UPDATE ON ${businessTable("voice_call")} BEGIN SELECT RAISE(ABORT, 'SIMULATED_VOICE_STATE_FAILURE'); END`);
+    try {
+      await expect(ingestVoiceEvent(workspaceId, event)).rejects.toThrow("SIMULATED_VOICE_STATE_FAILURE");
+    } finally {
+      await execute("DROP TRIGGER fail_voice_state");
+    }
+    expect(await queryOne("SELECT provider_event_id FROM voice_intake_provider_events WHERE workspace_id=? AND provider_event_id=?", [workspaceId, event.eventId])).toBeUndefined();
+    expect((await queryOne<{ status: string }>(`SELECT status FROM ${businessTable("voice_call")} WHERE workspace_id=?`, [workspaceId]))?.status).toBe("initiated");
+    expect((await ingestVoiceEvent(workspaceId, event)).duplicate).toBe(false);
+    expect((await ingestVoiceEvent(workspaceId, event)).duplicate).toBe(true);
+    expect((await queryOne<{ status: string }>(`SELECT status FROM ${businessTable("voice_call")} WHERE workspace_id=?`, [workspaceId]))?.status).toBe("ended");
+  });
+
+  it("rolls back all work-order and email intents if saving the replay result fails", async () => {
+    const input = { ...complete, customerEmail: "synthetic@example.invalid" };
+    const actor = { provider: "retell" as const, providerCallId: input.providerCallId, integrationPrincipalId: "integration:test" };
+    await execute("CREATE TRIGGER fail_voice_result BEFORE INSERT ON voice_intake_idempotency BEGIN SELECT RAISE(ABORT, 'SIMULATED_VOICE_RESULT_FAILURE'); END");
+    try {
+      await expect(createVoiceWorkOrder(workspaceId, input, actor, "idem:retry:result")).rejects.toThrow("SIMULATED_VOICE_RESULT_FAILURE");
+    } finally {
+      await execute("DROP TRIGGER fail_voice_result");
+    }
+    const affectedTables = [
+      businessTable("work_order"), businessTable("contact"), businessTable("service_site"), businessTable("voice_intake_session"),
+      TABLES.auditLogs, TABLES.conversations, TABLES.conversationParticipants,
+      TABLES.notifications, TABLES.messages, TABLES.messageDeliveries, TABLES.outboxMessages,
+    ];
+    for (const table of affectedTables) {
+      expect(await queryAll(`SELECT id FROM ${table} WHERE workspace_id=?`, [workspaceId]), table).toHaveLength(0);
+    }
+    expect(await queryOne("SELECT result_json FROM voice_intake_idempotency WHERE workspace_id=?", [workspaceId])).toBeUndefined();
+    expect(await queryOne(`SELECT outcome, work_order_id FROM ${businessTable("voice_call")} WHERE workspace_id=?`, [workspaceId])).toMatchObject({ outcome: "pending", work_order_id: null });
+
+    const result = await createVoiceWorkOrder(workspaceId, input, actor, "idem:retry:result");
+    expect(await createVoiceWorkOrder(workspaceId, input, actor, "idem:retry:result")).toEqual(result);
+    expect(result.confirmationEmailOutboxId).toBeTruthy();
+    for (const table of [businessTable("work_order"), businessTable("contact"), businessTable("service_site"), TABLES.conversations, TABLES.notifications, TABLES.messages, TABLES.messageDeliveries, TABLES.outboxMessages]) {
+      expect(await queryAll(`SELECT id FROM ${table} WHERE workspace_id=?`, [workspaceId]), table).toHaveLength(1);
+    }
+  });
+
+  it("joins an existing explicit transaction and rolls back with its owner", async () => {
+    const actor = { provider: "retell" as const, providerCallId: complete.providerCallId, integrationPrincipalId: "integration:test" };
+    await expect(runInTransaction(async (transaction) => {
+      const result = await createVoiceWorkOrder(workspaceId, complete, actor, "idem:outer:rollback");
+      const rows = await transaction.execute({ sql: `SELECT id FROM ${businessTable("work_order")} WHERE workspace_id=?`, args: [workspaceId] });
+      expect(rows.rows[0]?.id).toBe(result.workOrderId);
+      throw new Error("SIMULATED_OUTER_FAILURE");
+    })).rejects.toThrow("SIMULATED_OUTER_FAILURE");
+    expect(await queryAll(`SELECT id FROM ${businessTable("work_order")} WHERE workspace_id=?`, [workspaceId])).toHaveLength(0);
+    expect(await queryOne("SELECT result_json FROM voice_intake_idempotency WHERE workspace_id=?", [workspaceId])).toBeUndefined();
+  });
+
+  it("does not duplicate state or work orders when deliveries overlap and are retried", async () => {
+    const event = { eventId: "evt_concurrent", providerCallId: complete.providerCallId, eventType: "call_ended", status: "ended" as const, sequence: 3 };
+    const eventResults = await Promise.all([ingestVoiceEvent(workspaceId, event), ingestVoiceEvent(workspaceId, event)]);
+    expect(eventResults.map((result) => result.duplicate).sort()).toEqual([false, true]);
+    expect((await ingestVoiceEvent(workspaceId, event)).duplicate).toBe(true);
+    expect(await queryAll("SELECT provider_event_id FROM voice_intake_provider_events WHERE workspace_id=?", [workspaceId])).toHaveLength(1);
+
+    const actor = { provider: "retell" as const, providerCallId: complete.providerCallId, integrationPrincipalId: "integration:test" };
+    const create = () => createVoiceWorkOrder(workspaceId, complete, actor, "idem:concurrent");
+    const workResults = await Promise.all([create(), create()]);
+    const retry = await create();
+    for (const result of workResults) expect(result).toEqual(retry);
+    expect(await queryAll(`SELECT id FROM ${businessTable("work_order")} WHERE workspace_id=?`, [workspaceId])).toHaveLength(1);
+    expect(await queryAll("SELECT result_json FROM voice_intake_idempotency WHERE workspace_id=?", [workspaceId])).toHaveLength(1);
   });
 
   it("creates visible follow-up and marks the call for review", async () => {

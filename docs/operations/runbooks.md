@@ -255,7 +255,7 @@ This document covers the key failure-scenario runbooks (PROD-04) for Runory Clou
 ### Mitigation
 
 - **Rollback to last-known-good version**:
-   - Point the Workspace installation to the previous known-good version.
+   - Use the verified module recovery procedure below. Do not manually change only `module_version` or `catalog_version_id`: that leaves metadata and physical schema at different versions.
    - Do not delete or modify the failed version (mark it as `deprecated` or `withdrawn`).
 
 - **Freeze rollouts**:
@@ -286,6 +286,21 @@ This document covers the key failure-scenario runbooks (PROD-04) for Runory Clou
 4. **Resume rollouts**:
    - After confirming the fix, change `release_rollouts.status` from `paused` to `resumed`.
    - Monitor the rollout success rate.
+
+### Module upgrade recovery boundary
+
+Migration `0054_upgrade_snapshots.sql` adds independent `runory_catalog_upgrade_snapshots` and `runory_catalog_upgrade_execution_states` tables (names follow configured prefixes). Deploy with migration permissions before accepting upgrades. Pre-existing upgrades have no reliable recovery point; this migration cannot reconstruct one retrospectively.
+
+Before a rollout, verify a restorable database backup using the [backup and restore runbook](backup-restore-runbook.md). The module recovery snapshot is **metadata only**, and is not a database backup. It records the complete active installation, objects, fields, views, navigation, relations and installed Command Contracts. The snapshot payload is insert-only through the application, checksummed and retained after recovery; execution progress is stored separately. Snapshot persistence failure stops the upgrade before module SQL or metadata changes.
+
+1. Pause the affected rollout and stop/reconcile any running executor. A target still marked `running` is not automatically retried or rolled back after a process failure.
+2. Inspect `canRollback(targetId)` and the persistent execution state. Use `rollbackUpgrade(targetId)` only when it reports eligible; eligibility is rechecked inside the restoration transaction.
+3. For an upgrade that attempted **no module SQL**, rollback atomically restores the saved metadata and complete installation provenance, including Module version, Catalog item/version, resolved version, checksum, source release and timestamps. It preserves business records, including writes made after the upgrade. A failure rolls back the restoration transaction and returns `status: "failed", metadataRestored: false`; success is returned only after the restored state matches the saved snapshot.
+4. If module SQL was attempted, the result is `status: "failed", recoveryRequired: "database_restore"` with an error beginning `requires_database_restore`. This includes partially failed SQL and a crash after the SQL-start marker. No verified down-migration contract exists, so the executor leaves the current data, metadata and version intact. Recover the database with the backup runbook or an explicitly reviewed forward repair, then reconcile installation and physical schema together. Assess/replay writes since the backup before switching traffic; do not restore an old backup over live writes blindly.
+5. A missing/corrupt snapshot, changed installation or later metadata edits return `recoveryRequired: "operator_review"`. Preserve evidence and resolve the conflict; do not bypass the fingerprint check or overwrite newer changes.
+6. After success, confirm the saved installation/catalog versions and metadata, business record counts/content and audit event `upgrade.target_rolled_back`. The target records `failed / rolled_back`, an active rollout is paused, and the original snapshot remains available. Repeating a completed rollback is a verified no-op only while the restored state remains unchanged.
+
+Migration files must declare an unambiguous `from` → `to` chain. A missing `from` denotes fresh installation, and cannot act as an upgrade wildcard. SQL scripts are loaded before mutation, constrained to the module directory, and checked when their manifest declares a checksum. Shared physical business tables and database backup recovery still require operator coordination across affected Workspaces.
 
 ---
 

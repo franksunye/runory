@@ -1,0 +1,139 @@
+name: Release Gate
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-gate-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  tests:
+    name: Tests (${{ matrix.package }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        package: [contracts, cloud, mcp, sdk-testing]
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @runory/${{ matrix.package }} test
+
+  core-tests:
+    name: Core tests (${{ matrix.shard }}/4)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @runory/platform-core exec vitest run --shard=${{ matrix.shard }}/4 --maxWorkers=1
+        env:
+          RUNORY_TEST_DATABASE_URL: file:${{ runner.temp }}/core-${{ matrix.shard }}.db
+
+  build:
+    name: Types and production build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      NEXT_TELEMETRY_DISABLED: "1"
+      PLATFORM_DEV_BOOTSTRAP: "false"
+      PLATFORM_OTP_RETURN_DEV_CODE: "false"
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm --filter @runory/cloud build
+        env:
+          LIBSQL_URL: file:${{ runner.temp }}/build.db
+      - name: Verify the built mobile shell budget
+        run: pnpm --filter @runory/cloud exec vitest run src/lib/__tests__/performance-budget.test.ts
+        env:
+          RUNORY_REQUIRE_PRODUCTION_BUILD: "true"
+
+  dependencies:
+    name: Production dependency security
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm audit:production
+
+  journeys:
+    name: Local G1 G2 and recovery
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @runory/cloud exec playwright install --with-deps chromium
+      - run: pnpm verify:release:local
+      - name: Retain synthetic verification summaries
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: local-release-evidence
+          path: |
+            apps/cloud/test-results/release/**/*-result.json
+            apps/cloud/test-results/release/**/verification-summary.json
+            apps/cloud/test-results/e2e/browser-report.json
+          retention-days: 14
+
+  release-gate:
+    name: Release Gate
+    if: always()
+    needs: [tests, core-tests, build, dependencies, journeys]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require every release check
+        env:
+          CHECK_RESULTS: ${{ toJSON(needs) }}
+        run: |
+          node -e 'const checks=JSON.parse(process.env.CHECK_RESULTS); if(Object.values(checks).some(check=>check.result!=="success")) process.exit(1);'

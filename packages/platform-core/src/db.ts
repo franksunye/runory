@@ -3,6 +3,16 @@ import { randomUUID } from "node:crypto";
 import { runMigrations } from "./migrations";
 import { PLATFORM_CONFIG, getDbFilename } from "./platform-config";
 import { InvalidInputError } from "./context";
+import { AsyncLocalStorage } from "node:async_hooks";
+
+// Opt-in transaction propagation for service functions composed from the
+// query helpers below. Existing explicit Transaction callers are unchanged.
+const databaseTransaction = new AsyncLocalStorage<Transaction>();
+// Track ownership separately so opting into helper propagation from inside an
+// existing explicit transaction can reuse it without changing callers outside
+// that opt-in scope.
+const owningTransaction = new AsyncLocalStorage<Transaction>();
+let localServiceWriteQueue: Promise<void> = Promise.resolve();
 
 // ── Lazy Client (Proxy pattern, safe for Next.js hot-reload & next build) ──
 
@@ -76,7 +86,7 @@ export function validateIdentifier(name: string): string {
 
 export async function query(sql: string, args: unknown[] = []) {
   await ensureSchema();
-  return db.execute({ sql, args: args as never });
+  return (databaseTransaction.getStore() ?? db).execute({ sql, args: args as never });
 }
 
 export async function queryAll<T = Record<string, unknown>>(sql: string, args: unknown[] = []): Promise<T[]> {
@@ -123,6 +133,11 @@ export class BatchRowsAffectedError extends Error {
 export async function batch(statements: BatchStatement[]): Promise<void> {
   if (statements.length === 0) return;
   await ensureSchema();
+  const currentTransaction = databaseTransaction.getStore();
+  if (currentTransaction) {
+    await executeStatementsInTransaction(currentTransaction, statements);
+    return;
+  }
   if (statements.some((statement) => statement.expectedRowsAffected !== undefined)) {
     const transaction = await db.transaction("write");
     try {
@@ -174,10 +189,15 @@ export type { Transaction };
 export async function runInTransaction<T>(
   fn: (tx: Transaction) => Promise<T>,
 ): Promise<T> {
+  // Within an explicitly propagated transaction, nested work joins the same
+  // unit of work. Only the outer caller owns commit/rollback; no second write
+  // connection or independently committed nested transaction is opened.
+  const currentTransaction = databaseTransaction.getStore() ?? owningTransaction.getStore();
+  if (currentTransaction) return fn(currentTransaction);
   await ensureSchema();
   const tx = await db.transaction("write");
   try {
-    const result = await fn(tx);
+    const result = await owningTransaction.run(tx, () => fn(tx));
     await tx.commit();
     return result;
   } catch (error) {
@@ -185,6 +205,33 @@ export async function runInTransaction<T>(
     throw error;
   } finally {
     tx.close();
+  }
+}
+
+/**
+ * Atomically compose services that use query/execute/batch helpers.
+ * Nested calls reuse the outer transaction and must propagate errors when the
+ * entire operation needs to roll back. Raw db methods bypass this context and
+ * must not be used inside it. Keep external delivery in the durable outbox.
+ */
+export async function runWithDatabaseTransaction<T>(fn: () => Promise<T>): Promise<T> {
+  if (databaseTransaction.getStore()) return fn();
+  const run = () => runInTransaction((tx) => databaseTransaction.run(tx, fn));
+  // The file: driver's synchronous busy wait cannot let another transaction
+  // in this process resume and release its write lock. Queue these composed
+  // services locally; the database transaction remains the cross-process
+  // correctness boundary. Never queue nested work behind its own outer lock.
+  if (owningTransaction.getStore() || (process.env.LIBSQL_URL && !process.env.LIBSQL_URL.startsWith("file:"))) {
+    return run();
+  }
+  const previous = localServiceWriteQueue;
+  let release!: () => void;
+  localServiceWriteQueue = new Promise<void>((resolve) => { release = resolve; });
+  await previous;
+  try {
+    return await run();
+  } finally {
+    release();
   }
 }
 

@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
-import { getWorkspaceProvisioningSummary, resolveWorkspaceId } from "@runory/platform-core";
-import { requirePrincipal } from "@/lib/auth";
+import { getWorkspaceProvisioningSummary } from "@runory/platform-core";
+import { requireWorkspaceContext } from "@/lib/auth";
 import { successResponse, handleError } from "@/lib/http";
 
 export const dynamic = "force-dynamic";
@@ -12,9 +12,8 @@ export const dynamic = "force-dynamic";
  */
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    await requirePrincipal(request);
     const { id } = await params;
-    const workspaceId = await resolveWorkspaceId(id);
+    const { workspaceId } = await requireWorkspaceContext(request, id, "admin");
     const summary = await getWorkspaceProvisioningSummary(workspaceId);
     return successResponse(summary);
   } catch (e) {

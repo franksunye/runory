@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { requestOtp, isValidEmail } from "@runory/platform-core";
+import { requestOtp, isValidEmail, isLocalDevelopmentRuntime } from "@runory/platform-core";
 import { successResponse, handleError, invalidInput, getOrCreateRequestId } from "@/lib/http";
 
 export const dynamic = "force-dynamic";
@@ -16,10 +16,8 @@ export async function POST(request: NextRequest) {
       ?? request.headers.get("x-real-ip")
       ?? "127.0.0.1";
 
-    const isDev = process.env.NODE_ENV !== "production";
-    // Allow returning the OTP code on the page in production when an explicit
-    // toggle is set. This enables end-to-end login without an email provider.
-    const returnDevCode = isDev || process.env.PLATFORM_OTP_RETURN_DEV_CODE === "true";
+    // A debug flag is never an authentication bypass in a deployed runtime.
+    const returnDevCode = isLocalDevelopmentRuntime();
     const result = await requestOtp(body.email, ip, {
       devMode: returnDevCode,
       skipRateLimit: returnDevCode,

@@ -151,6 +151,8 @@ export const TABLES = {
   // v0.9.4 — Upgrade policy and contract freeze
   platformPolicies: `${PREFIXES.runoryCatalog}platform_policies`,
   contractFreezeSnapshots: `${PREFIXES.runoryCatalog}contract_freeze_snapshots`,
+  upgradeSnapshots: `${PREFIXES.runoryCatalog}upgrade_snapshots`,
+  upgradeExecutionStates: `${PREFIXES.runoryCatalog}upgrade_execution_states`,
 } as const;
 
 // ── Business Table Prefix ──

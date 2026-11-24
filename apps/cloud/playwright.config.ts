@@ -38,6 +38,11 @@ export default defineConfig({
   ],
   use: {
     baseURL: process.env.RUNORY_API_BASE ?? "http://localhost:3000",
+    launchOptions: {
+      // Allows a preinstalled browser in restricted local verification
+      // environments; CI uses Playwright's pinned browser when unset.
+      executablePath: process.env.RUNORY_CHROMIUM_EXECUTABLE_PATH,
+    },
     trace: "on",
     screenshot: "only-on-failure",
     video: "retain-on-failure",

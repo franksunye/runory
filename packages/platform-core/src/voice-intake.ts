@@ -1,7 +1,7 @@
 import { createHmac, timingSafeEqual, randomUUID } from "node:crypto";
 import { writeAuditEvent } from "./audit-service";
 import { businessTable } from "./contracts";
-import { execute, now, queryAll, queryOne } from "./db";
+import { execute, now, queryAll, queryOne, runWithDatabaseTransaction } from "./db";
 import { createRecord, getRecord, getRecords, updateRecord } from "./metadata";
 import { enqueueOutboxMessage } from "./outbox";
 import { createConversation, createNotificationMessage, createVoiceMessage } from "./messaging";
@@ -132,12 +132,19 @@ export async function upsertVoiceCall(workspaceId: string, input: {
   });
 }
 
-export async function ingestVoiceEvent(workspaceId: string, event: {
+interface VoiceProviderEvent {
   eventId: string; providerCallId: string; eventType: string; status: VoiceCallStatus;
   sequence?: number; startedAt?: string; answeredAt?: string; endedAt?: string;
   durationSeconds?: number; transcript?: string; summary?: string; recordingReference?: string;
   payload?: unknown;
-}): Promise<{ duplicate: boolean; callId: string }> {
+}
+
+export async function ingestVoiceEvent(workspaceId: string, event: VoiceProviderEvent): Promise<{ duplicate: boolean; callId: string }> {
+  // A receipt is evidence of a committed state change, never just an attempt.
+  return runWithDatabaseTransaction(() => ingestVoiceEventInTransaction(workspaceId, event));
+}
+
+async function ingestVoiceEventInTransaction(workspaceId: string, event: VoiceProviderEvent): Promise<{ duplicate: boolean; callId: string }> {
   const duplicate = await queryOne<{ provider_event_id: string }>(
     "SELECT provider_event_id FROM voice_intake_provider_events WHERE workspace_id = ? AND provider = 'retell' AND provider_event_id = ?",
     [workspaceId, event.eventId],
@@ -297,6 +304,12 @@ async function resolveContactAndSite(workspaceId: string, input: ServiceIntakeIn
 }
 
 export async function createVoiceWorkOrder(workspaceId: string, input: ServiceIntakeInput, actor: VoiceActor, idempotencyKey: string) {
+  // Contact/site resolution, the work order, call/session state, activity,
+  // notification/outbox intent and replay result must commit together.
+  return runWithDatabaseTransaction(() => createVoiceWorkOrderInTransaction(workspaceId, input, actor, idempotencyKey));
+}
+
+async function createVoiceWorkOrderInTransaction(workspaceId: string, input: ServiceIntakeInput, actor: VoiceActor, idempotencyKey: string) {
   const prior = await replay<Record<string, unknown>>(workspaceId, idempotencyKey);
   if (prior) return prior;
   const preview = await previewServiceIntake(workspaceId, input);

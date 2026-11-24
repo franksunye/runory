@@ -26,6 +26,9 @@ export interface Principal {
   authMethod: "session" | "api_key" | "trust_headers" | "dev_bootstrap";
   /** For API key auth, the key ID (for audit); null otherwise */
   apiKeyId?: string;
+  /** Server-derived credential ceiling. Never infer these from the creator's role. */
+  apiKeyWorkspaceId?: string;
+  apiKeyScopes?: readonly string[];
 }
 
 // ── RequestContext: the canonical server-derived request context ──

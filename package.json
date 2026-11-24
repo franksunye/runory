@@ -22,10 +22,12 @@
     "e2e:validate-result": "node scripts/validate-e2e-result.mjs",
     "e2e:browser": "pnpm --filter @runory/cloud test:e2e:browser",
     "test:voice-intake:http": "node --env-file=apps/cloud/.env.local scripts/smoke-retell.mjs",
-    "mcp": "pnpm --filter @runory/mcp start"
+    "mcp": "pnpm --filter @runory/mcp start",
+    "audit:production": "node scripts/check-production-dependencies.mjs",
+    "verify:release:local": "node scripts/verify-release-local.mjs"
   },
   "devDependencies": {
-    "@types/node": "^24.10.1",
+    "@types/node": "^24.19.2",
     "@types/web-push": "^3.6.4",
     "typescript": "^5.9.3"
   },
@@ -34,7 +36,12 @@
     "onlyBuiltDependencies": [
       "esbuild",
       "sharp"
-    ]
+    ],
+    "overrides": {
+      "next>sharp": "^0.35.5",
+      "next>postcss": "^8.5.23",
+      "@vercel/cli-config>zod": "^4.6.7"
+    }
   },
   "dependencies": {
     "web-push": "^3.6.7"

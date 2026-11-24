@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
-import { generateDiagnosticsPackage, resolveWorkspaceId } from "@runory/platform-core";
-import { requirePrincipal } from "@/lib/auth";
+import { generateDiagnosticsPackage } from "@runory/platform-core";
+import { requireWorkspaceContext } from "@/lib/auth";
 import { successResponse, handleError } from "@/lib/http";
 
 export const dynamic = "force-dynamic";
@@ -17,9 +17,8 @@ export const maxDuration = 60;
  */
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    await requirePrincipal(request);
     const { id } = await params;
-    const workspaceId = await resolveWorkspaceId(id);
+    const { workspaceId } = await requireWorkspaceContext(request, id, "admin");
     const diagnostics = await generateDiagnosticsPackage(workspaceId);
     return successResponse(diagnostics);
   } catch (e) {

@@ -244,7 +244,7 @@ export interface UserWorkspaceEntry {
   effectiveRole: WorkspaceRole;
 }
 
-export async function listUserWorkspaces(userId: string): Promise<UserWorkspaceEntry[]> {
+export async function listUserWorkspaces(userId: string, workspaceId?: string): Promise<UserWorkspaceEntry[]> {
   const rows = await queryAll<{
     workspace_id: string;
     workspace_name: string;
@@ -259,16 +259,17 @@ export async function listUserWorkspaces(userId: string): Promise<UserWorkspaceE
     `SELECT w.id AS workspace_id, w.name AS workspace_name, w.slug AS workspace_slug, w.status AS workspace_status,
        o.id AS organization_id, o.name AS organization_name, o.slug AS organization_slug,
        wm.role AS workspace_role, om.role AS organization_role
-     FROM ${TABLES.workspaceMemberships} wm
-     JOIN ${TABLES.users} u ON u.id = wm.user_id AND u.status = 'active'
-     JOIN ${TABLES.workspaces} w ON w.id = wm.workspace_id
+     FROM ${TABLES.workspaces} w
      JOIN ${TABLES.workspaceTenants} wt ON wt.workspace_id = w.id
      JOIN ${TABLES.organizations} o ON o.id = wt.organization_id
+     JOIN ${TABLES.users} u ON (u.id = ? OR u.external_id = ?) AND u.status = 'active'
+     LEFT JOIN ${TABLES.workspaceMemberships} wm
+       ON wm.workspace_id = w.id AND wm.user_id = u.id AND wm.status = 'active'
      LEFT JOIN ${TABLES.organizationMemberships} om
-       ON om.organization_id = o.id AND om.user_id = wm.user_id AND om.status = 'active'
-     WHERE (u.id = ? OR u.external_id = ?) AND wm.status = 'active'
+       ON om.organization_id = o.id AND om.user_id = u.id AND om.status = 'active'
+     WHERE (wm.id IS NOT NULL OR om.role IN ('owner', 'admin'))${workspaceId ? " AND w.id = ?" : ""}
      ORDER BY w.name ASC`,
-    [userId, userId]
+    workspaceId ? [userId, userId, workspaceId] : [userId, userId]
   );
 
   return rows.map((r) => ({

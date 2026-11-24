@@ -1,4 +1,4 @@
-import { queryAll, queryOne, execute, genId, now } from "./db";
+import { queryAll, queryOne, execute, genId, now, type Transaction } from "./db";
 import { TABLES } from "./contracts";
 import {
   type Principal,
@@ -160,17 +160,16 @@ function redactSensitive(data: Record<string, unknown> | null): Record<string, u
 
 // ── Write Audit Event (append-only) ──
 
-export async function writeAuditEvent(input: AuditEventInput): Promise<string> {
+export async function writeAuditEvent(input: AuditEventInput, transaction?: Transaction): Promise<string> {
   const id = genId("aud");
   const ts = now();
   const before = redactSensitive(input.before ?? null);
   const after = redactSensitive(input.after ?? null);
 
-  await execute(
-    `INSERT INTO ${TABLES.auditLogs}
+  const sql = `INSERT INTO ${TABLES.auditLogs}
      (id, workspace_id, actor_type, actor_id, action, entity_type, entity_id, before_json, after_json, extension_version_id, request_id, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+  const args = [
       id,
       input.workspaceId,
       input.actorType,
@@ -183,8 +182,9 @@ export async function writeAuditEvent(input: AuditEventInput): Promise<string> {
       input.extensionVersionId ?? null,
       input.requestId ?? null,
       ts,
-    ]
-  );
+    ];
+  if (transaction) await transaction.execute({ sql, args });
+  else await execute(sql, args);
 
   return id;
 }

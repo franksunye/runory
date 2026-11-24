@@ -144,7 +144,8 @@ describe("mobile-shell JS performance budget (v0.5.1 Spec §5.7)", () => {
     !!appManifest &&
     (buildManifest.rootMainFiles?.length ?? 0) > 0;
 
-  it.skipIf(!hasProductionBuild)(
+  const requireProductionBuild = process.env.RUNORY_REQUIRE_PRODUCTION_BUILD === "true";
+  it.skipIf(!hasProductionBuild && !requireProductionBuild)(
     "mobile-shell initial JS (gzip) is within the 220 KB budget",
     () => {
       assertBuildArtifacts(buildDir, buildManifest, appManifest);
@@ -158,6 +159,7 @@ describe("mobile-shell JS performance budget (v0.5.1 Spec §5.7)", () => {
       // If the dev build present has no mobile shell chunks, fail loudly rather
       // than silently passing — the gate must be exercised on a real build.
       const existing = shellFiles.filter((f) => existsSync(f));
+      expect(existing.length, "Every manifest-referenced shell chunk must exist").toBe(shellFiles.length);
       expect(
         existing.length,
         "Expected at least one mobile-shell JS chunk to measure. Run `pnpm --filter @runory/cloud build` first.",

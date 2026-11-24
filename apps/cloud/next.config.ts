@@ -9,15 +9,7 @@ const baseConfig: NextConfig = {
   outputFileTracingIncludes: {
     "/*": ["./.resources/**/*"],
   },
-  // Expose the OTP dev-code toggle to client bundles. The value is resolved at
-  // build time from PLATFORM_OTP_RETURN_DEV_CODE so that client components can
-  // conditionally render the dev-code hint without a separate round-trip.
   env: {
-    NEXT_PUBLIC_OTP_DEV_CODE_ENABLED: process.env.PLATFORM_OTP_RETURN_DEV_CODE ?? "false",
-    // Expose the dev bootstrap toggle to client bundles so the DevPersonaSwitcher
-    // can conditionally render without a separate round-trip. The value is
-    // resolved at build time from PLATFORM_DEV_BOOTSTRAP.
-    NEXT_PUBLIC_PLATFORM_DEV_BOOTSTRAP: process.env.PLATFORM_DEV_BOOTSTRAP ?? "false",
     // Keep the v0.5 basemap selectable at deployment time. CSP intentionally
     // permits only the OpenFreeMap origin, so switching map providers remains
     // a deliberate security/configuration change.
@@ -46,8 +38,20 @@ const baseConfig: NextConfig = {
 };
 
 export default function nextConfig(phase: string): NextConfig {
+  // Match the server's local-runtime guard and additionally require a dev
+  // server. A production build must never embed a debug auth toggle, including
+  // when deployment variables were copied from a developer's machine.
+  const localDevelopment = phase === PHASE_DEVELOPMENT_SERVER
+    && (process.env.NODE_ENV === "development" || process.env.NODE_ENV === "test")
+    && process.env.VERCEL !== "1"
+    && !process.env.VERCEL_ENV;
   return {
     ...baseConfig,
+    env: {
+      ...baseConfig.env,
+      NEXT_PUBLIC_OTP_DEV_CODE_ENABLED: String(localDevelopment),
+      NEXT_PUBLIC_PLATFORM_DEV_BOOTSTRAP: String(localDevelopment && process.env.PLATFORM_DEV_BOOTSTRAP === "true"),
+    },
     distDir: phase === PHASE_DEVELOPMENT_SERVER ? ".next-dev" : ".next",
   };
 }

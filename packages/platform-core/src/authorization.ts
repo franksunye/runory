@@ -148,8 +148,8 @@ export function canAccessOrganization(ctx: RequestContext, operation: Organizati
 // Commands check business permissions before executing.
 // Permission groups are synced from pack manifests and assigned to users.
 // The `*` wildcard grants all permissions.
-// Workspace admins implicitly pass if no permission groups are configured yet
-// (bootstrap mode — before permission groups are set up).
+// Workspace admins retain their administrative authority. Other members need
+// an explicit grant, including workspaces migrated from earlier versions.
 
 export async function requireBusinessPermission(
   ctx: RequestContext,
@@ -169,8 +169,8 @@ export async function requireBusinessPermission(
     ctx.principal.userId
   );
 
-  // If no groups assigned, allow workspace members (transitional mode)
-  if (groups.length === 0 && role === "member") return;
+  // Empty assignments mean no business authority. Treating this as bootstrap
+  // access would turn removing the last role into an escalation of privilege.
 
   // Check if any group grants the permission
   for (const group of groups) {
@@ -203,8 +203,6 @@ export async function hasBusinessPermission(
     ctx.workspaceId,
     ctx.principal.userId
   );
-
-  if (groups.length === 0 && role === "member") return true;
 
   for (const group of groups) {
     if (group.permissions.includes("*") || group.permissions.includes(permission)) {

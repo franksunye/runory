@@ -29,6 +29,7 @@ import {
   X,
 } from "lucide-react";
 import { useI18n } from "@/i18n/locale-provider";
+import type { AttachmentUploadPolicy } from "@/lib/attachment-upload-policy";
 
 // ── Internal answer value types ──
 
@@ -186,6 +187,33 @@ export function MobileFormRenderer({
   );
   const [errors, setErrors] = useState<Record<string, string>>({});
   const { t } = useI18n();
+  const [uploadPolicy, setUploadPolicy] = useState<AttachmentUploadPolicy | null>(null);
+  const [uploadPolicyError, setUploadPolicyError] = useState(false);
+  const [policyRetry, setPolicyRetry] = useState(0);
+  const hasEvidence = schema.blocks.some((block) => block.block_type === "evidence");
+
+  useEffect(() => {
+    setUploadPolicy(null);
+    setUploadPolicyError(false);
+    if (!workspaceId || !hasEvidence) return;
+    const controller = new AbortController();
+    void (async () => {
+      try {
+        const response = await fetch(`/api/workspaces/${workspaceId}/uploads`, {
+          cache: "no-store", signal: controller.signal,
+        });
+        const envelope = await response.json();
+        const policy = envelope.data as AttachmentUploadPolicy | undefined;
+        if (!response.ok || !envelope.success || !policy
+          || !Number.isFinite(policy.maxFileSizeBytes) || policy.maxFileSizeBytes <= 0
+          || !Array.isArray(policy.allowedContentTypes)) throw new Error("Upload policy unavailable");
+        if (!controller.signal.aborted) setUploadPolicy(policy);
+      } catch {
+        if (!controller.signal.aborted) setUploadPolicyError(true);
+      }
+    })();
+    return () => controller.abort();
+  }, [workspaceId, hasEvidence, policyRetry]);
 
   // Hidden file input refs (one per evidence block for camera + gallery)
   const cameraInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
@@ -447,6 +475,25 @@ export function MobileFormRenderer({
         });
         return;
       }
+      if (!uploadPolicy) {
+        patchEvidenceEntry(blockId, localId, {
+          status: "error", errorMessage: "Upload limits are unavailable. Reload the limits and retry.",
+        });
+        return;
+      }
+      if (file.size > uploadPolicy.maxFileSizeBytes) {
+        patchEvidenceEntry(blockId, localId, {
+          status: "error",
+          errorMessage: `File exceeds the ${uploadPolicy.maxFileSizeBytes / (1024 * 1024)} MiB limit. Choose a smaller file.`,
+        });
+        return;
+      }
+      if (!uploadPolicy.allowedContentTypes.includes(file.type)) {
+        patchEvidenceEntry(blockId, localId, {
+          status: "error", errorMessage: "This file type is not supported for uploads.",
+        });
+        return;
+      }
 
       // Abort any in-flight XHR for this entry (e.g. on retry).
       const existing = xhrRefs.current[localId];
@@ -531,7 +578,7 @@ export function MobileFormRenderer({
       xhr.open("POST", `/api/workspaces/${workspaceId}/uploads`);
       xhr.send(formData);
     },
-    [workspaceId, patchEvidenceEntry]
+    [workspaceId, patchEvidenceEntry, uploadPolicy]
   );
 
   const handleFilesSelected = useCallback(
@@ -886,21 +933,34 @@ export function MobileFormRenderer({
         <div className="flex gap-2">
           <button
             type="button"
+            disabled={!uploadPolicy}
             onClick={() => cameraInputRefs.current[block.id]?.click()}
-            className="flex min-h-[48px] flex-1 items-center justify-center gap-2 rounded-xl border border-indigo-300 bg-indigo-50 text-sm font-semibold text-indigo-700 active:bg-indigo-100"
+            className="flex min-h-[48px] flex-1 items-center justify-center gap-2 rounded-xl border border-indigo-300 bg-indigo-50 text-sm font-semibold text-indigo-700 active:bg-indigo-100 disabled:opacity-50"
           >
             <Camera size={16} />
             Take Photo
           </button>
           <button
             type="button"
+            disabled={!uploadPolicy}
             onClick={() => galleryInputRefs.current[block.id]?.click()}
-            className="flex min-h-[48px] flex-1 items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white text-sm font-semibold text-slate-700 active:bg-slate-50"
+            className="flex min-h-[48px] flex-1 items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white text-sm font-semibold text-slate-700 active:bg-slate-50 disabled:opacity-50"
           >
             <Upload size={16} />
             Attach File
           </button>
         </div>
+
+        <p className="mt-2 text-xs text-slate-500" aria-live="polite">
+          {uploadPolicy
+            ? `Maximum ${uploadPolicy.maxFileSizeBytes / (1024 * 1024)} MiB per file.`
+            : uploadPolicyError ? "Upload limits are unavailable." : "Loading upload limits…"}
+          {uploadPolicyError && (
+            <button type="button" onClick={() => setPolicyRetry((value) => value + 1)} className="ml-2 font-medium text-indigo-700 underline">
+              Retry
+            </button>
+          )}
+        </p>
 
         {/* Hidden file inputs */}
         <input

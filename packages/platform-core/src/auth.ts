@@ -1,7 +1,7 @@
 import { createHash, randomBytes, randomInt, timingSafeEqual } from "node:crypto";
 import { batch, execute, genId, now, queryAll, queryOne } from "./db";
 import { TABLES } from "./contracts";
-import { getMailProviderUrl, getSessionCookieName } from "./platform-config";
+import { getMailProviderUrl, getSessionCookieName, isLocalDevelopmentRuntime } from "./platform-config";
 import {
   ConflictError,
   RateLimitError,
@@ -141,10 +141,12 @@ export async function requestOtp(
   const emailNormalized = normalizeEmail(rawEmail);
   const purpose = options.purpose ?? "login";
   const ipHashed = hashIp(ip);
+  const localDevelopment = isLocalDevelopmentRuntime();
+  const devMode = localDevelopment && options.devMode === true;
 
   // Rate limit: per email and per IP. Local UI development can explicitly
   // bypass this so repeated manual login tests do not lock the dev account.
-  if (!options.skipRateLimit) {
+  if (!(localDevelopment && options.skipRateLimit)) {
     await checkRateLimit("otp_request_per_email", sha256(emailNormalized), RATE_LIMITS.otp_request_per_email);
     await checkRateLimit("otp_request_per_ip", ipHashed, RATE_LIMITS.otp_request_per_ip);
   }
@@ -178,7 +180,7 @@ export async function requestOtp(
   );
 
   // In production, send email via provider. In dev, return the code.
-  if (!options.devMode) {
+  if (!devMode) {
     await sendOtpEmail(emailNormalized, code);
   }
 
@@ -187,7 +189,7 @@ export async function requestOtp(
     emailNormalized,
     expiresAt,
     isNewUser: !existingIdentity,
-    devCode: options.devMode ? code : undefined,
+    devCode: devMode ? code : undefined,
   };
 }
 
@@ -216,7 +218,7 @@ export async function verifyOtp(
 
   // Rate limit verification attempts. Challenge-level max attempts still
   // applies even when local development bypasses aggregate rate limits.
-  if (!options.skipRateLimit) {
+  if (!(isLocalDevelopmentRuntime() && options.skipRateLimit)) {
     await checkRateLimit("otp_verify_per_email", sha256(emailNormalized), RATE_LIMITS.otp_verify_per_email);
     await checkRateLimit("otp_verify_per_ip", ipHashed, RATE_LIMITS.otp_verify_per_ip);
   }
@@ -627,7 +629,7 @@ export async function listUserSessions(userId: string, currentToken?: string): P
 // a real email provider (Resend, SendGrid, Postmark, etc.).
 
 async function sendOtpEmail(email: string, code: string): Promise<void> {
-  if (process.env.NODE_ENV !== "production") {
+  if (isLocalDevelopmentRuntime()) {
     // Dev mode: log to console (the devCode is also returned from requestOtp)
     console.log(`[DEV MAIL] To: ${email} | OTP Code: ${code} | Expires in ${OTP_TTL_MINUTES} minutes`);
     return;

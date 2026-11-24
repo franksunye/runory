@@ -50,9 +50,10 @@ async function main() {
   const seedRes = await fetchJson(`${BASE}/api/platform/catalog/seed`, { method: "POST" });
   if (seedRes.ok && seedRes.json.success) {
     const r = seedRes.json.data;
+    if (r.errors?.length) throw new Error(`Catalog seed reported ${r.errors.length} error(s)`);
     console.log(`  ✓ Imported ${r.imported.length}, published ${r.published.length}, skipped ${r.skipped.length}`);
   } else {
-    console.log(`  ⚠ Catalog seed skipped: ${seedRes.json.error?.message ?? "unknown"}`);
+    throw new Error(`Catalog seed failed: ${seedRes.json.error?.message ?? "unknown"}`);
   }
 
   // Step 1: Create workspace
@@ -89,8 +90,7 @@ async function main() {
       console.log(`  ✓ Objects: ${result.objectsCreated?.join(", ") || "none"}`);
       console.log(`  ✓ Demo data: ${result.demoRecordsCreated > 0 ? `${result.demoRecordsCreated} records loaded` : "not loaded"}`);
     } else {
-      console.error(`  ✗ Failed to install ${pack.label}:`, installRes.json);
-      // Continue with remaining packs
+      throw new Error(`Failed to install ${pack.label}: ${installRes.json.error?.message ?? "unknown"}`);
     }
   }
 

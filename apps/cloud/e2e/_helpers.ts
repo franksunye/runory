@@ -280,6 +280,9 @@ export async function ensureSalesQuoteRoleAssignments(
 
 export function loadCloudEnv(envPath = resolve(__dirname, "../.env.local")): NodeJS.ProcessEnv {
   const env = { ...process.env };
+  // The release runner supplies a sealed, fresh local environment. Do not
+  // allow a developer's dotenv file to redirect a write-capable test helper.
+  if (env.RUNORY_ISOLATED_VERIFICATION === "true") return env;
   if (!existsSync(envPath)) return env;
   for (const line of readFileSync(envPath, "utf8").split("\n")) {
     const trimmed = line.trim();
@@ -294,15 +297,21 @@ export function loadCloudEnv(envPath = resolve(__dirname, "../.env.local")): Nod
     ) {
       value = value.slice(1, -1);
     }
-    env[key] = value;
+    if (env[key] === undefined) env[key] = value;
   }
   return env;
 }
 
 export function syncPackPermissionGroups() {
-  execFileSync("pnpm", ["exec", "tsx", "scripts/sync-pack-permission-groups.mjs"], {
+  const env = loadCloudEnv();
+  if (env.RUNORY_ISOLATED_VERIFICATION === "true" && (
+    !env.RUNORY_VERIFICATION_DATABASE_URL?.startsWith("file:")
+    || env.LIBSQL_URL !== env.RUNORY_VERIFICATION_DATABASE_URL
+    || Boolean(env.LIBSQL_AUTH_TOKEN)
+  )) throw new Error("Isolated verification may only write its fresh local database");
+  execFileSync(process.execPath, ["--import", "tsx", "scripts/sync-pack-permission-groups.mjs"], {
     cwd: resolve(__dirname, ".."),
-    env: loadCloudEnv(),
+    env,
     stdio: "pipe",
   });
 }

@@ -59,11 +59,15 @@ Workspace API keys authenticate external Agents and MCP clients against the gove
 
 A key is sent as `Authorization: Bearer <key>`. The Runory MCP server reads it from `RUNORY_API_KEY`. See [MCP / Skill Usage](./mcp-skill-usage.md).
 
+Scopes are a ceiling on the creator's current permissions, not a replacement for membership or business roles. `workspace:read` permits Workspace reads; `records:write` permits business mutations; `extensions:manage` permits governed Pack/Extension and configuration changes. Grant each required scope explicitly. A key cannot administer credentials, membership, payment-provider connections, or Workspace lifecycle; these operations require a user session. Invalid or revoked Bearer credentials never fall back to a browser session. Key-based Workspace discovery returns only the key's bound Workspace.
+
 ## Permission groups
 
 Permission groups are pack-aware. A pack can declare `permissionGroups` (for example the CRM Lite Pack declares `sales_admin`, `sales_agent`, `sales_viewer`), each with a set of permissions like `company.read`, `deal.create`. Assignments are managed through the workspace permission-group assignment surface.
 
 Permission groups were added in v0.3.6 and let you scope members to a pack's capabilities without custom roles. Custom roles, field ACL, and record ACL are **not** available yet.
+
+A non-admin member with no assigned business role has no business-command permissions. Removing the last role revokes its authority immediately; it does not restore legacy unrestricted access. For workspaces created before this rule, an administrator must explicitly assign the intended installed business role before members resume governed actions. No automatic blanket grant is applied during migration.
 
 ## Billing (free plan)
 

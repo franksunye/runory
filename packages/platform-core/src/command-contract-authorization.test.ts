@@ -7,6 +7,8 @@ import { runMigrations } from "./migrations";
 import {
   assignPackPermissionGroup,
   getPackPermissionGroups,
+  removePackPermissionAssignment,
+  getUserPermissionGroups,
   syncPackPermissionGroups,
 } from "./permission-groups";
 import { authorizeCommandActor } from "./command-contracts/authorization";
@@ -76,6 +78,7 @@ describe("Command Contract Runtime authorization", () => {
     await seedUser("usr_admin", "actor_admin", "admin");
     await seedUser("usr_allowed", "actor_allowed", "member");
     await seedUser("usr_denied", "actor_denied", "member");
+    await seedUser("usr_unassigned", "actor_unassigned", "member");
     await seedUser("usr_outsider", "actor_outsider");
 
     await syncPackPermissionGroups(workspaceId, "test-pack", [{
@@ -127,6 +130,23 @@ describe("Command Contract Runtime authorization", () => {
     await expect(authorizeCommandActor(
       workspaceId,
       { type: "user", id: "actor_outsider" },
+      contract,
+    )).rejects.toMatchObject({ code: "PERMISSION_DENIED" });
+    await expect(authorizeCommandActor(
+      workspaceId,
+      { type: "user", id: "actor_unassigned" },
+      contract,
+    )).rejects.toMatchObject({ code: "PERMISSION_DENIED" });
+  });
+
+  it("removing a member's final permission group never grants business authority", async () => {
+    const groups = await getPackPermissionGroups(workspaceId, "test-pack");
+    const group = groups.find((entry) => entry.groupKey === "read_only")!;
+    await removePackPermissionAssignment(workspaceId, group.id, "usr_denied");
+    expect(await getUserPermissionGroups(workspaceId, "usr_denied")).toEqual([]);
+    await expect(authorizeCommandActor(
+      workspaceId,
+      { type: "user", id: "actor_denied" },
       contract,
     )).rejects.toMatchObject({ code: "PERMISSION_DENIED" });
   });

@@ -221,6 +221,7 @@ The CLI lives in `apps/cli` and is focused on module development, not workspace 
 
 - The MCP interface is **stable as of v0.4.4**. The 21-tool surface is the committed operation contract; breaking changes require a version bump.
 - The MCP server authenticates with a workspace API key (`RUNORY_API_KEY`). Without a key, it only works in local dev.
+- API-key scopes limit every operation in addition to the creator's current role. Use `workspace:read` for discovery, `records:write` for business writes, and `extensions:manage` for Pack/Extension changes. `workspace.list` returns only the key's bound Workspace. Creating a Workspace and administering credentials/membership require a user session; a Workspace-scoped key cannot expand itself to account-wide access.
 - `object.field.add` and `view.modify` are accomplished through the `extension.plan → extension.preview → extension.apply` pipeline. They are not single-shot tools because every governed change must be previewable and auditable.
 - Rollback reverts the latest extension version; multi-step rollback chains are not yet first-class.
 

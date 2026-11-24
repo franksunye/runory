@@ -20,153 +20,61 @@
  * - Incremental: only the migration steps matching from→to are executed
  */
 
-import { queryAll, queryOne, execute, genId, now, db } from "./db";
+import { query, queryOne, execute, genId, now, db, runInTransaction, type Transaction } from "./db";
 import { TABLES, MODULES_DIR, businessTable } from "./contracts";
-import {
-  loadModuleManifest,
-  loadInstalledModuleManifest,
-  loadModuleMigration,
-} from "./installer";
+import { loadModuleMigration } from "./installer";
 import { updateRolloutTargetStatus, getRollout, listRolloutTargets } from "./catalog-rollout";
 import { getCatalogVersion } from "./catalog-registry";
-import { getRelease } from "./catalog-release";
 import { writeAuditEvent } from "./audit-service";
 import { syncWorkspaceCommandContracts } from "./command-contracts";
 import {
+  moduleManifestSchema,
   normalizeLegacyViewConfig,
-  parseViewConfig,
   type ModuleManifest,
   type UpgradeExecutionResult,
   type UpgradeStepResult,
   type UpgradeValidationCheck,
-  type RollbackSnapshot,
 } from "@runory/contracts";
-import { existsSync, readFileSync } from "node:fs";
-import { resolve } from "node:path";
-import { parse as parseYaml } from "yaml";
-import { moduleManifestSchema } from "@runory/contracts";
+import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
+import { resolve, relative, isAbsolute } from "node:path";
+import { capturePreUpgradeSnapshot, readUpgradeState, upgradeStateChecksum } from "./upgrade-snapshots";
 
-// ── Pre-upgrade Snapshot ──
+export { capturePreUpgradeSnapshot } from "./upgrade-snapshots";
 
-/**
- * Capture the state of a workspace's installation before an upgrade.
- * This snapshot is used by the rollback system to restore the workspace
- * if the upgrade fails or needs to be reversed.
- */
-export async function capturePreUpgradeSnapshot(
-  targetId: string,
-  workspaceId: string,
-  moduleId: string,
-  versionBeforeUpgrade: string,
-  versionAfterUpgrade: string,
-): Promise<RollbackSnapshot> {
-  const installation = await queryOne<Record<string, unknown>>(
-    `SELECT * FROM ${TABLES.installations}
-     WHERE workspace_id = ? AND module_id = ? AND status = 'installed'`,
-    [workspaceId, moduleId],
-  );
-
-  const objects = await queryAll<Record<string, unknown>>(
-    `SELECT * FROM ${TABLES.objectDefinitions}
-     WHERE workspace_id = ? AND module_id = ?`,
-    [workspaceId, moduleId],
-  );
-
-  const fields = await queryAll<Record<string, unknown>>(
-    `SELECT * FROM ${TABLES.fieldDefinitions}
-     WHERE workspace_id = ? AND module_id = ?`,
-    [workspaceId, moduleId],
-  );
-
-  const views = await queryAll<Record<string, unknown>>(
-    `SELECT * FROM ${TABLES.viewDefinitions}
-     WHERE workspace_id = ? AND module_id = ?`,
-    [workspaceId, moduleId],
-  );
-
-  const navigation = await queryAll<Record<string, unknown>>(
-    `SELECT * FROM ${TABLES.navigationItems}
-     WHERE workspace_id = ? AND module_id = ?`,
-    [workspaceId, moduleId],
-  );
-
-  const snapshot: RollbackSnapshot = {
-    targetId,
-    workspaceId,
-    moduleId,
-    versionBeforeUpgrade,
-    versionAfterUpgrade,
-    capturedAt: now(),
-    installationRecord: installation ?? {},
-    metadataState: {
-      objects: objects ?? [],
-      fields: fields ?? [],
-      views: views ?? [],
-      navigation: navigation ?? [],
-    },
-  };
-
-  // Persist the snapshot for later rollback
-  await execute(
-    `INSERT INTO ${TABLES.installations}
-     (id, workspace_id, module_id, module_version, pack_id, status, installed_at, parent_operation_id)
-     VALUES (?, ?, ?, ?, NULL, 'snapshot', ?, ?)`,
-    [genId("snap"), workspaceId, moduleId, versionBeforeUpgrade, now(), targetId],
-  ).catch(() => {
-    // Snapshot persistence is best-effort — the table may not support this
-    // pattern in all schemas. The snapshot is also returned to the caller.
-  });
-
-  return snapshot;
-}
-
-// ── Find Upgrade Migration Steps ──
-
-interface ResolvedUpgradePath {
-  steps: NonNullable<ModuleManifest["migrations"]["upgrade"]>;
-  fromVersion: string;
-  toVersion: string;
-}
-
-/**
- * Resolve the upgrade migration steps from the current version to the target version.
- *
- * The module manifest's `migrations.upgrade[]` array contains steps with
- * `from` and `to` version fields. We find the chain of steps that goes from
- * the current version to the target version.
- */
-function resolveUpgradePath(
-  currentManifest: ModuleManifest,
-  targetManifest: ModuleManifest,
-): ResolvedUpgradePath {
-  const upgradeSteps = targetManifest.migrations.upgrade ?? [];
-
-  if (upgradeSteps.length === 0) {
-    return {
-      steps: [],
-      fromVersion: currentManifest.version,
-      toVersion: targetManifest.version,
-    };
+// An omitted `from` is a fresh-install step, never an upgrade wildcard.
+// Refuse gaps/ambiguity instead of running unrelated SQL as a fallback.
+function resolveUpgradePath(fromVersion: string, targetManifest: ModuleManifest) {
+  const available = targetManifest.migrations.upgrade ?? [];
+  if (available.length === 0) return [];
+  const steps: typeof available = [];
+  const visited = new Set<string>();
+  let version = fromVersion;
+  while (version !== targetManifest.version) {
+    if (visited.has(version)) throw new Error("Cycle in module upgrade migration path");
+    visited.add(version);
+    const next = available.filter((step) => step.from === version);
+    if (next.length !== 1) {
+      throw new Error(`Expected one migration from ${version} toward ${targetManifest.version}, found ${next.length}`);
+    }
+    steps.push(next[0]);
+    version = next[0].to;
   }
+  return steps;
+}
 
-  // Find steps that match the from→to path.
-  // If a step has `from: undefined`, it applies to any starting version.
-  // If a step's `from` matches the current version, include it.
-  // For simplicity, we include all steps whose `from` is undefined or matches
-  // the current version, and whose `to` is the target version or an intermediate.
-  const matchingSteps = upgradeSteps.filter((step) => {
-    const fromMatches = step.from === undefined || step.from === currentManifest.version;
-    const toMatches = step.to === targetManifest.version ||
-      step.to === currentManifest.version ||
-      step.from === currentManifest.version;
-    return fromMatches || toMatches;
-  });
-
-  return {
-    steps: matchingSteps.length > 0 ? matchingSteps : upgradeSteps,
-    fromVersion: currentManifest.version,
-    toVersion: targetManifest.version,
-  };
+function loadUpgradeSql(moduleId: string, step: NonNullable<ModuleManifest["migrations"]["upgrade"]>[number]) {
+  const moduleRoot = resolve(MODULES_DIR, moduleId);
+  const scriptPath = resolve(moduleRoot, step.script);
+  const localPath = relative(moduleRoot, scriptPath);
+  if (isAbsolute(localPath) || localPath === ".." || localPath.startsWith("../")) {
+    throw new Error("Upgrade script must be inside its module directory");
+  }
+  if (step.checksum) {
+    const checksum = createHash("sha256").update(readFileSync(scriptPath)).digest("hex");
+    if (checksum !== step.checksum) throw new Error(`Upgrade script checksum mismatch: ${step.script}`);
+  }
+  return loadModuleMigration(moduleId, step.script);
 }
 
 // ── Sync Metadata After Upgrade ──
@@ -180,7 +88,13 @@ async function syncModuleMetadata(
   workspaceId: string,
   moduleId: string,
   newManifest: ModuleManifest,
+  transaction: Transaction,
 ): Promise<void> {
+  const queryOne = async <T>(sql: string, args: unknown[]): Promise<T | undefined> =>
+    (await transaction.execute({ sql, args: args as never })).rows[0] as T | undefined;
+  const execute = async (sql: string, args: unknown[]) => {
+    await transaction.execute({ sql, args: args as never });
+  };
   // Sync new fields that don't exist yet
   for (const obj of newManifest.objects) {
     // Ensure object definition exists
@@ -228,9 +142,10 @@ async function syncModuleMetadata(
         // Update field metadata
         await execute(
           `UPDATE ${TABLES.fieldDefinitions}
-           SET label = ?, type = ?, required = ?
+           SET label = ?, type = ?, ownership = ?, required = ?, default_value = ?, validation_json = ?
            WHERE id = ?`,
-          [field.label, field.type, field.required ? 1 : 0, existingField.id],
+          [field.label, field.type, field.ownership, field.required ? 1 : 0,
+            field.default_value ?? null, field.validation ? JSON.stringify(field.validation) : null, existingField.id],
         );
       }
     }
@@ -263,9 +178,9 @@ async function syncModuleMetadata(
     } else {
       await execute(
         `UPDATE ${TABLES.viewDefinitions}
-         SET label = ?, config_json = ?
+         SET object_key = ?, view_type = ?, label = ?, config_json = ?
          WHERE id = ?`,
-        [view.label, JSON.stringify(normalizedConfig), existingView.id],
+        [view.object, view.type, view.label, JSON.stringify(normalizedConfig), existingView.id],
       );
     }
   }
@@ -297,13 +212,28 @@ async function syncModuleMetadata(
     }
   }
 
-  // Sync command contracts
+  for (const relation of newManifest.relations ?? []) {
+    await execute(
+      `INSERT INTO ${TABLES.relationDefinitions}
+       (id, workspace_id, object_key, target_object_key, target_module_id, relation_type, foreign_key, label, module_id, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT(workspace_id, object_key, foreign_key) DO UPDATE SET
+         target_object_key = excluded.target_object_key, target_module_id = excluded.target_module_id,
+         relation_type = excluded.relation_type, label = excluded.label
+       WHERE module_id = excluded.module_id`,
+      [genId("rel"), workspaceId, relation.object, relation.targetObject, relation.targetModule,
+        relation.type, relation.foreignKey, relation.label ?? null, moduleId, now()],
+    );
+  }
+
+  // Sync command contracts in the same transaction as metadata and installation.
   await syncWorkspaceCommandContracts(
     workspaceId,
     "module",
     moduleId,
     newManifest.version,
     newManifest.domain?.commands ?? [],
+    transaction,
   );
 }
 
@@ -433,10 +363,11 @@ export async function validateUpgrade(
   for (const obj of expectedManifest.objects) {
     const tableName = businessTable(obj.key);
     try {
-      await queryOne<{ name: string }>(
+      const table = await queryOne<{ name: string }>(
         `SELECT name FROM sqlite_master WHERE type='table' AND name = ?`,
         [tableName],
       );
+      if (!table) throw new Error(`Missing business table: ${tableName}`);
       checks.push({
         name: `table:${tableName}`,
         status: "pass",
@@ -491,204 +422,153 @@ export async function executeRolloutTarget(
     throw new Error(`Rollout target not found: ${targetId}`);
   }
 
-  // Skip if already processed
-  if (target.status === "succeeded" || target.status === "failed" || target.status === "skipped") {
+  // Only one worker can claim a pending target. A running SQL migration must
+  // never be replayed automatically after a crash.
+  const claim = await query(
+    `UPDATE ${TABLES.rolloutTargets} SET status = 'running', started_at = ?
+     WHERE id = ? AND status = 'pending'`,
+    [startedAt, targetId],
+  );
+  if (claim.rowsAffected !== 1) {
     return {
-      rolloutId: target.rollout_id,
-      targetId,
-      workspaceId: target.workspace_id,
-      moduleId: "",
-      fromVersion: "",
-      toVersion: "",
-      status: "skipped",
-      steps: [],
-      validations: [],
-      startedAt,
-      completedAt: now(),
-      durationMs: 0,
-      error: `Target already in status: ${target.status}`,
+      rolloutId: target.rollout_id, targetId, workspaceId: target.workspace_id,
+      moduleId: "", fromVersion: "", toVersion: "", status: "skipped",
+      steps: [], validations: [], startedAt, completedAt: now(), durationMs: 0,
+      error: `Target is already running or settled: ${target.status}`,
     };
   }
 
-  // Mark as running
-  await updateRolloutTargetStatus(targetId, "running");
-
+  const stepResults: UpgradeStepResult[] = [];
+  let moduleId = "";
+  let fromVersion = "";
+  let toVersionNumber = "";
+  let snapshotCaptured = false;
   try {
-    // Resolve the target version's catalog entry to get the module manifest
     const toVersion = await getCatalogVersion(target.to_version_id);
+    const targetManifest = moduleManifestSchema.parse(JSON.parse(toVersion.manifestJson));
+    moduleId = targetManifest.id;
+    toVersionNumber = targetManifest.version;
+    if (toVersion.version !== targetManifest.version) throw new Error("Catalog and manifest versions differ");
 
-    // Load the target module manifest from the catalog version
-    const targetManifest = JSON.parse(toVersion.manifestJson) as ModuleManifest;
-    const moduleId = targetManifest.id;
-
-    // Load the currently installed manifest
-    const currentInstallation = await queryOne<{ module_version: string }>(
-      `SELECT module_version FROM ${TABLES.installations}
+    const currentInstallation = await queryOne<{ module_version: string; catalog_version_id: string | null }>(
+      `SELECT module_version, catalog_version_id FROM ${TABLES.installations}
        WHERE workspace_id = ? AND module_id = ? AND status = 'installed'`,
       [target.workspace_id, moduleId],
     );
+    if (!currentInstallation) throw new Error(`No active installation found for ${moduleId} in workspace ${target.workspace_id}`);
+    if (target.from_version_id && target.from_version_id !== currentInstallation.catalog_version_id) {
+      throw new Error("Installation no longer matches the rollout's source catalog version");
+    }
+    fromVersion = currentInstallation.module_version;
+    // Validate and load the complete migration path before capturing/mutating.
+    const upgradeSteps = resolveUpgradePath(fromVersion, targetManifest);
+    const scripts = upgradeSteps.map((step) => loadUpgradeSql(moduleId, step));
+    const snapshot = await capturePreUpgradeSnapshot(
+      targetId, target.workspace_id, moduleId, fromVersion, targetManifest.version,
+    );
+    snapshotCaptured = true;
+    const beforeChecksum = upgradeStateChecksum({
+      installationRecord: snapshot.installationRecord, metadataState: snapshot.metadataState,
+    });
 
-    if (!currentInstallation) {
-      throw new Error(
-        `No active installation found for ${moduleId} in workspace ${target.workspace_id}`,
-      );
+    if (scripts.length > 0) {
+      // Persist the irreversible boundary BEFORE the first SQL statement. If a
+      // process dies or a script partially fails, metadata-only rollback must
+      // not pretend to restore the database schema/data.
+      await runInTransaction(async (tx) => {
+        if (upgradeStateChecksum(await readUpgradeState(tx, target.workspace_id, moduleId)) !== beforeChecksum) {
+          throw new Error("Installation or metadata changed after upgrade snapshot capture");
+        }
+        const marked = await tx.execute({
+          sql: `UPDATE ${TABLES.upgradeExecutionStates}
+                SET phase = 'migrating', migration_started_at = ?, updated_at = ?
+                WHERE target_id = ? AND phase = 'captured' AND migration_started_at IS NULL`,
+          args: [now(), now(), targetId],
+        });
+        if (marked.rowsAffected !== 1) throw new Error("Migration was already attempted; operator recovery is required");
+      });
     }
 
-    const fromVersion = currentInstallation.module_version;
-    const currentManifest = loadInstalledModuleManifest(moduleId, fromVersion);
-
-    // Capture pre-upgrade snapshot for rollback support
-    await capturePreUpgradeSnapshot(
-      targetId,
-      target.workspace_id,
-      moduleId,
-      fromVersion,
-      targetManifest.version,
-    );
-
-    // Resolve upgrade migration steps
-    const upgradePath = resolveUpgradePath(currentManifest, targetManifest);
-
-    const stepResults: UpgradeStepResult[] = [];
-
-    // Execute each migration step
-    for (let i = 0; i < upgradePath.steps.length; i++) {
-      const step = upgradePath.steps[i];
+    for (let i = 0; i < upgradeSteps.length; i++) {
+      const step = upgradeSteps[i];
       const stepStartTime = Date.now();
-
       const stepResult: UpgradeStepResult = {
-        stepIndex: i,
-        fromVersion: step.from,
-        toVersion: step.to,
-        script: step.script,
-        risk: step.risk,
-        status: "running",
-        durationMs: 0,
+        stepIndex: i, fromVersion: step.from, toVersion: step.to, script: step.script,
+        risk: step.risk, status: "running", durationMs: 0,
       };
-
+      stepResults.push(stepResult);
       try {
-        // Load and execute the migration SQL
-        const migrationSql = loadModuleMigration(moduleId, step.script);
-        await db.executeMultiple(migrationSql);
-
+        await db.executeMultiple(scripts[i]);
         stepResult.status = "succeeded";
-        stepResult.durationMs = Date.now() - stepStartTime;
       } catch (err) {
         stepResult.status = "failed";
         stepResult.error = err instanceof Error ? err.message : String(err);
-        stepResult.durationMs = Date.now() - stepStartTime;
-        stepResults.push(stepResult);
         throw err;
+      } finally {
+        stepResult.durationMs = Date.now() - stepStartTime;
       }
-
-      stepResults.push(stepResult);
     }
 
-    // Sync metadata to match the new manifest
-    await syncModuleMetadata(target.workspace_id, moduleId, targetManifest);
+    await runInTransaction(async (tx) => {
+      if (upgradeStateChecksum(await readUpgradeState(tx, target.workspace_id, moduleId)) !== beforeChecksum) {
+        throw new Error("Installation or metadata changed after upgrade snapshot capture");
+      }
+      await syncModuleMetadata(target.workspace_id, moduleId, targetManifest, tx);
+      await tx.execute({
+        sql: `UPDATE ${TABLES.installations}
+              SET module_version = ?, catalog_item_id = ?, catalog_version_id = ?,
+                  resolved_version = ?, artifact_checksum = ?,
+                  source_release_id = (SELECT catalog_release_id FROM ${TABLES.releaseRollouts} WHERE id = ?),
+                  upgraded_at = ?, last_compatibility_report_id = NULL
+              WHERE workspace_id = ? AND module_id = ? AND status = 'installed'`,
+        args: [targetManifest.version, toVersion.catalogItemId, target.to_version_id,
+          targetManifest.version, toVersion.artifactChecksum ?? null, target.rollout_id, now(), target.workspace_id, moduleId],
+      });
+      const applied = await readUpgradeState(tx, target.workspace_id, moduleId);
+      await tx.execute({
+        sql: `UPDATE ${TABLES.upgradeExecutionStates}
+              SET phase = 'applied', applied_state_checksum = ?, updated_at = ? WHERE target_id = ?`,
+        args: [upgradeStateChecksum(applied), now(), targetId],
+      });
+    });
 
-    // Update the installation record to the new version
-    await execute(
-      `UPDATE ${TABLES.installations}
-       SET module_version = ?, catalog_version_id = ?, upgraded_at = ?
-       WHERE workspace_id = ? AND module_id = ? AND status = 'installed'`,
-      [
-        targetManifest.version,
-        target.to_version_id,
-        now(),
-        target.workspace_id,
-        moduleId,
-      ],
-    );
-
-    // Run post-upgrade validation
-    const validations = await validateUpgrade(
-      target.workspace_id,
-      moduleId,
-      targetManifest,
-    );
-
+    const validations = await validateUpgrade(target.workspace_id, moduleId, targetManifest);
     const hasFailures = validations.some((v) => v.status === "fail");
-    const completedAt = now();
     const durationMs = Date.now() - startTime;
-
     const result: UpgradeExecutionResult = {
-      rolloutId: target.rollout_id,
-      targetId,
-      workspaceId: target.workspace_id,
-      moduleId,
-      fromVersion,
-      toVersion: targetManifest.version,
-      status: hasFailures ? "failed" : "succeeded",
-      steps: stepResults,
-      validations,
-      startedAt,
-      completedAt,
-      durationMs,
+      rolloutId: target.rollout_id, targetId, workspaceId: target.workspace_id,
+      moduleId, fromVersion, toVersion: targetManifest.version,
+      status: hasFailures ? "failed" : "succeeded", steps: stepResults, validations,
+      startedAt, completedAt: now(), durationMs,
       ...(hasFailures ? { error: "Post-upgrade validation failed" } : {}),
     };
-
-    // Update the target status
-    await updateRolloutTargetStatus(
-      targetId,
-      hasFailures ? "failed" : "succeeded",
-      hasFailures ? "validation_failed" : undefined,
-    );
-
-    // Write audit event
+    await updateRolloutTargetStatus(targetId, result.status, hasFailures ? "validation_failed" : undefined);
     await writeAuditEvent({
-      workspaceId: target.workspace_id,
-      actorType: "system",
-      actorId: "upgrade_executor",
-      action: "upgrade.target_executed",
-      entityType: "rollout_target",
-      entityId: targetId,
-      after: {
-        moduleId,
-        fromVersion,
-        toVersion: targetManifest.version,
-        status: result.status,
-        durationMs,
-        stepCount: stepResults.length,
-        validationCount: validations.length,
-      },
+      workspaceId: target.workspace_id, actorType: "system", actorId: "upgrade_executor",
+      action: "upgrade.target_executed", entityType: "rollout_target", entityId: targetId,
+      after: { moduleId, fromVersion, toVersion: targetManifest.version, status: result.status,
+        durationMs, stepCount: stepResults.length, validationCount: validations.length },
     });
-
     return result;
   } catch (err) {
-    const completedAt = now();
     const durationMs = Date.now() - startTime;
     const errorMessage = err instanceof Error ? err.message : String(err);
-
+    if (snapshotCaptured) {
+      await execute(
+        `UPDATE ${TABLES.upgradeExecutionStates} SET phase = 'failed', updated_at = ? WHERE target_id = ?`,
+        [now(), targetId],
+      );
+    }
     await updateRolloutTargetStatus(targetId, "failed", "execution_error");
-
     await writeAuditEvent({
-      workspaceId: target.workspace_id,
-      actorType: "system",
-      actorId: "upgrade_executor",
-      action: "upgrade.target_failed",
-      entityType: "rollout_target",
-      entityId: targetId,
-      after: {
-        error: errorMessage,
-        durationMs,
-      },
+      workspaceId: target.workspace_id, actorType: "system", actorId: "upgrade_executor",
+      action: "upgrade.target_failed", entityType: "rollout_target", entityId: targetId,
+      after: { error: errorMessage, durationMs },
     });
-
     return {
-      rolloutId: target.rollout_id,
-      targetId,
-      workspaceId: target.workspace_id,
-      moduleId: "",
-      fromVersion: "",
-      toVersion: "",
-      status: "failed",
-      steps: [],
-      validations: [],
-      startedAt,
-      completedAt,
-      durationMs,
-      error: errorMessage,
+      rolloutId: target.rollout_id, targetId, workspaceId: target.workspace_id,
+      moduleId, fromVersion, toVersion: toVersionNumber, status: "failed", steps: stepResults,
+      validations: [], startedAt, completedAt: now(), durationMs, error: errorMessage,
     };
   }
 }

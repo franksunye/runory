@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifyOtp, isValidEmail, SESSION_COOKIE_NAME, sessionCookieOptions } from "@runory/platform-core";
+import { verifyOtp, isValidEmail, SESSION_COOKIE_NAME, sessionCookieOptions, isLocalDevelopmentRuntime } from "@runory/platform-core";
 import { successResponse, handleError, invalidInput, getOrCreateRequestId } from "@/lib/http";
 
 export const dynamic = "force-dynamic";
@@ -20,8 +20,7 @@ export async function POST(request: NextRequest) {
       ?? "127.0.0.1";
     const userAgent = request.headers.get("user-agent") ?? "";
 
-    const isDev = process.env.NODE_ENV !== "production";
-    const returnDevCode = isDev || process.env.PLATFORM_OTP_RETURN_DEV_CODE === "true";
+    const returnDevCode = isLocalDevelopmentRuntime();
     const result = await verifyOtp(body.email, body.code, ip, userAgent, {
       devMode: returnDevCode,
       skipRateLimit: returnDevCode,

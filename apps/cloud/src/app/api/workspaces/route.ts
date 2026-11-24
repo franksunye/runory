@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
-import { createWorkspace, listUserWorkspaces, enforceQuota } from "@runory/platform-core";
-import { getRequestActor, requirePrincipal } from "@/lib/auth";
+import { createWorkspace, listUserWorkspaces, enforceQuota, resolveApiKey, requireApiKeyScope, AuthenticationError } from "@runory/platform-core";
+import { getRequestActor, requirePrincipal, requestApiKeyToken } from "@/lib/auth";
 import { successResponse, handleError, invalidInput, getOrCreateRequestId } from "@/lib/http";
 
 export const dynamic = "force-dynamic";
@@ -9,9 +9,16 @@ export const dynamic = "force-dynamic";
 export async function GET(request: NextRequest) {
   const requestId = getOrCreateRequestId(request.headers.get("x-request-id"));
   try {
-    // requirePrincipal falls back to dev bootstrap in local dev, so MCP
-    // clients (which carry no session cookie) can list workspaces. In
-    // production, unauthenticated requests receive a 401.
+    // A workspace key can discover only its own workspace, even when its
+    // creator belongs to other organizations. Never widen it to a user session.
+    const token = requestApiKeyToken(request);
+    if (token !== null) {
+      const key = await resolveApiKey(token);
+      if (!key) throw new AuthenticationError("Invalid or expired API key");
+      requireApiKeyScope(key.principal, "workspace:read", key.workspaceId);
+      const workspaces = await listUserWorkspaces(key.principal.userId, key.workspaceId);
+      return successResponse({ workspaces }, 200, requestId);
+    }
     const principal = await requirePrincipal(request);
     const workspaces = await listUserWorkspaces(principal.userId);
     return successResponse({ workspaces }, 200, requestId);

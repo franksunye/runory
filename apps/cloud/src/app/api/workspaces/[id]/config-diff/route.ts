@@ -2,10 +2,9 @@ import { NextRequest } from "next/server";
 import {
   diffWorkspaces,
   diffWorkspaceAgainstReference,
-  resolveWorkspaceId,
 } from "@runory/platform-core";
-import { requirePrincipal } from "@/lib/auth";
-import { successResponse, handleError } from "@/lib/http";
+import { requireWorkspaceContext } from "@/lib/auth";
+import { successResponse, handleError, invalidInput } from "@/lib/http";
 
 export const dynamic = "force-dynamic";
 
@@ -26,20 +25,24 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    await requirePrincipal(request);
     const { id } = await params;
-    const workspaceId = await resolveWorkspaceId(id);
+    const { workspaceId } = await requireWorkspaceContext(request, id, "admin");
     const url = new URL(request.url);
     const baseline = url.searchParams.get("baseline");
     const reference = url.searchParams.get("reference");
 
     if (baseline) {
-      const baselineWorkspaceId = await resolveWorkspaceId(baseline);
+      // Both sides contain private tenant configuration. Target authorization
+      // cannot authorize a caller-supplied baseline from another workspace.
+      const { workspaceId: baselineWorkspaceId } = await requireWorkspaceContext(request, baseline, "admin");
       const diff = await diffWorkspaces(baselineWorkspaceId, workspaceId);
       return successResponse(diff);
     }
 
     if (reference) {
+      if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(reference)) {
+        return invalidInput("Invalid reference solution name");
+      }
       // Load the reference solution from the catalog
       const { readFileSync } = await import("node:fs");
       const { resolve, join } = await import("node:path");

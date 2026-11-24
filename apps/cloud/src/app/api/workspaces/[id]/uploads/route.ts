@@ -1,47 +1,17 @@
 import { NextRequest } from "next/server";
 import { createHash } from "node:crypto";
-import { mkdir, writeFile } from "node:fs/promises";
-import { resolve } from "node:path";
 import {
-  genId,
-  now,
-  queryOne,
-  execute,
-  writeAuditEvent,
-  TABLES,
+  genId, now, queryOne, writeAuditEvent, TABLES, BusinessError, ERROR_CODES,
   type RequestContext,
 } from "@runory/platform-core";
 import { requireWorkspaceContext } from "@/lib/auth";
-import {
-  successResponse,
-  handleError,
-  invalidInput,
-  getOrCreateRequestId,
-} from "@/lib/http";
+import { successResponse, handleError, invalidInput, getOrCreateRequestId } from "@/lib/http";
+import { createAttachmentStorage, compensateAttachmentWrite, type AttachmentStorage } from "@/lib/attachment-storage";
+import { scanAttachment } from "@/lib/attachment-scan";
+import { attachmentUploadPolicy } from "@/lib/attachment-upload-policy";
 
 export const dynamic = "force-dynamic";
-
-// ── Upload policy (Spec §7 Security Gates) ──
-//
-// "apply upload type/size limits and malware scanning policy before production
-// pilot". The content-type whitelist and 10 MB ceiling are enforced here on
-// the server, independent of any client-side hints, so a forged request cannot
-// bypass them.
-
-const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB
-
-const ALLOWED_CONTENT_TYPES = new Set([
-  "image/jpeg",
-  "image/png",
-  "image/webp",
-  "application/pdf",
-  "video/mp4",
-]);
-
-// Directory where blobs are persisted on disk. Relative to the cloud app's
-// working directory (apps/cloud), so it resolves to apps/cloud/data/uploads.
-// `data/` is git-ignored, so uploaded blobs never leak into version control.
-const UPLOADS_ROOT = resolve(process.cwd(), "data", "uploads");
+export const runtime = "nodejs";
 
 interface AttachmentRow {
   id: string;
@@ -56,6 +26,10 @@ interface AttachmentRow {
   created_at: string;
 }
 
+const SELECT_ATTACHMENT = `SELECT id, workspace_id, file_name, content_type, size_bytes,
+  storage_path, uploaded_by, work_item_id, form_submission_id, created_at
+  FROM ${TABLES.attachments}`;
+
 function toAttachmentResponse(row: AttachmentRow) {
   return {
     attachmentId: row.id,
@@ -66,214 +40,176 @@ function toAttachmentResponse(row: AttachmentRow) {
   };
 }
 
-export async function POST(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+async function verifyExistingContent(storage: AttachmentStorage, workspaceId: string, row: AttachmentRow) {
+  const body = row.storage_path ? await storage.get(workspaceId, row.storage_path) : null;
+  if (!body) {
+    throw new BusinessError(ERROR_CODES.INTERNAL_ERROR, "Previously uploaded attachment content is unavailable; storage repair is required", 503);
+  }
+  // A retry must not report success for a missing object or unmigrated local
+  // file. Headers establish availability; no need to buffer the file again.
+  await body.stream.cancel().catch(() => {});
+}
+
+/** The UI obtains the deployment's actual limit before sending file bytes. */
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const requestId = getOrCreateRequestId(request.headers.get("x-request-id"));
+  try {
+    const { id } = await params;
+    const { ctx } = await requireWorkspaceContext(request, id, "viewer");
+    return successResponse(attachmentUploadPolicy(), 200, ctx.requestId, "private, no-store");
+  } catch (error) {
+    return handleError(error, requestId);
+  }
+}
+
+export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const requestId = getOrCreateRequestId(request.headers.get("x-request-id"));
   let ctx: RequestContext;
   let workspaceId: string;
   try {
     const { id } = await params;
-    // Spec §7: "validate workspace membership on every mobile API and
-    // attachment request". Uploading is a write → requires workspace member.
     const resolved = await requireWorkspaceContext(request, id, "member");
     ctx = resolved.ctx;
     workspaceId = resolved.workspaceId;
-  } catch (e) {
-    return handleError(e, requestId);
+  } catch (error) {
+    return handleError(error, requestId);
   }
 
   try {
-    // Reject obviously oversized payloads before parsing the body. We compare
-    // against the Content-Length header as an early gate; the real size check
-    // happens on the parsed File.
+    const policy = attachmentUploadPolicy();
+    const maxMiB = policy.maxFileSizeBytes / (1024 * 1024);
+    const storage = createAttachmentStorage();
+    const attachmentId = genId("att");
+    // Misconfigured cloud deployments fail before parsing/scanning the upload.
+    const stored = storage.prepare(workspaceId, attachmentId);
     const contentLength = Number(request.headers.get("content-length") ?? 0);
-    if (contentLength && contentLength > MAX_FILE_SIZE_BYTES * 1.1 + 8192) {
-      return invalidInput(
-        `Upload exceeds the ${MAX_FILE_SIZE_BYTES} byte limit`,
-        ctx.requestId
-      );
+    if (contentLength > policy.maxFileSizeBytes + 64 * 1024) {
+      return invalidInput(`Upload exceeds the ${maxMiB} MiB file limit`, ctx.requestId);
     }
 
     let formData: FormData;
     try {
       formData = await request.formData();
     } catch {
-      return invalidInput(
-        "Request must be multipart/form-data with a 'file' field",
-        ctx.requestId
-      );
+      return invalidInput("Request must be multipart/form-data with a 'file' field", ctx.requestId);
     }
-
     const file = formData.get("file");
     if (!(file instanceof File)) {
-      return invalidInput(
-        "Missing 'file' field in multipart form data",
-        ctx.requestId
-      );
+      return invalidInput("Missing 'file' field in multipart form data", ctx.requestId);
     }
-
-    // Spec §5.5: "Server verifies content type, size, authorization, and
-    // integrity metadata."
     const contentType = file.type || "application/octet-stream";
-    if (!ALLOWED_CONTENT_TYPES.has(contentType)) {
-      return invalidInput(
-        `Unsupported content type '${contentType}'. Allowed: ${[
-          ...ALLOWED_CONTENT_TYPES,
-        ].join(", ")}`,
-        ctx.requestId
-      );
+    if (!policy.allowedContentTypes.includes(contentType)) {
+      return invalidInput(`Unsupported content type '${contentType}'. Allowed: ${policy.allowedContentTypes.join(", ")}`, ctx.requestId);
+    }
+    if (file.size <= 0) return invalidInput("Uploaded file is empty", ctx.requestId);
+    if (file.size > policy.maxFileSizeBytes) {
+      return invalidInput(`File exceeds the ${maxMiB} MiB limit`, ctx.requestId);
     }
 
-    if (file.size <= 0) {
-      return invalidInput("Uploaded file is empty", ctx.requestId);
-    }
-    if (file.size > MAX_FILE_SIZE_BYTES) {
-      return invalidInput(
-        `File is ${file.size} bytes; the limit is ${MAX_FILE_SIZE_BYTES} bytes`,
-        ctx.requestId
-      );
-    }
-
-    // Optional subject association (Spec §5.5: evidence is associated with the
-    // submission revision and the Visit/Work Item subject).
     const workItemId = stringOrNull(formData.get("workItemId"));
     const formSubmissionId = stringOrNull(formData.get("formSubmissionId"));
-
-    const arrayBuffer = await file.arrayBuffer();
-    const bytes = new Uint8Array(arrayBuffer);
-
-    // Integrity metadata (sha256). Also the idempotency key: a retry of the
-    // same content within a workspace resolves to the existing attachment
-    // instead of duplicating storage (Spec §5.5: "Retrying an attachment
-    // association MUST be idempotent").
+    const bytes = new Uint8Array(await file.arrayBuffer());
     const sha256 = createHash("sha256").update(bytes).digest("hex");
-
-    // ── Malware scanning integration point (v0.5.1 Spec §7) ──
-    //
-    // "apply upload type/size limits and malware scanning policy before
-    // production pilot."
-    //
-    // This hook allows a production deployment to integrate ClamAV or another
-    // malware scanner. In development, the scan is a no-op (returns clean).
-    // To enable: set MALWARE_SCAN_ENDPOINT env var and uncomment the scan call.
-    //
-    // Example production integration:
-    //   if (process.env.MALWARE_SCAN_ENDPOINT) {
-    //     const scanResult = await fetch(process.env.MALWARE_SCAN_ENDPOINT, {
-    //       method: "POST",
-    //       body: file,
-    //     });
-    //     if (!scanResult.ok || !(await scanResult.json()).clean) {
-    //       throw new BusinessError(ERROR_CODES.UPLOAD_REJECTED, "File failed malware scan", 422);
-    //     }
-    //   }
-    const malwareScanEnabled = !!process.env.MALWARE_SCAN_ENDPOINT;
-    if (malwareScanEnabled) {
-      // Placeholder: in production, call the scanner API here.
-      // For now, we trust the content-type whitelist + size limit.
-      console.info("[uploads] Malware scan endpoint configured but not yet implemented — passing through");
-    }
-
+    // A configured scanner must attest to these exact bytes. Errors fail closed.
+    const scanStatus = await scanAttachment(bytes, contentType, sha256);
     const existing = await queryOne<AttachmentRow>(
-      `SELECT id, workspace_id, file_name, content_type, size_bytes,
-              storage_path, uploaded_by, work_item_id, form_submission_id, created_at
-       FROM ${TABLES.attachments}
-       WHERE workspace_id = ? AND sha256 = ? AND deleted_at IS NULL
-       LIMIT 1`,
-      [workspaceId, sha256]
+      `${SELECT_ATTACHMENT} WHERE workspace_id = ? AND sha256 = ? AND deleted_at IS NULL LIMIT 1`,
+      [workspaceId, sha256],
     );
     if (existing) {
-      // Idempotent retry: same content already stored for this workspace.
-      return successResponse(
-        toAttachmentResponse(existing),
-        200,
-        ctx.requestId
-      );
+      await verifyExistingContent(storage, workspaceId, existing);
+      return successResponse(toAttachmentResponse(existing), 200, ctx.requestId);
     }
 
-    // Persist the blob to disk under a workspace-scoped directory.
-    const attachmentId = genId("att");
-    const dir = resolve(UPLOADS_ROOT, workspaceId);
-    await mkdir(dir, { recursive: true });
-    // Store under the attachment id (no user-supplied filename on disk) to
-    // avoid path-traversal and filesystem-encoding issues. The original file
-    // name is preserved as metadata in the attachments row.
-    const storagePath = `${workspaceId}/${attachmentId}`;
-    await writeFile(resolve(UPLOADS_ROOT, storagePath), bytes);
+    try {
+      await storage.put(workspaceId, stored, bytes, contentType);
+    } catch (error) {
+      // A failed request may have reached storage before the response was lost.
+      // A pre-existing local path is never ours to remove.
+      if ((error as NodeJS.ErrnoException).code !== "EEXIST") {
+        await compensateAttachmentWrite(storage, workspaceId, stored.reference, ctx.requestId);
+      }
+      throw error;
+    }
 
-    const uploadedAt = now();
-    const uploadedBy = ctx.principal?.userId ?? null;
+    const row: AttachmentRow = {
+      id: attachmentId, workspace_id: workspaceId, file_name: file.name,
+      content_type: contentType, size_bytes: file.size, storage_path: stored.reference,
+      uploaded_by: ctx.principal?.userId ?? null,
+      work_item_id: workItemId, form_submission_id: formSubmissionId, created_at: now(),
+    };
+    let outcome: { row: AttachmentRow; created: boolean };
+    try {
+      // The check and insert are one atomic SQL statement. This works across
+      // instances and avoids concurrent long-lived write transactions in local
+      // libsql. The losing retry cleans its own unique storage object below.
+      const inserted = await queryOne<{ id: string }>(
+          `INSERT INTO ${TABLES.attachments}
+            (id, workspace_id, file_name, content_type, size_bytes, storage_path,
+             uploaded_by, work_item_id, form_submission_id, created_at,
+             owner_type, owner_id, storage_key, byte_size, sha256, deleted_at)
+            SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL
+            WHERE NOT EXISTS (SELECT 1 FROM ${TABLES.attachments}
+              WHERE workspace_id = ? AND sha256 = ? AND deleted_at IS NULL)
+            RETURNING id`,
+          [row.id, workspaceId, row.file_name, contentType, file.size, stored.reference,
+            row.uploaded_by, workItemId, formSubmissionId, row.created_at,
+            "evidence_block", formSubmissionId ?? workItemId ?? row.id,
+            stored.reference, file.size, sha256, workspaceId, sha256],
+      );
+      if (inserted) {
+        outcome = { row, created: true };
+      } else {
+        const duplicate = await queryOne<AttachmentRow>(
+          `${SELECT_ATTACHMENT} WHERE workspace_id = ? AND sha256 = ? AND deleted_at IS NULL LIMIT 1`,
+          [workspaceId, sha256],
+        );
+        if (!duplicate) throw new Error("Attachment metadata changed during upload; retry the upload");
+        outcome = { row: duplicate, created: false };
+      }
+    } catch (error) {
+      // A remote database can commit and then lose the acknowledgement. Never
+      // delete bytes referenced by a successful commit. If the DB is still
+      // unavailable, retain the candidate and emit a reconciliation reference.
+      let persisted: AttachmentRow | undefined;
+      try {
+        persisted = await queryOne<AttachmentRow>(
+          `${SELECT_ATTACHMENT} WHERE id = ? AND workspace_id = ?`, [attachmentId, workspaceId],
+        );
+      } catch {
+        console.error("[attachments:commit-reconciliation-required]", {
+          workspaceId, attachmentId, reference: stored.reference, requestId: ctx.requestId,
+        });
+        throw error;
+      }
+      if (persisted?.storage_path === stored.reference) {
+        outcome = { row: persisted, created: true };
+      } else {
+        await compensateAttachmentWrite(storage, workspaceId, stored.reference, ctx.requestId);
+        throw error;
+      }
+    }
 
-    // Insert the metadata row. We populate both the canonical v0.5.1 columns
-    // (size_bytes, storage_path, work_item_id, form_submission_id) and the
-    // 0024-era columns (owner_type, owner_id, storage_key, byte_size, sha256)
-    // so the table stays consistent for any consumer.
-    await execute(
-      `INSERT INTO ${TABLES.attachments}
-        (id, workspace_id, file_name, content_type, size_bytes, storage_path,
-         uploaded_by, work_item_id, form_submission_id, created_at,
-         owner_type, owner_id, storage_key, byte_size, sha256, deleted_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)`,
-      [
-        attachmentId,
-        workspaceId,
-        file.name,
-        contentType,
-        file.size,
-        storagePath,
-        uploadedBy,
-        workItemId,
-        formSubmissionId,
-        uploadedAt,
-        // 0024-era columns
-        "evidence_block",
-        formSubmissionId ?? workItemId ?? attachmentId,
-        storagePath,
-        file.size,
-        sha256,
-      ]
-    );
-
+    if (!outcome.created) {
+      await compensateAttachmentWrite(storage, workspaceId, stored.reference, ctx.requestId);
+      await verifyExistingContent(storage, workspaceId, outcome.row);
+      return successResponse(toAttachmentResponse(outcome.row), 200, ctx.requestId);
+    }
     await writeAuditEvent({
       workspaceId,
-      actorType: "user",
-      actorId: uploadedBy ?? "unknown",
-      action: "record.create",
-      entityType: "attachment",
-      entityId: attachmentId,
-      after: {
-        fileName: file.name,
-        contentType,
-        sizeBytes: file.size,
-        sha256,
-        workItemId,
-        formSubmissionId,
-      },
+      actorType: ctx.principal?.authMethod === "api_key" ? "api_key" : "user",
+      actorId: row.uploaded_by ?? "unknown", action: "record.create",
+      entityType: "attachment", entityId: attachmentId,
+      after: { fileName: file.name, contentType, sizeBytes: file.size, sha256, workItemId, formSubmissionId, scanStatus },
       requestId: ctx.requestId,
-    }).catch((err) => {
-      console.error("[audit] Failed to write attachment audit event:", err);
-    });
-
-    return successResponse(
-      {
-        attachmentId,
-        fileName: file.name,
-        contentType,
-        size: file.size,
-        uploadedAt,
-      },
-      201,
-      ctx.requestId
-    );
-  } catch (e) {
-    return handleError(e, ctx.requestId);
+    }).catch(() => console.error("[audit] Failed to write attachment audit event", { requestId: ctx.requestId }));
+    return successResponse(toAttachmentResponse(outcome.row), 201, ctx.requestId);
+  } catch (error) {
+    return handleError(error, ctx.requestId);
   }
 }
 
 function stringOrNull(value: FormDataEntryValue | null): string | null {
-  if (value === null) return null;
-  const str = String(value).trim();
-  return str.length > 0 ? str : null;
+  if (typeof value !== "string") return null;
+  return value.trim() || null;
 }

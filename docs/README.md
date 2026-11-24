@@ -159,6 +159,8 @@ SDK POC and customer validation reports are evidence, not normative SDK specific
 
 - [Operations Runbooks](operations/runbooks.md) — canonical operations entry.
 - [Backup / Restore Runbook](operations/backup-restore-runbook.md) — active resilience procedure.
+- [Attachment Storage](operations/attachment-storage.md) — persistent private objects, scanning and migration.
+- [2026-11-24 Release Hardening](operations/release-hardening-2026-11-24.md) — audit batches 1–2, compatibility and deployment checks.
 - [Troubleshooting](troubleshooting.md) — active diagnosis and recovery guide.
 
 Drill reports validate runbooks and remain separate from normative procedures.

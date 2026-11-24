@@ -42,4 +42,15 @@ describe("middleware provider callbacks", () => {
       error: "Missing Origin or X-Requested-With header",
     });
   });
+
+  it("allows the exact Connect callback, but not a sibling route, without browser CSRF headers", () => {
+    const request = (path: string) => new NextRequest(`http://localhost:3001${path}`, {
+      method: "POST",
+      headers: { "stripe-signature": "t=1,v1=test" },
+      body: "{}",
+    });
+    const callback = middleware(request("/api/integrations/stripe/connect-webhook"));
+    expect(callback.headers.get("x-middleware-next")).toBe("1");
+    expect(middleware(request("/api/integrations/stripe/connect-webhook/other")).status).toBe(403);
+  });
 });

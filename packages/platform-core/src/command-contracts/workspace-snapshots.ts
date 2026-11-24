@@ -1,6 +1,6 @@
 import { commandContractSchema, type CommandContract } from "@runory/contracts";
 import { TABLES } from "../contracts";
-import { batch as runBatch, now, queryOne } from "../db";
+import { batch as runBatch, executeStatementsInTransaction, now, queryOne, type Transaction } from "../db";
 import { commandContractError } from "./errors";
 import type { CommandContractSourceKind } from "./types";
 
@@ -11,15 +11,17 @@ export async function syncWorkspaceCommandContracts(
   sourceId: string,
   sourceVersion: string,
   inputs: CommandContract[],
+  transaction?: Transaction,
 ): Promise<void> {
   const contracts = inputs.map((input) => commandContractSchema.parse(input));
   for (const contract of contracts) {
-    const owner = await queryOne<{ source_kind: string; source_id: string }>(
-      `SELECT source_kind, source_id FROM ${TABLES.workspaceCommandContracts}
+    const ownerSql = `SELECT source_kind, source_id FROM ${TABLES.workspaceCommandContracts}
        WHERE workspace_id = ? AND command_key = ?
-         AND (source_kind != ? OR source_id != ?)`,
-      [workspaceId, contract.key, sourceKind, sourceId],
-    );
+         AND (source_kind != ? OR source_id != ?)`;
+    const ownerArgs = [workspaceId, contract.key, sourceKind, sourceId];
+    const owner = transaction
+      ? (await transaction.execute({ sql: ownerSql, args: ownerArgs })).rows[0]
+      : await queryOne<{ source_kind: string; source_id: string }>(ownerSql, ownerArgs);
     if (owner) {
       throw commandContractError(
         `Command '${contract.key}' is already owned by ${owner.source_kind} '${owner.source_id}' in workspace '${workspaceId}'.`,
@@ -28,7 +30,7 @@ export async function syncWorkspaceCommandContracts(
   }
 
   const installedAt = now();
-  await runBatch([
+  const statements = [
     {
       sql: `DELETE FROM ${TABLES.workspaceCommandContracts}
             WHERE workspace_id = ? AND source_kind = ? AND source_id = ?`,
@@ -50,7 +52,9 @@ export async function syncWorkspaceCommandContracts(
         installedAt,
       ],
     })),
-  ]);
+  ];
+  if (transaction) await executeStatementsInTransaction(transaction, statements);
+  else await runBatch(statements);
 }
 
 export async function removeWorkspaceCommandContracts(

@@ -10,8 +10,7 @@ import { apiFetch } from "@/lib/api-fetch";
 export default function LoginPage() {
   const router = useRouter();
   const { t, locale } = useI18n();
-  const isDev = process.env.NODE_ENV !== "production";
-  const showDevHint = isDev || process.env.NEXT_PUBLIC_OTP_DEV_CODE_ENABLED === "true";
+  const showDevHint = process.env.NEXT_PUBLIC_OTP_DEV_CODE_ENABLED === "true";
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -46,7 +45,7 @@ export default function LoginPage() {
       const json = await res.json();
       if (json.success) {
         setSent(true);
-        if (json.data.devCode) setDevCode(json.data.devCode);
+        if (showDevHint && json.data.devCode) setDevCode(json.data.devCode);
       } else {
         setError(json.error?.message ?? t("home.form.sendFailed"));
       }
@@ -144,11 +143,11 @@ export default function LoginPage() {
             </form>
           ) : (
             <form onSubmit={handleVerifyOtp} className="space-y-4">
-              {devCode && (
+              {showDevHint && devCode ? (
                 <div className="rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-800">
                   <strong>{t("home.form.dev")}</strong> <span className="font-mono text-lg font-bold tracking-widest">{devCode}</span>
                 </div>
-              )}
+              ) : null}
               <div>
                 <label htmlFor="code" className="mb-2 block text-sm font-semibold text-slate-700">
                   {t("home.form.code")}

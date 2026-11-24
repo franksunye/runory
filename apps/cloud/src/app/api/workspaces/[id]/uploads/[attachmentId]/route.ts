@@ -1,15 +1,11 @@
 import { NextRequest } from "next/server";
-import { readFile } from "node:fs/promises";
-import { resolve, sep } from "node:path";
 import { queryOne, writeAuditEvent, TABLES, type RequestContext } from "@runory/platform-core";
 import { requireWorkspaceContext } from "@/lib/auth";
 import { handleError, notFound, getOrCreateRequestId } from "@/lib/http";
+import { createAttachmentStorage } from "@/lib/attachment-storage";
 
 export const dynamic = "force-dynamic";
-
-// Blobs live under apps/cloud/data/uploads (cwd-relative). See the upload
-// route for the storage layout.
-const UPLOADS_ROOT = resolve(process.cwd(), "data", "uploads");
+export const runtime = "nodejs";
 
 interface AttachmentRow {
   id: string;
@@ -58,24 +54,10 @@ export async function GET(
       );
     }
 
-    // Resolve the blob path. storage_path is stored as
-    // "<workspaceId>/<attachmentId>"; we resolve it strictly under the
-    // uploads root to prevent path traversal.
-    const uploadsRoot = UPLOADS_ROOT + sep;
-    const blobPath = resolve(UPLOADS_ROOT, row.storage_path);
-    if (!blobPath.startsWith(uploadsRoot)) {
-      return notFound("Attachment not found", ctx.requestId);
-    }
-
-    let bytes: Buffer;
-    try {
-      bytes = await readFile(blobPath);
-    } catch {
-      return notFound(
-        `Attachment blob for ${attachmentId} is missing on disk`,
-        ctx.requestId
-      );
-    }
+    // Storage is consulted only after the Workspace and metadata row have
+    // passed authorization. Private Blob URLs never reach the browser.
+    const body = await createAttachmentStorage().get(workspaceId, row.storage_path);
+    if (!body) return notFound("Attachment content is unavailable", ctx.requestId);
 
     const contentType = row.content_type ?? "application/octet-stream";
 
@@ -95,22 +77,19 @@ export async function GET(
       console.error("[audit] Failed to write attachment.download audit event:", err);
     });
 
-    // Spec §5.3: attachments are network-only — never cached. Wrap the Buffer
-    // in a Uint8Array so it satisfies the fetch BodyInit contract under the
-    // DOM lib types.
-    return new Response(new Uint8Array(bytes), {
+    // Stream the server-authenticated body without buffering it in a Function.
+    return new Response(body.stream, {
       status: 200,
       headers: {
         "Content-Type": contentType,
-        "Content-Length": String(
-          row.size_bytes ?? bytes.byteLength
-        ),
-        "Cache-Control": "no-store, no-cache, must-revalidate",
+        "Content-Length": String(body.size),
+        "Cache-Control": "private, no-store, no-cache, must-revalidate",
+        "X-Content-Type-Options": "nosniff",
         "Pragma": "no-cache",
         "Expires": "0",
         // Inline disposition keeps images/PDFs renderable in the browser;
         // the filename is provided so "Save As" uses the original name.
-        "Content-Disposition": `inline; filename="${encodeFilename(row.file_name)}"`,
+        "Content-Disposition": contentDisposition(row.file_name),
         "x-request-id": ctx.requestId,
       },
     });
@@ -122,7 +101,10 @@ export async function GET(
 // Encode a filename for the Content-Disposition header per RFC 6266. Falls
 // back to ASCII when the name contains characters that would break the
 // quoted-string form.
-function encodeFilename(name: string): string {
+function contentDisposition(name: string): string {
   const safe = name.replace(/["\\]/g, "").replace(/[\r\n]/g, "").trim();
-  return safe || "attachment";
+  const ascii = safe.replace(/[^\x20-\x7e]/g, "_") || "attachment";
+  const encoded = encodeURIComponent(safe || "attachment").replace(/[!'()*]/g, (char) =>
+    `%${char.charCodeAt(0).toString(16).toUpperCase()}`);
+  return `inline; filename="${ascii}"; filename*=UTF-8''${encoded}`;
 }

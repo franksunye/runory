@@ -26,7 +26,7 @@ When running Runory locally, set the explicit dev bootstrap flag to auto-authent
 PLATFORM_DEV_BOOTSTRAP=true
 ```
 
-This bypass is **dev only**. It is gated on an explicit flag rather than `NODE_ENV`, so it will not accidentally activate in staging or test. Never set it in production — production must reject dev bootstrap identity. See [Troubleshooting](./troubleshooting.md) for details.
+This bypass requires both the explicit flag and a local `development` or `test` runtime. Production, hosted Vercel deployments, and unknown environments reject dev bootstrap identity even if the flag is accidentally enabled. See [Troubleshooting](./troubleshooting.md) for details.
 
 ## 2. Create a workspace
 

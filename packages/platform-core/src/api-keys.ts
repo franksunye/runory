@@ -226,11 +226,12 @@ export async function rotateApiKey(
 
 export async function resolveApiKey(
   token: string,
-  workspaceId: string
+  workspaceId?: string
 ): Promise<{
   principal: Principal;
   scopes: string[];
   workspaceRole: WorkspaceRole;
+  workspaceId: string;
 } | null> {
   if (!token.startsWith(KEY_PREFIX)) return null;
 
@@ -240,8 +241,8 @@ export async function resolveApiKey(
     scopes_json: string; status: string; expires_at: string | null;
   }>(
     `SELECT id, workspace_id, user_id, name, scopes_json, status, expires_at FROM ${TABLES.apiKeys}
-     WHERE key_hash = ? AND workspace_id = ? AND status = 'active'`,
-    [hash, workspaceId]
+     WHERE key_hash = ? AND status = 'active'${workspaceId ? " AND workspace_id = ?" : ""}`,
+    workspaceId ? [hash, workspaceId] : [hash]
   );
   if (!row) return null;
 
@@ -281,6 +282,7 @@ export async function resolveApiKey(
   );
   if (!user) return null;
 
+  const scopes = JSON.parse(row.scopes_json) as string[];
   return {
     principal: {
       userId: user.id,
@@ -288,9 +290,12 @@ export async function resolveApiKey(
       displayName: user.display_name,
       authMethod: "api_key",
       apiKeyId: row.id,
+      apiKeyWorkspaceId: row.workspace_id,
+      apiKeyScopes: Object.freeze([...scopes]),
     },
-    scopes: JSON.parse(row.scopes_json),
+    scopes,
     workspaceRole: access.role,
+    workspaceId: row.workspace_id,
   };
 }
 
@@ -298,4 +303,14 @@ export async function resolveApiKey(
 
 export function hasScope(scopes: string[], required: ApiKeyScope): boolean {
   return scopes.includes(required);
+}
+
+/** Credential scopes restrict the creator's permissions; they never grant a role. */
+export function requireApiKeyScope(principal: Principal, required: ApiKeyScope, workspaceId?: string): void {
+  if (principal.authMethod !== "api_key") return;
+  if (!principal.apiKeyId || !principal.apiKeyWorkspaceId
+    || (workspaceId !== undefined && principal.apiKeyWorkspaceId !== workspaceId)
+    || !principal.apiKeyScopes?.includes(required)) {
+    throw new AuthorizationError(`API key requires '${required}' in its own workspace`);
+  }
 }

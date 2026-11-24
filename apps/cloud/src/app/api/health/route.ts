@@ -4,5 +4,14 @@ import { ok } from "@runory/contracts";
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  return NextResponse.json(ok({ ok: true, service: "runory-cloud" }));
+  return NextResponse.json(ok({
+    ok: true,
+    service: "runory-cloud",
+    // Public build identity lets a release check verify the served commit,
+    // rather than treating an unrelated older deployment's HTTP 200 as proof.
+    release: {
+      commit: process.env.VERCEL_GIT_COMMIT_SHA ?? null,
+      environment: process.env.VERCEL_ENV ?? "local",
+    },
+  }), { headers: { "Cache-Control": "no-store" } });
 }

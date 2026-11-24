@@ -6,6 +6,7 @@ import {
   getInstalledPacks,
   hasPackDemoData,
   seedDevCatalog,
+  isDevBootstrapEnabled,
   type CatalogItem,
   type CatalogRelease,
   type CatalogVersion,
@@ -24,7 +25,7 @@ export const dynamic = "force-dynamic";
 let devCatalogSeeded = false;
 async function ensureDevCatalogSeeded(): Promise<void> {
   if (devCatalogSeeded) return;
-  if (process.env.PLATFORM_DEV_BOOTSTRAP !== "true") return;
+  if (!isDevBootstrapEnabled()) return;
   const existing = await listCatalogItems({ status: "active", itemType: "pack" });
   if (existing.length > 0) {
     devCatalogSeeded = true;

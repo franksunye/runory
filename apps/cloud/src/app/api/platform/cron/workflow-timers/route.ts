@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { runWorkflowTimerCron } from "@runory/platform-core";
+import { runWorkflowTimerCron, isDevBootstrapEnabled } from "@runory/platform-core";
 import { successResponse, handleError } from "@/lib/http";
 
 export const dynamic = "force-dynamic";
@@ -15,7 +15,7 @@ export const maxDuration = 60;
 async function handleCronRequest(request: NextRequest) {
   try {
     // ── Server-side key authentication ──
-    const isDevBootstrap = process.env.PLATFORM_DEV_BOOTSTRAP === "true";
+    const isDevBootstrap = isDevBootstrapEnabled();
     const platformCronSecret = process.env.PLATFORM_CRON_SECRET;
     const vercelCronSecret = process.env.CRON_SECRET;
 

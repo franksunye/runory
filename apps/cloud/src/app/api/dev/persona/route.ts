@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { queryAll, TABLES } from "@runory/platform-core";
+import { queryAll, TABLES, isDevBootstrapEnabled } from "@runory/platform-core";
 
 export const dynamic = "force-dynamic";
 
@@ -19,7 +19,7 @@ const PERSONA_IDS = new Set<string>(PERSONAS.map((persona) => persona.id));
 // GET: list available personas
 export async function GET(request: NextRequest) {
   // Only available in dev mode
-  if (process.env.PLATFORM_DEV_BOOTSTRAP !== "true") {
+  if (!isDevBootstrapEnabled()) {
     return NextResponse.json({ error: "Not available" }, { status: 403 });
   }
 
@@ -47,7 +47,7 @@ export async function GET(request: NextRequest) {
 
 // POST: switch persona
 export async function POST(request: NextRequest) {
-  if (process.env.PLATFORM_DEV_BOOTSTRAP !== "true") {
+  if (!isDevBootstrapEnabled()) {
     return NextResponse.json({ error: "Not available" }, { status: 403 });
   }
 

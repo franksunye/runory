@@ -195,6 +195,18 @@ export function isTrustHeadersEnabled(): boolean {
   return envWithLegacy(PLATFORM_CONFIG.trustHeadersEnv, PLATFORM_CONFIG.trustHeadersEnvLegacy) === "true";
 }
 
+/** Debug identities and OTP shortcuts are confined to an explicit local runtime. */
+export function isLocalDevelopmentRuntime(): boolean {
+  return (process.env.NODE_ENV === "development" || process.env.NODE_ENV === "test")
+    && process.env.VERCEL !== "1"
+    && !process.env.VERCEL_ENV;
+}
+
+/** A deployment flag alone must never turn a production request into an owner. */
+export function isDevBootstrapEnabled(): boolean {
+  return isLocalDevelopmentRuntime() && process.env.PLATFORM_DEV_BOOTSTRAP === "true";
+}
+
 /** Get the mail provider URL */
 export function getMailProviderUrl(): string | undefined {
   return envWithLegacy(PLATFORM_CONFIG.mailProviderUrlEnv, PLATFORM_CONFIG.mailProviderUrlEnvLegacy);

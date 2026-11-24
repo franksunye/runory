@@ -11,14 +11,14 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@libsql/client": "^0.17.3",
+    "@libsql/client": "^0.17.4",
     "@runory/contracts": "workspace:*",
-    "semver": "^7.6.3",
-    "yaml": "^2.8.0"
+    "semver": "^7.8.6",
+    "yaml": "^2.9.1"
   },
   "devDependencies": {
-    "@types/semver": "^7.5.8",
+    "@types/semver": "^7.8.0",
     "typescript": "^5.9.3",
-    "vitest": "^3.2.4"
+    "vitest": "^3.2.7"
   }
 }

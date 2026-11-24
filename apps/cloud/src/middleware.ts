@@ -99,7 +99,10 @@ export function middleware(request: NextRequest) {
   const isRetellIntegration = request.nextUrl.pathname.startsWith("/api/integrations/retell/");
   const isStripeWebhook = request.nextUrl.pathname === "/api/integrations/stripe/webhook";
   const isStripeBillingWebhook = request.nextUrl.pathname === "/api/integrations/stripe/billing-webhook";
-  const isProviderCallback = isRetellIntegration || isStripeWebhook || isStripeBillingWebhook;
+  const isStripeConnectWebhook = request.nextUrl.pathname === "/api/integrations/stripe/connect-webhook";
+  // Provider callbacks authenticate their raw bodies inside the exact route;
+  // browser Origin headers are not part of Stripe's signed delivery contract.
+  const isProviderCallback = isRetellIntegration || isStripeWebhook || isStripeBillingWebhook || isStripeConnectWebhook;
 
   if (isStateChange && !isProviderCallback) {
     const origin = request.headers.get("origin");

@@ -22,6 +22,7 @@ import { queryOne, queryAll } from "./db";
 import { TABLES, businessTable } from "./contracts";
 import type { CustomerAccessGrantRecord } from "./customer-access-commands";
 import { generateWorkOrderNumber } from "./fsm-commands";
+import { getObject } from "./metadata";
 
 // ── Helpers ──
 
@@ -338,8 +339,12 @@ export async function resolveCustomerAccessContext(
       [grant.workspace_id, workOrderId],
     );
     if (wo && subjectMatches(grant, wo)) {
-      // Prefer earliest non-cancelled visit window when WO schedule is empty.
-      const visit = await queryOne<VisitScheduleRow>(
+      // Visits are an optional installed capability. A Work Order-only
+      // Workspace must still resolve its customer journey without querying a
+      // table that has never been installed. Scope the capability lookup to
+      // this Workspace even if another tenant has created the physical table.
+      const visitObject = await getObject(grant.workspace_id, "service_visit");
+      const visit = visitObject ? await queryOne<VisitScheduleRow>(
         `SELECT scheduled_start, scheduled_end
          FROM ${businessTable("service_visit")}
          WHERE workspace_id = ? AND work_order_id = ?
@@ -347,7 +352,7 @@ export async function resolveCustomerAccessContext(
          ORDER BY scheduled_start ASC
          LIMIT 1`,
         [grant.workspace_id, wo.id],
-      );
+      ) : null;
       const site = wo.service_site_id
         ? await queryOne<SiteAddressRow>(
             `SELECT name, address, city, region, postal_code
