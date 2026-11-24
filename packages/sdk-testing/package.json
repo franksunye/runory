@@ -8,7 +8,7 @@
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "test": "vitest run --passWithNoTests"
+    "test": "pnpm --filter @runory/sdk build && vitest run"
   },
   "dependencies": {
     "@runory/contracts": "workspace:*",
