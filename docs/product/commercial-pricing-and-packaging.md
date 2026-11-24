@@ -3,10 +3,10 @@
 | Metadata | Value |
 | --- | --- |
 | Status | `proposed` |
-| Topic | `commercial-pricing` |
-| Applies to | `v0.9+ / paid production workspaces` |
+| Topic | `product` |
+| Applies to | `v0.9+ / Cloud services and scoped customer solutions` |
 | Owner | Product / Commercial / Finance |
-| Last reviewed | 2026-07-29 |
+| Last reviewed | 2026-11-24 |
 | Supersedes | — |
 | Superseded by | — |
 
@@ -15,6 +15,8 @@ This document is the proposed authority for Runory commercial packaging, publish
 It supports the canonical [Product Definition](product-definition.md) and must be applied together with the [Customer Implementation and Agent-assisted Delivery Model](customer-implementation-delivery-model.md). Provider-specific product boundaries remain defined by [Voice Intake Product Definition](voice-intake-product-definition.md) and [Payment Product Definition](payment-product-definition.md).
 
 Until this proposal is explicitly adopted, existing website pricing remains the currently published offer. Website copy must not be changed merely because a proposed amount appears in this document.
+
+The two delivery paths follow the current [Product Definition](product-definition.md#6-commercial-product-shape). The numerical plans, fee bands, and commercial targets below remain proposals; recognizing custom delivery does not adopt or publish those prices.
 
 ## 1. Commercial decision
 
@@ -30,7 +32,7 @@ Omnichannel intake
 + Governed business execution
 ```
 
-The commercial model separates four economic layers:
+For the standard Cloud service, the commercial model separates four economic layers:
 
 ```text
 Runory subscription
@@ -41,9 +43,11 @@ Runory subscription
 
 Combining these layers into one apparently low monthly price would obscure delivery cost, weaken gross margin, and leave insufficient room for implementation partners and resellers.
 
+A scoped customer solution may instead be sold as development/implementation plus expressly agreed hosting, maintenance, support, licensing, subscription, and provider charges where applicable. It uses the same maintained business capabilities and governed extension boundaries. A complete SaaS offer is not a prerequisite; the specific solution still requires verified delivery and operating capability for its promised scope.
+
 ## 2. Customer journeys
 
-Runory supports three commercial journeys.
+Runory supports the following commercial journeys.
 
 ### 2.1 Free exploration
 
@@ -68,7 +72,7 @@ Fit assessment
 
 A pilot is a paid, bounded validation path unless an explicit founding-customer exception is approved.
 
-### 2.3 Paid production
+### 2.3 Paid Cloud production
 
 ```text
 Plan selection
@@ -80,6 +84,21 @@ Plan selection
 ```
 
 A paid subscription alone does not make a Workspace production-ready. Production readiness follows the implementation and go-live controls defined in the delivery model.
+
+### 2.4 Scoped customer solution
+
+```text
+Fit and capability assessment
+→ agreed role tasks, solution scope, extension and deployment boundaries
+→ scoped development/implementation order
+→ assemble and adapt maintained product assets
+→ customer acceptance and verified cutover
+→ agreed maintenance, support, and operation
+```
+
+The order distinguishes reusable product work, customer configuration/Extensions, integration, migration, acceptance, and ongoing responsibilities. Project pricing follows actual scope and effort; the subscription table is not a mandatory minimum for every custom delivery. Cloud subscription charges apply when Cloud service is supplied under the order. Do not promise Local/private deployment or all user applications merely because a customer requests customization.
+
+Record custom-project fees and delivery contribution separately from subscription revenue, retention, and SaaS unit economics. The [implementation economics model](implementation-economics-and-productization.md) applies to both delivery paths.
 
 ## 3. Free Workspace
 
@@ -355,3 +374,4 @@ This proposal can move from `proposed` to `active` only after:
 - [Payment Product Definition](payment-product-definition.md)
 - [Payment Technical Specification](payment-technical-spec.md)
 - [Stripe Connect Pre-GA Completion Plan](stripe-connect-pre-ga-plan.md)
+

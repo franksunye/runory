@@ -3,10 +3,10 @@
 | Metadata | Value |
 | --- | --- |
 | Status | `proposed` |
-| Topic | `implementation-platform` |
+| Topic | `product` |
 | Applies to | `v0.9+ / paid production delivery` |
 | Owner | Product / Engineering / Customer Success / Commercial |
-| Last reviewed | 2026-07-29 |
+| Last reviewed | 2026-11-24 |
 | Supersedes | — |
 | Superseded by | — |
 
@@ -43,7 +43,7 @@ The system must support four inseparable layers:
 3. **External-Agent implementation interface** — ChatGPT, Codex, Claude, and compatible enterprise Agents can assist through governed Runory Commands.
 4. **Provider Foundation** — Twilio, Retell, Stripe, messaging, credentials, environments, testing, and cost controls are prepared before customer delivery begins.
 
-None of these layers is optional for repeatable paid production delivery.
+These layers define the target implementation platform. They are not a requirement to complete the entire platform before a scoped customer solution can be delivered. Early delivery may use existing supported records/workflows and explicit scope, validation, acceptance, cost, and maintenance evidence. Prepare only the providers included in that solution. Reusable business objects, processing logic, and role applications can accumulate and be delivered while this implementation platform is still being built; follow the current [Product Definition](product-definition.md#8-durable-business-assets-and-rapid-custom-delivery) and [delivery model](customer-implementation-delivery-model.md).
 
 ## 2. Runory as its own reference customer
 
@@ -848,3 +848,4 @@ The first version does not attempt to:
 - [Stripe Connect Pre-GA Completion Plan](stripe-connect-pre-ga-plan.md)
 - [Agent Operations](../agent-operations.md)
 - [Contract-driven Command Architecture](../architecture/contract-driven-command-architecture.md)
+

@@ -32,7 +32,7 @@ Start with a reachable repair business where survey, estimating, approval, and e
 
 Existing XLink experience may inform domain questions and examples. It is not evidence that Runory already contains those capabilities or has an overseas distribution channel. US basement waterproofing is not a default segment: ArcSite already addresses much of the adjacent workflow. Compare the customer's incumbent software configuration and general-purpose AI alternatives before claiming differentiation.
 
-The initial offer is a fixed-scope implementation plus a recurring subscription for the approved review/handoff workflow. Scope, acceptance, support responsibility, and provider usage must be explicit. This plan sets no validated price and does not replace [Commercial Pricing and Packaging](commercial-pricing-and-packaging.md) or the [Customer Implementation Delivery Model](customer-implementation-delivery-model.md). Outcome-based pricing remains a later option requiring credible attribution.
+The initial offer may be a fixed-scope customer solution assembled from Runory's reusable capabilities, or a bounded implementation plus a Cloud subscription for the approved review/handoff workflow. Charge for actual development, implementation, hosting, maintenance, support, and provider responsibilities as applicable; do not require a mature SaaS offer before a scoped customer solution can be delivered. Scope and acceptance must be explicit for either path. This plan sets no validated price and does not replace [Commercial Pricing and Packaging](commercial-pricing-and-packaging.md) or the [Customer Implementation Delivery Model](customer-implementation-delivery-model.md). Outcome-based pricing remains a later option requiring credible attribution.
 
 ### Bounded customer deliverable
 
@@ -90,7 +90,24 @@ Keep the initial proposal/review manual when necessary. Advanced AI quality can 
 
 ## 5. Durable engineering assets
 
-Each iteration must produce **a usable capability, a reusable asset, and verifiable cases**. The following are investment areas inside the selected journey, not six independent platform projects.
+Each iteration must produce **a usable role task, a reusable asset, and verifiable cases**. This slice applies the broader [business-asset contract](product-definition.md#8-durable-business-assets-and-rapid-custom-delivery): business objects, processing logic, and role applications must accumulate alongside runtime reliability. The already scoped canonical FSM backlog may continue independently of this slice's commercial results.
+
+### 5.1 Business capabilities this slice should leave behind
+
+| Layer | Reusable outcome |
+| --- | --- |
+| Objects and relationships | Evidence and review findings linked to the existing customer/site, Quote revision, approved scope, Work Order, and relevant field records; preserve domain ownership and lineage. |
+| Processing logic | Supported scope checks, deterministic calculations, correction/approval/revision behavior, faithful handoff, governed conversion, and recovery through the existing business contracts. |
+| Role applications | A salesperson/estimator assembles and reviews; a manager approves or returns; dispatch/technicians receive and act on the approved brief; customer confirmation reuses existing scoped access when included. Each role has a complete task and exception path. |
+| Customer adaptation | Versioned form, rule, role, navigation, import, and handoff defaults that another compatible customer can configure or extend without changing official source. |
+
+Reuse existing desktop/mobile/customer surfaces and the same business semantics for external Agents. Do not create a separate application per role merely to satisfy this inventory. A role-task implementation must include the permissions, input, action, output, and recovery behavior it needs.
+
+For each delivered capability, record its owning Module/component, version, supported role task, extension points, acceptance cases, and maturity (designed, implemented, verified, or production-accepted). Keep this record with existing specifications/evidence; it does not require a new inventory platform.
+
+### 5.2 Supporting technical assets
+
+The following investment areas serve the same business capabilities; they are not six independent platform projects.
 
 | Asset | Immediate user action it serves | Durable output | Evidence of progress |
 | --- | --- | --- | --- |
@@ -110,18 +127,18 @@ Use an initial **6–8 week engineering planning cycle**, adjusted to actual cap
 | Work item | Priority / owner | Deliverable and exit evidence |
 | --- | --- | --- |
 | RQH-01: select the first case set | P0 / Product | One repair category, buyer, input formats, current process, alternatives, authoritative-system map, and pilot acceptance criteria recorded; distinguish real, anonymized, and synthetic cases. |
-| RQH-02: map the existing contracts | P0 / Engineering | Record reused objects/Commands/permissions, necessary additive gaps, and upgrade impact. No new foundation without the guardrail decision. |
+| RQH-02: map the existing capabilities | P0 / Engineering | Record reused objects, business logic, role-task surfaces, Commands/permissions, additive gaps, maturity, and upgrade impact. No new foundation without the guardrail decision. |
 | RQH-03: evidence to review | P1 / Product + Engineering | Operator can inspect sources, confirm or correct facts, resolve conflicts, and accept/reject review findings for the selected category. |
 | RQH-04: approved scope to handoff | P1 / Engineering | Version-bound execution brief and applicable Work Order actions; a change shows a diff and preserves approval lineage. |
 | RQH-05: external-Agent journey | P1 / Engineering | An approved external Agent completes the same bounded journey through supported actions; permissions, read-back, rejected actions, and recovery are demonstrated. |
-| RQH-06: repeatable delivery | P2 / Engineering | Installable Pack/reference configuration, documented input mapping, customer variation, second installation, and upgrade/rollback evidence. |
+| RQH-06: repeatable delivery | P2 / Engineering | Installable Pack/reference configuration, input mapping, customer variation, role-task acceptance on a second configuration, and upgrade/rollback evidence on the same maintained product lineage. |
 | RQH-07: evaluation and economics | Continuous / Product + Engineering | Reusable regression cases plus measured human review, implementation, provider, and support effort. Technical and commercial conclusions are reported separately. |
 
 Suggested batches: first evidence/review, then approved scope/handoff plus Agent execution, then repeatable installation and hard-case recovery. Evaluation starts in the first batch. Product owns case access, buyer feedback, pricing experiments, and the commercial decision; Engineering owns contracts, implementation, regression, upgrade, and execution evidence. Assign named owners when scheduling the backlog.
 
 ### When customer feedback is delayed
 
-Continue work on the existing chosen journey: evidence traceability, supported rule checks, approval/handoff consistency, permissions, failure recovery, import validation, installation/upgrade compatibility, and measured runtime cost/performance. Use clearly labelled synthetic or expert-authored cases where necessary.
+Continue the already scoped canonical FSM backlog, including reusable objects, processing logic, and role applications. For this slice, continue evidence traceability, supported rule checks, approval/handoff consistency, permissions, failure recovery, import validation, installation/upgrade compatibility, and measured runtime cost/performance. Use clearly labelled synthetic or expert-authored cases where necessary.
 
 Do not use the delay to add trades, platforms, abstract orchestration, or speculative integrations. Synthetic success demonstrates engineering behavior only; it cannot establish demand, revenue lift, reduced rework, or customer repeatability. Deep learned diagnosis/optimization and claims about business outcomes require suitable real data.
 
@@ -138,7 +155,7 @@ Review scope after each batch. A weak commercial signal changes the scenario, of
 5. Governed conversion/retry does not create duplicate Work Orders or duplicate external effects.
 6. Tenant, role, field, and delegated-Agent permissions are enforced; denials and human reject/correct actions are recorded.
 7. Partial failures are visible and recover through supported actions; human and Agent journeys pass the same required business outcomes.
-8. A second reference installation and a representative supported variation pass compatibility/upgrade checks without a customer-specific Core fork.
+8. A second reference installation and a representative supported variation pass complete role-task and compatibility/upgrade checks without a customer-specific Core or official-Module source fork.
 9. Changing the model or rules reruns the same evaluation cases, with versions, false positives, omissions, and corrections retained.
 
 These are acceptance requirements, not a claim that results already exist. Preserve the existing release, security, financial, recovery, and performance gates for any affected capability.
@@ -156,6 +173,8 @@ Record the customer's baseline before the pilot and compare similar real jobs. I
 | Is the offer better for this customer? | Comparison against incumbent configuration, manual process, and general AI assistance | An available substitute provides similar results with materially less cost or change. |
 
 Agree numeric pilot thresholds with the selected buyer before evaluation; this document invents no validated lift target. **Two paid, repeatable deliveries** are an early signal to review investment, not a substitute for the existing **3–5 customer v0.9 cohort**, coverage requirements, or GA gates. Rejections and failed pilots are evidence to retain, not results to hide by changing the denominator.
+
+Record whether each engagement is a custom solution or a Cloud subscription. Compare scope-matched customers using total delivery/support effort and accepted role tasks, not only coding time or counts of fields/modules. Two reference configurations can prove engineering reuse; paid projects can prove delivery revenue; neither alone proves SaaS acquisition, retention, or subscription economics. A custom solution that does not meet the existing Cloud cohort criteria must not be counted as satisfying them.
 
 ## 8. External-benchmark adoption record
 

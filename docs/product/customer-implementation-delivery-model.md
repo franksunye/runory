@@ -3,14 +3,14 @@
 | Metadata | Value |
 | --- | --- |
 | Status | `proposed` |
-| Topic | `product-delivery` |
-| Applies to | `v0.9+ / paid production workspaces` |
+| Topic | `product` |
+| Applies to | `v0.9+ / Cloud services and scoped customer solutions` |
 | Owner | Product / Engineering / Customer Success |
-| Last reviewed | 2026-07-29 |
+| Last reviewed | 2026-11-24 |
 | Supersedes | — |
 | Superseded by | — |
 
-Runory paid production delivery is not a self-serve subscription alone. It combines a Runory subscription, a bounded implementation project, provider onboarding, customer approval, production cutover, and ongoing operation.
+Runory delivers standard Cloud services and scoped customer solutions from the same maintained business capabilities. Cloud delivery combines subscription with bounded implementation and applicable provider onboarding. A customer solution may be contracted independently of a complete SaaS offer, with development/implementation and ongoing responsibilities explicitly scoped. Both require customer acceptance and verified production cutover for what is actually promised.
 
 This document defines the commercial and operational delivery model. It supports the [Product Definition](product-definition.md), [Voice Intake Product Definition](voice-intake-product-definition.md), [Payment Product Definition](payment-product-definition.md), [Voice Intake Integration Boundary](../architecture/voice-intake-integration-boundary.md), [Payment Integration Boundary](../architecture/payment-integration-boundary.md), and the canonical self-serve journey in [Getting Started](../getting-started.md).
 
@@ -18,25 +18,32 @@ It does not replace provider-specific technical specifications or implementation
 
 ## 1. Delivery decision
 
-Runory uses two distinct customer journeys:
+Runory distinguishes exploration from two paid delivery paths:
 
 ```text
 Free Workspace
 → product exploration with demo or bounded test data
 → no paid provider-dependent production capability
 
-Paid Production Workspace
+Paid Cloud Production Workspace
 → solution assessment
 → order and payment
 → implementation
 → UAT / pilot
 → production go-live
 → subscription and ongoing optimization
+
+Scoped Customer Solution
+→ capability and role-task assessment
+→ scoped development/implementation order
+→ reuse, configuration, governed Extension, and integration
+→ UAT and verified deployment/cutover
+→ agreed maintenance, support, and operation
 ```
 
 The Free Workspace should demonstrate the end-to-end product model, but must not silently activate cost-bearing or regulated production services such as live telephony, SMS, number porting, or merchant payment processing.
 
-A paid subscription does not by itself mean the Workspace is production-ready. Production readiness is established by an accepted Implementation Run and explicit go-live approval.
+A paid subscription does not by itself mean the Workspace is production-ready. Production readiness is established by accepted delivery evidence and explicit go-live approval. Whole-product GA and complete SaaS commercialization are not prerequisites for every scoped solution; capability, permission, data correctness, recovery, deployment, and support acceptance for its contracted scope remain required. Use only verified deployment forms and the existing Core/Module/Pack/Extension boundaries.
 
 ## 2. What implementation includes
 
@@ -102,7 +109,7 @@ The standard sequence is:
 7. Configuration and provider provisioning
 8. UAT / pilot
 9. Go-live approval and production cutover
-10. Subscription operation and optimization
+10. Contracted service operation, maintenance, support, and optimization
 ```
 
 ### 4.1 Discovery
@@ -127,14 +134,18 @@ Recommended default terms:
 
 - standard implementation fee: `100%` paid before kickoff;
 - larger implementation: `50%` at kickoff and `50%` before production cutover;
-- subscription: starts at production go-live, or at a clearly stated earlier date when the customer receives an active production Workspace;
+- Cloud subscription, when supplied: starts at production go-live, or at a clearly stated earlier date when the customer receives the contracted active Cloud service;
 - third-party test usage: included only within the stated pilot allowance; excess usage is chargeable;
 - number, messaging, Voice Agent, and other provider usage: passed through or metered according to the order;
 - custom development and complex migration: separately scoped and priced.
 
+For a scoped customer solution, agree project milestones and payment terms according to actual scope and risk. Separate project work from recurring hosting, maintenance, support, licensing, subscription, and provider usage; do not assume every project purchases a standard Cloud plan. The fee percentages above remain recommended defaults, not newly adopted prices or universal terms.
+
 Early-customer discounts may reduce or waive part of the implementation fee, but the order should still show the standard fee and the explicit discount. This avoids establishing an expectation that implementation is inherently free.
 
 ## 5. Implementation phases and gates
+
+Apply the phases to the accepted solution scope. Voice, messaging, payment, and provider-specific examples apply only when included; a custom solution is not required to activate unrelated providers or build all proposed implementation tooling. Preserve the functional and production acceptance requirements for the capabilities actually delivered.
 
 ### Phase 0 — Qualification
 
@@ -145,7 +156,7 @@ Exit gate:
 - target workflow is supported;
 - required providers and regions are viable;
 - material unknowns are identified;
-- customer understands subscription, implementation, and provider usage charges.
+- customer understands the applicable project/implementation, subscription, hosting/support, and provider usage charges.
 
 ### Phase 1 — Order and kickoff
 
@@ -357,7 +368,7 @@ Runory may collect, validate, package, submit, and track these items, but it mus
 
 ## 9. Implementation Run as the system of record
 
-Each paid onboarding must have one authoritative Implementation Run with structured phases and evidence.
+Each paid delivery must have one authoritative record of scope, phases, responsibility, and evidence. The target product represents this as an Implementation Run. Until that module is available, use existing supported records/workflows and linked acceptance evidence; completing `runory.implementation` and its full automation is not a prerequisite for a bounded customer delivery.
 
 Suggested state model:
 
@@ -383,7 +394,7 @@ Any active phase
 
 Minimum tracked data:
 
-- customer, Workspace, order, plan, and implementation owner;
+- customer, Workspace/solution, order, applicable plan, delivery path, and implementation owner;
 - scope, assumptions, exclusions, dependencies, and target dates;
 - provider accounts and non-secret reference identifiers;
 - customer-input checklist;
@@ -398,7 +409,7 @@ The Implementation Run should be visible to Runory staff, the responsible partne
 
 ## 10. Partner delivery model
 
-A partner may perform discovery, configuration review, training, and first-line support, but must use the same Implementation Run, governed Commands, approval gates, and evidence model.
+A partner may perform discovery, configuration review, training, and first-line support, but must use the same authoritative delivery record, governed Commands, approval gates, and evidence model.
 
 Partner discount should correspond to delivery responsibility:
 
@@ -425,7 +436,7 @@ These are planning targets, not unconditional commitments. External carrier, reg
 
 ## 12. Product implications
 
-Repeatable paid delivery requires product capabilities, not only internal process:
+The target implementation product progressively supports repeatable delivery with these capabilities:
 
 1. an Implementation Run object and customer-facing status view;
 2. structured discovery and blueprint schemas;
@@ -438,7 +449,7 @@ Repeatable paid delivery requires product capabilities, not only internal proces
 9. usage metering and provider-cost attribution by Workspace;
 10. partner roles, permissions, certification, and responsibility boundaries.
 
-These capabilities are part of Runory's long-term differentiation: the platform should make implementation repeatable and Agent-assisted rather than reproducing a traditional bespoke software project for every customer.
+These capabilities improve repeatability and Agent assistance. They are a productization roadmap, not a requirement to build every implementation tool before the first customer solution. Reusable business objects, processing logic, and complete role applications are equally important delivery assets. Use the [Product Definition](product-definition.md#8-durable-business-assets-and-rapid-custom-delivery) and [implementation economics model](implementation-economics-and-productization.md) to track reuse and total delivery/support effort while preserving the specific solution's acceptance controls.
 
 ## 13. Related documents
 
@@ -452,3 +463,4 @@ These capabilities are part of Runory's long-term differentiation: the platform 
 - [Stripe Connect Pre-GA Completion Plan](stripe-connect-pre-ga-plan.md) — merchant-owned settlement and production readiness.
 - [Agent Operations](../agent-operations.md) — plan, preview, apply, audit, and rollback model.
 - [Contract-driven Command Architecture](../architecture/contract-driven-command-architecture.md) — governed Command authority.
+

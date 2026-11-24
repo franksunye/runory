@@ -121,19 +121,18 @@ Competitive value must be demonstrated through a concrete business result, relia
 
 ## 6. Commercial Product Shape
 
-Runory distinguishes product exploration from paid production delivery:
+Runory builds one reusable product foundation with two commercial delivery paths:
 
-```text
-Free product exploration
-→ Paid production subscription
-→ Bounded implementation
-→ Metered provider usage
-→ Optional partner-delivered services
-```
+| Path | Customer receives | Commercial structure |
+| --- | --- | --- |
+| Standard Cloud service | A supported Pack/Template operated as a Runory Cloud service | Subscription, bounded implementation, applicable provider usage, and agreed support |
+| Scoped customer solution | A solution assembled from the same business Modules, role surfaces, Packs, and governed Extensions | Scoped development/implementation fees, with hosting, maintenance, support, licensing, subscription, and provider usage agreed only where applicable |
+
+Free exploration and bounded pilots can precede either path. A customer solution does not require Runory to have already established a complete SaaS business or completed whole-product GA. It must meet the functional, security, data, recovery, deployment, and acceptance requirements of its own promised scope. Do not promise an unverified deployment mode or label a custom project as whole-product GA.
 
 The Free Workspace should demonstrate the product's end-to-end operating model without silently enabling cost-bearing or regulated production services.
 
-A paid production Workspace may require configuration, provider onboarding, migration, validation, customer approval, and production cutover. Subscription payment alone does not establish production readiness.
+A production delivery may require configuration, provider onboarding, migration, validation, customer approval, and cutover. Payment or a custom-delivery label alone does not establish production readiness. Both paths use the same maintained product lineage; customer-specific differences must not create forks of Runory Core or official business Modules.
 
 Commercial packaging, proposed list prices, implementation bands, provider usage, partner economics, and discount controls are defined in [Commercial Pricing and Packaging](commercial-pricing-and-packaging.md). The operating sequence and implementation controls are defined in [Customer Implementation and Agent-assisted Delivery Model](customer-implementation-delivery-model.md).
 
@@ -143,5 +142,25 @@ The selected near-term working priority is **repair quote review and execution-h
 
 This is a focused product and commercial hypothesis, not a claim of a released Pack or proven market fit. The long-term product remains a composable FSM system and governed runtime. The selected slice gives that direction an immediate user-visible result without replacing the full v0.9 or GA contracts.
 
-Commercial validation and engineering accumulation proceed in parallel. Each iteration should deliver a usable capability, a reusable rule/component/configuration, and verifiable cases. Customer evidence governs the direction and scale of expansion; its absence does not suspend work on traceability, execution correctness, compatibility, evaluation, and other bounded capabilities serving the chosen journey. Synthetic cases prove engineering behavior, not customer demand or business lift.
+Commercial validation and engineering accumulation proceed in parallel. Each iteration should deliver a usable capability, a reusable rule/component/configuration, and verifiable cases. Customer evidence governs the direction and scale of expansion; its absence does not suspend bounded work on the supported Reactive Repair / Callout product. The quote-review slice is the immediate commercial-validation focus, not the entire boundary of long-term R&D. Synthetic cases prove engineering behavior, not customer demand or business lift.
+
+## 8. Durable Business Assets and Rapid Custom Delivery
+
+The R&D objective is a growing set of **reusable business objects, processing logic, and role-specific application capabilities** that can be combined into both a standard service and a customer solution. Runtime infrastructure supports these assets; customers must be able to complete real business tasks with them.
+
+| Asset layer | Accumulation target within the existing FSM scope |
+| --- | --- |
+| Business objects and relationships | Customer/contact, service site, asset, service/price book, Quote, Work Order, assignment, Visit, service report, Invoice, and Payment; clear ownership, relations, lifecycle, and version semantics |
+| Business processing | Calculation and revision, approval, Quote conversion, assignment/scheduling, field forms and evidence, completion/rework, invoicing/payment, and exception recovery through shared Commands |
+| Role and user-facing applications | Reusable sales/estimating, dispatch, technician, supervisor, administration, finance, and scoped customer experiences on supported desktop/mobile/Agent surfaces |
+| Delivery compositions | Packs, Templates, roles, terminology, forms, workflow defaults, import mappings, adapters, reference configurations, and bounded customer extensions |
+| Quality and upgrade assets | Role-task acceptance, business regression cases, permission checks, migration/upgrade/recovery evidence, and delivery diagnostics |
+
+This table states the investment direction, not a claim that every capability is implemented or production-accepted. Maintain the distinction between design, implementation, verified behavior, and actual customer acceptance. Role applications must support a complete task, including permission, handoff, and failure recovery; a generic list/detail screen or an API alone is not sufficient evidence.
+
+Shared technical mechanisms belong in Core/platform services; stable domain objects and invariants belong in official business Modules; supported combinations and defaults belong in Packs/Templates; customer differences belong in configuration, Managed Workspace Extensions, and provider adapters. A dedicated customer UI or code extension is allowed through supported, versioned interfaces with tests and maintenance ownership. New common business capabilities may improve the official product through normal architecture review; do not force every difference into a universal configuration engine.
+
+Measure accumulation by how a **second, comparable customer** can reuse the product: coverage of agreed business acceptance cases, actual implementation and support hours, elapsed time to demo/UAT, customer-specific change volume, and upgrade repair effort. Separate coding time from discovery, data preparation, integration, training, and rework. Customer data and proprietary rules do not become shared assets without appropriate rights.
+
+Custom project revenue and reuse evidence can justify continued investment while SaaS commercialization develops. They do not by themselves prove subscription acquisition, retention, or SaaS unit economics, and they do not replace the existing v0.9/GA gates. The [implementation economics model](implementation-economics-and-productization.md) governs measurement for both paths.
 

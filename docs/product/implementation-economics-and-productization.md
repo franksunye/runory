@@ -3,10 +3,10 @@
 | Metadata | Value |
 | --- | --- |
 | Status | `proposed` |
-| Topic | `commercial-pricing / product-delivery` |
-| Applies to | `v0.9+ / paid production workspaces` |
+| Topic | `product` |
+| Applies to | `v0.9+ / Cloud services and scoped customer solutions` |
 | Owner | Product / Commercial / Engineering / Customer Success |
-| Last reviewed | 2026-07-29 |
+| Last reviewed | 2026-11-24 |
 | Supersedes | — |
 | Superseded by | — |
 
@@ -33,7 +33,7 @@ manual expert delivery
 → bounded self-service where risk permits
 ```
 
-Implementation revenue is not the strategic goal by itself. The strategic goal is repeatable customer activation with the lowest safe and economically rational delivery burden.
+Custom development and implementation are valid commercial paths alongside Cloud subscriptions. Their strategic value includes project contribution and a growing base of reusable business capability, measured by faster, more predictable subsequent delivery. The same maintained product assets serve both paths; complete SaaS commercialization is not a prerequisite for a scoped solution. Numerical fee bands and targets in this proposal remain unadopted planning assumptions.
 
 ## 2. Why implementation has a separate fee
 
@@ -124,6 +124,20 @@ Every repeated manual implementation step should be classified as one of:
 
 The objective is not zero implementation in every case. Standard customers should approach bounded, Agent-assisted implementation; complex customers may continue to require paid expert delivery.
 
+### 5.1 Business capability productization
+
+Productization includes **business objects, processing logic, and role applications**, as well as implementation automation. Follow the [business-asset contract](product-definition.md#8-durable-business-assets-and-rapid-custom-delivery).
+
+| Asset | Reusable result to retain |
+| --- | --- |
+| Domain Module | Owned objects/relations, lifecycle, calculations, invariants, Commands, and regression cases |
+| Role application | A complete role task on supported desktop/mobile/customer/Agent surfaces, including permissions, handoff, and recovery |
+| Pack/Template | A versioned composition of modules, forms, workflow defaults, roles, navigation, terminology, and reference configuration |
+| Customer adaptation | Managed Extension/configuration and supported UI/code extensions with version, compatibility tests, and maintenance responsibility |
+| Delivery/quality | Import mappings, adapters, acceptance scenarios, deployment instructions, diagnostics, and upgrade/recovery evidence |
+
+Record which customer need produced an asset, its owner/version, maturity, supported variation, and the cases that demonstrate it. Promote a repeated need into the official product only when it has a reusable scope; keep customer data, proprietary prices, organization rules, and exceptions isolated. Customer-specific forks of Core or official Module source are not the reuse strategy.
+
 ## 6. Agent-assisted implementation priorities
 
 The highest-value automation candidates are:
@@ -159,6 +173,8 @@ Every paid Implementation Run should capture enough actual data to replace assum
 - hypercare effort;
 - implementation contribution;
 - reusable templates, Commands, connectors, tests, or documentation created.
+
+Also record the delivery path (Cloud subscription or scoped customer solution), reused business Modules and role capabilities, the accepted scope/role-task denominator, configuration/Extension/integration effort, and ongoing maintenance responsibility. Use an existing auditable delivery record until the proposed Implementation Run module is available.
 
 This data should be attributed by Workspace, implementation type, industry template, provider combination, and delivery owner where appropriate.
 
@@ -208,6 +224,16 @@ Final targets should be set after real-customer evidence exists. Directionally, 
 - implementation contribution margin;
 - percentage of implementations delivered by certified partners without Runory escalation.
 
+For rapid customization, compare at least two **scope-matched** solutions on the same maintained product lineage:
+
+- elapsed time and human hours from accepted scope to demo, UAT, and cutover, with customer/provider waiting time separated;
+- agreed business acceptance cases covered by existing assets, supported configuration/Extensions, and new reusable work, retaining the denominator and exclusions;
+- effort for discovery, application/logic development, configuration, integration, data preparation, validation, training, rework, and support;
+- customer-specific Core/official-Module source forks (target: zero), and manual repair effort after an upgrade;
+- total delivery contribution and maintenance burden, rather than coding speed alone.
+
+Two different reference configurations with role-task and upgrade evidence demonstrate engineering reuse. Real custom projects demonstrate delivery capability and project economics. Neither alone demonstrates SaaS acquisition, retention, subscription margin, or satisfaction of the existing v0.9/GA customer gates. Do not report a smaller second project as a reuse improvement without accounting for the scope difference.
+
 Cost reduction must not come from weakening validation, audit, approvals, security, or customer acceptance.
 
 ## 11. Customer-facing principle
@@ -230,3 +256,4 @@ This statement must not imply that all customer-specific work will eventually be
 - [Stripe Connect Pre-GA Completion Plan](stripe-connect-pre-ga-plan.md)
 - [Agent Operations](../agent-operations.md)
 - [Contract-driven Command Architecture](../architecture/contract-driven-command-architecture.md)
+

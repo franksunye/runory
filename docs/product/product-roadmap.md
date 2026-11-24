@@ -106,14 +106,16 @@ External platform research is an input to these gates, not optional background r
 
 ### 2.2 Continuous Engineering and Commercial Validation
 
-Commercial validation and durable engineering accumulation run in parallel. Customer feedback directs scope, investment, and expansion; it is not a prerequisite for every bounded engineering increment.
+Commercial validation and durable engineering accumulation run in parallel. Customer feedback directs scope, investment, and expansion; it is not a prerequisite for every bounded engineering increment. The same product assets support standard Cloud subscriptions and scoped customer solutions; complete SaaS commercialization is not a prerequisite for a properly accepted customer delivery.
 
-- Each iteration produces a usable capability, a reusable component/rule/configuration, and verifiable cases within the selected business journey.
-- When customer evidence is delayed, continue traceability, supported rules, approval/execution consistency, import validation, compatibility, recovery, and evaluation using explicitly labelled cases.
+- Each iteration produces a usable role task, reusable business objects/logic/application components or configuration, and verifiable cases within the canonical Reactive Repair / Callout journey.
+- When customer evidence is delayed, continue the scoped canonical backlog: business objects, processing logic, role applications, traceability, supported rules, import validation, compatibility, recovery, and evaluation using explicitly labelled cases.
 - Defer speculative industries, integrations, learned optimization, and additional platforms. Reuse the existing Core, Quote/FSM, Forms, Workflow, Pack, and Extension models.
 - Engineering completion, synthetic acceptance, customer value, and paid repeatability are different evidence classes. Only real customer evidence can close the applicable v0.9 and GA customer gates.
 
 The [Repair Quote Review and Handoff plan](repair-quote-review-and-handoff-plan.md) applies this rule to the current slice. Its early paid-delivery signal is not a replacement for the 3–5 customer cohort or GA acceptance requirements.
+
+The quote-review slice prioritizes near-term commercial learning; it does not freeze the rest of the already scoped FSM product. Follow the [durable business-asset contract](product-definition.md#8-durable-business-assets-and-rapid-custom-delivery) and record whether comparable customer delivery becomes faster through reuse. Custom-project acceptance and SaaS commercial validation remain separate evidence.
 
 ## 3. v0.5 Family — Commercial FSM Closure
 
