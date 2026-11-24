@@ -66,6 +66,8 @@ Use existing scoped Reactive Repair / Callout work as the current FSM business a
 
 ## 4. Engineering sequence
 
+The [Agent-first Engineering Execution Plan](agent-first-engineering-execution-plan.md) is the current implementation backlog and batch order for AF-01 through AF-07. It fixes the first benchmark, source baseline, dependencies, and required acceptance evidence; track implementation results separately.
+
 The following is the current work order, not a new release number, public availability claim or time estimate. Existing critical release and security fixes retain precedence. Product and Engineering own the backlog and must map each increment to the Agent-led journey.
 
 | ID | Priority | Deliverable and exit evidence |

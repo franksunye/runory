@@ -13,6 +13,7 @@
 - Demand research: [Commercial FSM Customer Demand Benchmark](../research/commercial-fsm-customer-demand-benchmark.md)
 - Current market evidence: [FSM AI Market Review — 2026-11-24](../research/fsm-ai-market-review-2026-11-24.md)
 - Current strategic execution contract: [Agent-first Product Strategy and Delivery Contract](agent-first-product-strategy.md)
+- Current R&D backlog and batch order: [Agent-first Engineering Execution Plan](agent-first-engineering-execution-plan.md)
 - Commercial-validation slice: [Repair Quote Review and Handoff](repair-quote-review-and-handoff-plan.md)
 - GA release contract: [Runory 1.0 — 90% Product Coverage, 10% Governed Extension](./v1.0-ga-release-goal.md)
 - Companion engineering roadmap: [Engineering Benchmark Adoption Roadmap](./engineering-benchmark-adoption-roadmap.md)
