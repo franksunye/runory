@@ -1,279 +1,69 @@
-# Runory Cloud To Local / Private Deployment
+# Runory Self-hosted and Cloud Deployment Contract
 
-Status: Draft v0.2  
-Date: 2026-06-18  
-Supersedes the deprecated `local-to-cloud-workspace.md` document, which is no longer present in the active documentation set.
-Change: Cloud-first pivot — see [../04-architecture-pivot-cloud-first.md](../04-architecture-pivot-cloud-first.md)
+| Metadata | Value |
+| --- | --- |
+| Status | `active` |
+| Topic | `architecture` |
+| Applies to | Current Agent-first direction; bounded Self-hosted candidate and managed Cloud |
+| Owner | Architecture / Engineering |
+| Last reviewed | 2026-11-24 |
+| Supersedes | Cloud-to-Local draft v0.2 (2026-06-18) deployment priority |
+| Superseded by | — |
 
-## 1. Core Position
+This document supports the canonical [Product Definition](../product/product-definition.md), [Architecture Overview](overview.md), and [Agent-first Product Strategy](../product/agent-first-product-strategy.md). It replaces the earlier deployment-priority interpretation in [Cloud-first pivot](../04-architecture-pivot-cloud-first.md); the prior decision remains history. It does not certify a distribution, a deployment mode, or migration feature as implemented.
 
-Runory is **Cloud-first**. Runory Cloud is the default product entry for ordinary SMB users.
+## 1. One product, two deployment forms
 
-Local and Private deployment are **advanced deployment modes**—not the MVP default, not the primary onboarding path.
+**Agent-first product; portable Runtime; first-class Self-hosted and Cloud.**
 
-The architectural requirement is:
+- Self-hosted: an owner or authorized Agent can download a verified Runory release, install it in a supported environment, initialize a local administrative identity and Workspace, install compatible Packs, and use the included role applications and governed interfaces without a mandatory Runory Cloud account, subscription, or proprietary Cloud runtime dependency.
+- Cloud: Runory provides managed hosting, accounts, billing, upgrades, operations, and applicable provider connections. It may remain the convenient default for users who prefer managed service.
+- Private / VPC / on-premise are potential configurations of the same Self-hosted product, supported only within explicitly validated deployment profiles. Local developer mode is not production self-hosting.
 
-> **Cloud-first Product, Portable Runtime Architecture**
+Both forms must share the same business objects, Command Contracts, authorization semantics, Module/Pack/Template artifacts, Workspace Extensions, UI components, business tests and maintained release lineage. Deployment mode is not a reason to fork Core or official Modules.
 
-Cloud must not create hard coupling that prevents future Private Cloud, VPC, On-premise, or Local Dev deployment.
+## 2. First independent distribution
 
-## 2. Deployment Modes
+Start with one bounded, reproducible server deployment profile; a version-pinned Linux container/Compose distribution using the existing application and supported persistence is the initial implementation candidate. Confirm the exact supported platform, database, storage, and scheduler through the technical audit before committing a distribution. Do not require a source checkout, a development server, or manual database creation for normal installation.
 
-### Runory Cloud (Default)
+A supported release must provide:
 
-```text
-Multi-tenant SaaS
-Turso/libSQL + Object Storage + Queue
-Built-in Agent + Cloud UI Shell
-Auth / Billing / Workspace hosting
-```
+- official download and immutable version, source/license and dependency metadata, checksum/integrity verification, release notes, compatibility and documented limits;
+- deterministic preflight, generated runtime secrets and safe initial owner enrollment, persistent database and attachments, explicit data directory, normal authorization, and a non-destructive repeatable initialization path;
+- an installable initial FSM Pack/reference configuration from local release artifacts or another documented trusted source; no mandatory online Catalog or SaaS entitlement check for the included self-hosted core;
+- browser access, role applications and Agent CLI/API/MCP access using explicit credentials/scopes; safe defaults, loopback/LAN restrictions where appropriate, TLS and network guidance before exposing the instance;
+- functioning timers, workflow jobs, outbox and failure diagnostics without depending on Vercel Cron or another managed-only service; offline or absent provider features must be reported as unavailable, not silently simulated;
+- install, start/stop, health/doctor, backup/restore, versioned upgrade and recovery instructions; verify restart, permissions, domain outcomes and attachment persistence.
 
-Best for: ordinary SMB, fast onboarding, continuous upgrades, team collaboration.
+The ten-minute clean install is an engineering target on a documented ready environment, not a published SLA. Measure first usable business task separately from image pull, provider approval, data migration and customer waiting time.
 
-### Private Cloud / Customer VPC (Advanced)
+## 3. Deployment adapters and independence
 
-```text
-Runory Core + Module Runtime in customer-controlled infrastructure
-Same Module / Pack / Extension model as Cloud
-Customer-managed Auth, Storage, and network boundaries
-```
+Preserve existing interfaces and implement only the adapter gaps required by the first supported profile: persistence (existing SQLite/libSQL path where validated), identity/session and setup, attachment storage, job scheduling/queue, secrets, email, payments and voice. Optional integrations may require owner-authorized provider accounts or network access; core business use must not require those integrations. Do not introduce a second runtime, database model, authorization path or proprietary Agent.
 
-Best for: data residency, private network, large customers with IT teams.
+Cloud entitlement and billing must remain separate from the self-hosted entitlement policy and merchant payment settlement. Local ownership does not mean permissionless operational writes; normal use by Agents and humans goes through the same governed business actions. A deployment Agent may execute authorized infrastructure tasks, but cannot use raw database mutation as a business or configuration shortcut. Production initialization must never enable development OTP/bootstrap bypasses.
 
-### On-premise / Local Runtime (Advanced / Development)
+Use immutable released artifacts, version-pinned Pack locks, migration records, supported extension points and verified backup/recovery. Retain the existing release safety and compatibility requirements; no claim that an arbitrary destructive migration can always be rolled back without restoring data.
 
-```text
-Portable Runtime (SQLite or customer PostgreSQL)
-Adapter-based integration with optional cloud services
-MCP / SDK for Agent connection
-Export/import from Cloud Workspace
-```
+## 4. Portability and migration
 
-Best for: compliance, offline/semi-offline, local database requirement, private LLM, development sandbox.
+The goal is **controlled migration in either direction** between supported deployments, not live bidirectional synchronization. New Self-hosted installations do not require originating in Cloud. A customer can start in either form, and migration to the other is a separately validated capability.
 
-The repo's existing `experiments/local-v1` is a **Portable Runtime prototype**—valid for historical reference and export validation, not the product default.
+Preserve stable workspace/object/record identifiers, schema and module/pack/extension versions, migration history, file hashes, audit lineage, provider references, and compatible contracts. Configuration exports alone do not establish full business-data portability.
 
-## 3. Why Cloud-first
-
-Local-first as default creates problems for SMB commercialization:
-
-* high install friction;
-* high support cost;
-* slow business validation;
-* difficult Agent configuration standardization;
-* complex module upgrade and debug across user-modified local installs.
-
-Cloud-first enables:
-
-* instant Workspace creation;
-* standardized Pack / Template onboarding;
-* governed Built-in Agent experience;
-* centralized Module Registry and upgrade;
-* faster path to paid SMB usage.
-
-## 4. Portable Runtime Requirements
-
-From day one, Cloud architecture must preserve:
+A future full Workspace export/import contract should include:
 
 ```text
-Core runtime can run independently of Cloud-specific services
-Module manifest is standardized across Cloud and Portable Runtime
-Migrations are standardized
-Workspace config is exportable
-Extensions are exportable
-Audit logs are exportable
-Agent skills are declarative
-Cloud service dependencies go through adapters
+manifest / release and schema compatibility
+module and Pack locks / metadata / extensions
+business records and relationships
+files and attachment integrity / relevant audit history
+checksums / migration and reconciliation report
 ```
 
-### Required Adapters
+Never include plaintext secrets in portable exports; rebind provider credentials at the target. Prove backup and restore including attachment bytes, business data and configuration before migrating a real customer. Use explicit source/target ownership, preview, approved cutover and reconciliation; after migration exactly one deployment remains the authoritative writer unless a separately designed synchronization protocol exists. Cloud ↔ Self-hosted import/export directions are individually proven; neither is promised by this decision alone.
 
-```text
-Auth Adapter
-Storage Adapter
-Queue Adapter
-LLM Adapter
-Email Adapter
-Payment Adapter
-Search Adapter
-```
+## 5. Boundaries and acceptance
 
-Example: Cloud uses managed Auth and S3; Private Runtime uses local Auth adapter and filesystem storage adapter—with the same Core and Module APIs.
+One supported independent deployment comes first. Defer desktop wrappers, every OS/database/provider, Kubernetes automation, arbitrary private-network topology, broad migration automation, multi-master sync, and a full public marketplace. Do not delay the bounded Self-hosted candidate until all Cloud GA requirements pass, and do not substitute a successful install for those requirements. The [Agent-first delivery contract](../product/agent-first-product-strategy.md) specifies the independent Agent installation, adaptation, operation, upgrade and recovery evidence. The [release hardening runbook](../operations/release-hardening-2026-11-24.md) and existing GA gates remain applicable to their declared production scope.
 
-## 5. Cloud To Local Path (Non-default, but architecturally reserved)
-
-The preferred advanced path is **controlled export/import**, not bidirectional sync.
-
-```text
-Cloud Workspace
-    |
-    | export
-    v
-Workspace Export Package
-    |
-    | import (Private / Local Runtime)
-    v
-Private / Local Workspace
-```
-
-After import:
-
-```text
-Private / Local Runtime = primary for that deployment
-Cloud Workspace = optionally retained, read-only, or disconnected
-```
-
-Bidirectional sync is **deferred**. It requires conflict resolution, delete semantics, concurrent edits, and attachment sync—highest complexity.
-
-### Early Cloud add-ons (post-MVP)
-
-```text
-Cloud Backup (retain as service for Cloud users)
-One-way Export to Private / Local
-Team / Billing upgrade within Cloud
-```
-
-## 6. Workspace Export Format
-
-Runory defines a standard Workspace Export Format for Cloud → Private / Local migration.
-
-Draft package:
-
-```text
-runory-workspace-export.zip
-|-- manifest.json
-|-- schema/
-|   |-- objects.json
-|   |-- fields.json
-|   |-- views.json
-|   `-- workflows.json
-|-- modules.json
-|-- extensions/
-|-- templates.json
-|-- data/ (optional, deployment-dependent)
-|-- files/
-|-- audit/
-`-- checksums.json
-```
-
-Draft `manifest.json`:
-
-```json
-{
-  "workspaceId": "ws_001",
-  "workspaceName": "My Small Restaurant",
-  "coreVersion": "1.0.0",
-  "templateId": "small-business-crm",
-  "packs": [
-    {
-      "id": "crm-lite-pack",
-      "version": "1.0.0"
-    }
-  ],
-  "modules": [
-    {
-      "id": "runory.customer",
-      "version": "1.0.0"
-    }
-  ],
-  "extensionsVersion": 4,
-  "schemaVersion": "1.0.0",
-  "exportedAt": "2026-06-18T10:00:00Z",
-  "exportMode": "config_and_schema"
-}
-```
-
-POC requirement: prove export of config + schema + extensions (full data migration can follow post-POC).
-
-## 7. Cloud Storage Model
-
-Runory Cloud:
-
-```text
-Turso/libSQL (business + metadata + platform objects)
-Object Storage (attachments, exports, reports)
-Queue / Async Jobs
-Cloud API + Agent Operation API
-Cloud MCP Server (advanced channel)
-Web UI Shell
-```
-
-Portable Runtime:
-
-```text
-SQLite or PostgreSQL (deployment choice)
-Local or customer Object Storage
-Optional queue (in-process or external)
-HTTP API + MCP
-localhost or private-network UI
-```
-
-Import Service maps Cloud export into Portable Runtime domain model using **shared schema definitions and stable IDs**.
-
-## 8. Stable IDs And Migration Hooks
-
-Even in Cloud-first development, preserve:
-
-* stable Workspace IDs;
-* stable Object and record IDs;
-* module and pack versions;
-* extension versions;
-* schema versions;
-* migration records;
-* file hashes;
-* audit logs;
-* deterministic export metadata.
-
-Without these, Cloud → Private / Local migration becomes fragile.
-
-## 9. Agent Experience Across Deployment Modes
-
-### Cloud (Default)
-
-```text
-Built-in Agent in Cloud UI
-→ Agent Operation API
-→ governed apply with Diff / Audit / Rollback
-```
-
-### Private / Local (Advanced)
-
-```text
-Built-in Agent (if bundled) or External Agent via MCP
-→ same governed APIs and permission model
-→ no direct DB or source access
-```
-
-Example advanced request:
-
-> We need to export the Cloud Workspace to the customer's private environment.
-
-Agent explains export scope, generates export package, validates compatibility with target Portable Runtime version—not "install SQLite locally first."
-
-## 10. Non-Goals For POC
-
-POC should not implement:
-
-* full Private / On-premise deployment product;
-* bidirectional Cloud ↔ Local sync;
-* complete data migration from Cloud to Local;
-* enterprise SSO and multi-region;
-* Tauri desktop shell or local installer.
-
-POC **should** implement:
-
-* Workspace export prototype (config + schema + extensions);
-* Portable Runtime prototype consumption of exported schema manifest (validation level);
-* adapter interfaces documented and stubbed where Cloud services are used.
-
-## 11. Summary
-
-```text
-Old assumption: Local is the default, Cloud is the upgrade path
-New assumption: Cloud is the default, Private / Local is an advanced deployment mode
-
-Old path: Local -> Cloud Migration
-New path: Cloud -> Export -> Private / Local Import
-
-Invariant principle: Portable Runtime, standard Manifest, Managed Extension, governed Agent APIs
-```

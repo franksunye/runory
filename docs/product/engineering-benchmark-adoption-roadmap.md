@@ -6,7 +6,7 @@
 | Topic | `product` |
 | Applies to | `v0.6–v1.0` |
 | Owner | Product / Architecture / Engineering |
-| Last reviewed | 2026-07-29 |
+| Last reviewed | 2026-11-24 |
 | Supports | [Product Roadmap](product-roadmap.md) |
 | Governing guardrails | [External Benchmark Adoption Guardrails](external-benchmark-adoption-guardrails.md) |
 | Research inputs | [Adjacent Platform Landscape](../research/adjacent-platform-landscape.md), [Twenty Platform Benchmark](../research/twenty-platform-benchmark.md) |
@@ -14,6 +14,8 @@
 | Superseded by | — |
 
 ## 1. Purpose
+
+The current overarching engineering objective is the [Agent-first Product Strategy and Delivery Contract](agent-first-product-strategy.md). The bounded independent distribution and Agent-led acceptance journey are first-class parallel product work, not a claim that the existing version-specific gates have passed. The maturity gates below remain binding; prioritize their work according to its contribution to the Agent-led journey and release safety.
 
 The Product Roadmap answers which FSM business capability becomes commercially usable in each version. This companion roadmap answers:
 

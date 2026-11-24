@@ -1,5 +1,15 @@
 # MCP / Skill Usage
 
+| Metadata | Value |
+| --- | --- |
+| Status | `active` |
+| Topic | `customization` |
+| Applies to | Existing MCP/Skill usage and Agent-first direction |
+| Owner | Product / Engineering |
+| Last reviewed | 2026-11-24 |
+| Supersedes | — |
+| Superseded by | — |
+
 Runory can be driven by external Agents — Codex, Trae, Cursor, Claude Code, or any MCP-compatible client — through a Model Context Protocol (MCP) server and a Runory Skill. This page explains what MCP is for in Runory, what the Skill is, what Agent operations can and cannot do, and how to run safe customization end to end.
 
 For the operation contract and API routes, see [Agent Operations](./agent-operations.md). For SDK-based module development, see [SDK / Module Development](./sdk-module-development.md).
@@ -21,7 +31,7 @@ Runory MCP Server (stdio)  →  Runory Cloud API  →  Platform Core
 
 The Runory Skill is the instructions an Agent reads to understand how to operate Runory correctly: which tools to call, in what order, what a valid Extension Plan looks like, and how to keep changes safe. The Skill is loaded by the Agent; the MCP server provides the executable tools.
 
-The Skill + MCP combination is the external operations surface. The Built-in Agent in the Cloud UI uses the same governed APIs internally.
+The Skill + MCP combination is an external operations surface. External Agents are the primary product users; MCP, CLI, API and SDK must share the same governed Runtime and human UI contracts. This guide describes existing usage, not a guarantee of complete deployment or named business-command coverage. The [Agent-first Product Strategy](product/agent-first-product-strategy.md) defines the target full journey and its acceptance.
 
 ## What Agent operations can and cannot do
 

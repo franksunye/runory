@@ -1,8 +1,14 @@
 # Runory Architecture Overview
 
-Status: Draft v0.3
-Date: 2026-06-22
-Change: Cloud-first pivot — see [../04-architecture-pivot-cloud-first.md](../04-architecture-pivot-cloud-first.md)
+| Metadata | Value |
+| --- | --- |
+| Status | `canonical` |
+| Topic | `architecture` |
+| Applies to | Current architecture; Agent-first, Self-hosted and Cloud |
+| Owner | Architecture / Engineering |
+| Last reviewed | 2026-11-24 |
+| Supersedes | Earlier Cloud-first-only and Built-in-Agent-default interpretation |
+| Superseded by | — |
 
 This document is the current architecture entry point. It defines system boundaries that should stay consistent across Cloud implementation, modules, extensions, and POC work.
 
@@ -23,90 +29,49 @@ Internationalization: [internationalization.md](internationalization.md)
 
 ## Canonical Definition
 
-Runory is a **Cloud-first**, Agent-native SMB business operations platform: a composable Module / Pack / Template system plus Managed Workspace Extensions, with configuration and operations performed by the Built-in Agent through governed APIs.
+Runory is an **Agent-first, self-hostable, composable business software platform**. Its stable Runtime, business Modules, Packs, Templates and Managed Workspace Extensions serve external Agents and human role applications through shared governed business contracts. FSM is the first domain; managed Cloud and Self-hosted are first-class target product forms. The [Agent-first product strategy](../product/agent-first-product-strategy.md) specifies the primary adoption journey and acceptance; the [deployment contract](cloud-to-local-workspace.md) defines the independent installation boundary.
 
-Runory is not an AI Coding tool, traditional low-code platform, general ERP, or a Local-first system where users edit module source.
+Runory is not an AI Coding tool, a traditional low-code platform, a general ERP, or a system that requires a customer to fork official Module source.
 
 ## System Formula
 
 ```text
-Runory App
-=
-Runory Cloud (default)
-+ Platform Core
-+ Official Modules
-+ Business Packs / Workspace Templates
-+ Managed Workspace Extensions
-+ User Data
-+ Optional Private / Local Deployment
+External Agent (discover / deploy / configure / operate / maintain)
+    + Human role applications
+    ↓ CLI / API / MCP / Skills / SDK
+Shared Runory Runtime + identity / Workspace / authorization
+    ↓
+Official Modules + Packs / Templates + Managed Extensions
+    ↓
+Authoritative business data and adapter-backed infrastructure
+
+Deployment: Self-hosted OR managed Runory Cloud
 ```
 
-Runtime relationship:
-
-```text
-SMB User
-        |
-        v
-Runory Cloud UI + Built-in Agent (default)
-        |
-        v
-Runory Cloud API / Workspace Runtime
-        |
-        v
-Platform Core
-        |
-        v
-Official Modules → Business Packs → Templates
-        |
-        v
-Managed Workspace Extensions
-        |
-        v
-Turso/libSQL + Object Storage + Schema-driven UI
-
-Advanced path:
-Codex / MCP / SDK → same governed APIs → Private / Local Portable Runtime
-```
+The same business contracts and assets run in both forms. Cloud adds hosted control-plane, operations and billing services; the supported Self-hosted distribution must be able to operate its included core independently.
 
 ## Layer Responsibilities
 
-### Built-in Agent (default)
+### External Agent (primary product user)
 
-The Built-in Agent is the primary operator for SMB users. It:
+An approved external Agent discovers Runory, evaluates capability and deployment fit, obtains an official release or provisions a Cloud workspace, configures and adapts it, operates named business Commands and verifies results. CLI, MCP, Skills, SDK and documented APIs are first-class interfaces. The Agent requests required authorization and must not bypass business permissions, directly mutate production tables, or edit official Module source as a customer-specific customization path.
 
-* understands business intent;
-* recommends Packs and Templates;
-* generates Extension and Workflow plans;
-* calls Agent Operation APIs with permission checks;
-* shows Diff Preview and requests confirmation;
-* validates and explains results.
+### Human role applications
 
-The Agent must not directly operate the database or modify official module source code.
+Desktop, mobile and scoped customer surfaces provide complete work for business owners, sales, dispatchers, technicians, supervisors, finance and customers. They share the same identity, permissions, business state and Commands with external Agents. A proprietary Built-in Agent is not required.
 
-### Codex / MCP / SDK (advanced channel)
+### Self-hosted and Runory Cloud
 
-External Agents connect through MCP or SDK with the **same permission model** as the Built-in Agent. This path serves developers, integrators, and Private deployment—not ordinary SMB onboarding.
+The independent distribution targets secure initialization, persistent data and files, supported job scheduling and provider adapters, health checks, backup/restore, upgrades, and ordinary business use without a mandatory Cloud account. Runory Cloud provides managed Workspace hosting, identity and membership, Catalog and configuration, usage metering/billing and operational services. Cloud-specific mechanisms must not become mandatory dependencies for the supported self-hosted business path.
 
-### Runory Cloud
-
-Runory Cloud is the default product surface:
-
-* multi-tenant Workspace hosting;
-* Auth, Organization, User, Role;
-* Module Registry and Install Runtime;
-* Workspace Configuration Store;
-* Agent Operation API hosting;
-* Cloud UI Shell;
-* Usage Metering and Billing-ready accounts.
-
-The SaaS identity and tenancy chain is:
+The identity and tenancy chain is:
 
 ```text
-Email OTP → User/AuthIdentity → Organization → Workspace
+Authenticated Principal → Organization → Workspace
 → RequestContext/Authorization → Business Data
 ```
 
-Organization is the tenant, ownership, membership, and billing boundary. Workspace is the business data and configuration boundary. Team is deferred and reserved only as a future Organization-scoped permission group.
+Organization is the tenant, ownership and membership boundary; Workspace is the business data and configuration boundary. Cloud billing is an additional service concern. Team remains reserved for future Organization-scoped permission grouping.
 
 ### Platform Core
 
@@ -118,7 +83,7 @@ Core does **not** own industry-specific business logic (CRM flows, FSM dispatch 
 
 Official Modules are complete business capability units: schema, objects, fields, views, forms, permissions, workflows, agent skills, migrations, and UI slot declarations.
 
-Production capabilities are distributed through immutable Cloud Catalog Versions, not mutable working-tree files. Validation, Sandbox evidence, release channels, Pack locks, compatibility reports, and rollout state are first-class control-plane records.
+Production capabilities are distributed through immutable, validated Catalog versions or the corresponding verified Self-hosted release artifacts, not mutable working-tree files. Validation, Sandbox evidence, release channels, Pack locks, compatibility reports, and rollout state are first-class control-plane records.
 
 The Runory SDK compiles typed capability source into canonical artifacts and provides local validation/testing. It remains separate from private Platform Core persistence and from Cloud release approval.
 
@@ -144,7 +109,7 @@ Agents do not modify official module source
 Modules / Extensions do not bypass Platform Core
 Extensions do not overwrite official module files
 All writes go through the Business Engine / governed APIs
-Cloud Agents and MCP share the same permission model
+Human interfaces, external Agents and MCP share the same permission model
 ```
 
 ## Core Runtime Chains
@@ -152,8 +117,8 @@ Cloud Agents and MCP share the same permission model
 Capability activation chain:
 
 ```text
-Register for Runory Cloud
-→ Create Workspace
+Discover / choose verified Self-hosted release or Runory Cloud
+→ Initialize authorized owner and Workspace
 → Select Template
 → Install Business Pack
 → Module Manifest + Migration
@@ -268,23 +233,16 @@ Principles:
 * module upgrades report Extension conflicts;
 * uninstall retains data by default unless user chooses deletion.
 
-## Cloud To Local Principle
-
-Runory is **Cloud-first** with **Portable Runtime** architecture.
+## Deployment Portability Principle
 
 ```text
-Cloud = default product entry
-Private / Local = advanced deployment mode
-Export / Import = preferred path between Cloud and Private (not bidirectional sync first)
+Self-hosted = independent, installable product
+Cloud = managed product
+One maintained Runtime, business model and release lineage
+Controlled export/import = individually verified portability paths
 ```
 
-Cloud architecture must use adapters so runtime can migrate:
-
-```text
-Auth / Storage / Queue / LLM / Email / Payment / Search Adapters
-```
-
-Detailed notes: [cloud-to-local-workspace.md](cloud-to-local-workspace.md).
+Use existing adapters for identity, persistence, storage, jobs, optional model and provider integrations. Defer multi-master synchronization and unsupported deployment profiles. See [Self-hosted and Cloud Deployment Contract](cloud-to-local-workspace.md).
 
 ## Security And Governance Principles
 

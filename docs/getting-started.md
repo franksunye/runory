@@ -1,8 +1,18 @@
 # Getting Started
 
-Welcome to Runory. This guide walks you through the canonical first journey: create a free Cloud account, set up a workspace, install an official pack, load demo data, use the workbench, customize safely with the Agent, and inspect the audit trail.
+| Metadata | Value |
+| --- | --- |
+| Status | `active` |
+| Topic | `workspace` |
+| Applies to | Current Cloud exploration and local development guide |
+| Owner | Product / Engineering |
+| Last reviewed | 2026-11-24 |
+| Supersedes | — |
+| Superseded by | — |
 
-Runory is in **public free preview** during `v0.4`. There is no paid plan, no Stripe integration, and no payment method required. See [Release Notes](./release-notes.md) for the current status.
+Welcome to Runory. This guide walks you through the existing human-operated Cloud exploration journey: create a free Cloud account, set up a workspace, install an official pack, load demo data, use the workbench, customize safely with the Agent, and inspect the audit trail.
+
+The steps below originated in the v0.4 preview. The current strategic first user is the external Agent, with independent Self-hosted and managed Cloud as target deployment forms. See the [Agent-first Product Strategy](product/agent-first-product-strategy.md) and [Deployment Contract](architecture/cloud-to-local-workspace.md) for that target journey; do not interpret this guide's local development shortcut as production installation. For current Cloud offers and implemented release scope, consult the published offer and [Release Notes](./release-notes.md).
 
 > Read [Concepts](./concepts.md) first if you want to understand workspaces, modules, packs, and Agent operations before you start clicking.
 
@@ -104,9 +114,9 @@ Read docs for next step
 
 This journey must work end-to-end in English on a fresh workspace. If any step fails, capture the request ID from the error toast and check [Troubleshooting](./troubleshooting.md).
 
-## What is free and what is not
+## Historical preview scope
 
-During `v0.4`:
+During `v0.4` (historical; not a current pricing or availability statement):
 
 - The Cloud product is free. No Stripe, no billing, no payment method.
 - All official packs listed in [Packs and Modules](./packs-and-modules.md) are available to install.

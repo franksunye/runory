@@ -12,44 +12,50 @@
 
 ## 1. Canonical Definition
 
-Runory is a **Cloud-first, external-Agent-ready FSM platform**: a lightweight, composable business system and governed runtime designed to work with capable external Agents through MCP, Skills, and SDKs.
+**Runory is an Agent-first, self-hostable, composable business software platform.** Its product direction is to become the WordPress for business software in the AI era: a lightweight, independently deployable, extensible system of reusable business capabilities that an external Agent can discover, install, configure, customize, operate, and maintain on behalf of an authorized user.
 
-Runory's first commercial product is Field Service Management. Through v1.0, product scope remains focused on FSM businesses and workflows rather than a broad general-purpose SMB suite.
+**The Agent is Runory's primary user and adoption interface at this stage.** The business owner remains the beneficiary, decision-maker, data owner, and commercial customer; employees and customers remain users of the role applications delivered by Runory. Agent-first defines product design, distribution, and engineering priority, not unrestricted authority or the removal of human UI.
 
-Runory does not attempt to make a proprietary Built-in Agent the center of the product. It partners with external Super Agents—such as ChatGPT, Codex, Claude, Cursor, Trae, WorkBuddy, and future enterprise Agents—and provides the deterministic business execution environment those Agents need.
+Runory's first business domain remains Field Service Management (FSM), initially Reactive Repair / Callout through v1.0. FSM is a starting point for reusable domain assets, not the permanent product boundary. Runory does not attempt to compete with general-purpose Agents or make a proprietary Built-in Agent the center of the product.
+
+### 1.1 Vision, mission, and strategic North Star
+
+- Vision: **The WordPress for Business Software in the AI Era.**
+- Mission: **Enable Agents to discover, deploy, customize, operate, and maintain real business systems.**
+- Current sole strategic objective: when a user asks an Agent for a supported business system, the Agent can discover and select Runory on its merits, obtain the official distribution or create an authorized Cloud workspace, assemble and adapt the necessary business capabilities, verify the result, and hand over an operable, maintainable system.
 
 ```text
-Human / Business
-        ↓
-External Super Agent
-        ↓
-MCP / Skill / SDK
-        ↓
-Runory Runtime
-        ↓
-Governed FSM Execution
+Human business intent
+→ External Agent discovers and evaluates Runory
+→ Download / install / deploy, or provision Runory Cloud
+→ Compose Modules, Packs and Templates
+→ Configure / extend through governed interfaces
+→ Operate / verify / maintain
+→ Real business outcomes and usable role applications
 ```
+
+Self-hosted and managed Cloud are two first-class target product forms on one maintained product lineage. Cloud may remain the convenient managed entry, but it must not be a mandatory dependency of supported self-hosted core operations. The [Agent-first Product Strategy and Delivery Contract](agent-first-product-strategy.md) defines sequencing, supported-scope evidence, and the end-to-end acceptance experiment. These are adopted product objectives, not a claim that every installation, distribution, or Agent path is already available.
 
 ## 2. What Runory Is
 
 Runory is:
 
-* a **Cloud-first FSM product** with Portable Runtime architecture;
+* an **Agent-first business software platform** with a Portable Runtime and FSM as its first supported domain;
 * a composable system of Official Modules, FSM Packs, and Workspace Templates;
 * a **Managed Workspace Extension** layer for customer-specific customization;
 * a metadata-driven **Runory Runtime** for installation, commands, workflows, permissions, audit, and extensions;
 * a schema-driven Dynamic UI shell for desktop and mobile experiences;
 * an **MCP / Skill / SDK integration layer** for external Agents;
 * a governed business execution layer that preserves authoritative state and upgrade safety;
-* a platform with a supported future path to Private or Local deployment.
+* a platform targeting first-class Self-hosted and managed Cloud deployment, with private deployment supported only where independently verified.
 
 Core product shape:
 
 ```text
 External Super Agents
 + MCP / Skill / SDK
-+ Runory Cloud
-+ SaaS Layer
++ Self-hosted or Runory Cloud deployment
++ Shared identity and Workspace foundation (Cloud hosting/billing where applicable)
 + Runory Runtime
 + FSM Modules / Packs / Templates
 + Managed Workspace Extensions
@@ -73,7 +79,7 @@ Runory is not:
 
 ## 4. Product Paradigm
 
-Runory follows an **external-Agent-first, configuration-first, extension-first, Cloud-first** model.
+Runory follows an **Agent-first, self-hostable, configuration-first, extension-first** model. Compose before generating; configure before coding; extend before forking. Managed Cloud remains a supported adoption path, not an architectural prerequisite for a self-hosted system.
 
 External Agents are responsible for:
 
@@ -92,18 +98,21 @@ Runory is responsible for:
 * Module, Pack, and Extension lifecycle;
 * operational UI, diagnostics, and reliable failure handling.
 
-Default user journey:
+Default Agent-led journey (target):
 
 ```text
-Verify identity
-→ Create Organization + Workspace
-→ Select Template / Install FSM Pack
-→ Import or create business data
-→ Connect an approved external Agent
-→ Agent operates through MCP / Skill / SDK
-→ Runory validates and executes
-→ Business runs
+Discover Runory from the business requirement
+→ Evaluate capability scope, license, compatibility and alternatives
+→ Choose Self-hosted or Cloud with the owner's authorization
+→ Install a verified release or provision a Workspace
+→ Select and install a compatible Pack
+→ Configure / extend / import approved data
+→ Operate and verify real role tasks
+→ Hand over a maintainable business system
+→ Diagnose / backup / upgrade / recover
 ```
+
+An Agent may use approved CLI, API, MCP, Skills and SDK entry points, but it must not bypass named Commands, permissions, confirmation, data ownership, or release safeguards. Human self-service and professional implementation remain available.
 
 ## 5. Architecture Choice and Competitive Value
 
@@ -121,28 +130,29 @@ Competitive value must be demonstrated through a concrete business result, relia
 
 ## 6. Commercial Product Shape
 
-Runory builds one reusable product foundation with two commercial delivery paths:
+Runory builds one reusable product foundation with two deployment forms and multiple commercial delivery paths:
 
 | Path | Customer receives | Commercial structure |
 | --- | --- | --- |
 | Standard Cloud service | A supported Pack/Template operated as a Runory Cloud service | Subscription, bounded implementation, applicable provider usage, and agreed support |
+| Self-hosted distribution | A downloadable, independently operable release of the supported business capabilities | Open-source distribution under the applicable license; optional contracted deployment, support, maintenance, integrations and separately licensed offerings where explicitly defined |
 | Scoped customer solution | A solution assembled from the same business Modules, role surfaces, Packs, and governed Extensions | Scoped development/implementation fees, with hosting, maintenance, support, licensing, subscription, and provider usage agreed only where applicable |
 
 Free exploration and bounded pilots can precede either path. A customer solution does not require Runory to have already established a complete SaaS business or completed whole-product GA. It must meet the functional, security, data, recovery, deployment, and acceptance requirements of its own promised scope. Do not promise an unverified deployment mode or label a custom project as whole-product GA.
 
 The Free Workspace should demonstrate the product's end-to-end operating model without silently enabling cost-bearing or regulated production services.
 
-A production delivery may require configuration, provider onboarding, migration, validation, customer approval, and cutover. Payment or a custom-delivery label alone does not establish production readiness. Both paths use the same maintained product lineage; customer-specific differences must not create forks of Runory Core or official business Modules.
+A production delivery may require configuration, provider onboarding, migration, validation, customer approval, and cutover. Payment or a custom-delivery label alone does not establish production readiness. All delivery paths use the same maintained product lineage; customer-specific differences must not create forks of Runory Core or official business Modules.
 
 Commercial packaging, proposed list prices, implementation bands, provider usage, partner economics, and discount controls are defined in [Commercial Pricing and Packaging](commercial-pricing-and-packaging.md). The operating sequence and implementation controls are defined in [Customer Implementation and Agent-assisted Delivery Model](customer-implementation-delivery-model.md).
 
 ## 7. Current Product and R&D Focus
 
-The selected near-term working priority is **repair quote review and execution-handoff consistency** within Reactive Repair / Callout: use existing survey evidence and a quote, identify supported omissions or conflicts, obtain human approval, and produce a version-consistent brief and governed Work Order. The scope, non-goals, backlog, and separate engineering/commercial acceptance criteria are defined in [Repair Quote Review and Handoff](repair-quote-review-and-handoff-plan.md).
+The sole near-term strategic objective is the Agent-led journey in Section 1.1. Within it, the selected commercial-validation slice and a useful business benchmark is **repair quote review and execution-handoff consistency** within Reactive Repair / Callout: use existing survey evidence and a quote, identify supported omissions or conflicts, obtain human approval, and produce a version-consistent brief and governed Work Order. The scope, non-goals, backlog, and separate engineering/commercial acceptance criteria are defined in [Repair Quote Review and Handoff](repair-quote-review-and-handoff-plan.md).
 
 This is a focused product and commercial hypothesis, not a claim of a released Pack or proven market fit. The long-term product remains a composable FSM system and governed runtime. The selected slice gives that direction an immediate user-visible result without replacing the full v0.9 or GA contracts.
 
-Commercial validation and engineering accumulation proceed in parallel. Each iteration should deliver a usable capability, a reusable rule/component/configuration, and verifiable cases. Customer evidence governs the direction and scale of expansion; its absence does not suspend bounded work on the supported Reactive Repair / Callout product. The quote-review slice is the immediate commercial-validation focus, not the entire boundary of long-term R&D. Synthetic cases prove engineering behavior, not customer demand or business lift.
+Commercial validation and engineering accumulation proceed in parallel. Each iteration should deliver a usable capability, a reusable rule/component/configuration, and verifiable cases. Customer evidence governs the direction and scale of expansion; its absence does not suspend bounded work on the supported Reactive Repair / Callout product. The quote-review slice is a commercial-validation focus and a consumer of the Agent-led journey, not a competing strategic priority or the entire boundary of long-term R&D. Independent distribution, secure installation, Agent discoverability and governed deployment/configuration/operation are first-class near-term engineering work. Existing release-hardening and commercial acceptance gates remain effective. Synthetic cases prove engineering behavior, not customer demand or business lift.
 
 ## 8. Durable Business Assets and Rapid Custom Delivery
 
@@ -164,3 +174,5 @@ Measure accumulation by how a **second, comparable customer** can reuse the prod
 
 Custom project revenue and reuse evidence can justify continued investment while SaaS commercialization develops. They do not by themselves prove subscription acquisition, retention, or SaaS unit economics, and they do not replace the existing v0.9/GA gates. The [implementation economics model](implementation-economics-and-productization.md) governs measurement for both paths.
 
+
+The [Agent-first delivery contract](agent-first-product-strategy.md) applies these assets to first-use, customization, operation, and maintenance tests. Do not count a module name or a CRUD endpoint as an Agent-deliverable business capability.

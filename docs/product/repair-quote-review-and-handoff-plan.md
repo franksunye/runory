@@ -14,7 +14,7 @@
 
 ## 1. Working decision and authority
 
-The next focused product-development and commercial-validation priority is **repair quote review and execution-handoff consistency** (维修报价审核与交底一致性).
+The selected commercial-validation slice and business-journey benchmark is **repair quote review and execution-handoff consistency** (维修报价审核与交底一致性). It serves the sole current strategic objective in the [Agent-first Product Strategy and Delivery Contract](agent-first-product-strategy.md), rather than defining an independent R&D priority.
 
 Deliver one bounded business Pack/reference configuration and use it to complete a measurable business-execution journey for both an operator and an approved external Agent:
 
@@ -22,7 +22,7 @@ Deliver one bounded business Pack/reference configuration and use it to complete
 
 This is the selected working priority, not a claim that the Pack is implemented, released, differentiated in practice, or commercially validated. Willingness to pay, measurable customer benefit, repeatable delivery economics, and the best initial repair category remain hypotheses. The market review supplies decision evidence; this plan defines the bounded work. [Product Definition](product-definition.md) remains the product authority.
 
-The existing Reactive Repair / Callout scope, Cloud-first and external-Agent-first architecture, and [GA contract](v1.0-ga-release-goal.md) continue to apply. This plan adds no new commercial operating model or release number. A Pack pilot candidate can be engineering-complete before the real-customer, v0.9, or GA gates are complete. The existing [G4 device/provider and G5 customer-repeatability gates](../releases/v0.9-e2e-gate-remapping-2026-07-31.md) retain their own required evidence.
+The existing Reactive Repair / Callout scope, Agent-first and portable-runtime architecture, and [GA contract](v1.0-ga-release-goal.md) continue to apply. This plan adds no new commercial operating model or release number. A Pack pilot candidate can be engineering-complete before the real-customer, v0.9, or GA gates are complete. The existing [G4 device/provider and G5 customer-repeatability gates](../releases/v0.9-e2e-gate-remapping-2026-07-31.md) retain their own required evidence.
 
 ## 2. Commercial job and initial customer hypothesis
 
@@ -86,7 +86,7 @@ Keep the initial proposal/review manual when necessary. Advanced AI quality can 
 - Every repair trade, input format, price book, connector, or regional workflow.
 - Project/Installation or Recurring Maintenance commercial models.
 - A second Quote, approval, Forms, Workflow, permission, or extension runtime; customer-specific Core forks.
-- A public marketplace, broad Local deployment automation, or completion of the entire implementation-management platform.
+- A public marketplace, broad arbitrary-infrastructure deployment automation, or completion of the entire implementation-management platform. The separate bounded Self-hosted distribution and Agent deployment contract remains in scope at the product level.
 
 ## 5. Durable engineering assets
 
@@ -138,7 +138,7 @@ Suggested batches: first evidence/review, then approved scope/handoff plus Agent
 
 ### When customer feedback is delayed
 
-Continue the already scoped canonical FSM backlog, including reusable objects, processing logic, and role applications. For this slice, continue evidence traceability, supported rule checks, approval/handoff consistency, permissions, failure recovery, import validation, installation/upgrade compatibility, and measured runtime cost/performance. Use clearly labelled synthetic or expert-authored cases where necessary.
+Continue the Agent-led adoption chain and the already scoped canonical FSM backlog, including reusable objects, processing logic, and role applications. For this slice, continue evidence traceability, supported rule checks, approval/handoff consistency, permissions, failure recovery, import validation, installation/upgrade compatibility, and measured runtime cost/performance. Use clearly labelled synthetic or expert-authored cases where necessary.
 
 Do not use the delay to add trades, platforms, abstract orchestration, or speculative integrations. Synthetic success demonstrates engineering behavior only; it cannot establish demand, revenue lift, reduced rework, or customer repeatability. Deep learned diagnosis/optimization and claims about business outcomes require suitable real data.
 

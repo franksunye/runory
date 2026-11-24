@@ -7,15 +7,15 @@
 
 > **Tell it. Run it.**
 
-Runory is a **Cloud-first, Agent-native SMB business platform** — a composable business runtime where teams install governed business Packs, adapt the model through a previewed-and-audited Agent, and operate a stable Cloud workspace without a long implementation project.
+Runory is an **Agent-first, self-hostable, composable business software platform**. Its vision is the WordPress for business software in the AI era. External Agents are the primary adoption interface: discover Runory, select its reusable business capabilities, install or provision it, configure and customize it, operate it through governed interfaces, and verify and maintain the resulting system. Field Service Management is the first business domain. Self-hosted and managed Cloud are first-class target product forms on one maintained business runtime.
 
-Runory Cloud is **free during public preview** (v0.4). There is no Stripe, no billing, and no hidden paid tier today.
+This repository contains the product and development baseline, not proof that every target capability is released. The independent Self-hosted distribution and complete Agent-led delivery journey are current productization objectives. The local development commands below are not a supported production installer. Consult the current release evidence, [Product Definition](docs/product/product-definition.md), and [Agent-first Product Strategy](docs/product/agent-first-product-strategy.md) for scope and acceptance. Consult the published Cloud offer for current commercial terms.
 
 ## What is in this repository
 
 | Area | Path | Description |
 | --- | --- | --- |
-| Cloud app | `apps/cloud` | Next.js 15 App Router web app — the default entry to Runory |
+| Cloud app | `apps/cloud` | Next.js App Router application; shared product UI and HTTP interfaces |
 | CLI | `apps/cli` | Runory CLI for local and scripted operations |
 | MCP server | `apps/mcp` | MCP stdio adapter exposing Runory operations to agents |
 | Platform core | `packages/platform-core` | Metadata runtime, packs, extensions, audit, catalog, releases |
@@ -110,7 +110,8 @@ Runory is licensed under the [Apache License 2.0](LICENSE). Contributions are we
 
 Runory develops its core code, architecture decisions, and product evolution in public. Cloud provides a managed experience while the open runtime preserves long-term deployment and data choices.
 
-- **Default entry**: Runory Cloud → create Workspace → install Pack → adapt with Agent
-- **Advanced entry**: CLI / MCP / SDK, Private Cloud, Local Portable Runtime
+- **Primary adoption path (target)**: Agent discovers Runory → selects a supported release/deployment → installs or provisions → composes/configures → operates and verifies.
+- **Deployment forms**: independent Self-hosted and managed Cloud, each supported only to the extent of its published acceptance evidence.
+- **Human and professional delivery**: role UI, configuration, Managed Extensions and SDK using the same governed Runtime.
 
 See [docs/product/v0.4-public-free-launch-plan.md](docs/product/v0.4-public-free-launch-plan.md) for the current iteration plan and [docs/release-notes.md](docs/release-notes.md) for version history.

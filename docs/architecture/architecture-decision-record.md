@@ -1,12 +1,20 @@
 # Runory Architecture Decision Record
 
-Status: Draft v0.3
-Date: 2026-06-22
-Change: Cloud-first pivot — see [../04-architecture-pivot-cloud-first.md](../04-architecture-pivot-cloud-first.md)
+| Metadata | Value |
+| --- | --- |
+| Status | `active` |
+| Topic | `architecture` |
+| Applies to | Current decisions and historical ADRs |
+| Owner | Architecture / Engineering |
+| Last reviewed | 2026-11-24 |
+| Supersedes | — |
+| Superseded by | — |
 
 This document records architecture decisions that should not change casually. If a future implementation needs to break one, it should add a new ADR entry explaining the replacement decision and migration impact.
 
 ## ADR-001: Runory Cloud UI is the default product surface
+
+> Read with ADR-036 through ADR-038 (2026-11-24); any conflicting deployment priority, distribution or Agent-entry interpretation is superseded. Other invariants remain effective.
 
 Runory serves the primary UI through Runory Cloud. Localhost UI in Portable Runtime is for development, private deployment, and export validation—not the default SMB experience.
 
@@ -79,11 +87,15 @@ Installing a module or pack registers trusted manifests, migrations, tools, view
 
 ## ADR-013: Cloud-first is the default product entry; Private / Local is advanced deployment
 
+> Read with ADR-036 through ADR-038 (2026-11-24); any conflicting deployment priority, distribution or Agent-entry interpretation is superseded. Other invariants remain effective.
+
 Runory Cloud is the default entry for SMB users. Private Cloud, VPC, On-premise, and Local Runtime are advanced deployment modes—not the MVP onboarding path.
 
 Supersedes: ADR-013 v0.1 (Local workspace promoted to Cloud as primary evolution path).
 
 ## ADR-014: Bidirectional Cloud sync is deferred; export/import is preferred
+
+> Read with ADR-036 through ADR-038 (2026-11-24); any conflicting deployment priority, distribution or Agent-entry interpretation is superseded. Other invariants remain effective.
 
 Runory should not start with bidirectional sync. Preferred advanced path: Cloud Workspace export → Private / Local import.
 
@@ -91,11 +103,15 @@ Supersedes: ADR-014 v0.1 (Cloud Backup first, then one-time migration **from Loc
 
 ## ADR-015: Portable Runtime architecture preserves deployment portability
 
+> Read with ADR-036 through ADR-038 (2026-11-24); any conflicting deployment priority, distribution or Agent-entry interpretation is superseded. Other invariants remain effective.
+
 Cloud development must use stable workspace IDs, entity IDs, record IDs, module/pack versions, extension versions, schema versions, migration records, file hashes, audit logs, and adapter abstractions so Cloud → Private / Local export remains possible.
 
 Supersedes: ADR-015 v0.1 (Local architecture preserves future Cloud migration). Scope expanded to bidirectional portability with Cloud as source of truth for default users.
 
 ## ADR-016: Cloud-first product, Portable Runtime architecture
+
+> Read with ADR-036 through ADR-038 (2026-11-24); any conflicting deployment priority, distribution or Agent-entry interpretation is superseded. Other invariants remain effective.
 
 Product experience is Cloud-first. Runtime architecture must be deployable independently via adapters—supporting Cloud, Private Cloud, VPC, On-premise, and Local Dev without forking Core or Module models.
 
@@ -108,6 +124,8 @@ Product experience is Cloud-first. Runtime architecture must be deployable indep
 Extensions apply at Workspace level atop installed modules.
 
 ## ADR-018: Built-in Agent is default; MCP is advanced channel
+
+> Read with ADR-036 through ADR-038 (2026-11-24); any conflicting deployment priority, distribution or Agent-entry interpretation is superseded. Other invariants remain effective.
 
 Ordinary SMB users interact through Runory Cloud UI and Built-in Agent. Codex / MCP / SDK serve developers, integrators, and Private deployment—with the same permission model as Built-in Agent.
 
@@ -135,6 +153,8 @@ Platform Core owns workspace platform capabilities (object model, workflow runti
 
 ## ADR-023: Early authentication uses passwordless Email OTP
 
+> Read with ADR-036 through ADR-038 (2026-11-24); any conflicting deployment priority, distribution or Agent-entry interpretation is superseded. Other invariants remain effective.
+
 Runory owns User, AuthIdentity, OTP challenge, server-side Session, and authorization models. Email delivery uses an external provider. Passwords, social OAuth, MFA, and enterprise SSO are deferred.
 
 ## ADR-024: Organization is the tenant; Workspace is the business data boundary
@@ -155,6 +175,8 @@ Early Cloud uses shared Turso/libSQL tables with mandatory `workspace_id` scopin
 
 ## ADR-028: Product access is entitlement-driven, not plan-name-driven
 
+> Read with ADR-036 through ADR-038 (2026-11-24); any conflicting deployment priority, distribution or Agent-entry interpretation is superseded. Other invariants remain effective.
+
 Plan, Entitlement, Quota, and Usage are separate concepts. Business modules ask the Entitlement Service for features and limits and do not branch on commercial plan names. Initial users receive an internal `early_access` entitlement.
 
 ## ADR-029: Stripe is the subscription source; Runory is the entitlement source
@@ -167,11 +189,15 @@ Platform, Module, and Workspace Extension migrations are tracked separately. Pub
 
 ## ADR-031: Production capabilities come from an immutable Cloud Catalog
 
+> Read with ADR-036 through ADR-038 (2026-11-24); any conflicting deployment priority, distribution or Agent-entry interpretation is superseded. Other invariants remain effective.
+
 Official/Internal Module, Pack, and Template source remains in Git, but production Workspace install and upgrade use immutable, checksummed Catalog Versions. Versions pass structured validation and Sandbox testing before Internal/Beta/Stable promotion. Pack releases freeze a resolved dependency lock. UI and Agent use the same governed release/install commands; Stable promotion requires an authorized human Release Manager.
 
 Detailed specification: [../09-catalog-release-control-plane.md](../09-catalog-release-control-plane.md).
 
 ## ADR-032: Runory SDK is a developer product separated from private Platform Core
+
+> Read with ADR-036 through ADR-038 (2026-11-24); any conflicting deployment priority, distribution or Agent-entry interpretation is superseded. Other invariants remain effective.
 
 Runory SDK provides typed Module/Pack/Template authoring, validation, testing, artifact building, and Internal candidate publishing. Local validate/test/build works without Cloud; Cloud remains responsible for Registry validation, release approval, and rollout. Public SDK packages must not expose private repositories or database clients. Stable release has no SDK/CLI bypass.
 
@@ -207,9 +233,21 @@ Detailed specification:
 
 The complete SaaS rationale, deferred scope, and acceptance definition are maintained in [../07-saas-core-boundaries.md](../07-saas-core-boundaries.md).
 
+## ADR-036: Agent-first adoption and operation (2026-11-24)
+
+Accepted. External Agents are the primary product users and adoption interface. Human business owners remain principals, beneficiaries, and approvers; role applications remain essential. The product's first journey is discover → select → install/provision → deploy → compose/configure/extend → operate → verify/maintain. CLI, API, MCP, Skills and SDK are primary interfaces. A proprietary Built-in Agent is not required. All paths preserve named Commands, identity, approval and isolation. This supersedes the default-UI and Built-in-Agent-first portions of ADR-001, ADR-013, ADR-016 and ADR-018; ADR-003, ADR-004, ADR-019 and ADR-035 still govern business operations.
+
+## ADR-037: Self-hosted and Cloud share one product lineage (2026-11-24)
+
+Accepted direction, not implementation evidence. A verified, independently installable distribution is a near-term product objective alongside managed Cloud. One supported profile first; included core use cannot require a Runory Cloud account, subscription, online proprietary service, or development auth bypass. Reuse existing runtime and persistence adapters, trusted artifacts and Pack locks; preserve scoped authorization, persistent files, scheduling and recovery. Local setup/enrollment and included-feature entitlement policy must be explicit and fail closed. Cloud release governance, publishing authority and commercial billing remain effective for Cloud; independent distribution consumes the corresponding verified artifacts without requiring live Cloud Catalog access for bundled capabilities. Supersedes conflicting portions of ADR-001, ADR-013, ADR-016, ADR-023, ADR-028, ADR-031 and ADR-032; no new database/provider stack is selected by this ADR.
+
+## ADR-038: Controlled portability and independent acceptance (2026-11-24)
+
+Accepted direction. Cloud-to-Self-hosted and Self-hosted-to-Cloud are supported goals, individually validated by export/import and reconciliation; bidirectional live sync remains deferred. Neither environment is a required origin for a new installation. Preserve stable identities, versions, records, attachments and audit lineage, rebind secrets, and use a single authoritative writer. This supersedes the one-direction preference in ADR-014/015. Self-hosted candidate acceptance and external-Agent tests do not replace Cloud cohort, release safety or GA gates. See [deployment contract](cloud-to-local-workspace.md) and [Agent-first product strategy](../product/agent-first-product-strategy.md).
+
 ## Deprecated / Historical
 
-The following decisions from v0.1 are **deprecated** by this pivot:
+The following decisions from v0.1 were deprecated by the June Cloud-first pivot. The November decisions above restore independent distribution and external-Agent-first priority without restoring Local-only architecture:
 
 * Local-first as default product assumption.
 * Local-to-Cloud as primary user upgrade narrative.

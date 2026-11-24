@@ -12,7 +12,8 @@
 
 - Demand research: [Commercial FSM Customer Demand Benchmark](../research/commercial-fsm-customer-demand-benchmark.md)
 - Current market evidence: [FSM AI Market Review — 2026-11-24](../research/fsm-ai-market-review-2026-11-24.md)
-- Current focused work: [Repair Quote Review and Handoff](repair-quote-review-and-handoff-plan.md)
+- Current strategic execution contract: [Agent-first Product Strategy and Delivery Contract](agent-first-product-strategy.md)
+- Commercial-validation slice: [Repair Quote Review and Handoff](repair-quote-review-and-handoff-plan.md)
 - GA release contract: [Runory 1.0 — 90% Product Coverage, 10% Governed Extension](./v1.0-ga-release-goal.md)
 - Companion engineering roadmap: [Engineering Benchmark Adoption Roadmap](./engineering-benchmark-adoption-roadmap.md)
 - External benchmark guardrails: [External Benchmark Adoption Guardrails](./external-benchmark-adoption-guardrails.md)
@@ -21,7 +22,7 @@
 
 Runory remains focused on Field Service Management through v1.0. The goal is not to become a general SMB operating system before product-market validation. The near-term product must solve real FSM work reliably, be commercially implementable for small and medium service businesses, and be validated through real customer projects, including Upwork-sourced demand.
 
-Agent-native customization and deployment remain architectural commitments supporting the FSM product. Their competitive value must be demonstrated through business outcomes and repeatable delivery; external-Agent access alone is no longer a sufficient differentiation claim.
+The current North Star is the Agent-led adoption and operating journey: discover → select → install/provision → deploy → configure/extend → operate → verify/maintain. All near-term work must improve that journey or a binding release/safety gate. Self-hosted and Cloud are first-class target product forms using the same Runtime, Modules, Packs, Extensions and business contracts. FSM is the first domain, not the permanent boundary. External-Agent access alone is not differentiation; prove complete business results and repeatable delivery.
 
 Through v1.0, Runory supports one commercial operating model: **Reactive Repair / Callout**.
 
@@ -50,14 +51,14 @@ v0.9  Validate repeatability across real FSM customers and converge the product
 v1.0  Release a complete, stable, commercially supported Agent-native FSM product
 v2.0  Add advanced FSM depth
 v3.0  Add broader Agentic Operations
-v4.0  Expand toward a general SMB platform and ecosystem
+v4.0  Broaden the existing composable platform across SMB domains and ecosystem
 ```
 
 ### 1.1 Current focus — 2026-11-24
 
-The next focused development and commercial-validation slice is **repair quote review and execution-handoff consistency**: existing evidence and quote → supported review findings → human-approved scope → consistent brief and governed Work Order. The [bounded work plan](repair-quote-review-and-handoff-plan.md) supplies customer hypotheses, reusable assets, backlog, non-goals, and acceptance criteria.
+The immediate strategic engineering focus is the [Agent-first delivery contract](agent-first-product-strategy.md), including an independently installable Self-hosted release candidate, public discovery and distribution artifacts, and complete Agent-facing business-action access. The selected commercial-validation slice is **repair quote review and execution-handoff consistency**: existing evidence and quote → supported review findings → human-approved scope → consistent brief and governed Work Order. The [bounded work plan](repair-quote-review-and-handoff-plan.md) supplies customer hypotheses, reusable assets, backlog, non-goals, and acceptance criteria.
 
-It specializes the existing Reactive Repair reference solution and v0.9 repeatability work. It creates no new release number or commercial operating model, and does not replace ongoing release hardening or the full v0.9/GA gates. A focused Pack candidate is not a claim that the complete FSM product has reached GA.
+The quote-review slice specializes the existing Reactive Repair reference solution and v0.9 repeatability work, and is one benchmark for the Agent-led journey. The independent Self-hosted candidate and Agent journey have their own acceptance evidence; they may advance before the Cloud customer cohort is complete. They do not silently close Cloud release gates. It creates no new release number or commercial operating model, and does not replace ongoing release hardening or the full v0.9/GA gates. A focused Pack candidate is not a claim that the complete FSM product has reached GA.
 
 ## 2. Scope Discipline
 
@@ -109,8 +110,8 @@ External platform research is an input to these gates, not optional background r
 Commercial validation and durable engineering accumulation run in parallel. Customer feedback directs scope, investment, and expansion; it is not a prerequisite for every bounded engineering increment. The same product assets support standard Cloud subscriptions and scoped customer solutions; complete SaaS commercialization is not a prerequisite for a properly accepted customer delivery.
 
 - Each iteration produces a usable role task, reusable business objects/logic/application components or configuration, and verifiable cases within the canonical Reactive Repair / Callout journey.
-- When customer evidence is delayed, continue the scoped canonical backlog: business objects, processing logic, role applications, traceability, supported rules, import validation, compatibility, recovery, and evaluation using explicitly labelled cases.
-- Defer speculative industries, integrations, learned optimization, and additional platforms. Reuse the existing Core, Quote/FSM, Forms, Workflow, Pack, and Extension models.
+- When customer evidence is delayed, continue the scoped canonical backlog and Agent-first delivery chain: business objects, processing logic, role applications, public discoverability, independent installation, supported configuration, named Commands, traceability, compatibility, recovery, and evaluation using explicitly labelled cases.
+- Defer speculative industries, integrations, learned optimization, proprietary Agent development, and additional platforms. The bounded independent Self-hosted distribution is no longer a speculative future platform. Reuse the existing Core, Quote/FSM, Forms, Workflow, Pack, and Extension models.
 - Engineering completion, synthetic acceptance, customer value, and paid repeatability are different evidence classes. Only real customer evidence can close the applicable v0.9 and GA customer gates.
 
 The [Repair Quote Review and Handoff plan](repair-quote-review-and-handoff-plan.md) applies this rule to the current slice. Its early paid-delivery signal is not a replacement for the 3–5 customer cohort or GA acceptance requirements.
@@ -438,7 +439,7 @@ change governed Workspace configuration
 install and adapt a supported FSM Pack
 create views, reports, forms, workflows, and templates
 run supported migration and verification tasks
-deploy and upgrade a supported Local environment
+deploy and upgrade a supported Self-hosted environment
 diagnose supported system and integration problems
 ```
 

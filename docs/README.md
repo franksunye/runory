@@ -18,8 +18,9 @@ Runory documentation is organized by topic authority and lifecycle rather than b
 
 | Need | Start with | Then read |
 | --- | --- | --- |
-| Understand Runory | [Product Definition](product/product-definition.md) | [Concepts](concepts.md), [Architecture Overview](architecture/overview.md) |
-| Understand the current commercial and R&D focus | [Repair Quote Review and Handoff](product/repair-quote-review-and-handoff-plan.md) | [FSM AI Market Review — 2026-11-24](research/fsm-ai-market-review-2026-11-24.md), [Product Roadmap](product/product-roadmap.md) |
+| Understand Runory | [Product Definition](product/product-definition.md) | [Agent-first Product Strategy and Delivery Contract](product/agent-first-product-strategy.md), [Architecture Overview](architecture/overview.md) |
+| Understand the Agent-first adoption journey | [Agent-first Product Strategy and Delivery Contract](product/agent-first-product-strategy.md) | [Self-hosted and Cloud Deployment Contract](architecture/cloud-to-local-workspace.md), [MCP / Skill Usage](mcp-skill-usage.md) |
+| Understand the current commercial-validation slice | [Repair Quote Review and Handoff](product/repair-quote-review-and-handoff-plan.md) | [FSM AI Market Review — 2026-11-24](research/fsm-ai-market-review-2026-11-24.md), [Product Roadmap](product/product-roadmap.md) |
 | Understand reusable assets and rapid custom delivery | [Product Definition — Business Assets](product/product-definition.md#8-durable-business-assets-and-rapid-custom-delivery) | [Implementation Economics](product/implementation-economics-and-productization.md), [Customer Delivery Model](product/customer-implementation-delivery-model.md) |
 | Understand the roadmap | [Product Roadmap](product/product-roadmap.md) | [Engineering Benchmark Adoption Roadmap](product/engineering-benchmark-adoption-roadmap.md), [External Benchmark Adoption Guardrails](product/external-benchmark-adoption-guardrails.md), [Adjacent Platform Landscape](research/adjacent-platform-landscape.md) |
 | Understand commercial delivery | [Commercial Pricing and Packaging](product/commercial-pricing-and-packaging.md) | [Customer Implementation and Agent-assisted Delivery Model](product/customer-implementation-delivery-model.md), [Payment Product Definition](product/payment-product-definition.md), [Voice Intake Product Definition](product/voice-intake-product-definition.md) |
@@ -36,7 +37,8 @@ Runory documentation is organized by topic authority and lifecycle rather than b
 
 **Authority:** [Product Definition](product/product-definition.md)
 
-- [Product Definition](product/product-definition.md) — canonical product boundary and positioning.
+- [Product Definition](product/product-definition.md) — canonical Agent-first product boundary, positioning and strategic objective.
+- [Agent-first Product Strategy and Delivery Contract](product/agent-first-product-strategy.md) — active execution contract: public discovery, independent distribution, Cloud, business assets, governed Agent operation, acceptance benchmark, and bilingual strategic wording for commercial materials.
 - [Repair Quote Review and Handoff](product/repair-quote-review-and-handoff-plan.md) — active bounded work plan: selected working priority, customer hypotheses, reusable engineering assets, backlog, and separate engineering/commercial validation; supports the Product Definition without replacing v0.9 or GA gates.
 - [FSM AI Market Review — 2026-11-24](research/fsm-ai-market-review-2026-11-24.md) — dated market evidence for 2026-05-24–2026-11-24, with source/maturity limits and revised competitive assumptions; informs the work plan and creates no scope by itself.
 - [Commercial Pricing and Packaging](product/commercial-pricing-and-packaging.md) — Cloud subscriptions and scoped customer solutions; numerical plans, implementation bands, partner economics, and discounts remain proposed.
@@ -77,7 +79,7 @@ Versioned iteration plans provide implementation history but do not override the
 - [Workspace Guide](workspace-guide.md) — active workspace operation guide.
 - [Admin / Governance](admin-governance.md) — administration, audit, members, RBAC, and export.
 - [Troubleshooting](troubleshooting.md) — active recovery guidance.
-- [Cloud-to-Local Workspace](architecture/cloud-to-local-workspace.md) — portability and deployment choice.
+- [Self-hosted and Cloud Deployment Contract](architecture/cloud-to-local-workspace.md) — independent distribution, shared lineage, and controlled portability.
 
 ### 3. FSM
 
