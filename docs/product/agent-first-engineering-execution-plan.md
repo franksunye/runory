@@ -39,6 +39,8 @@ Use synthetic records and approved local/non-production environments. The first 
 
 ## 2. Source baseline and implementation gaps
 
+Latest B1 evidence and follow-up: [Compose, recovery and candidate distribution](../releases/agent-first-b1-compose-recovery-2026-11-24.md). Candidate tests and an engineering bundle are not production publication.
+
 B1 candidate run and follow-up: [2026-11-24 first container verification](../releases/agent-first-b1-candidate-2026-11-24.md). This evidence does not close B1.
 
 Current execution evidence: [B0 source baseline and first candidate boundary — 2026-11-24](../releases/agent-first-b0-baseline-2026-11-24.md). B1 engineering candidate entry: [Self-hosted packaging](../../deploy/self-host/README.md). These are not completed batch or release claims.

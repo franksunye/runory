@@ -1,0 +1,13 @@
+# Test-only override: exercise the actual Compose service, without host ports
+# or outbound network access. Volumes are explicitly created and destroyed by CI.
+services:
+  runory:
+    ports: !reset []
+networks:
+  default:
+    name: runory-candidate-ci
+    internal: true
+volumes:
+  runory-data:
+    external: true
+    name: ${RUNORY_DATA_VOLUME:?CI must select a disposable named volume}

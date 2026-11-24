@@ -22,3 +22,5 @@ artifacts
 .review
 deploy/self-host/verify-candidate.mjs
 deploy/self-host/preflight.test.mjs
+deploy/self-host/snapshot.test.mjs
+deploy/self-host/compose.ci.yaml

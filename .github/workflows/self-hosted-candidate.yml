@@ -18,16 +18,17 @@ concurrency:
 jobs:
   isolated-candidate:
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           persist-credentials: false
-      - name: Check candidate startup profile and fixture syntax
+      - name: Check startup, snapshot safety and fixture syntax
         run: |
-          node --test deploy/self-host/preflight.test.mjs
+          node --test deploy/self-host/preflight.test.mjs deploy/self-host/snapshot.test.mjs
           node --check deploy/self-host/verify-candidate.mjs
           node --check deploy/self-host/scheduler.mjs
+          bash -n deploy/self-host/runory.sh
       - name: Build production image from tracked source only
         shell: bash
         run: |
@@ -38,7 +39,7 @@ jobs:
           rm -rf "$context"
           mkdir -p candidate-evidence
           docker image inspect runory-candidate:ci --format '{{.Id}} {{index .Config.Labels "org.opencontainers.image.revision"}}' > candidate-evidence/image.txt
-      - name: Verify isolated production installation and restart
+      - name: Verify actual Compose installation, recreation and offline restore
         shell: bash
         run: |
           set -euo pipefail
@@ -48,15 +49,11 @@ jobs:
           export PLATFORM_MAIL_PROVIDER_URL="http://mail-fixture:8787/send"
           export RUNORY_IMAGE="runory-candidate:ci"
           export RUNORY_EXPECTED_COMMIT="$GITHUB_SHA"
-          docker compose -f deploy/self-host/compose.yaml config --quiet
-          docker network create --internal runory-candidate-ci
-          docker volume create runory-candidate-data
-          start_app() {
-            docker run -d --name runory-candidate-app --network runory-candidate-ci --network-alias runory --init --cap-drop ALL --security-opt no-new-privileges \
-              -e PLATFORM_ADMIN_EMAILS -e PLATFORM_MAIL_PROVIDER_URL -e PLATFORM_CRON_SECRET -e CUSTOMER_ACCESS_SESSION_SECRET \
-              -v runory-candidate-data:/data "$RUNORY_IMAGE"
-          }
-          start_app
+          export RUNORY_DATA_VOLUME="runory-candidate-data"
+          compose() { docker compose -p runory-candidate-ci -f deploy/self-host/compose.yaml -f deploy/self-host/compose.ci.yaml "$@"; }
+          for v in runory-candidate-data runory-candidate-backup runory-candidate-restored runory-candidate-second; do docker volume create "$v"; done
+          compose config --quiet
+          compose up -d --no-deps runory
           verify() {
             docker run --rm --network runory-candidate-ci --network-alias mail-fixture --cap-drop ALL --security-opt no-new-privileges \
               -e RUNORY_EXPECTED_COMMIT -e RUNORY_EXPECTED_STATE -v "$PWD/deploy/self-host/verify-candidate.mjs:/tmp/verify-candidate.mjs:ro" \
@@ -65,18 +62,51 @@ jobs:
           verify initialize | tee candidate-evidence/initialize.jsonl
           export RUNORY_EXPECTED_STATE="$(jq -ce 'select(.checkpoint != null) | .checkpoint' candidate-evidence/initialize.jsonl)"
           test -n "$RUNORY_EXPECTED_STATE"
-          docker run --rm --network runory-candidate-ci --cap-drop ALL --security-opt no-new-privileges \
-            -e PLATFORM_CRON_SECRET "$RUNORY_IMAGE" node /app/deploy/self-host/scheduler.mjs --once | tee candidate-evidence/scheduler.jsonl
+          compose run --rm --no-deps scheduler node /app/deploy/self-host/scheduler.mjs --once | tee candidate-evidence/scheduler.jsonl
           grep -q '"status":"PASS"' candidate-evidence/scheduler.jsonl
-          docker rm -f runory-candidate-app >/dev/null
-          start_app
+          compose rm -sf runory
+          compose up -d --no-deps runory
           verify readback | tee candidate-evidence/readback.jsonl
+          # Stop all writers. The scheduler was run once and removed; the
+          # application container is removed before mounting its volume RO.
+          compose rm -sf runory
+          docker run --rm --network none --read-only --cap-drop ALL --security-opt no-new-privileges \
+            -v runory-candidate-data:/data:ro -v runory-candidate-backup:/backup \
+            "$RUNORY_IMAGE" node /app/deploy/self-host/snapshot.mjs backup | tee candidate-evidence/backup.jsonl
+          docker run --rm --network none --read-only --cap-drop ALL --security-opt no-new-privileges \
+            -v runory-candidate-restored:/data -v runory-candidate-backup:/backup:ro \
+            "$RUNORY_IMAGE" node /app/deploy/self-host/snapshot.mjs restore | tee candidate-evidence/restore.jsonl
+          export RUNORY_DATA_VOLUME=runory-candidate-restored
+          compose up -d --no-deps runory
+          verify readback | tee candidate-evidence/restored-readback.jsonl
+          compose rm -sf runory
+          export RUNORY_DATA_VOLUME=runory-candidate-second
+          compose up -d --no-deps runory
+          verify initialize | tee candidate-evidence/second-install.jsonl
+          second="$(jq -ce 'select(.checkpoint != null) | .checkpoint' candidate-evidence/second-install.jsonl)"
+          test "$(jq -r .workspaceId <<<"$second")" != "$(jq -r .workspaceId <<<"$RUNORY_EXPECTED_STATE")"
+          compose rm -sf runory
+      - name: Package tested engineering image without a source checkout
+        if: github.event_name != 'pull_request'
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p candidate-bundle
+          image="runory/self-host-candidate:$GITHUB_SHA"
+          docker tag runory-candidate:ci "$image"
+          docker save "$image" | gzip -1 > candidate-bundle/image.tar.gz
+          printf '%s\n' "$image" > candidate-bundle/image-reference.txt
+          docker image inspect "$image" --format '{{.Id}}' > candidate-bundle/image-id.txt
+          cp deploy/self-host/compose.yaml deploy/self-host/runory.sh deploy/self-host/README.md LICENSE candidate-bundle/
+          jq -n --arg commit "$GITHUB_SHA" --arg image "$image" --arg imageId "$(cat candidate-bundle/image-id.txt)" \
+            '{format:"runory.self-host.engineering-candidate/v1",sourceCommit:$commit,image:$image,imageId:$imageId,platform:"linux/amd64",status:"engineering_candidate",productionSupported:false,cloudGa:false}' > candidate-bundle/release.json
+          (cd candidate-bundle && sha256sum image.tar.gz image-reference.txt image-id.txt compose.yaml runory.sh README.md LICENSE release.json > SHA256SUMS && sha256sum -c SHA256SUMS)
       - name: Clean up isolated fixture
         if: always()
         shell: bash
         run: |
-          docker rm -f runory-candidate-app 2>/dev/null || true
-          docker volume rm runory-candidate-data 2>/dev/null || true
+          docker ps -aq --filter label=com.docker.compose.project=runory-candidate-ci | xargs -r docker rm -f
+          for v in runory-candidate-data runory-candidate-backup runory-candidate-restored runory-candidate-second; do docker volume rm "$v" 2>/dev/null || true; done
           docker network rm runory-candidate-ci 2>/dev/null || true
       - name: Retain non-sensitive candidate evidence
         if: always()
@@ -85,4 +115,13 @@ jobs:
           name: self-hosted-candidate-evidence
           path: candidate-evidence/
           if-no-files-found: ignore
+          retention-days: 14
+      - name: Retain tested engineering bundle (not a production release)
+        if: success() && github.event_name != 'pull_request'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: runory-self-hosted-engineering-candidate-${{ github.sha }}
+          path: candidate-bundle/
+          compression-level: 0
+          if-no-files-found: error
           retention-days: 14

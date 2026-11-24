@@ -9,7 +9,7 @@ LABEL org.opencontainers.image.title="Runory FSM self-hosted candidate" \
 RUN test "${#RUNORY_SOURCE_SHA}" -eq 40 && \
     printf '%s' "$RUNORY_SOURCE_SHA" | grep -Eq '^[a-f0-9]{40}$' && \
     npm install --global pnpm@10.31.0 && \
-    mkdir -p /app /data && chown node:node /app /data
+    mkdir -p /app /data /backup && chown node:node /app /data /backup
 WORKDIR /app
 COPY --chown=node:node . .
 USER node

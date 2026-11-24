@@ -2,19 +2,46 @@
 
 **Runory — Field Service Operating System for the Agent Era.**
 
-This is the first independent container packaging increment, not a public release, production support promise, or complete installer. See the [Agent-first engineering plan](../../docs/product/agent-first-engineering-execution-plan.md) and [B0 baseline](../../docs/releases/agent-first-b0-baseline-2026-11-24.md).
+Engineering candidate only. Not a supported production release, Cloud GA, or complete installer. The first supported profile under evaluation is single-instance Linux amd64, Docker and Compose, the existing production Next.js application, SQLite/libSQL and local attachments. No second runtime or proprietary Cloud dependency is required for the included core fixture. Normal owner/member authentication still requires a private owner-controlled mail endpoint. No public deployment or real customer data before the applicable gates pass.
 
-## Candidate profile
+## Candidate bundle
 
-Linux amd64 with Docker and Compose; one production Next.js server, local SQLite/libSQL file and attachment directory in a persistent volume, and the existing authenticated workflow timer coordinator. The image deliberately retains the existing monorepo build and dependencies while the candidate is verified; production footprint and immutable distribution will be reviewed before release.
+If the exact commit's Self-hosted Candidate workflow succeeds, its Actions artifact contains the tested image archive, image reference and ID, Compose configuration, operator helper, release metadata, license and SHA-256 checksums. It is a short-lived engineering artifact, not a signed public distribution. Obtain it only from the official repository and verify the workflow commit and artifact integrity; checksums do not replace a trusted download source.
 
-CI builds from a clean tracked snapshot and starts a fresh image on an internal network. The entrypoint checks the explicit production/local profile, owner-controlled mail configuration, distinct secrets and persistent volume before it opens the server. The test checks normal production OTP authentication through a separate synthetic mail endpoint, authenticated candidate catalog initialization, FSM/Sales Quote installation, a persisted customer, key scopes and revocation, a scoped named Quote Command and identical retry, local attachment upload and SHA-256 download verification, the existing timer coordinator, and readback after replacing the container while retaining the data volume. The fixture is excluded from the image. No external provider is activated.
+From an extracted candidate bundle on a prepared Linux amd64 host with Docker Compose, Bash, openssl and sha256sum:
 
-The supplied Compose file is a candidate operator configuration. A genuine owner-controlled mail delivery endpoint compatible with the existing `PLATFORM_MAIL_PROVIDER_URL` contract is required; do not substitute a public OTP inbox or development bypass. Full local identity/enrollment, immutable bundled catalog import, complete backup/restore, Compose runtime and mobile/TLS acceptance remain separate requirements. Preflight PASS only establishes the bounded configuration, not end-to-end readiness. The first build (33bc595) passed production HTTP startup and anonymous denials; its test failed at the owner-workspace response contract. The fixture now reads the actual workspaceId field; the corrected run must provide fresh evidence. CI's authenticated seed route is used only to validate packaged source in an isolated fixture; it is not the proposed production release-import mechanism.
+```sh
+sha256sum --check SHA256SUMS
+bash runory.sh load
+bash runory.sh init owner@example.invalid https://mail.example.invalid/send
+bash runory.sh start
+bash runory.sh status
+```
+
+Replace the example owner email and mail URL with a verified, operator-owned private mail endpoint implementing the existing OTP delivery contract. The helper generates distinct secrets in a new restricted .env; it refuses to overwrite existing configuration and checks that the loaded image matches the bundle. Keep .env outside shared files. Do not use the CI mail fixture, public OTP inbox or developer authentication shortcut. Only loopback is exposed by default. HTTPS/reverse-proxy and real browser/mobile access remain separate acceptance work.
+
+The current candidate uses the existing authenticated platform-admin catalog seed in its isolated verification fixture. A pinned, approved bundled catalog import and complete owner onboarding flow are still release blockers. Do not present the fixture seed as the final installer, or assume any artifact is production-ready.
+
+## Complete offline instance snapshot (same image only)
+
+The snapshot utility preserves the entire local data volume, including the SQLite database, journal sidecars if present, catalog/configuration records and attachment bytes. It rejects symlinks, a nonempty target, incomplete/tampered backups and a different source commit. It verifies all copied files by SHA-256 and does not overwrite an existing instance. The caller **must stop the application, scheduler and every other writer first**. The tool is a cold snapshot, not an online DB backup, an encrypted archive or an upgrade tool.
+
+For a controlled maintenance window, first stop the Compose services and confirm no process mounts the source volume writable. Keep a secure, owner-controlled backup volume, preserve the original, and restore into a new empty volume. Example with explicitly selected local named volumes and the verified candidate image (substitute actual names; never choose a Cloud database):
+
+```sh
+docker run --rm --network none --read-only --cap-drop ALL \
+  -v SOURCE_VOLUME:/data:ro -v EMPTY_BACKUP_VOLUME:/backup \
+  VERIFIED_IMAGE node /app/deploy/self-host/snapshot.mjs backup
+docker run --rm --network none --read-only --cap-drop ALL \
+  -v NEW_EMPTY_VOLUME:/data -v BACKUP_VOLUME:/backup:ro \
+  VERIFIED_IMAGE node /app/deploy/self-host/snapshot.mjs restore
+```
+
+Mount a writable backup/target directory owned by the container's node user (UID 1000 on the selected image). Retain matching runtime configuration and secrets separately under owner control. Do not upload backups to public artifacts; database and files can contain confidential information. Verify the restored instance in isolation before any cutover. Failed partial snapshots/targets must be inspected and replaced with fresh empty volumes, never reused blindly. No in-place upgrade or cross-version recovery claim.
 
 ## Developer candidate build
 
-Use a clean git checkout and run from the repository root. Do not include secrets, databases, customer files, or local test artifacts in the Docker build context.
+Use a clean tracked source snapshot without credentials, databases or customer files. Build from repository root:
 
 ```sh
 docker build --platform linux/amd64 \
@@ -22,8 +49,6 @@ docker build --platform linux/amd64 \
   -f deploy/self-host/Dockerfile -t runory-candidate:local .
 ```
 
-The Compose file binds only to loopback. Configure an actual verified owner email, private mail endpoint and distinct securely generated secrets outside source control. The production session requires secure browser transport; remote access, HTTPS and operational backup/upgrade are not certified by this increment. Never open the candidate to public traffic or use real customer data before the applicable gates pass. A working HTTP health endpoint alone is not evidence of setup/readiness.
+CI tests the actual Compose file with a test-only internal-network override (no host port or external providers). It checks production OTP, scoped authorization, installed Packs, customer and named Quote command/retry, attachments, timer invocation, container replacement, cold backup/restore into a new volume and a second fresh install. The fixtures are not real Agent, provider, or production acceptance.
 
-## Evidence
-
-The [Self-hosted Candidate workflow](../../.github/workflows/self-hosted-candidate.yml) records the source SHA, image identity and redacted stage results. It does not publish images or change the existing Release Gate. Check the exact commit's results before claiming any candidate check passed.
+See the repository's [engineering plan](../../docs/product/agent-first-engineering-execution-plan.md) and [candidate workflow](../../.github/workflows/self-hosted-candidate.yml) for scope and results (links resolve in the source repository). Check the exact commit before relying on any candidate claim.

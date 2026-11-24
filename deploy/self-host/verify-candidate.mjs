@@ -211,7 +211,9 @@ async function main() {
   const packs = await request(ws + "/packs", { session: true });
   check(["fsm-pack", "sales-quote-pack"].every(id => packs.data.some(p => p.packId === id && p.installed)), "Expected both installed Packs");
   const records = await request(ws + "/objects/company/records?search=" + encodeURIComponent(companyName), { session: true });
-  check(records.data.records?.some(r => r.id === checkpoint.companyId && r.name === companyName), "Missing persisted customer");
+  // The records GET route returns the array directly in the ToolEnvelope.
+  check(Array.isArray(records.data), "Unexpected customer-list response contract");
+  check(records.data.some(r => r.id === checkpoint.companyId && r.name === companyName), "Missing persisted customer");
   const persistedQuote = await request(ws + "/objects/quote/records/" + encodeURIComponent(checkpoint.quoteId), { session: true });
   check(persistedQuote.data.status === "draft" && persistedQuote.data.company_id === checkpoint.companyId,
     "Missing persisted quote relationship");
