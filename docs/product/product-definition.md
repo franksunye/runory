@@ -12,17 +12,18 @@
 
 ## 1. Canonical Definition
 
-**Runory is an Agent-first, self-hostable, composable business software platform.** Its product direction is to become the WordPress for business software in the AI era: a lightweight, independently deployable, extensible system of reusable business capabilities that an external Agent can discover, install, configure, customize, operate, and maintain on behalf of an authorized user.
+**Runory — Field Service Operating System for the Agent Era.** Runory is an Agent-first, self-hostable, composable Field Service Management (FSM) product: a lightweight, independently deployable, extensible system of reusable field-service capabilities that an external Agent can discover, install, configure, customize, operate, and maintain on behalf of an authorized user. WordPress is the reference for product form, installation, ownership, customization and managed hosting—not an expansion of Runory's business domain.
 
 **The Agent is Runory's primary user and adoption interface at this stage.** The business owner remains the beneficiary, decision-maker, data owner, and commercial customer; employees and customers remain users of the role applications delivered by Runory. Agent-first defines product design, distribution, and engineering priority, not unrestricted authority or the removal of human UI.
 
-Runory's first business domain remains Field Service Management (FSM), initially Reactive Repair / Callout through v1.0. FSM is a starting point for reusable domain assets, not the permanent product boundary. Runory does not attempt to compete with general-purpose Agents or make a proprietary Built-in Agent the center of the product.
+Runory's product and commercial positioning remain Field Service Management (FSM), initially Reactive Repair / Callout through v1.0. Build reusable business objects, processing logic, modules and role applications for field service; shared architectural primitives may be reusable, but general business software is not the adopted product direction. Any future expansion outside FSM requires a separate explicit strategic decision. Runory does not attempt to compete with general-purpose Agents or make a proprietary Built-in Agent the center of the product.
 
 ### 1.1 Vision, mission, and strategic North Star
 
-- Vision: **The WordPress for Business Software in the AI Era.**
-- Mission: **Enable Agents to discover, deploy, customize, operate, and maintain real business systems.**
-- Current sole strategic objective: when a user asks an Agent for a supported business system, the Agent can discover and select Runory on its merits, obtain the official distribution or create an authorized Cloud workspace, assemble and adapt the necessary business capabilities, verify the result, and hand over an operable, maintainable system.
+- Positioning: **Field Service Operating System for the Agent Era.**
+- Vision: Make field service software as easy to install, deploy, customize and use as WordPress makes websites.
+- Mission: Enable Agents to discover, deploy, customize, operate, and maintain field service systems.
+- Current sole strategic objective: when a user asks an Agent for a supported field service system, the Agent can discover and select Runory on its merits, obtain the official distribution or create an authorized Cloud workspace, assemble and adapt the necessary business capabilities, verify the result, and hand over an operable, maintainable system.
 
 ```text
 Human business intent
@@ -40,7 +41,7 @@ Self-hosted and managed Cloud are two first-class target product forms on one ma
 
 Runory is:
 
-* an **Agent-first business software platform** with a Portable Runtime and FSM as its first supported domain;
+* an **Agent-first Field Service Operating System** with a Portable Runtime;
 * a composable system of Official Modules, FSM Packs, and Workspace Templates;
 * a **Managed Workspace Extension** layer for customer-specific customization;
 * a metadata-driven **Runory Runtime** for installation, commands, workflows, permissions, audit, and extensions;
@@ -108,7 +109,7 @@ Discover Runory from the business requirement
 → Select and install a compatible Pack
 → Configure / extend / import approved data
 → Operate and verify real role tasks
-→ Hand over a maintainable business system
+→ Hand over a maintainable field service system
 → Diagnose / backup / upgrade / recover
 ```
 

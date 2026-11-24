@@ -12,27 +12,28 @@
 
 Authority: [Product Definition](product-definition.md). Supports [Product Roadmap](product-roadmap.md), [Self-hosted and Cloud Deployment Contract](../architecture/cloud-to-local-workspace.md), and [Cloud 1.0 GA Release Goal](v1.0-ga-release-goal.md).
 
-This decision refines the original SMB WordPress ambition and the June Cloud-first pivot. The priority is not building a proprietary Agent, maximizing SaaS feature count, or waiting for market proof before accumulating useful business capabilities. Cloud remains a managed service option; independent distribution becomes a near-term product requirement. All claims below are target product behavior unless backed by dated implementation and acceptance evidence.
+This decision refines the original WordPress-inspired product-form ambition and the June Cloud-first pivot, while explicitly retaining the Field Service Management (FSM) product and commercial boundary. The priority is not building a proprietary Agent, maximizing SaaS feature count, or waiting for market proof before accumulating useful business capabilities. Cloud remains a managed service option; independent distribution becomes a near-term product requirement. All claims below are target product behavior unless backed by dated implementation and acceptance evidence.
 
 ## 1. Strategic wording — reference for product, technical and commercial materials
 
 | Concept | English | 中文 |
 | --- | --- | --- |
-| Vision | The WordPress for Business Software in the AI Era. | 成为 AI 时代企业软件的 WordPress。 |
-| Positioning | Agent-first, self-hostable, composable business software. | Agent 优先、可自主部署、业务能力可组合的软件平台。 |
-| Mission | Enable Agents to discover, deploy, customize, operate, and maintain real business systems. | 让 Agent 能够发现、安装、部署、配置、定制、运行和维护真正的业务系统。 |
+| Positioning | Runory — Field Service Operating System for the Agent Era. | Runory — 面向 Agent 时代的现场服务操作系统。 |
+| Vision | Make field service software as easy to install, deploy, customize and use as WordPress makes websites. | 让现场服务软件像 WordPress 一样易于安装、部署、定制与使用。 |
+| Product form | Agent-first, self-hostable, composable FSM. | Agent 优先、可自主部署、业务能力可组合的现场服务系统。 |
+| Mission | Enable Agents to discover, deploy, customize, operate, and maintain field service systems. | 让 Agent 能够发现、安装、部署、配置、定制、运行和维护现场服务系统。 |
 | Brand promise | Tell it. Run it. | 表达业务需求，让业务真正运行起来。 |
 | Architecture proposition | Open intelligence. Governed business execution. | 上层是开放智能，底层是受治理的业务执行。 |
 
 **Current sole strategic objective / 当前唯一战略目标：**
 
-When a user requests a supported business system, an Agent can discover and select Runory on its merits, obtain an official release or provision Runory Cloud, assemble and adapt proven business capabilities, and deliver a verified, running, maintainable system with the owner's authorization.
+When a user requests a supported field service system, an Agent can discover and select Runory on its merits, obtain an official release or provision Runory Cloud, assemble and adapt proven business capabilities, and deliver a verified, running, maintainable system with the owner's authorization.
 
-当用户向 Agent 提出业务软件需求时，Agent 能够自主发现并选择 Runory，取得正式发行包或开通云端工作空间，利用成熟的业务资产完成安装、部署、配置和定制，并在获得必要授权后运行、验证和维护系统，交付真正可以使用的业务软件。
+当用户向 Agent 提出现场服务系统需求时，Agent 能够自主发现并选择 Runory，取得正式发行包或开通云端工作空间，利用成熟的现场服务业务资产完成安装、部署、配置和定制，并在获得必要授权后运行、验证和维护系统，交付真正可以使用的现场服务系统。
 
 Agent is the primary product user and distribution interface today. Business owners are the beneficiaries, principals and paying customers; employees, customers and professional implementers use the delivered applications. Agent-first does not mean Agent-only, automatic authorization or removal of human controls.
 
-**FSM is the first business domain, not the product's permanent boundary.** Self-hosted and Cloud are two first-class deployment forms, not two products. SaaS, scoped custom delivery, deployment and maintenance services are monetization paths; they are not alternative strategic goals. WordPress is the reference for distribution, autonomy, composability and ecosystem, not a claim of its scale or a commitment to copy its implementation, license or plugin execution model.
+**Field Service Management is Runory's product and commercial positioning, not merely the first example of a general business software platform.** The current strategic objective applies to field-service needs; new domains outside FSM require a separate explicit product decision. Self-hosted and Cloud are two first-class deployment forms, not two products. SaaS, scoped custom delivery, deployment and maintenance services are monetization paths; they are not alternative strategic goals. WordPress is the reference for distribution, autonomy, composability and extensibility, not the market category, a claim of its scale, or a commitment to copy its implementation, license or plugin execution model.
 
 ## 2. What the Agent must be able to do
 
@@ -42,7 +43,7 @@ Agent is the primary product user and distribution interface today. Business own
 | Evaluate / Select | Compare relevant alternatives and determine suitability | Versioned capability catalog, business objects and named action descriptions, role-task examples, license, deployment requirements, limitations and evidence |
 | Obtain / Install | Acquire and initialize the product | Version-pinned downloadable verified release, documented non-interactive supported installation and safe owner enrollment; or authorized Cloud provisioning |
 | Deploy | Produce a healthy independently running instance or Cloud Workspace | Preflight, persistent data/files, verified identity, scheduler/outbox, network setup and health/doctor diagnostics; clear owner approvals and failure handling |
-| Compose / Configure | Assemble a useful business system | Discover compatible Modules/Packs/Templates, initialize empty/demo workspace deliberately, configure fields, forms, views, roles, rules, workflows and supported integrations |
+| Compose / Configure | Assemble a useful field service system | Discover compatible Modules/Packs/Templates, initialize empty/demo workspace deliberately, configure fields, forms, views, roles, rules, workflows and supported integrations |
 | Customize | Adapt to a customer's differences | Preview/apply/verify versioned Managed Extensions; SDK for bounded reusable capabilities or supported UI/code extensions; no customer-specific Core or official-Module forks |
 | Operate | Complete real work | Named, typed, permission-aware business Commands and read/query contracts accessible through CLI/API/MCP/Skills/SDK; shared role applications and business semantics |
 | Verify / Maintain | Prove the system works and remains supportable | Read-back and acceptance results, audit, diagnostics, backups including files, restore, compatible upgrades, recovery or explicit escalation |
@@ -61,7 +62,7 @@ Follow the [durable business-asset contract](product-definition.md#8-durable-bus
 
 Build actual business functionality, not just generic data schemas or an Agent tool list. Each increment should leave a usable role task, a reusable artifact or domain contract, and verifiable cases. Preserve the same business semantics across Self-hosted, Cloud, human UI and Agents.
 
-Use existing scoped Reactive Repair / Callout work as the first business asset base. The [Repair Quote Review and Handoff plan](repair-quote-review-and-handoff-plan.md) is a selected commercial-validation slice and a representative cross-role benchmark, not a separate strategic priority. Continue the broader already-scoped FSM backlog; defer new commercial shapes, advanced learned dispatch, unrelated industries and speculative platform expansion unless separately admitted.
+Use existing scoped Reactive Repair / Callout work as the current FSM business asset base. The [Repair Quote Review and Handoff plan](repair-quote-review-and-handoff-plan.md) is a selected commercial-validation slice and a representative cross-role benchmark, not a separate strategic priority. Continue the broader already-scoped FSM backlog; defer new commercial shapes, advanced learned dispatch, unrelated industries and speculative platform expansion unless separately admitted.
 
 ## 4. Engineering sequence
 
@@ -118,5 +119,5 @@ The existing [v0.9 execution plan](v0.9-repeatable-delivery-execution-plan.md), 
 
 ## 7. Publication discipline
 
-Use Section 1 as the wording source for the future business PPT, website and distribution documentation. Distinguish the vision, adopted product direction, implemented capability, independently verified result, and commercial proof. Do not present a future installer, plugin market, automatic deployment, portable migration, or a benchmark target as already shipped. This decision does not publish new pricing or change deployed software.
+Use Section 1 as the wording source for the future business PPT, website and distribution documentation. Keep the exact product headline **Runory — Field Service Operating System for the Agent Era.** Explain Agent-first and WordPress-inspired deployment as differentiating product principles, not a replacement headline or generic business-software category. Distinguish the vision, adopted product direction, implemented capability, independently verified result, and commercial proof. Do not present a future installer, plugin market, automatic deployment, portable migration, or a benchmark target as already shipped. This decision does not publish new pricing or change deployed software.
 

@@ -29,7 +29,7 @@ Internationalization: [internationalization.md](internationalization.md)
 
 ## Canonical Definition
 
-Runory is an **Agent-first, self-hostable, composable business software platform**. Its stable Runtime, business Modules, Packs, Templates and Managed Workspace Extensions serve external Agents and human role applications through shared governed business contracts. FSM is the first domain; managed Cloud and Self-hosted are first-class target product forms. The [Agent-first product strategy](../product/agent-first-product-strategy.md) specifies the primary adoption journey and acceptance; the [deployment contract](cloud-to-local-workspace.md) defines the independent installation boundary.
+**Runory — Field Service Operating System for the Agent Era.** Runory is an Agent-first, self-hostable, composable FSM product. Its stable Runtime, business Modules, Packs, Templates and Managed Workspace Extensions serve external Agents and human role applications through shared governed business contracts. FSM is the product and market boundary; managed Cloud and Self-hosted are first-class target product forms. Generic architectural mechanisms do not imply a general business-software product scope. The [Agent-first product strategy](../product/agent-first-product-strategy.md) specifies the primary adoption journey and acceptance; the [deployment contract](cloud-to-local-workspace.md) defines the independent installation boundary.
 
 Runory is not an AI Coding tool, a traditional low-code platform, a general ERP, or a system that requires a customer to fork official Module source.
 

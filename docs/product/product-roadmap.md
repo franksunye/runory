@@ -20,9 +20,9 @@
 
 ## 1. Roadmap Thesis
 
-Runory remains focused on Field Service Management through v1.0. The goal is not to become a general SMB operating system before product-market validation. The near-term product must solve real FSM work reliably, be commercially implementable for small and medium service businesses, and be validated through real customer projects, including Upwork-sourced demand.
+Runory remains positioned as **Field Service Operating System for the Agent Era**. Through v1.0 the scope is Reactive Repair / Callout; subsequent directions deepen the FSM product and its ecosystem. General SMB or business-software expansion is not an adopted strategic objective and requires a separate explicit decision. The near-term product must solve real FSM work reliably, be commercially implementable for small and medium service businesses, and be validated through real customer projects, including Upwork-sourced demand.
 
-The current North Star is the Agent-led adoption and operating journey: discover → select → install/provision → deploy → configure/extend → operate → verify/maintain. All near-term work must improve that journey or a binding release/safety gate. Self-hosted and Cloud are first-class target product forms using the same Runtime, Modules, Packs, Extensions and business contracts. FSM is the first domain, not the permanent boundary. External-Agent access alone is not differentiation; prove complete business results and repeatable delivery.
+The current North Star is the Agent-led adoption and operating journey: discover → select → install/provision → deploy → configure/extend → operate → verify/maintain. All near-term work must improve that journey or a binding release/safety gate. Self-hosted and Cloud are first-class target product forms using the same Runtime, Modules, Packs, Extensions and business contracts. FSM is the product and market boundary. WordPress is the product-form reference, not a reason to generalize the domain. External-Agent access alone is not differentiation; prove complete business results and repeatable delivery.
 
 Through v1.0, Runory supports one commercial operating model: **Reactive Repair / Callout**.
 
@@ -51,7 +51,7 @@ v0.9  Validate repeatability across real FSM customers and converge the product
 v1.0  Release a complete, stable, commercially supported Agent-native FSM product
 v2.0  Add advanced FSM depth
 v3.0  Add broader Agentic Operations
-v4.0  Broaden the existing composable platform across SMB domains and ecosystem
+v4.0  Deepen the FSM module, Pack, developer and implementation ecosystem
 ```
 
 ### 1.1 Current focus — 2026-11-24
@@ -500,18 +500,19 @@ Agent evaluation, governance, and operational automation at scale
 Agent-assisted official Module/Pack/Template authoring when evidence supports it
 ```
 
-The bounded, human-approved repair quote review and handoff slice is scheduled earlier under the current work plan. Broad autonomous quoting, learned business optimization, and cross-industry Agent operations remain post-1.0 directions requiring separate evidence and scope decisions.
+The bounded, human-approved repair quote review and handoff slice is scheduled earlier under the current work plan. Broad autonomous quoting, learned business optimization, and Agent operations across additional field-service trades remain post-1.0 directions requiring separate evidence and scope decisions.
 
-### v4.0 — SMB Platform and Ecosystem
+### v4.0 — FSM Platform and Ecosystem
 
 ```text
-business domains beyond FSM
-broader Module and Pack marketplace
-third-party developer ecosystem
-general-purpose business modules
-broader Local, VPC, and enterprise deployment options
-progress toward the long-term SMB WordPress vision
+broader field-service Module and Pack ecosystem
+third-party developer and implementation ecosystem
+shared business modules serving field-service workflows
+broader supported Self-hosted, VPC and enterprise deployment options
+WordPress-inspired ease of distribution, installation, customization and upgrade
 ```
+
+These are directional FSM themes, not current delivery commitments. Earlier broad SMB expansion ideas remain historical options, not approved product scope.
 
 ## 10. Version Milestone Summary
 
@@ -525,7 +526,7 @@ progress toward the long-term SMB WordPress vision
 | v1.0 | Runory is a complete, stable, commercially deliverable Agent-native FSM product. | Reliability, security, upgradeability, operability, UX consistency, and supportability meet GA standards. |
 | v2.0 | Runory adds advanced FSM depth. | Engineering scope is defined when the product theme becomes active. |
 | v3.0 | Runory adds broader Agentic Operations. | Engineering scope is defined when the product theme becomes active. |
-| v4.0 | Runory expands toward a general SMB platform and ecosystem. | Engineering scope is defined when the product theme becomes active. |
+| v4.0 | Runory deepens its field-service platform and ecosystem. | Engineering scope is defined when the product theme becomes active. |
 
 ## 11. Cross-Version Architecture Commitments
 
