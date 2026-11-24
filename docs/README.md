@@ -1,16 +1,16 @@
 # Runory Documentation
 
-> The governed entry point for Runory product, architecture, operations, release, and historical documentation.
-
 | Metadata | Value |
 | --- | --- |
 | Status | `canonical` |
 | Topic | `documentation-governance` |
 | Applies to | `v0.5+` |
 | Owner | Product / Engineering |
-| Last reviewed | 2026-07-29 |
+| Last reviewed | 2026-11-24 |
 | Supersedes | Earlier directory-based navigation |
 | Superseded by | — |
+
+> The governed entry point for Runory product, architecture, operations, release, and historical documentation.
 
 Runory documentation is organized by topic authority and lifecycle rather than by filename or version number. Existing files remain in place to preserve links and history. The enforceable rules are defined in [Documentation Governance](document-governance.md).
 
@@ -19,6 +19,7 @@ Runory documentation is organized by topic authority and lifecycle rather than b
 | Need | Start with | Then read |
 | --- | --- | --- |
 | Understand Runory | [Product Definition](product/product-definition.md) | [Concepts](concepts.md), [Architecture Overview](architecture/overview.md) |
+| Understand the current commercial and R&D focus | [Repair Quote Review and Handoff](product/repair-quote-review-and-handoff-plan.md) | [FSM AI Market Review — 2026-11-24](research/fsm-ai-market-review-2026-11-24.md), [Product Roadmap](product/product-roadmap.md) |
 | Understand the roadmap | [Product Roadmap](product/product-roadmap.md) | [Engineering Benchmark Adoption Roadmap](product/engineering-benchmark-adoption-roadmap.md), [External Benchmark Adoption Guardrails](product/external-benchmark-adoption-guardrails.md), [Adjacent Platform Landscape](research/adjacent-platform-landscape.md) |
 | Understand commercial delivery | [Commercial Pricing and Packaging](product/commercial-pricing-and-packaging.md) | [Customer Implementation and Agent-assisted Delivery Model](product/customer-implementation-delivery-model.md), [Payment Product Definition](product/payment-product-definition.md), [Voice Intake Product Definition](product/voice-intake-product-definition.md) |
 | Start using Runory | [Getting Started](getting-started.md) | [Workspace Guide](workspace-guide.md), [Packs and Modules](packs-and-modules.md) |
@@ -35,6 +36,8 @@ Runory documentation is organized by topic authority and lifecycle rather than b
 **Authority:** [Product Definition](product/product-definition.md)
 
 - [Product Definition](product/product-definition.md) — canonical product boundary and positioning.
+- [Repair Quote Review and Handoff](product/repair-quote-review-and-handoff-plan.md) — active bounded work plan: selected working priority, customer hypotheses, reusable engineering assets, backlog, and separate engineering/commercial validation; supports the Product Definition without replacing v0.9 or GA gates.
+- [FSM AI Market Review — 2026-11-24](research/fsm-ai-market-review-2026-11-24.md) — dated market evidence for 2026-05-24–2026-11-24, with source/maturity limits and revised competitive assumptions; informs the work plan and creates no scope by itself.
 - [Commercial Pricing and Packaging](product/commercial-pricing-and-packaging.md) — proposed authority for Free, paid plans, implementation bands, provider usage, partner economics, and discount control.
 - [Customer Implementation and Agent-assisted Delivery Model](product/customer-implementation-delivery-model.md) — proposed paid-production onboarding, provider provisioning, UAT, cutover, and Agent-assisted implementation model.
 - [Product Roadmap](product/product-roadmap.md) — active FSM-first milestone sequence through v4.0; v0.6–v1.0 releases are jointly gated by the companion engineering roadmap.
@@ -79,6 +82,7 @@ Versioned iteration plans provide implementation history but do not override the
 **Authority:** [FSM Canonical Execution Product Architecture](product/fsm-canonical-execution-product-architecture.md)
 
 - [FSM Canonical Execution Product Architecture](product/fsm-canonical-execution-product-architecture.md) — canonical product blueprint.
+- [Repair Quote Review and Handoff](product/repair-quote-review-and-handoff-plan.md) — focused Reactive Repair slice composing existing Quote/FSM, Forms, Workflow, Commands, Packs, and Extensions.
 - [v0.5 Commercial FSM Technical Spec](product/v0.5-commercial-fsm-technical-spec.md) — current technical baseline.
 - [v0.5.1 Commercial FSM Productization Technical Spec](product/v0.5.1-commercial-fsm-productization-technical-spec.md) — active productization specification.
 - [v0.5.1 Mobile Field Work Spec](product/v0.5.1-mobile-field-work-spec.md) — mobile field-work experience.
@@ -224,3 +228,4 @@ See [Documentation Governance](document-governance.md) for required metadata, su
 - [ ] Keep evidence separate from normative specifications.
 - [ ] Run `pnpm docs:check` and resolve errors.
 - [ ] Update `Last reviewed` only after a material review.
+

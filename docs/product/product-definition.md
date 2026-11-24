@@ -1,8 +1,14 @@
 # Runory Product Definition
 
-Status: Draft v0.4  
-Date: 2026-07-29  
-Change: Clarify external-super-agent-first strategy, FSM-first product scope, and commercial delivery structure.
+| Metadata | Value |
+| --- | --- |
+| Status | `canonical` |
+| Topic | `product` |
+| Applies to | `v0.5+ / FSM-first through v1.0` |
+| Owner | Product / Engineering |
+| Last reviewed | 2026-11-24 |
+| Supersedes | — |
+| Superseded by | — |
 
 ## 1. Canonical Definition
 
@@ -99,17 +105,9 @@ Verify identity
 → Business runs
 ```
 
-## 5. Structural Difference From Traditional Enterprise Software
+## 5. Architecture Choice and Competitive Value
 
-Traditional enterprise software generally follows this model:
-
-```text
-Existing Application
-+ Proprietary Built-in Agent
-+ Additional AI and automation layers
-```
-
-Runory follows a different model:
+Runory's architecture choice is:
 
 ```text
 External Super Agent
@@ -117,7 +115,9 @@ External Super Agent
 + Governed Runtime
 ```
 
-The goal is to avoid rebuilding language understanding, conversation, planning, and general automation inside every business application.
+The goal is to avoid rebuilding language understanding, conversation, planning, and general automation inside every business application. This choice does not establish exclusive differentiation: the [2026-11-24 market review](../research/fsm-ai-market-review-2026-11-24.md) records external-Agent interfaces and configurable execution capabilities in competing products.
+
+Competitive value must be demonstrated through a concrete business result, reliable governed execution, repeatable implementation, and safe adaptation and upgrade. MCP availability or a broad feature inventory alone does not demonstrate that value.
 
 ## 6. Commercial Product Shape
 
@@ -136,3 +136,12 @@ The Free Workspace should demonstrate the product's end-to-end operating model w
 A paid production Workspace may require configuration, provider onboarding, migration, validation, customer approval, and production cutover. Subscription payment alone does not establish production readiness.
 
 Commercial packaging, proposed list prices, implementation bands, provider usage, partner economics, and discount controls are defined in [Commercial Pricing and Packaging](commercial-pricing-and-packaging.md). The operating sequence and implementation controls are defined in [Customer Implementation and Agent-assisted Delivery Model](customer-implementation-delivery-model.md).
+
+## 7. Current Product and R&D Focus
+
+The selected near-term working priority is **repair quote review and execution-handoff consistency** within Reactive Repair / Callout: use existing survey evidence and a quote, identify supported omissions or conflicts, obtain human approval, and produce a version-consistent brief and governed Work Order. The scope, non-goals, backlog, and separate engineering/commercial acceptance criteria are defined in [Repair Quote Review and Handoff](repair-quote-review-and-handoff-plan.md).
+
+This is a focused product and commercial hypothesis, not a claim of a released Pack or proven market fit. The long-term product remains a composable FSM system and governed runtime. The selected slice gives that direction an immediate user-visible result without replacing the full v0.9 or GA contracts.
+
+Commercial validation and engineering accumulation proceed in parallel. Each iteration should deliver a usable capability, a reusable rule/component/configuration, and verifiable cases. Customer evidence governs the direction and scale of expansion; its absence does not suspend work on traceability, execution correctness, compatibility, evaluation, and other bounded capabilities serving the chosen journey. Synthetic cases prove engineering behavior, not customer demand or business lift.
+

@@ -6,20 +6,22 @@
 | Topic | `product` |
 | Applies to | `v0.5–v4.0` |
 | Owner | Product / Engineering |
-| Last reviewed | 2026-07-29 |
+| Last reviewed | 2026-11-24 |
 | Supersedes | Earlier post-v0.5 milestone roadmaps |
 | Superseded by | — |
 
-Demand source of truth: [Commercial FSM Customer Demand Benchmark](../research/commercial-fsm-customer-demand-benchmark.md)  
-GA release contract: [Runory 1.0 — 90% Product Coverage, 10% Governed Extension](./v1.0-ga-release-goal.md)  
-Companion engineering roadmap: [Engineering Benchmark Adoption Roadmap](./engineering-benchmark-adoption-roadmap.md)  
-External benchmark guardrails: [External Benchmark Adoption Guardrails](./external-benchmark-adoption-guardrails.md)
+- Demand research: [Commercial FSM Customer Demand Benchmark](../research/commercial-fsm-customer-demand-benchmark.md)
+- Current market evidence: [FSM AI Market Review — 2026-11-24](../research/fsm-ai-market-review-2026-11-24.md)
+- Current focused work: [Repair Quote Review and Handoff](repair-quote-review-and-handoff-plan.md)
+- GA release contract: [Runory 1.0 — 90% Product Coverage, 10% Governed Extension](./v1.0-ga-release-goal.md)
+- Companion engineering roadmap: [Engineering Benchmark Adoption Roadmap](./engineering-benchmark-adoption-roadmap.md)
+- External benchmark guardrails: [External Benchmark Adoption Guardrails](./external-benchmark-adoption-guardrails.md)
 
 ## 1. Roadmap Thesis
 
 Runory remains focused on Field Service Management through v1.0. The goal is not to become a general SMB operating system before product-market validation. The near-term product must solve real FSM work reliably, be commercially implementable for small and medium service businesses, and be validated through real customer projects, including Upwork-sourced demand.
 
-Agent-native customization and deployment remain a core differentiator, but they support the FSM product rather than expand the business scope beyond FSM.
+Agent-native customization and deployment remain architectural commitments supporting the FSM product. Their competitive value must be demonstrated through business outcomes and repeatable delivery; external-Agent access alone is no longer a sufficient differentiation claim.
 
 Through v1.0, Runory supports one commercial operating model: **Reactive Repair / Callout**.
 
@@ -50,6 +52,12 @@ v2.0  Add advanced FSM depth
 v3.0  Add broader Agentic Operations
 v4.0  Expand toward a general SMB platform and ecosystem
 ```
+
+### 1.1 Current focus — 2026-11-24
+
+The next focused development and commercial-validation slice is **repair quote review and execution-handoff consistency**: existing evidence and quote → supported review findings → human-approved scope → consistent brief and governed Work Order. The [bounded work plan](repair-quote-review-and-handoff-plan.md) supplies customer hypotheses, reusable assets, backlog, non-goals, and acceptance criteria.
+
+It specializes the existing Reactive Repair reference solution and v0.9 repeatability work. It creates no new release number or commercial operating model, and does not replace ongoing release hardening or the full v0.9/GA gates. A focused Pack candidate is not a claim that the complete FSM product has reached GA.
 
 ## 2. Scope Discipline
 
@@ -95,6 +103,17 @@ External platform research is an input to these gates, not optional background r
 - explicit Adopt / Adapt / Defer / Reject classification;
 - structural-change and complexity budgets;
 - a target version, owner, compatibility impact, and acceptance evidence.
+
+### 2.2 Continuous Engineering and Commercial Validation
+
+Commercial validation and durable engineering accumulation run in parallel. Customer feedback directs scope, investment, and expansion; it is not a prerequisite for every bounded engineering increment.
+
+- Each iteration produces a usable capability, a reusable component/rule/configuration, and verifiable cases within the selected business journey.
+- When customer evidence is delayed, continue traceability, supported rules, approval/execution consistency, import validation, compatibility, recovery, and evaluation using explicitly labelled cases.
+- Defer speculative industries, integrations, learned optimization, and additional platforms. Reuse the existing Core, Quote/FSM, Forms, Workflow, Pack, and Extension models.
+- Engineering completion, synthetic acceptance, customer value, and paid repeatability are different evidence classes. Only real customer evidence can close the applicable v0.9 and GA customer gates.
+
+The [Repair Quote Review and Handoff plan](repair-quote-review-and-handoff-plan.md) applies this rule to the current slice. Its early paid-delivery signal is not a replacement for the 3–5 customer cohort or GA acceptance requirements.
 
 ## 3. v0.5 Family — Commercial FSM Closure
 
@@ -473,10 +492,12 @@ operational follow-up Agents
 technician assistant
 intelligent scheduling and dispatch recommendations
 anomaly, delay, rework, churn, and renewal detection
-assisted quoting and service-report generation
+broad autonomous quoting and service-report generation beyond the bounded repair-review slice
 Agent evaluation, governance, and operational automation at scale
 Agent-assisted official Module/Pack/Template authoring when evidence supports it
 ```
+
+The bounded, human-approved repair quote review and handoff slice is scheduled earlier under the current work plan. Broad autonomous quoting, learned business optimization, and cross-industry Agent operations remain post-1.0 directions requiring separate evidence and scope decisions.
 
 ### v4.0 — SMB Platform and Ecosystem
 
@@ -527,3 +548,4 @@ A requirement enters an earlier milestone only when at least one is true:
 4. it is required by the binding Engineering Maturity Gate and passes the [External Benchmark Adoption Guardrails](./external-benchmark-adoption-guardrails.md).
 
 A customer calling an entire suite an MVP is evidence of demand, not automatic evidence of release sequencing.
+
