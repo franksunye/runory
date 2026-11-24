@@ -10,11 +10,14 @@ services:
       - "127.0.0.1:${RUNORY_PORT:-3000}:3000"
     environment:
       PLATFORM_ADMIN_EMAILS: ${PLATFORM_ADMIN_EMAILS:?Set the verified owner email}
-      PLATFORM_MAIL_PROVIDER_URL: ${PLATFORM_MAIL_PROVIDER_URL:?Set an owner-controlled private mail provider}
+      RUNORY_SELF_HOST_MAIL_MODE: ${RUNORY_SELF_HOST_MAIL_MODE:-provider}
+      PLATFORM_MAIL_PROVIDER_URL: ${PLATFORM_MAIL_PROVIDER_URL:-}
       PLATFORM_CRON_SECRET: ${PLATFORM_CRON_SECRET:?Generate a distinct random cron secret}
       CUSTOMER_ACCESS_SESSION_SECRET: ${CUSTOMER_ACCESS_SESSION_SECRET:?Generate a distinct random customer access secret}
     volumes:
       - runory-data:/data
+    tmpfs:
+      - /runory-otp:rw,noexec,nosuid,nodev,size=1m,mode=0700,uid=1000,gid=1000
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
       interval: 10s
@@ -32,5 +35,11 @@ services:
     depends_on:
       runory:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "/app/deploy/self-host/scheduler.mjs", "--health"]
+      interval: 15s
+      timeout: 5s
+      retries: 4
+      start_period: 15s
 volumes:
   runory-data:

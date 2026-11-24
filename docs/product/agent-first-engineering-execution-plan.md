@@ -39,6 +39,8 @@ Use synthetic records and approved local/non-production environments. The first 
 
 ## 2. Source baseline and implementation gaps
 
+Latest verified baseline and B1.1/B1.2 follow-up: [owner initialization and runtime readiness](../releases/agent-first-b1-operator-readiness-2026-11-24.md). New source changes require fresh evidence; remaining delivery and upgrade gates are not waived.
+
 Verified fallback engineering candidate and next initializer increment: [B1 bundled Catalog evidence](../releases/agent-first-b1-bundled-catalog-2026-11-24.md). The verified baseline uses the prior fixture; new source requires fresh CI evidence.
 
 Latest B1 evidence and follow-up: [Compose, recovery and candidate distribution](../releases/agent-first-b1-compose-recovery-2026-11-24.md). Candidate tests and an engineering bundle are not production publication.

@@ -17,6 +17,7 @@ export default function LoginPage() {
   const [sent, setSent] = useState(false);
   const [code, setCode] = useState("");
   const [devCode, setDevCode] = useState<string | null>(null);
+  const [operatorDelivery, setOperatorDelivery] = useState(false);
   const [verifying, setVerifying] = useState(false);
 
   // In dev mode with an existing persona/session, redirect to landing page
@@ -45,6 +46,7 @@ export default function LoginPage() {
       const json = await res.json();
       if (json.success) {
         setSent(true);
+        setOperatorDelivery(json.data.delivery === "operator");
         if (showDevHint && json.data.devCode) setDevCode(json.data.devCode);
       } else {
         setError(json.error?.message ?? t("home.form.sendFailed"));
@@ -98,7 +100,9 @@ export default function LoginPage() {
             </h1>
             <p className="mt-3 text-sm text-slate-600">
               {sent
-                ? `${t("login.codeSubtitle")} ${email}`
+                ? (operatorDelivery
+                  ? (locale === "zh" ? "请在有权限的部署主机终端领取验证码。" : "Retrieve your code from the authorized deployment host.")
+                  : `${t("login.codeSubtitle")} ${email}`)
                 : t("login.subtitle")}
             </p>
           </div>
@@ -143,6 +147,13 @@ export default function LoginPage() {
             </form>
           ) : (
             <form onSubmit={handleVerifyOtp} className="space-y-4">
+              {operatorDelivery && (
+                <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700">
+                  <p>{locale === "zh" ? "在发行包目录执行：" : "In the extracted release directory, run:"}</p>
+                  <code className="mt-2 block font-mono font-semibold">bash runory.sh code</code>
+                  <p className="mt-2 text-xs text-slate-500">{locale === "zh" ? "仅限实例所有者。不要将验证码分享给 Agent 或其他人。" : "Instance owner only. Do not share the code with an Agent or anyone else."}</p>
+                </div>
+              )}
               {showDevHint && devCode ? (
                 <div className="rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-800">
                   <strong>{t("home.form.dev")}</strong> <span className="font-mono text-lg font-bold tracking-widest">{devCode}</span>
@@ -172,7 +183,7 @@ export default function LoginPage() {
               </button>
               <button
                 type="button"
-                onClick={() => { setSent(false); setCode(""); setDevCode(null); setError(null); }}
+                onClick={() => { setSent(false); setCode(""); setDevCode(null); setOperatorDelivery(false); setError(null); }}
                 className="w-full text-center text-sm text-slate-500 hover:text-slate-700"
               >
                 ← {t("login.otherEmail")}

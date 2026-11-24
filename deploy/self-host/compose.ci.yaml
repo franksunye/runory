@@ -3,6 +3,8 @@
 services:
   runory:
     ports: !reset []
+    volumes:
+      - ./verify-candidate.mjs:/tmp/verify-candidate.mjs:ro
 networks:
   default:
     name: runory-candidate-ci

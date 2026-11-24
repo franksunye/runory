@@ -1,6 +1,6 @@
 // B1: validate the narrow independent deployment profile before opening the
 // application server. No authentication, database mutation or secret output.
-import { access, mkdir } from "node:fs/promises";
+import { access, lstat, mkdir } from "node:fs/promises";
 import { constants } from "node:fs";
 import { pathToFileURL } from "node:url";
 
@@ -20,13 +20,19 @@ export function validateProfile(env) {
     issues.push("source_commit_required");
   if (!/^[^\s,@]+@[^\s,@]+\.[^\s,@]+$/.test(env.PLATFORM_ADMIN_EMAILS ?? ""))
     issues.push("single_owner_email_required");
-  try {
-    const url = new URL(env.PLATFORM_MAIL_PROVIDER_URL ?? "");
-    if (!["http:", "https:"].includes(url.protocol) || url.username || url.password || url.hash)
+  const mailMode = env.RUNORY_SELF_HOST_MAIL_MODE ?? "provider";
+  if (mailMode === "operator") {
+    if (env.RUNORY_SELF_HOST_CANDIDATE !== "1" || env.PLATFORM_MAIL_PROVIDER_URL)
+      issues.push("invalid_operator_delivery_configuration");
+  } else if (mailMode === "provider") {
+    try {
+      const url = new URL(env.PLATFORM_MAIL_PROVIDER_URL ?? "");
+      if (!["http:", "https:"].includes(url.protocol) || url.username || url.password || url.hash)
+        issues.push("owner_controlled_mail_endpoint_required");
+    } catch {
       issues.push("owner_controlled_mail_endpoint_required");
-  } catch {
-    issues.push("owner_controlled_mail_endpoint_required");
-  }
+    }
+  } else issues.push("invalid_mail_delivery_mode");
   const cron = env.PLATFORM_CRON_SECRET ?? "";
   const customer = env.CUSTOMER_ACCESS_SESSION_SECRET ?? "";
   if (cron.length < 32 || customer.length < 32 || cron === customer)
@@ -44,6 +50,14 @@ async function main() {
     } catch {
       issues.push("persistent_volume_not_writable");
     }
+  }
+  if (!issues.length && process.env.RUNORY_SELF_HOST_MAIL_MODE === "operator") {
+    try {
+      const entry = await lstat("/runory-otp");
+      if (!entry.isDirectory() || entry.isSymbolicLink() || (entry.mode & 0o777) !== 0o700 ||
+          (process.getuid && entry.uid !== process.getuid())) throw new Error("not private");
+      await access("/runory-otp", constants.R_OK | constants.W_OK | constants.X_OK);
+    } catch { issues.push("private_operator_delivery_mount_required"); }
   }
   // This is configuration preflight, not application readiness or a release gate.
   console.log(JSON.stringify({ operation: "self-host-preflight", status: issues.length ? "FAIL" : "PASS", issues }));

@@ -4,9 +4,14 @@
 import { createServer } from "node:http";
 import { setTimeout as delay } from "node:timers/promises";
 import { createHash, randomUUID } from "node:crypto";
+import { execFileSync } from "node:child_process";
 
 const base = "http://runory:3000";
 const email = "owner@runory.invalid";
+const operatorMode = process.env.RUNORY_SELF_HOST_MAIL_MODE === "operator";
+const takeCode = () => execFileSync("pnpm", ["exec", "tsx", "scripts/self-host-owner-code.mts"], {
+  cwd: "/app/apps/cloud", encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], timeout: 15_000,
+}).trim();
 const companyName = "B1 isolated synthetic repair customer";
 const phase = process.argv[2];
 if (!["initialize", "readback"].includes(phase)) throw new Error("Invalid phase");
@@ -23,7 +28,7 @@ const evidenceBytes = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCA
 const evidenceHash = createHash("sha256").update(evidenceBytes).digest("hex");
 const expectedState = phase === "readback" ? JSON.parse(process.env.RUNORY_EXPECTED_STATE ?? "null") : null;
 if (phase === "readback") {
-  check(expectedState && ["workspaceId", "companyId", "quoteId", "attachmentId"].every(
+  check(expectedState && ["workspaceId", "companyId", "quoteId", "attachmentId", "workflowInstanceId"].every(
     key => typeof expectedState[key] === "string" && /^[A-Za-z0-9_-]+$/.test(expectedState[key])
   ), "missing synthetic checkpoint");
 }
@@ -76,7 +81,7 @@ async function request(path, { method = "GET", body, session = false, token, exp
 }
 
 async function main() {
-  await new Promise((resolve, reject) => {
+  if (!operatorMode) await new Promise((resolve, reject) => {
     mail.once("error", reject);
     mail.listen(8787, "0.0.0.0", resolve);
   });
@@ -90,6 +95,7 @@ async function main() {
       if (response.ok) {
         const body = await response.json();
         check(body.data?.release?.commit === commit, "Serving unexpected source SHA");
+        check(body.data?.readiness?.catalog === "verified", "Missing bundled catalog readiness");
         healthy = true;
         break;
       }
@@ -108,11 +114,29 @@ async function main() {
   passed("anonymous-workspace-catalog-cron-denied");
 
   currentStage = "production OTP request";
+  if (operatorMode) {
+    await request("/api/auth/request-otp", { method: "POST", body: { email: "other@runory.invalid" }, expected: 401 });
+  }
   const challenge = await request("/api/auth/request-otp", { method: "POST", body: { email } });
   check(!("devCode" in challenge.data), "Production OTP leaked debug code");
-  check(/^\d{6}$/.test(otp ?? ""), "No synthetic mail delivered");
+  if (operatorMode) {
+    check(challenge.data.delivery === "operator", "Missing operator delivery indicator");
+    otp = takeCode();
+    let consumed = false;
+    try { takeCode(); } catch { consumed = true; }
+    check(consumed, "Private code was not consumed once");
+    passed("operator-owner-only-private-delivery");
+  }
+  check(/^\d{6}$/.test(otp ?? ""), "No private OTP delivered");
   currentStage = "production OTP verification";
+  if (operatorMode) {
+    await request("/api/auth/verify-otp", { method: "POST", body: { email, code: otp === "000000" ? "111111" : "000000" }, expected: 401 });
+  }
   const login = await request("/api/auth/verify-otp", { method: "POST", body: { email, code: otp } });
+  if (operatorMode) {
+    await request("/api/auth/verify-otp", { method: "POST", body: { email, code: otp }, expected: 401 });
+    passed("operator-otp-verification-and-replay-denied");
+  }
   otp = undefined;
   const session = login.response.headers.getSetCookie().find(value => value.startsWith("platform_session="));
   currentStage = "production secure cookie";
@@ -206,9 +230,32 @@ async function main() {
     const attachment = await uploaded.json();
     check(attachment.success === true && typeof attachment.data?.attachmentId === "string"
       && attachment.data.size === evidenceBytes.length, "Invalid attachment response");
-    checkpoint = { workspaceId, companyId: record.data.id, quoteId: quote.data.aggregate.id,
-      attachmentId: attachment.data.attachmentId };
     passed("local-attachment-upload");
+
+    currentStage = "publish and start overdue workflow";
+    // Create a real pending business task through the existing workflow API,
+    // with no direct SQL mutation or timer test shortcut.
+    const workflowKey = "b1_candidate_overdue";
+    await request(ws + "/workflows", { method: "POST", session: true, expected: 201, body: {
+      workflowKey, name: "Synthetic repair follow-up", targetObject: "quote", initialState: "start",
+      steps: [
+        { id: "start", kind: "start", next: "followup" },
+        { id: "followup", kind: "human_task", next: "end",
+          assigneeRule: { userId: me.data.principal.userId },
+          dueAt: new Date(Date.now() - 60_000).toISOString() },
+        { id: "end", kind: "end" },
+      ],
+    } });
+    const started = await request(ws + "/commands/workflow.start", { method: "POST", session: true,
+      body: { workflowKey, subjectType: "quote", subjectId: quote.data.aggregate.id } });
+    const workflowInstanceId = started.data?.aggregate?.instanceId;
+    check(typeof workflowInstanceId === "string", "Workflow instance missing");
+    const instance = await request(ws + "/workflows/instances/" + encodeURIComponent(workflowInstanceId), { session: true });
+    check(instance.data.work_items.some(item => item.status === "ready") &&
+      !instance.data.events.some(event => event.event_type === "timer.overdue"), "Expected pending task before scheduler");
+    checkpoint = { workspaceId, companyId: record.data.id, quoteId: quote.data.aggregate.id,
+      attachmentId: attachment.data.attachmentId, workflowInstanceId };
+    passed("real-overdue-work-item-created");
   }
 
   currentStage = "installed pack and customer readback";
@@ -233,6 +280,13 @@ async function main() {
   check(createHash("sha256").update(Buffer.from(await downloaded.arrayBuffer())).digest("hex") === evidenceHash,
     "Attachment bytes changed or missing");
   passed("packs-customer-quote-and-attachment-persisted");
+  if (phase === "readback") {
+    currentStage = "scheduled domain-event readback";
+    const instance = await request(ws + "/workflows/instances/" + encodeURIComponent(checkpoint.workflowInstanceId), { session: true });
+    check(instance.data.events.filter(event => event.event_type === "timer.overdue").length === 1,
+      "Expected exactly one overdue domain event after repeated scheduler execution");
+    passed("overdue-domain-event-persisted-once");
+  }
   // Synthetic IDs only, no credential material. Readback consumes the exact
   // same identities after a new application container mounts the volume.
   if (phase === "initialize") console.log(JSON.stringify({ phase, checkpoint }));
@@ -248,6 +302,5 @@ try {
     reason: error instanceof CheckFailure ? error.message : "unexpected_fixture_or_transport_error" }));
   process.exitCode = 1;
 } finally {
-  mail.closeAllConnections();
-  mail.close();
+  if (mail.listening) { mail.closeAllConnections(); mail.close(); }
 }

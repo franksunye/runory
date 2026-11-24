@@ -2,6 +2,7 @@ import { createHash, randomBytes, randomInt, timingSafeEqual } from "node:crypto
 import { batch, execute, genId, now, queryAll, queryOne } from "./db";
 import { TABLES } from "./contracts";
 import { getMailProviderUrl, getSessionCookieName, isLocalDevelopmentRuntime } from "./platform-config";
+import { assertOperatorOtpRecipient, deliverOperatorOtp } from "./operator-otp";
 import {
   ConflictError,
   RateLimitError,
@@ -140,6 +141,7 @@ export async function requestOtp(
   }
 
   const emailNormalized = normalizeEmail(rawEmail);
+  assertOperatorOtpRecipient(emailNormalized);
   const purpose = options.purpose ?? "login";
   const ipHashed = hashIp(ip);
   const localDevelopment = isLocalDevelopmentRuntime();
@@ -183,7 +185,7 @@ export async function requestOtp(
   // In production, send email via provider. In dev, return the code.
   if (!devMode) {
     try {
-      await sendOtpEmail(emailNormalized, code);
+      await sendOtpEmail(emailNormalized, code, expiresAt);
     } catch (error) {
       // A rejected or timed-out delivery must not leave this request usable.
       // Keep other requests for the same address untouched.
@@ -225,6 +227,7 @@ export async function verifyOtp(
   }
 
   const emailNormalized = normalizeEmail(rawEmail);
+  assertOperatorOtpRecipient(emailNormalized);
   const ipHashed = hashIp(ip);
 
   // Rate limit verification attempts. Challenge-level max attempts still
@@ -259,7 +262,7 @@ export async function verifyOtp(
   // Check expiry
   if (new Date(challenge.expires_at) < new Date()) {
     await execute(
-      `UPDATE ${TABLES.authChallenges} SET status = 'expired' WHERE id = ?`,
+      `UPDATE ${TABLES.authChallenges} SET status = 'expired' WHERE id = ? AND status = 'pending'`,
       [challenge.id]
     );
     throw new AuthenticationError("Verification code has expired. Please request a new code.");
@@ -268,17 +271,21 @@ export async function verifyOtp(
   // Check attempt limit
   if (challenge.attempts >= challenge.max_attempts) {
     await execute(
-      `UPDATE ${TABLES.authChallenges} SET status = 'expired' WHERE id = ?`,
+      `UPDATE ${TABLES.authChallenges} SET status = 'expired' WHERE id = ? AND status = 'pending'`,
       [challenge.id]
     );
     throw new RateLimitError("Too many verification attempts. Please request a new code.");
   }
 
-  // Increment attempts
-  await execute(
-    `UPDATE ${TABLES.authChallenges} SET attempts = attempts + 1 WHERE id = ?`,
-    [challenge.id]
+  // Reserve an attempt atomically: concurrent verification requests must not
+  // exceed the challenge-level ceiling or reuse a consumed challenge.
+  const attempt = await queryOne<{ id: string }>(
+    `UPDATE ${TABLES.authChallenges} SET attempts = attempts + 1
+     WHERE id = ? AND status = 'pending' AND expires_at > ? AND attempts < max_attempts
+     RETURNING id`,
+    [challenge.id, now()]
   );
+  if (!attempt) throw new AuthenticationError("Verification challenge is no longer available. Please request a new code.");
 
   // Verify code using timing-safe comparison
   const providedHash = sha256(code.trim());
@@ -290,11 +297,15 @@ export async function verifyOtp(
     throw new AuthenticationError("Invalid verification code.");
   }
 
-  // Mark challenge as consumed
-  await execute(
-    `UPDATE ${TABLES.authChallenges} SET status = 'consumed', consumed_at = ? WHERE id = ?`,
-    [now(), challenge.id]
+  // Exactly one valid verification may consume this challenge. Do not mint
+  // another session when a concurrent request won the same challenge.
+  const consumedAt = now();
+  const consumed = await queryOne<{ id: string }>(
+    `UPDATE ${TABLES.authChallenges} SET status = 'consumed', consumed_at = ?
+     WHERE id = ? AND status = 'pending' AND expires_at > ? RETURNING id`,
+    [consumedAt, challenge.id, consumedAt]
   );
+  if (!consumed) throw new AuthenticationError("Verification code has already been consumed or expired.");
 
   // Resolve or create user
   const { userId, isNewUser } = await resolveOrCreateUser(emailNormalized, challenge.auth_identity_id);
@@ -639,7 +650,10 @@ export async function listUserSessions(userId: string, currentToken?: string): P
 // Local development logs email. Hosted runtimes use the custom HTTP contract
 // when configured, otherwise Resend with an explicit API key and sender.
 
-async function sendOtpEmail(email: string, code: string): Promise<void> {
+async function sendOtpEmail(email: string, code: string, expiresAt: string): Promise<void> {
+  // The independent operator delivers the same expiring challenge through
+  // private host access. Cloud and ordinary mail-provider paths are unchanged.
+  if (await deliverOperatorOtp(email, code, expiresAt)) return;
   if (isLocalDevelopmentRuntime()) {
     // Dev mode: log to console (the devCode is also returned from requestOtp)
     console.log(`[DEV MAIL] To: ${email} | OTP Code: ${code} | Expires in ${OTP_TTL_MINUTES} minutes`);

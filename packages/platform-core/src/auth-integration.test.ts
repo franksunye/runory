@@ -210,6 +210,22 @@ describe("auth integration: email normalization", () => {
 // ── OTP Replay Protection ──
 
 describe("auth integration: OTP replay protection", () => {
+  it("creates exactly one session for concurrent verification of the same challenge", async () => {
+    const email = "concurrent-replay@test.local";
+    const options = { devMode: true, skipRateLimit: true };
+    const req = await requestOtp(email, TEST_IP, options);
+    const attempts = await Promise.allSettled([
+      verifyOtp(email, req.devCode!, TEST_IP, TEST_UA, options),
+      verifyOtp(email, req.devCode!, TEST_IP, TEST_UA, options),
+    ]);
+    expect(attempts.filter(result => result.status === "fulfilled")).toHaveLength(1);
+    expect(attempts.filter(result => result.status === "rejected")).toHaveLength(1);
+    const count = await queryOne<{ c: number }>(
+      `SELECT COUNT(*) AS c FROM ${TABLES.sessions} s JOIN ${TABLES.users} u ON u.id = s.user_id WHERE u.email = ?`, [email],
+    );
+    expect(count?.c).toBe(1);
+  });
+
   it("rejects reuse of a consumed code", async () => {
     const email = "replay@test.local";
     const req = await requestOtp(email, TEST_IP, { devMode: true });
@@ -234,7 +250,7 @@ describe("auth integration: OTP brute force protection", () => {
     // 5 wrong attempts
     for (let i = 0; i < 5; i++) {
       await expect(
-        verifyOtp(email, "000000", TEST_IP, TEST_UA, { devMode: true })
+        verifyOtp(email, req.devCode === "000000" ? "111111" : "000000", TEST_IP, TEST_UA, { devMode: true })
       ).rejects.toThrow(/Invalid verification code/);
     }
 

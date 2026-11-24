@@ -47,6 +47,7 @@ jobs:
           export CUSTOMER_ACCESS_SESSION_SECRET="$(openssl rand -hex 32)"
           export PLATFORM_ADMIN_EMAILS="owner@runory.invalid"
           export PLATFORM_MAIL_PROVIDER_URL="http://mail-fixture:8787/send"
+          export RUNORY_SELF_HOST_MAIL_MODE=provider
           export RUNORY_IMAGE="runory-candidate:ci"
           export RUNORY_EXPECTED_COMMIT="$GITHUB_SHA"
           export RUNORY_DATA_VOLUME="runory-candidate-data"
@@ -63,7 +64,9 @@ jobs:
           export RUNORY_EXPECTED_STATE="$(jq -ce 'select(.checkpoint != null) | .checkpoint' candidate-evidence/initialize.jsonl)"
           test -n "$RUNORY_EXPECTED_STATE"
           compose run --rm --no-deps scheduler node /app/deploy/self-host/scheduler.mjs --once | tee candidate-evidence/scheduler.jsonl
-          grep -q '"status":"PASS"' candidate-evidence/scheduler.jsonl
+          jq -e 'select(.status == "PASS" and .overdueFired == 1)' candidate-evidence/scheduler.jsonl > /dev/null
+          compose run --rm --no-deps scheduler node /app/deploy/self-host/scheduler.mjs --once | tee candidate-evidence/scheduler-repeat.jsonl
+          jq -e 'select(.status == "PASS" and .overdueFired == 0)' candidate-evidence/scheduler-repeat.jsonl > /dev/null
           compose rm -sf runory
           compose up -d --no-deps runory
           verify readback | tee candidate-evidence/readback.jsonl
@@ -81,11 +84,19 @@ jobs:
           verify readback | tee candidate-evidence/restored-readback.jsonl
           compose rm -sf runory
           export RUNORY_DATA_VOLUME=runory-candidate-second
+          export RUNORY_SELF_HOST_MAIL_MODE=operator
+          export PLATFORM_MAIL_PROVIDER_URL=""
           compose up -d --no-deps runory
-          verify initialize | tee candidate-evidence/second-install.jsonl
+          # This fixture runs inside the app container to exercise the actual
+          # private host CLI without a mail provider or recording any code.
+          compose exec -T -e RUNORY_EXPECTED_COMMIT runory node /tmp/verify-candidate.mjs initialize | tee candidate-evidence/second-install.jsonl
           second="$(jq -ce 'select(.checkpoint != null) | .checkpoint' candidate-evidence/second-install.jsonl)"
           test "$(jq -r .workspaceId <<<"$second")" != "$(jq -r .workspaceId <<<"$RUNORY_EXPECTED_STATE")"
-          compose rm -sf runory
+          export RUNORY_EXPECTED_STATE="$second"
+          compose up -d --wait --wait-timeout 120 scheduler
+          compose exec -T scheduler node /app/deploy/self-host/scheduler.mjs --health | tee candidate-evidence/scheduler-health.jsonl
+          compose exec -T -e RUNORY_EXPECTED_COMMIT -e RUNORY_EXPECTED_STATE runory node /tmp/verify-candidate.mjs readback | tee candidate-evidence/operator-readback.jsonl
+          compose rm -sf scheduler runory
       - name: Package tested engineering image without a source checkout
         if: github.event_name != 'pull_request'
         shell: bash

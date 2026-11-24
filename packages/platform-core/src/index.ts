@@ -12,6 +12,7 @@ export * from "./context";
 export * from "./errors";
 export * from "./authorization";
 export * from "./auth";
+export { getOperatorOtpOwner } from "./operator-otp";
 export * from "./invitations";
 export * from "./memberships";
 export * from "./api-keys";

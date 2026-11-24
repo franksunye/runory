@@ -15,6 +15,7 @@ const good = {
 
 test("candidate profile accepts the bounded independent production configuration", () => {
   assert.deepEqual(validateProfile(good), []);
+  assert.deepEqual(validateProfile({ ...good, RUNORY_SELF_HOST_CANDIDATE: "1", RUNORY_SELF_HOST_MAIL_MODE: "operator", PLATFORM_MAIL_PROVIDER_URL: "" }), []);
 });
 test("candidate profile rejects unsafe deployment and credential configuration without printing values", () => {
   for (const [overrides, expected] of [
@@ -28,6 +29,8 @@ test("candidate profile rejects unsafe deployment and credential configuration w
     [{ RUNORY_RELEASE_COMMIT: "" }, "source_commit_required"],
     [{ PLATFORM_ADMIN_EMAILS: "a@example.invalid,b@example.invalid" }, "single_owner_email_required"],
     [{ PLATFORM_MAIL_PROVIDER_URL: "https://user:SYNTHETIC_SECRET@example.invalid" }, "owner_controlled_mail_endpoint_required"],
+    [{ RUNORY_SELF_HOST_MAIL_MODE: "operator" }, "invalid_operator_delivery_configuration"],
+    [{ RUNORY_SELF_HOST_MAIL_MODE: "other" }, "invalid_mail_delivery_mode"],
     [{ PLATFORM_CRON_SECRET: "short" }, "distinct_runtime_secrets_required"],
     [{ CUSTOMER_ACCESS_SESSION_SECRET: good.PLATFORM_CRON_SECRET }, "distinct_runtime_secrets_required"],
   ]) {
