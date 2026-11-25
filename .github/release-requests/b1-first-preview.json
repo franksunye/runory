@@ -1,0 +1,11 @@
+{
+  "format": "runory.self-host.preview-authorization/v1",
+  "approval": "publish-engineering-preview",
+  "sourceCommit": "4263776cac8451c0bda3488a8d87406c6d120ab7",
+  "candidateRunId": "45515290609",
+  "releaseGateRunId": "45515290708",
+  "docsGovernanceRunId": "45515290642",
+  "productionSupported": false,
+  "independentAgentTrial": false,
+  "scope": "First B1 engineering preview only, after all exact-commit gates pass. No production deployment, live provider, stable release or independent Agent certification."
+}

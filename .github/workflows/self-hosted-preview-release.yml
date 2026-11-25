@@ -1,7 +1,11 @@
 name: Publish Self-hosted Preview
 
-# Explicit maintainer action only. Never automatically publish on push.
+# Explicit maintainer action only: manual dispatch, or the one-time B1
+# publication authorization committed to main. Ordinary pushes never publish.
 on:
+  push:
+    branches: [main]
+    paths: [".github/release-requests/b1-first-preview.json"]
   workflow_dispatch:
     inputs:
       candidate_run_id:
@@ -25,13 +29,78 @@ jobs:
   publish:
     if: github.repository == 'franksunye/runory' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 65
     env:
       GH_TOKEN: ${{ github.token }}
       GH_REPO: ${{ github.repository }}
       CANDIDATE_RUN: ${{ inputs.candidate_run_id }}
       SOURCE_COMMIT: ${{ inputs.source_commit }}
     steps:
+      - name: Resolve the explicitly approved first-preview request
+        if: github.event_name == 'push'
+        shell: bash
+        run: |
+          set -euo pipefail
+          repo="$GITHUB_REPOSITORY"
+          # This is a one-time main-line authorization, not a generic
+          # auto-release hook. The only admissible source is its sole parent.
+          approval_commit="$(gh api "repos/$repo/commits/$GITHUB_SHA")"
+          jq -e '
+            (.parents | length)==1 and
+            ([.files[].filename] | sort)==
+              ([".github/release-requests/b1-first-preview.json",".github/workflows/self-hosted-preview-release.yml"] | sort) and
+            any(.files[]; .filename==".github/release-requests/b1-first-preview.json" and .status=="added")
+          ' <<<"$approval_commit" >/dev/null
+          parent="$(jq -r '.parents[0].sha' <<<"$approval_commit")"
+          jq -e --arg parent "$parent" --arg sha "$GITHUB_SHA" '.before==$parent and .after==$sha and .ref=="refs/heads/main"' "$GITHUB_EVENT_PATH" >/dev/null
+          request="$(gh api "repos/$repo/contents/.github/release-requests/b1-first-preview.json?ref=$GITHUB_SHA" --jq .content | base64 --decode)"
+          jq -e --arg parent "$parent" '
+            .format=="runory.self-host.preview-authorization/v1" and
+            .approval=="publish-engineering-preview" and
+            .sourceCommit==$parent and
+            .productionSupported==false and .independentAgentTrial==false and
+            ([.candidateRunId,.releaseGateRunId,.docsGovernanceRunId] | all(type=="string" and test("^[0-9]+$")))
+          ' <<<"$request" >/dev/null
+          echo "SOURCE_COMMIT=$parent" >> "$GITHUB_ENV"
+          echo "CANDIDATE_RUN=$(jq -r .candidateRunId <<<"$request")" >> "$GITHUB_ENV"
+          echo "B1_PINNED_RELEASE_GATE=$(jq -r .releaseGateRunId <<<"$request")" >> "$GITHUB_ENV"
+          echo "B1_PINNED_DOCS=$(jq -r .docsGovernanceRunId <<<"$request")" >> "$GITHUB_ENV"
+          echo "B1_APPROVAL_COMMIT=$GITHUB_SHA" >> "$GITHUB_ENV"
+      - name: Wait for the explicitly approved exact-commit gates
+        if: github.event_name == 'push'
+        shell: bash
+        run: |
+          set -euo pipefail
+          repo="$GITHUB_REPOSITORY"
+          deadline=$((SECONDS+2700))
+          while true; do
+            test "$(gh api "repos/$repo/git/ref/heads/main" --jq .object.sha)" = "$B1_APPROVAL_COMMIT" || {
+              echo "Main moved after approval; no release will be published."; exit 1;
+            }
+            pending=0
+            for spec in "$CANDIDATE_RUN:self-hosted-candidate.yml" "$B1_PINNED_RELEASE_GATE:release-gate.yml" "$B1_PINNED_DOCS:docs-governance.yml"; do
+              id="${spec%%:*}"
+              workflow="${spec#*:}"
+              run="$(gh api "repos/$repo/actions/runs/$id")"
+              jq -e --arg sha "$SOURCE_COMMIT" --arg repo "$repo" --arg path ".github/workflows/$workflow" '
+                .head_sha==$sha and .head_branch=="main" and .head_repository.full_name==$repo and .path==$path
+                and (.event=="push" or .event=="workflow_dispatch")
+              ' <<<"$run" >/dev/null
+              status="$(jq -r .status <<<"$run")"
+              conclusion="$(jq -r .conclusion <<<"$run")"
+              if [[ "$status" == completed ]]; then
+                if [[ "$conclusion" != success ]]; then
+                  echo "Blocking gate $workflow ($id): $conclusion"; exit 1
+                fi
+              else
+                pending=1
+              fi
+              echo "$workflow $id: $status / $conclusion"
+            done
+            if ((pending==0)); then break; fi
+            if ((SECONDS>=deadline)); then echo "Approved gates did not finish within the bounded window; no publication"; exit 1; fi
+            sleep 30
+          done
       - name: Verify exact source and required release evidence
         shell: bash
         run: |
@@ -59,7 +128,12 @@ jobs:
             if [[ "$workflow" == command-contract-governance.yml && "$latest" == null ]]; then continue; fi
             jq -e --arg sha "$SOURCE_COMMIT" --arg repo "$repo" '.head_sha==$sha and .head_branch=="main" and .head_repository.full_name==$repo and .status=="completed" and .conclusion=="success"' <<<"$latest" >/dev/null
             if [[ "$workflow" == release-gate.yml ]]; then
+              if [[ -n "${B1_PINNED_RELEASE_GATE:-}" ]]; then
+                test "$(jq -r .id <<<"$latest")" = "$B1_PINNED_RELEASE_GATE"
+              fi
               echo "RELEASE_GATE_RUN=$(jq -r .id <<<"$latest")" >> "$GITHUB_ENV"
+            elif [[ "$workflow" == docs-governance.yml && -n "${B1_PINNED_DOCS:-}" ]]; then
+              test "$(jq -r .id <<<"$latest")" = "$B1_PINNED_DOCS"
             fi
           done
       - name: Download, verify and archive the already-tested bytes
@@ -125,6 +199,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          if [[ -n "${B1_APPROVAL_COMMIT:-}" ]]; then
+            test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$B1_APPROVAL_COMMIT"
+          fi
           tag="self-host-preview-$SOURCE_COMMIT"
           if gh release view "$tag" >/dev/null 2>&1 || gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$tag" >/dev/null 2>&1; then
             echo "Release/tag already exists. Do not overwrite a published artifact."; exit 1
