@@ -1,8 +1,12 @@
 # Release Notes
 
-This is the public changelog for Runory Cloud. Runory is in **Cloud Early Access / v0.4 public free preview**. Each section below states honestly what is stable, what is preview, and what is not yet available.
+This changelog covers Runory Cloud and the self-hosted engineering preview. Runory Cloud is in **Cloud Early Access / v0.4 public free preview**.
 
 For the v0.1 release definition and acceptance matrix, see [v0.1.0 Cloud Early Access](./releases/v0.1.0-cloud-early-access.md). For concepts and terminology used here, see [Concepts](./concepts.md).
+
+## Self-hosted B1 engineering preview — 2026-11-25
+
+The source-pinned preview bundles FSM and Sales Quote for a single Linux amd64 Docker/Compose instance with local SQLite and attachment storage. Two separate Codex sessions installed the public bundle, used real Owner authorization, and verified a synthetic customer in the browser and packaged MCP before and after restart. Both trials verified read-only write denial and immediate rejection of revoked keys. The release is scoped to engineering evaluation with synthetic data. [Official prerelease](https://github.com/franksunye/runory/releases/tag/self-host-preview-4263776cac8451c0bda3488a8d87406c6d120ab7) · [Installation guide](../deploy/self-host/AGENT-INSTALL.md) · [Acceptance record](./releases/agent-first-b1-acceptance-2026-11-25.md)
 
 ## v0.8.x — Product Maturity and Customer Access (in progress)
 

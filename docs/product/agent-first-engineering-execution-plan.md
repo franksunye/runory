@@ -6,7 +6,7 @@
 | Topic | `product` |
 | Applies to | Current R&D batch, 2026-11-24 onward; bounded Reactive Repair / Callout |
 | Owner | Product / Engineering |
-| Last reviewed | 2026-11-24 |
+| Last reviewed | 2026-11-25 |
 | Supersedes | — |
 | Superseded by | — |
 
@@ -39,7 +39,7 @@ Use synthetic records and approved local/non-production environments. The first 
 
 ## 2. Source baseline and implementation gaps
 
-B1.4: [artifact consumer and preview distribution](../releases/agent-first-b1-distribution-2026-11-24.md), including the final closure checklist and independent Agent trial protocol. The two-host consumer gate and explicit prerelease publication require exact-source evidence; scripted acceptance and actual independent Agent sessions remain distinct.
+B1 closed on 2026-11-25 for the source-pinned Linux amd64 engineering preview. The [B1 acceptance record](../releases/agent-first-b1-acceptance-2026-11-25.md) records the public prerelease, exact candidate gates, and both independent Agent trials. The [distribution record](../releases/agent-first-b1-distribution-2026-11-24.md) retains the trial protocol and earlier candidate history.
 
 Latest B1.3 work: [explicit compatible runtime upgrade](../releases/agent-first-b1-upgrade-2026-11-24.md). Prior candidate passed; new upgrade implementation requires exact-commit verification. The first supported upgrade class preserves schema and Catalog resources; broader migrations remain separate.
 
@@ -77,7 +77,7 @@ Run AF-01 first; AF-02/03/04 may proceed in parallel once the corresponding base
 | Batch | Work IDs | Deliverable / exit |
 | --- | --- | --- |
 | B0 — Truth and benchmark | AF-01 | Pinned capability/dependency inventory; first supported profile; role/action matrix and initial neutral Agent discovery evidence. Identify blockers with code/test references and classify implemented, verified, unsupported or untested. |
-| B1 — Installable product | AF-03, initial AF-02 | One downloadable, reproducible candidate; clean setup, normal owner login, FSM composition and first usable role task on a fresh host. Public documentation accurately reports candidate status. |
+| B1 — Installable product | AF-03, initial AF-02 | **Closed 2026-11-25.** The public engineering preview passed normal Owner login, FSM and Sales Quote composition, first customer task, restart persistence, and scoped MCP on two fresh independent hosts. See the [acceptance record](../releases/agent-first-b1-acceptance-2026-11-25.md). |
 | B2 — Agent operates FSM | AF-04, AF-05 | Agent completes the reference workflow via named actions and supported configuration; corresponding human role applications show the same authoritative result; denial, retry and version cases pass. |
 | B3 — Repeatable delivery | AF-06, AF-05 | Two scope-matched configurations, full recovery and compatible upgrade, zero customer-specific forks; independent Agent install/operation acceptance. Continue the RQH slice and business depth where it benefits the reference solution. |
 | B4 — Discover and adopt | AF-02, AF-07 | Publish verified release and distribution guidance through approved channels; repeat unseeded selection and seeded Self-hosted and Cloud tests, verify one authorized Cloud reference journey and document any supported migration direction. |

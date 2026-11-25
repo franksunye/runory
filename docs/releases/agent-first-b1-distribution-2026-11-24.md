@@ -6,11 +6,15 @@
 | Topic | `releases` |
 | Applies to | B1.4, 2026-11-24 |
 | Owner | Product / Engineering / Operations |
-| Last reviewed | 2026-11-24 |
+| Last reviewed | 2026-11-25 |
 | Supersedes | — |
 | Superseded by | — |
 
 Supports the [execution plan](../product/agent-first-engineering-execution-plan.md) and [bounded upgrade evidence](agent-first-b1-upgrade-2026-11-24.md).
+
+## Closure on 2026-11-25
+
+B1.4 passed. The source-pinned [engineering prerelease](https://github.com/franksunye/runory/releases/tag/self-host-preview-4263776cac8451c0bda3488a8d87406c6d120ab7) is public, and two independent Agents completed the trial protocol on separate clean Linux amd64 Docker hosts. The [acceptance record](agent-first-b1-acceptance-2026-11-25.md) records the exact gates, assets, Owner actions, business readback, and revocation checks. The sections below document the earlier candidate and publication work.
 
 ## Verified baseline and active gate
 
