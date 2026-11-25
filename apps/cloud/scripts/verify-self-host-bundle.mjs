@@ -99,7 +99,23 @@ try {
 
   stage="browser-business-readback";
   await page.goto(base+"/w/"+encodeURIComponent(workspaceSlug)+"/companies",{waitUntil:"domcontentloaded"});
-  await page.getByText(companyName,{exact:true}).first().waitFor({timeout:60_000});
+  // SchemaTable renders both desktop rows and mobile cards in DOM order.
+  // The first text match may be in the hidden responsive branch. Require
+  // a uniquely visible exact record name in the current viewport instead.
+  const companyText = page.getByText(companyName,{exact:true});
+  const visibleCompany = companyText.filter({visible:true});
+  try {
+    await visibleCompany.waitFor({state:"visible",timeout:60_000});
+    assert(await visibleCompany.count() === 1, "company_visible_match_not_unique");
+  } catch {
+    // Safe diagnostics: counts and route category only, never page text,
+    // raw URLs, identifiers, cookies, credentials or screenshots.
+    console.error(JSON.stringify({stage,check:"responsive_company_readback",
+      onCompanyList: new URL(page.url()).pathname.endsWith("/companies"),
+      exactMatches: await companyText.count().catch(()=>null),
+      visibleMatches: await visibleCompany.count().catch(()=>null)}));
+    throw new Error("company_not_uniquely_visible");
+  }
   pass("company_visible_in_browser");
 
   stage="bundled-mcp";
